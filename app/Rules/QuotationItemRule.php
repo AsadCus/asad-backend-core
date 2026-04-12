@@ -55,12 +55,6 @@ class QuotationItemRule
 
                         $itemIsHeader = $isTrue($item['is_header'] ?? false);
 
-                        if ($itemIsHeader && ! $hasChild($item, $value)) {
-                            $fail('Each header item must have at least one child item.');
-
-                            return;
-                        }
-
                         if (! $itemIsHeader && $hasChild($item, $value)) {
                             $fail('Only header items can be parent items.');
 

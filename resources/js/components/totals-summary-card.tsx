@@ -179,22 +179,6 @@ export default function TotalsSummaryCard({
         [extensions],
     );
 
-    const activeMasters = React.useMemo(
-        () =>
-            localExtensionMasters.filter(
-                (master) => master.is_active !== false,
-            ),
-        [localExtensionMasters],
-    );
-
-    const discountMasterOptions = React.useMemo(
-        () =>
-            activeMasters.filter(
-                (master) => String(master.type ?? '') === 'discount',
-            ),
-        [activeMasters],
-    );
-
     const additionalChargeExtensions = React.useMemo(
         () =>
             normalizedExtensions.filter((extension) =>
@@ -263,10 +247,7 @@ export default function TotalsSummaryCard({
             if (extension) {
                 setDiscountDraft({
                     key: String(extension._key ?? ''),
-                    quotation_extension_master_id:
-                        Number(extension.quotation_extension_master_id ?? 0) > 0
-                            ? Number(extension.quotation_extension_master_id)
-                            : null,
+                    quotation_extension_master_id: null,
                     name: String(extension.name ?? 'Discount'),
                     type: 'discount',
                     calculation_mode:
@@ -321,10 +302,7 @@ export default function TotalsSummaryCard({
                 ...normalizedExtensions,
                 {
                     _key: nanoid(),
-                    quotation_extension_master_id:
-                        Number(selectedMaster.id ?? 0) > 0
-                            ? Number(selectedMaster.id)
-                            : null,
+                    quotation_extension_master_id: null,
                     name: String(selectedMaster.name ?? 'Discount'),
                     type: 'discount',
                     calculation_mode: calculationMode,
@@ -356,8 +334,7 @@ export default function TotalsSummaryCard({
 
         const nextEntry: TotalsSummaryExtension = {
             _key: discountDraft.key ?? nanoid(),
-            quotation_extension_master_id:
-                discountDraft.quotation_extension_master_id,
+            quotation_extension_master_id: null,
             name: discountDraft.name.trim() || 'Discount',
             type: 'discount',
             calculation_mode: discountDraft.calculation_mode,
@@ -422,10 +399,7 @@ export default function TotalsSummaryCard({
                 ...normalizedExtensions,
                 {
                     _key: nanoid(),
-                    quotation_extension_master_id:
-                        Number(selectedMaster.id ?? 0) > 0
-                            ? Number(selectedMaster.id)
-                            : null,
+                    quotation_extension_master_id: null,
                     name: String(selectedMaster.name ?? 'Additional Charges'),
                     type: String(selectedMaster.type ?? 'other'),
                     calculation_mode: calculationMode,
@@ -442,10 +416,7 @@ export default function TotalsSummaryCard({
             if (extension) {
                 setAdditionalDraft({
                     key: String(extension._key ?? ''),
-                    quotation_extension_master_id:
-                        Number(extension.quotation_extension_master_id ?? 0) > 0
-                            ? Number(extension.quotation_extension_master_id)
-                            : null,
+                    quotation_extension_master_id: null,
                     name: String(extension.name ?? 'Additional Charges'),
                     type: ['credit_card', 'other'].includes(
                         String(extension.type ?? ''),
@@ -505,8 +476,7 @@ export default function TotalsSummaryCard({
 
         const nextEntry: TotalsSummaryExtension = {
             _key: additionalDraft.key ?? nanoid(),
-            quotation_extension_master_id:
-                additionalDraft.quotation_extension_master_id,
+            quotation_extension_master_id: null,
             name: additionalDraft.name.trim() || 'Additional Charges',
             type: additionalDraft.type,
             calculation_mode: additionalDraft.calculation_mode,
@@ -849,98 +819,6 @@ export default function TotalsSummaryCard({
                     </DialogHeader>
 
                     <div className="space-y-3">
-                        {discountMasterOptions.length > 0 && (
-                            <FormField label="Apply Existing Discount Template">
-                                <Select
-                                    value={
-                                        String(
-                                            discountDraft.quotation_extension_master_id ??
-                                                '',
-                                        ) || '__none'
-                                    }
-                                    onValueChange={(value) => {
-                                        if (value === '__none') {
-                                            setDiscountDraft((prev) => ({
-                                                ...prev,
-                                                quotation_extension_master_id:
-                                                    null,
-                                            }));
-
-                                            return;
-                                        }
-
-                                        const selected =
-                                            discountMasterOptions.find(
-                                                (master) =>
-                                                    Number(master.id ?? 0) ===
-                                                    Number(value),
-                                            );
-
-                                        if (!selected) {
-                                            return;
-                                        }
-
-                                        const mode =
-                                            String(
-                                                selected.calculation_mode ??
-                                                    'fixed',
-                                            ) === 'percentage'
-                                                ? 'percentage'
-                                                : 'fixed';
-                                        const calcValue = Number(
-                                            selected.calculation_value ?? 0,
-                                        );
-
-                                        setDiscountDraft((prev) => ({
-                                            ...prev,
-                                            quotation_extension_master_id:
-                                                Number(selected.id ?? 0) > 0
-                                                    ? Number(selected.id)
-                                                    : null,
-                                            name: String(
-                                                selected.name ?? 'Discount',
-                                            ),
-                                            calculation_mode: mode,
-                                            calculation_value: calcValue,
-                                            amount:
-                                                mode === 'fixed'
-                                                    ? calcValue
-                                                    : prev.amount,
-                                        }));
-                                    }}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Choose template" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none">
-                                            No Template
-                                        </SelectItem>
-                                        {discountMasterOptions.map((master) => (
-                                            <SelectItem
-                                                key={Number(master.id ?? 0)}
-                                                value={String(
-                                                    Number(master.id ?? 0),
-                                                )}
-                                            >
-                                                {formatExtensionLabel(
-                                                    String(master.name),
-                                                    String(
-                                                        master.calculation_mode ??
-                                                            'fixed',
-                                                    ),
-                                                    Number(
-                                                        master.calculation_value ??
-                                                            0,
-                                                    ),
-                                                )}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </FormField>
-                        )}
-
                         <FormField label="Discount Name">
                             <ProperInput
                                 value={discountDraft.name}

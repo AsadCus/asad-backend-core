@@ -73,6 +73,10 @@ export const quotationSchema = z.object({
         .nullable()
         .optional(),
     total_amount: z.union([z.string(), z.number()]).nullable().optional(),
+    order_invoices_total_amount: z
+        .union([z.string(), z.number()])
+        .nullable()
+        .optional(),
     reason: z.string().nullable().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),

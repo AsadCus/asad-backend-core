@@ -227,6 +227,20 @@
                 return \App\Helpers\FormatService::formatCurrency($value);
             }
 
+            function formatExtensionLabel($extension)
+            {
+                $name = trim((string) ($extension['name'] ?? 'Extension'));
+                $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                $value = (float) ($extension['calculation_value'] ?? 0);
+
+                if ($mode === 'percentage') {
+                    $formattedValue = floor($value) == $value ? number_format($value, 0) : number_format($value, 2);
+                    return $name . ' ' . rtrim(rtrim($formattedValue, '0'), '.') . '%';
+                }
+
+                return $name;
+            }
+
             function toAlphabet($num)
             {
                 $alphabet = 'abcdefghijklmnopqrstuvwxyz';
@@ -332,7 +346,7 @@
                     @if (!empty($data['extensions']) && count($data['extensions']) > 0)
                         @foreach ($data['extensions'] as $extension)
                             <tr>
-                                <td class="total-label">{{ $extension['name'] ?? 'Extension' }}:</td>
+                                <td class="total-label">{{ formatExtensionLabel($extension) }}:</td>
                                 <td class="total-amount">{{ formatCurrency($extension['amount'] ?? 0) }}</td>
                             </tr>
                         @endforeach

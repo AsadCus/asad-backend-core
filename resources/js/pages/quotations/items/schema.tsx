@@ -67,15 +67,6 @@ export const quotationItemsSchema = z
             );
 
         rows.forEach((item, index) => {
-            if (item.is_header && !hasChild(item)) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['items', index, 'description'],
-                    message:
-                        'Each header item must have at least one child item.',
-                });
-            }
-
             if (!item.is_header && hasChild(item)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,

@@ -79,7 +79,7 @@ function calculateItemTaxTotal(items: InvoiceSchema['items'] = []): number {
 
             if (
                 !['fixed', 'percentage'].includes(calculationMode) ||
-                calculationValue <= 0
+                calculationValue === 0
             ) {
                 return taxSum;
             }

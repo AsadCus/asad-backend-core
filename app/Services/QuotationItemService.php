@@ -431,7 +431,7 @@ class QuotationItemService
                     $calculationMode = null;
                 }
 
-                $hasValue = $calculationValue !== null && (float) $calculationValue > 0;
+                $hasValue = $calculationValue !== null && (float) $calculationValue !== 0.0;
                 $hasAny = $masterId || $name !== '' || $calculationMode || $hasValue;
 
                 if (! $hasAny || ! $calculationMode || ! $hasValue) {

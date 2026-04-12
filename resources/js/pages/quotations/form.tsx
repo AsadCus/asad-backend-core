@@ -77,6 +77,10 @@ type PackagePrices = {
     infant: number;
 };
 
+type QuotationExtensionInput = NonNullable<
+    QuotationSchema['extensions']
+>[number];
+
 const EMPTY_PACKAGE_PRICES: PackagePrices = {
     single: 0,
     double: 0,
@@ -194,6 +198,64 @@ function resolveAutoSelectedMemberIds(
     return selectedFromLegacyItems;
 }
 
+function mergeQuotationExtensionsByNameAndType(
+    extensions: QuotationExtensionInput[] = [],
+): QuotationExtensionInput[] {
+    const grouped = new Map<string, QuotationExtensionInput>();
+
+    extensions.forEach((extension, index) => {
+        const name = String(extension.name ?? '').trim() || 'Extension';
+        const type = String(extension.type ?? 'discount')
+            .trim()
+            .toLowerCase();
+        const key = `${name.toLowerCase()}|${type}`;
+        const value = Number(
+            extension.calculation_value ?? extension.amount ?? 0,
+        );
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                ...extension,
+                name,
+                type,
+                quotation_extension_master_id: null,
+                calculation_mode:
+                    String(extension.calculation_mode ?? 'fixed') ===
+                    'percentage'
+                        ? 'percentage'
+                        : 'fixed',
+                calculation_value: value,
+                amount: Number(extension.amount ?? value),
+                sort_order: Number(extension.sort_order ?? index + 1),
+            });
+
+            return;
+        }
+
+        const current = grouped.get(key);
+
+        if (!current) {
+            return;
+        }
+
+        const mergedValue =
+            Number(current.calculation_value ?? current.amount ?? 0) + value;
+
+        grouped.set(key, {
+            ...current,
+            quotation_extension_master_id: null,
+            calculation_mode: 'fixed',
+            calculation_value: mergedValue,
+            amount: mergedValue,
+        });
+    });
+
+    return Array.from(grouped.values()).map((extension, index) => ({
+        ...extension,
+        sort_order: index + 1,
+    }));
+}
+
 export function QuotationForm({
     mode,
     initialData,
@@ -242,12 +304,13 @@ export function QuotationForm({
         items: [],
         extensions: [],
         invoice_extensions: [],
+        order_invoices_total_amount: null,
         model: 'quotation',
         notes: [],
     };
 
-    const normalizedExtensions = (initialData?.extensions ?? []).map(
-        (extension) => ({
+    const normalizedExtensions = mergeQuotationExtensionsByNameAndType(
+        (initialData?.extensions ?? []).map((extension) => ({
             ...extension,
             _key:
                 extension._key ??
@@ -259,7 +322,7 @@ export function QuotationForm({
                 extension.quotation_extension_master_id ?? null,
             name: extension.name || 'Discount',
             sort_order: extension.sort_order ?? 1,
-        }),
+        })),
     );
 
     const defaultData: QuotationSchema = {
@@ -327,9 +390,25 @@ export function QuotationForm({
         [extensionMasters],
     );
 
+    const mergedFormExtensions = useMemo(
+        () => mergeQuotationExtensionsByNameAndType(data.extensions ?? []),
+        [data.extensions],
+    );
+
     const computedGrandTotal = useMemo(() => {
+        const invoiceBackedAmount = Number(
+            data.order_invoices_total_amount ?? data.total_amount,
+        );
+
+        if (
+            Boolean(data.have_invoices) &&
+            Number.isFinite(invoiceBackedAmount)
+        ) {
+            return invoiceBackedAmount;
+        }
+
         const sourceItems = data.items ?? [];
-        const sourceExtensions = data.extensions ?? [];
+        const sourceExtensions = mergedFormExtensions;
 
         const subtotalAmount = sourceItems.reduce((sum, item) => {
             if (item.is_header) {
@@ -353,7 +432,7 @@ export function QuotationForm({
 
                 if (
                     !['fixed', 'percentage'].includes(calculationMode) ||
-                    calculationValue <= 0
+                    calculationValue === 0
                 ) {
                     return taxSum;
                 }
@@ -430,7 +509,13 @@ export function QuotationForm({
             nonDiscountExtensionTotal +
             discountAmount
         );
-    }, [data.extensions, data.items]);
+    }, [
+        data.have_invoices,
+        data.items,
+        data.order_invoices_total_amount,
+        data.total_amount,
+        mergedFormExtensions,
+    ]);
 
     useEffect(() => {
         if (activeExtensionMasters.length === 0) {
@@ -1501,9 +1586,6 @@ export function QuotationForm({
             window.clearTimeout(timeoutId);
         };
     }, [isEdit]);
-
-    console.log(data);
-    console.log(errors);
 
     return (
         <div className="mx-auto w-full">

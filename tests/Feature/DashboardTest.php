@@ -132,6 +132,156 @@ class DashboardTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
     }
 
+    public function test_dashboard_payment_summary_allocates_negative_invoice_extension_to_payer_member_item(): void
+    {
+        $this->actingAs($maker = User::factory()->create());
+
+        $payerUser = User::factory()->create();
+        $payerCustomer = Customer::create([
+            'user_id' => $payerUser->id,
+            'customer_number' => 'CUST-DB-PAYER-001',
+        ]);
+
+        $secondaryUser = User::factory()->create();
+        $secondaryCustomer = Customer::create([
+            'user_id' => $secondaryUser->id,
+            'customer_number' => 'CUST-DB-SEC-001',
+        ]);
+
+        $package = Package::create([
+            'name' => 'Summary Package',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $maker->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $payerMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $payerCustomer->id,
+            'status' => 'pending_payment',
+            'is_leader' => true,
+        ]);
+
+        $secondaryMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $secondaryCustomer->id,
+            'status' => 'pending_payment',
+            'is_leader' => false,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $payerCustomer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'created_by' => $maker->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'cash',
+            'status' => 'converted',
+            'description' => 'Payer allocation payment summary',
+        ]);
+
+        $mainHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Main Services',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $addonHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Addons',
+            'is_header' => true,
+            'sort_order' => 2,
+        ]);
+
+        $mainMemberItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $payerMember->id,
+            'parent_id' => $mainHeader->id,
+            'description' => 'Main Member Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 3,
+        ]);
+
+        $secondaryMemberItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $secondaryMember->id,
+            'parent_id' => $addonHeader->id,
+            'description' => 'Secondary Member Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 200,
+            'sort_order' => 4,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice with mixed extensions',
+            'amount' => 300,
+            'extensions' => [
+                [
+                    'type' => 'other',
+                    'amount' => 50,
+                ],
+                [
+                    'type' => 'discount',
+                    'amount' => -100,
+                ],
+            ],
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([
+            $mainMemberItem->id,
+            $secondaryMemberItem->id,
+        ]);
+
+        Receipt::withoutEvents(function () use ($invoice): void {
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => 300,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'cash',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+        ]));
+
+        $response->assertOk();
+
+        $categories = collect($response->json('categories'));
+        $mainCategory = $categories->firstWhere('category', 'Main Services');
+        $addonCategory = $categories->firstWhere('category', 'Addons');
+
+        $this->assertNotNull($mainCategory);
+        $this->assertNotNull($addonCategory);
+        $this->assertSame(100.0, round((float) ($mainCategory['amount'] ?? 0), 2));
+        $this->assertSame(200.0, round((float) ($addonCategory['amount'] ?? 0), 2));
+
+        $rows = collect($response->json('rows'));
+        $mainRow = $rows->firstWhere('package_item', 'Main Member Item');
+        $secondaryRow = $rows->firstWhere('package_item', 'Secondary Member Item');
+
+        $this->assertNotNull($mainRow);
+        $this->assertNotNull($secondaryRow);
+        $this->assertSame(100.0, round((float) ($mainRow['cash'] ?? 0), 2));
+        $this->assertSame(200.0, round((float) ($secondaryRow['cash'] ?? 0), 2));
+    }
+
     public function test_dashboard_payment_summary_pdf_export_returns_pdf_when_rows_are_grouped(): void
     {
         $this->actingAs(User::factory()->create());

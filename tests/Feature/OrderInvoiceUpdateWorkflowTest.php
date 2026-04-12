@@ -10,6 +10,7 @@ use App\Models\NumberingSequence;
 use App\Models\NumberingSimpleCounter;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
@@ -228,6 +229,94 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
         $validator = Validator::make($payload, (new \App\Rules\OrderRule)->rules($order->id));
 
         $this->assertTrue($validator->passes(), json_encode($validator->errors()->toArray()));
+    }
+
+    public function test_order_update_does_not_auto_create_extension_master_when_extension_is_edited(): void
+    {
+        $graph = $this->createBaseGraph();
+        $order = $graph['order'];
+        $quotation = $graph['quotation'];
+
+        QuotationExtensionMaster::query()->create([
+            'name' => 'Existing Master',
+            'type' => 'discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => 50,
+            'payment_methods' => [],
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $existingMasterCount = QuotationExtensionMaster::query()->count();
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Main Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Editable Invoice',
+            'payment_method' => 'credit_card',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+            'extensions' => [],
+        ]);
+        $invoice->quotationItems()->sync([$item->id]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $orderService->update([
+            'payment_plan' => 'full',
+            'invoices' => [
+                [
+                    'id' => $invoice->id,
+                    '_key' => 'invoice-1',
+                    'description' => 'Editable Invoice',
+                    'payment_method' => 'credit_card',
+                    'amount' => 1000,
+                    'invoice_date' => now()->format('Y-m-d'),
+                    'due_date' => now()->addDays(7)->format('Y-m-d'),
+                    'status' => 'issued',
+                    'extensions' => [
+                        [
+                            'quotation_extension_master_id' => null,
+                            'name' => 'Manual Edited Discount',
+                            'type' => 'discount',
+                            'calculation_mode' => 'fixed',
+                            'calculation_value' => 100,
+                            'amount' => -100,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                    'items' => [
+                        [
+                            'id' => $item->id,
+                            '_key' => 'item-1',
+                            'description' => 'Main Item',
+                            'is_header' => false,
+                            'quantity' => 1,
+                            'rate' => 1000,
+                            'sort_order' => 1,
+                        ],
+                    ],
+                ],
+            ],
+        ], $order->id);
+
+        $this->assertSame($existingMasterCount, QuotationExtensionMaster::query()->count());
+
+        $updatedExtensions = (array) ($invoice->fresh()->extensions ?? []);
+        $this->assertNotEmpty($updatedExtensions);
+        $this->assertSame(null, $updatedExtensions[0]['quotation_extension_master_id'] ?? null);
+        $this->assertSame('Manual Edited Discount', $updatedExtensions[0]['name'] ?? null);
     }
 
     public function test_order_update_maps_duplicate_invoice_number_error_to_row_field(): void

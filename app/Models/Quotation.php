@@ -134,17 +134,17 @@ class Quotation extends Model
 
                 $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
 
-                $taxCents = $item->taxes->sum(function (QuotationItemTax $tax) use ($lineAmount): int {
-                    $calculationMode = (string) ($tax->calculation_mode ?? '');
-                    $calculationValue = (float) ($tax->calculation_value ?? 0);
+                $taxCents = $item->taxes->sum(function ($tax) use ($lineAmount): int {
+                    $mode = strtolower((string) ($tax->calculation_mode ?? ''));
+                    $value = (float) ($tax->calculation_value ?? 0);
 
-                    if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                    if (! in_array($mode, ['fixed', 'percentage'], true)) {
                         return 0;
                     }
 
-                    $taxAmount = $calculationMode === 'percentage'
-                        ? ($lineAmount * $calculationValue / 100)
-                        : $calculationValue;
+                    $taxAmount = $mode === 'percentage'
+                        ? ($lineAmount * $value / 100)
+                        : $value;
 
                     return (int) round($taxAmount * 100);
                 });

@@ -49,6 +49,55 @@ interface Props {
     status: 'incomplete' | 'complete' | 'error';
 }
 
+function mergeSummaryExtensionsByNameAndType(
+    extensions: TotalsSummaryExtension[] = [],
+): TotalsSummaryExtension[] {
+    const grouped = new Map<string, TotalsSummaryExtension>();
+
+    extensions.forEach((extension, index) => {
+        const name = String(extension.name ?? '').trim() || 'Extension';
+        const type = String(extension.type ?? 'discount')
+            .trim()
+            .toLowerCase();
+        const key = `${name.toLowerCase()}|${type}`;
+        const amount = Number(extension.amount ?? 0);
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                ...extension,
+                _key: extension._key ?? `extension-${index + 1}`,
+                name,
+                type,
+                quotation_extension_master_id: undefined,
+                sort_order: Number(extension.sort_order ?? index + 1),
+            });
+
+            return;
+        }
+
+        const current = grouped.get(key);
+
+        if (!current) {
+            return;
+        }
+
+        const mergedAmount = Number(current.amount ?? 0) + amount;
+
+        grouped.set(key, {
+            ...current,
+            quotation_extension_master_id: undefined,
+            calculation_mode: 'fixed',
+            calculation_value: mergedAmount,
+            amount: mergedAmount,
+        });
+    });
+
+    return Array.from(grouped.values()).map((extension, index) => ({
+        ...extension,
+        sort_order: index + 1,
+    }));
+}
+
 export default function QuotationDetailSection({
     data,
     isView = false,
@@ -100,11 +149,15 @@ export default function QuotationDetailSection({
             extensionMasters
                 .filter(
                     (master) =>
-                        master.is_active !== false && master.type === 'tax',
+                        master.is_active !== false &&
+                        ['tax', 'discount'].includes(
+                            String(master.type ?? '').toLowerCase(),
+                        ),
                 )
                 .map((master) => ({
                     id: Number(master.id ?? 0),
                     name: master.name,
+                    type: String(master.type ?? '').toLowerCase(),
                     calculation_mode: master.calculation_mode,
                     calculation_value: master.calculation_value,
                 }))
@@ -124,6 +177,7 @@ export default function QuotationDetailSection({
             string,
             {
                 name: string;
+                type: 'tax' | 'discount';
                 calculation_mode: string;
                 calculation_value: number;
                 amount: number;
@@ -144,20 +198,24 @@ export default function QuotationDetailSection({
 
                 if (
                     !['fixed', 'percentage'].includes(calculationMode) ||
-                    calculationValue <= 0
+                    calculationValue === 0
                 ) {
                     return;
                 }
 
+                const taxType: 'tax' | 'discount' =
+                    calculationValue < 0 ? 'discount' : 'tax';
+
                 const key = [
-                    Number(tax.quotation_extension_master_id ?? 0),
                     String(tax.name ?? 'Tax').toLowerCase(),
+                    taxType,
                     calculationMode,
                     calculationValue,
                 ].join('|');
 
                 const current = grouped.get(key) ?? {
                     name: String(tax.name ?? 'Tax'),
+                    type: taxType,
                     calculation_mode: calculationMode,
                     calculation_value: calculationValue,
                     amount: 0,
@@ -203,8 +261,7 @@ export default function QuotationDetailSection({
                 return {
                     _key: extension._key,
                     id: extension.id ?? undefined,
-                    quotation_extension_master_id:
-                        extension.quotation_extension_master_id ?? undefined,
+                    quotation_extension_master_id: undefined,
                     sort_order: extension.sort_order,
                     name: String(extension.name ?? 'Extension'),
                     type,
@@ -238,8 +295,7 @@ export default function QuotationDetailSection({
 
                 return {
                     id: extension.id ?? undefined,
-                    quotation_extension_master_id:
-                        extension.quotation_extension_master_id ?? undefined,
+                    quotation_extension_master_id: undefined,
                     sort_order: extension.sort_order,
                     _key:
                         extension._key ??
@@ -256,60 +312,23 @@ export default function QuotationDetailSection({
         [invoiceExtensions, subtotalAmount],
     );
 
-    const mergedInvoiceExtensions = React.useMemo<
-        TotalsSummaryExtension[]
-    >(() => {
-        const grouped = new Map<string, TotalsSummaryExtension>();
+    const mergedQuotationExtensions = React.useMemo<TotalsSummaryExtension[]>(
+        () => mergeSummaryExtensionsByNameAndType(normalizedExtensions),
+        [normalizedExtensions],
+    );
 
-        normalizedInvoiceExtensions.forEach((extension, index) => {
-            const masterId = Number(
-                extension.quotation_extension_master_id ?? 0,
-            );
-            const groupKey =
-                masterId > 0
-                    ? `master:${masterId}`
-                    : [
-                          String(extension.name ?? '')
-                              .trim()
-                              .toLowerCase(),
-                          String(extension.type ?? 'discount')
-                              .trim()
-                              .toLowerCase(),
-                      ].join('|');
-
-            if (!grouped.has(groupKey)) {
-                grouped.set(groupKey, {
-                    ...extension,
-                    _key:
-                        extension._key ??
-                        `invoice-extension-merged-${index + 1}`,
-                });
-
-                return;
-            }
-
-            const current = grouped.get(groupKey);
-
-            if (!current) {
-                return;
-            }
-
-            grouped.set(groupKey, {
-                ...current,
-                amount:
-                    Number(current.amount ?? 0) + Number(extension.amount ?? 0),
-            });
-        });
-
-        return Array.from(grouped.values()).map((extension, index) => ({
-            ...extension,
-            sort_order: index + 1,
-        }));
-    }, [normalizedInvoiceExtensions]);
+    const mergedInvoiceExtensions = React.useMemo<TotalsSummaryExtension[]>(
+        () => mergeSummaryExtensionsByNameAndType(normalizedInvoiceExtensions),
+        [normalizedInvoiceExtensions],
+    );
 
     const combinedExtensions = React.useMemo<TotalsSummaryExtension[]>(
-        () => [...normalizedExtensions, ...mergedInvoiceExtensions],
-        [normalizedExtensions, mergedInvoiceExtensions],
+        () =>
+            mergeSummaryExtensionsByNameAndType([
+                ...mergedQuotationExtensions,
+                ...mergedInvoiceExtensions,
+            ]),
+        [mergedInvoiceExtensions, mergedQuotationExtensions],
     );
 
     const extensionMastersForSummary = React.useMemo<
@@ -334,20 +353,104 @@ export default function QuotationDetailSection({
             0,
         );
 
-    const totalAmount = subtotalAmount + extensionTotalAmount;
+    const shouldMergeDisplayExtensions = isView || hasOrderInvoices;
 
-    const itemTaxRows = React.useMemo<TotalsSummaryRow[]>(
-        () =>
-            itemTaxSummaries.map((tax, index) => ({
-                key: `item-tax-${index}`,
-                label:
-                    String(tax.calculation_mode ?? 'fixed') === 'percentage'
-                        ? `${String(tax.name ?? 'Tax')} ${Number(tax.calculation_value ?? 0)}%`
-                        : String(tax.name ?? 'Tax'),
-                amount: Number(tax.amount ?? 0),
-            })),
-        [itemTaxSummaries],
-    );
+    const displayExtensions = React.useMemo<TotalsSummaryExtension[]>(() => {
+        if (!shouldMergeDisplayExtensions) {
+            return combinedExtensions;
+        }
+
+        const grouped = new Map<string, TotalsSummaryExtension>();
+
+        const upsert = (extension: TotalsSummaryExtension, index: number) => {
+            const name = String(extension.name ?? 'Extension').trim();
+            const type = String(extension.type ?? 'tax')
+                .trim()
+                .toLowerCase();
+            const key = `${name.toLowerCase()}|${type}`;
+
+            if (!grouped.has(key)) {
+                grouped.set(key, {
+                    ...extension,
+                    _key: extension._key ?? `display-extension-${index + 1}`,
+                    name,
+                    type,
+                });
+
+                return;
+            }
+
+            const current = grouped.get(key);
+
+            if (!current) {
+                return;
+            }
+
+            grouped.set(key, {
+                ...current,
+                amount:
+                    Number(current.amount ?? 0) + Number(extension.amount ?? 0),
+            });
+        };
+
+        combinedExtensions.forEach((extension, index) => {
+            upsert(extension, index);
+        });
+
+        itemTaxSummaries.forEach((tax, index) => {
+            upsert(
+                {
+                    _key: `item-tax-extension-${index + 1}`,
+                    quotation_extension_master_id: undefined,
+                    name: String(tax.name ?? 'Tax'),
+                    type: tax.type,
+                    calculation_mode: String(tax.calculation_mode ?? 'fixed'),
+                    calculation_value: Number(tax.calculation_value ?? 0),
+                    amount: Number(tax.amount ?? 0),
+                    sort_order: combinedExtensions.length + index + 1,
+                },
+                combinedExtensions.length + index,
+            );
+        });
+
+        return Array.from(grouped.values()).map((extension, index) => ({
+            ...extension,
+            sort_order: index + 1,
+        }));
+    }, [combinedExtensions, itemTaxSummaries, shouldMergeDisplayExtensions]);
+
+    const totalAmount = subtotalAmount + extensionTotalAmount;
+    const resolvedGrandTotal = React.useMemo(() => {
+        const invoiceBackedAmount = Number(
+            data.order_invoices_total_amount ?? data.total_amount,
+        );
+
+        if (hasOrderInvoices && Number.isFinite(invoiceBackedAmount)) {
+            return invoiceBackedAmount;
+        }
+
+        return totalAmount;
+    }, [
+        data.order_invoices_total_amount,
+        data.total_amount,
+        hasOrderInvoices,
+        totalAmount,
+    ]);
+
+    const itemTaxRows = React.useMemo<TotalsSummaryRow[]>(() => {
+        if (shouldMergeDisplayExtensions) {
+            return [];
+        }
+
+        return itemTaxSummaries.map((tax, index) => ({
+            key: `item-tax-${index}`,
+            label:
+                String(tax.calculation_mode ?? 'fixed') === 'percentage'
+                    ? `${String(tax.name ?? 'Tax')} ${Number(tax.calculation_value ?? 0)}%`
+                    : String(tax.name ?? 'Tax'),
+            amount: Number(tax.amount ?? 0),
+        }));
+    }, [itemTaxSummaries, shouldMergeDisplayExtensions]);
 
     return (
         <FormSection
@@ -465,7 +568,7 @@ export default function QuotationDetailSection({
                     <TotalsSummaryCard
                         subtotalAmount={subtotalAmount}
                         itemTaxRows={itemTaxRows}
-                        extensions={combinedExtensions}
+                        extensions={displayExtensions}
                         extensionMasters={extensionMastersForSummary}
                         onExtensionsChange={(nextExtensions) => {
                             const normalizedNextExtensions = nextExtensions.map(
@@ -489,6 +592,7 @@ export default function QuotationDetailSection({
                                         type: String(
                                             extension.type ?? 'discount',
                                         ),
+                                        quotation_extension_master_id: null,
                                         calculation_mode: calculationMode,
                                         calculation_value: Number(
                                             extension.calculation_value ?? 0,
@@ -501,10 +605,35 @@ export default function QuotationDetailSection({
                                 },
                             );
 
-                            setData('extensions', normalizedNextExtensions);
+                            const mergedNextExtensions =
+                                mergeSummaryExtensionsByNameAndType(
+                                    normalizedNextExtensions,
+                                ).map((extension, index) => ({
+                                    ...extension,
+                                    _key:
+                                        extension._key ??
+                                        `extension-${index + 1}`,
+                                    name: String(extension.name ?? 'Extension'),
+                                    type: String(extension.type ?? 'discount'),
+                                    quotation_extension_master_id: null,
+                                    calculation_mode:
+                                        String(
+                                            extension.calculation_mode ??
+                                                'fixed',
+                                        ) === 'percentage'
+                                            ? 'percentage'
+                                            : 'fixed',
+                                    calculation_value: Number(
+                                        extension.calculation_value ?? 0,
+                                    ),
+                                    amount: Number(extension.amount ?? 0),
+                                    sort_order: index + 1,
+                                }));
+
+                            setData('extensions', mergedNextExtensions);
                         }}
                         readOnly={isView || hasOrderInvoices}
-                        grandTotalAmount={totalAmount}
+                        grandTotalAmount={resolvedGrandTotal}
                     />
                 </div>
 

@@ -48,7 +48,7 @@ class QuotationService
             'customerConfirmation.enquiry.handledBy:id,name',
             'customerConfirmation.package:id,package_number,name',
             'quotationItems',
-            'order',
+            'order.invoices.receipt',
             'createdBy:id,name',
         ])->withTrashed()
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
@@ -62,6 +62,8 @@ class QuotationService
             })->when($filters['to_date'] ?? null, function ($q, $value) {
                 $q->whereDate('created_at', '<=', $value);
             })->orderBy('quotation_number', 'desc')->get()->map(function ($q) {
+                $displayTotalAmount = $this->resolveQuotationDisplayedTotalAmount($q);
+
                 return [
                     'id' => $q->id,
                     'quotation_number' => $q->quotation_number ?? '-',
@@ -78,7 +80,7 @@ class QuotationService
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
                     'items_count' => $q->quotationItems->count(),
-                    'total_amount' => $this->formatService->cleanDecimal($q->total_amount),
+                    'total_amount' => $displayTotalAmount,
                     'payment_plan' => $q->payment_plan_label,
                     'status' => $q->status?->value,
                     'reason' => $q->reason,
@@ -538,6 +540,7 @@ class QuotationService
 
         $invoiceExtensions = $this->buildInvoiceExtensionsForQuotationDisplay($quotation);
         $isConverted = (string) ($quotation->status?->value ?? '') === QuotationStatus::Converted->value;
+        $displayTotalAmount = $this->resolveQuotationDisplayedTotalAmount($quotation);
 
         return [
             'id' => $quotation->id,
@@ -555,7 +558,8 @@ class QuotationService
             'expiry_date' => $quotation->expiry_date_formatted,
             'subtotal_amount' => $this->formatService->cleanDecimal($quotation->item_subtotal_amount),
             'extension_total_amount' => $this->formatService->cleanDecimal($quotation->extension_total_amount),
-            'total_amount' => $this->formatService->cleanDecimal($quotation->total_amount),
+            'total_amount' => $displayTotalAmount,
+            'order_invoices_total_amount' => $displayTotalAmount,
             'payment_plan' => $quotation->payment_plan,
             'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
@@ -1618,91 +1622,40 @@ class QuotationService
             return $invoices;
         }
 
-        $maxSortOrder = (int) (QuotationExtensionMaster::query()->max('sort_order') ?? 0);
-        $masterIdBySignature = [];
+        $validMasterIds = QuotationExtensionMaster::query()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
 
-        QuotationExtensionMaster::query()
-            ->get()
-            ->each(function (QuotationExtensionMaster $master) use (&$masterIdBySignature): void {
-                $signature = $this->buildExtensionMasterSignature(
-                    (string) ($master->name ?? ''),
-                    (string) ($master->type ?? 'discount'),
-                    (string) ($master->calculation_mode ?? 'fixed'),
-                    (float) ($master->calculation_value ?? 0),
-                    (array) ($master->payment_methods ?? []),
-                );
-
-                $masterIdBySignature[$signature] = (int) $master->id;
-            });
+        $validMasterIdLookup = array_fill_keys($validMasterIds, true);
 
         return collect($invoices)
-            ->map(function ($invoice) use (&$maxSortOrder, &$masterIdBySignature) {
+            ->map(function ($invoice) use ($validMasterIdLookup) {
                 if (! is_array($invoice)) {
                     return $invoice;
                 }
 
-                $paymentMethod = strtolower(trim((string) ($invoice['payment_method'] ?? '')));
-
                 $normalizedExtensions = collect($invoice['extensions'] ?? [])
-                    ->map(function ($extension) use ($paymentMethod, &$maxSortOrder, &$masterIdBySignature) {
+                    ->map(function ($extension) use ($validMasterIdLookup) {
                         if (! is_array($extension)) {
                             return $extension;
                         }
 
                         $masterId = (int) ($extension['quotation_extension_master_id'] ?? 0);
-                        if ($masterId > 0) {
-                            return $extension;
-                        }
-
-                        $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
-                        $name = trim((string) ($extension['name'] ?? ''));
-                        if ($name === '') {
-                            $name = Str::headline(str_replace('_', ' ', $type));
-                        }
-
-                        $calculationMode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
-                        if (! in_array($calculationMode, ['fixed', 'percentage'], true)) {
-                            $calculationMode = 'fixed';
-                        }
-
-                        $calculationValue = (float) ($this->formatService->cleanDecimal(
-                            $extension['calculation_value'] ?? $extension['amount'] ?? 0
-                        ) ?? 0);
-
-                        $paymentMethods = in_array($type, ['other', 'credit_card'], true)
-                            ? collect([$paymentMethod])
-                                ->filter(fn ($method) => (string) $method !== '')
-                                ->values()
-                                ->all()
-                            : [];
-
-                        $signature = $this->buildExtensionMasterSignature(
-                            $name,
-                            $type,
-                            $calculationMode,
-                            $calculationValue,
-                            $paymentMethods,
-                        );
-
-                        if (! isset($masterIdBySignature[$signature])) {
-                            $maxSortOrder += 1;
-
-                            $master = QuotationExtensionMaster::query()->create([
-                                'name' => $name,
-                                'type' => $type,
-                                'calculation_mode' => $calculationMode,
-                                'calculation_value' => $this->formatService->cleanDecimal($calculationValue) ?? 0,
-                                'payment_methods' => $paymentMethods,
-                                'is_active' => true,
-                                'sort_order' => $maxSortOrder,
-                            ]);
-
-                            $masterIdBySignature[$signature] = (int) $master->id;
+                        if ($masterId <= 0) {
+                            return [
+                                ...$extension,
+                                'quotation_extension_master_id' => null,
+                            ];
                         }
 
                         return [
                             ...$extension,
-                            'quotation_extension_master_id' => $masterIdBySignature[$signature],
+                            'quotation_extension_master_id' => isset($validMasterIdLookup[$masterId])
+                                ? $masterId
+                                : null,
                         ];
                     })
                     ->values()
@@ -1715,30 +1668,6 @@ class QuotationService
             })
             ->values()
             ->all();
-    }
-
-    private function buildExtensionMasterSignature(
-        string $name,
-        string $type,
-        string $calculationMode,
-        float $calculationValue,
-        array $paymentMethods = []
-    ): string {
-        $normalizedPaymentMethods = collect($paymentMethods)
-            ->map(fn ($method) => strtolower(trim((string) $method)))
-            ->filter(fn ($method) => $method !== '')
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-
-        return implode('|', [
-            strtolower(trim($name)),
-            strtolower(trim($type)),
-            strtolower(trim($calculationMode)),
-            (string) ($this->formatService->cleanDecimal($calculationValue) ?? $calculationValue),
-            implode(',', $normalizedPaymentMethods),
-        ]);
     }
 
     private function syncQuotationExtensions(Quotation $quotation, array $extensions): void
@@ -1764,9 +1693,7 @@ class QuotationService
 
                 return [
                     'id' => ! empty($extension['id']) ? (int) $extension['id'] : null,
-                    'quotation_extension_master_id' => ! empty($extension['quotation_extension_master_id'])
-                        ? (int) $extension['quotation_extension_master_id']
-                        : null,
+                    'quotation_extension_master_id' => null,
                     'name' => (string) ($extension['name'] ?? ''),
                     'type' => (string) ($extension['type'] ?? 'discount'),
                     'calculation_mode' => $calculationMode,
@@ -1774,6 +1701,48 @@ class QuotationService
                     'sort_order' => (int) ($extension['sort_order'] ?? ($index + 1)),
                 ];
             })
+            ->reduce(function (Collection $carry, array $extension): Collection {
+                $name = trim((string) ($extension['name'] ?? ''));
+                $type = strtolower(trim((string) ($extension['type'] ?? 'discount')));
+
+                if ($name === '') {
+                    $name = Str::headline(str_replace('_', ' ', $type));
+                }
+
+                $groupKey = implode('|', [
+                    strtolower($name),
+                    $type,
+                ]);
+
+                if (! $carry->has($groupKey)) {
+                    $carry->put($groupKey, [
+                        ...$extension,
+                        'name' => $name,
+                        'type' => $type,
+                    ]);
+
+                    return $carry;
+                }
+
+                $current = $carry->get($groupKey);
+
+                if (! is_array($current)) {
+                    return $carry;
+                }
+
+                $mergedAmount = (float) ($current['calculation_value'] ?? 0) + (float) ($extension['calculation_value'] ?? 0);
+
+                $carry->put($groupKey, [
+                    ...$current,
+                    'name' => $name,
+                    'type' => $type,
+                    'quotation_extension_master_id' => null,
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => $mergedAmount,
+                ]);
+
+                return $carry;
+            }, collect())
             ->values();
 
         $nonDiscountExtensions = $incomingExtensions
@@ -1827,7 +1796,7 @@ class QuotationService
             ->map(function (array $extension, int $index): array {
                 return [
                     'id' => null,
-                    'quotation_extension_master_id' => $extension['quotation_extension_master_id'] ?? null,
+                    'quotation_extension_master_id' => null,
                     'name' => (string) ($extension['name'] ?? ''),
                     'type' => (string) ($extension['type'] ?? 'discount'),
                     'calculation_mode' => (string) ($extension['calculation_mode'] ?? 'fixed'),
@@ -1878,7 +1847,7 @@ class QuotationService
                         $calculationMode = (string) ($tax->calculation_mode ?? '');
                         $calculationValue = (float) ($tax->calculation_value ?? 0);
 
-                        if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                        if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue === 0.0) {
                             return 0;
                         }
 
@@ -1986,10 +1955,6 @@ class QuotationService
                     $name = Str::headline(str_replace('_', ' ', $type));
                 }
 
-                $masterId = ! empty($extension['quotation_extension_master_id'])
-                    ? (int) $extension['quotation_extension_master_id']
-                    : null;
-
                 $calculationValue = $this->formatService->cleanDecimal(
                     $extension['calculation_value'] ?? 0
                 ) ?? 0;
@@ -1999,17 +1964,14 @@ class QuotationService
                 ) ?? 0;
 
                 $groupKey = implode('|', [
-                    (string) ($masterId ?? 0),
                     strtolower($name),
                     $type,
-                    $calculationMode,
-                    (string) $calculationValue,
                 ]);
 
                 if (! $carry->has($groupKey)) {
                     $carry->put($groupKey, [
                         'id' => null,
-                        'quotation_extension_master_id' => $masterId,
+                        'quotation_extension_master_id' => null,
                         'name' => $name,
                         'type' => $type,
                         'calculation_mode' => $calculationMode,
@@ -2024,7 +1986,11 @@ class QuotationService
                     return $carry;
                 }
 
-                $current['amount'] = (float) ($current['amount'] ?? 0) + (float) $amount;
+                $nextAmount = (float) ($current['amount'] ?? 0) + (float) $amount;
+
+                $current['amount'] = $nextAmount;
+                $current['calculation_mode'] = 'fixed';
+                $current['calculation_value'] = $this->formatService->cleanDecimal($nextAmount) ?? $nextAmount;
 
                 $carry->put($groupKey, $current);
 
@@ -2042,5 +2008,35 @@ class QuotationService
             ->all();
 
         return $aggregated;
+    }
+
+    private function resolveQuotationDisplayedTotalAmount(Quotation $quotation): float
+    {
+        $order = $quotation->order;
+
+        if (! $order) {
+            return $this->formatService->cleanDecimal((float) ($quotation->total_amount ?? 0));
+        }
+
+        $activeInvoices = collect($order->invoices ?? collect())
+            ->filter(function ($invoice): bool {
+                $status = strtolower(trim((string) ($invoice->status ?? '')));
+
+                if ($status === InvoiceStatus::Cancelled || InvoiceStatus::isRefund($invoice->status)) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values();
+
+        if ($activeInvoices->isEmpty()) {
+            return $this->formatService->cleanDecimal((float) ($quotation->total_amount ?? 0));
+        }
+
+        $invoicesTotal = (float) $activeInvoices
+            ->sum(fn ($invoice): float => $this->resolveInvoiceTotalWithExtensions($invoice));
+
+        return $this->formatService->cleanDecimal($invoicesTotal);
     }
 }

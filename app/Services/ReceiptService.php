@@ -379,9 +379,11 @@ class ReceiptService
                 $calculationMode = (string) ($tax->calculation_mode ?? '');
                 $calculationValue = (float) ($tax->calculation_value ?? 0);
 
-                if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue <= 0) {
+                if (! in_array($calculationMode, ['fixed', 'percentage'], true) || $calculationValue === 0.0) {
                     continue;
                 }
+
+                $extensionType = $calculationValue < 0 ? 'discount' : 'tax';
 
                 $taxAmount = $calculationMode === 'percentage'
                     ? ($lineAmount * $calculationValue / 100)
@@ -390,6 +392,7 @@ class ReceiptService
                 $key = implode('|', [
                     (int) ($tax->quotation_extension_master_id ?? 0),
                     strtolower(trim((string) ($tax->name ?? 'Tax'))),
+                    $extensionType,
                     $calculationMode,
                     (string) $calculationValue,
                 ]);
@@ -399,7 +402,7 @@ class ReceiptService
                         'id' => null,
                         'quotation_extension_master_id' => $tax->quotation_extension_master_id,
                         'name' => $tax->name ?: 'Tax',
-                        'type' => 'tax',
+                        'type' => $extensionType,
                         'calculation_mode' => $calculationMode,
                         'calculation_value' => $this->formatService->cleanDecimal($calculationValue),
                         'amount' => 0.0,

@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class FinancialTransactionService
@@ -495,7 +496,6 @@ class FinancialTransactionService
                 continue;
             }
 
-            $extensionRows = collect(is_array($quotation?->extensions ?? null) ? $quotation?->extensions : []);
             $maker = (string) ($quotation?->createdBy?->name ?? '');
             $remarks = $this->resolveReceiptRemark($invoice);
 
@@ -506,7 +506,7 @@ class FinancialTransactionService
                     $mode = (string) ($tax->calculation_mode ?? '');
                     $value = (float) ($tax->calculation_value ?? 0);
 
-                    if (! in_array($mode, ['fixed', 'percentage'], true) || $value <= 0) {
+                    if (! in_array($mode, ['fixed', 'percentage'], true) || $value === 0.0) {
                         return $carry;
                     }
 
@@ -522,50 +522,24 @@ class FinancialTransactionService
                 ];
             })->values();
 
-            $subtotalAmount = (float) $itemsWithBase->sum('base');
-            $subtotalWithTax = (float) $itemsWithBase->sum('base_with_tax');
+            $payerItemId = $this->resolvePayerItemId(
+                $items,
+                (int) ($quotation?->customer_id ?? 0),
+            );
+            $negativeInvoiceExtensionTotal = $this->resolveNegativeInvoiceExtensionTotal($invoice);
 
-            $discountExtension = $extensionRows
-                ->first(function ($extension): bool {
-                    return is_array($extension)
-                        && (string) ($extension['type'] ?? '') === 'discount';
-                });
+            $itemsWithGross = $itemsWithBase->map(function (array $row) use ($payerItemId, $negativeInvoiceExtensionTotal): array {
+                /** @var QuotationItem $item */
+                $item = $row['item'];
+                $itemId = (int) ($item->id ?? 0);
 
-            $nonDiscountTotal = $extensionRows
-                ->filter(function ($extension): bool {
-                    return is_array($extension)
-                        && (string) ($extension['type'] ?? '') !== 'discount';
-                })
-                ->reduce(function (float $carry, $extension) use ($subtotalAmount): float {
-                    if (! is_array($extension)) {
-                        return $carry;
-                    }
+                $gross = (float) ($row['base_with_tax'] ?? 0);
 
-                    $mode = (string) ($extension['calculation_mode'] ?? 'fixed');
-                    $value = (float) ($extension['calculation_value'] ?? $extension['amount'] ?? 0);
+                if ($payerItemId !== null && $itemId === $payerItemId) {
+                    $gross += $negativeInvoiceExtensionTotal;
+                }
 
-                    return $carry + ($mode === 'percentage'
-                        ? ($subtotalAmount * $value) / 100
-                        : $value);
-                }, 0.0);
-
-            $discountTotal = 0.0;
-            if (is_array($discountExtension)) {
-                $discountMode = (string) ($discountExtension['calculation_mode'] ?? 'fixed');
-                $discountValue = abs((float) ($discountExtension['calculation_value'] ?? $discountExtension['amount'] ?? 0));
-                $discountTotal = -abs($discountMode === 'percentage'
-                    ? ($subtotalAmount * $discountValue) / 100
-                    : $discountValue);
-            }
-
-            $itemsWithGross = $itemsWithBase->map(function (array $row) use ($subtotalAmount, $nonDiscountTotal, $discountTotal): array {
-                $ratio = $subtotalAmount > 0
-                    ? ((float) ($row['base'] ?? 0) / $subtotalAmount)
-                    : 0;
-
-                $gross = (float) ($row['base_with_tax'] ?? 0)
-                    + ($nonDiscountTotal * $ratio)
-                    + ($discountTotal * $ratio);
+                $gross = max($gross, 0);
 
                 return [
                     ...$row,
@@ -722,6 +696,57 @@ class FinancialTransactionService
 
         $categoryTotals[$normalizedCategory]['amount'] += $amount;
         $categoryTotals[$normalizedCategory]['receipt_count']++;
+    }
+
+    /**
+     * @param  Collection<int, QuotationItem>  $items
+     */
+    private function resolvePayerItemId(Collection $items, int $quotationCustomerId): ?int
+    {
+        $payerItem = $items->first(function (QuotationItem $item) use ($quotationCustomerId): bool {
+            if ($quotationCustomerId <= 0) {
+                return false;
+            }
+
+            return (int) ($item->confirmationMember?->customer_id ?? 0) === $quotationCustomerId;
+        });
+
+        if (! $payerItem instanceof QuotationItem) {
+            $payerItem = $items->first();
+        }
+
+        if (! $payerItem instanceof QuotationItem) {
+            return null;
+        }
+
+        $payerItemId = (int) ($payerItem->id ?? 0);
+
+        return $payerItemId > 0 ? $payerItemId : null;
+    }
+
+    private function resolveNegativeInvoiceExtensionTotal(Invoice $invoice): float
+    {
+        $extensions = is_array($invoice->extensions) ? $invoice->extensions : [];
+
+        return (float) collect($extensions)->sum(function ($extension): float {
+            if (! is_array($extension)) {
+                return 0.0;
+            }
+
+            $amount = (float) ($extension['amount'] ?? 0);
+
+            if ($amount < 0) {
+                return $amount;
+            }
+
+            $type = strtolower(trim((string) ($extension['type'] ?? '')));
+
+            if ($type === 'discount' && $amount > 0) {
+                return -abs($amount);
+            }
+
+            return 0.0;
+        });
     }
 
     /**

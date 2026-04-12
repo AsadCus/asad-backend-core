@@ -1,6 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -83,11 +91,66 @@ type SortableProps = {
 type TaxExtensionMasterOption = {
     id: number;
     name: string;
+    type?: string | null;
     calculation_mode?: string | null;
     calculation_value?: string | number | null;
 };
 
+type TaxEditorDraft = {
+    name: string;
+    type: 'tax' | 'discount';
+    calculation_mode: 'fixed' | 'percentage';
+    amount: number | null;
+};
+
 const EMPTY_TAX_EXTENSION_MASTERS: TaxExtensionMasterOption[] = [];
+
+const TAX_TYPE_OPTIONS: OptionType[] = [
+    { label: 'Tax', value: 'tax' },
+    { label: 'Discount', value: 'discount' },
+];
+
+const TAX_CALCULATION_MODE_OPTIONS: OptionType[] = [
+    { label: 'Fixed Amount', value: 'fixed' },
+    { label: 'Percentage', value: 'percentage' },
+];
+
+function normalizeTaxExtensionMasterOptions(
+    options: TaxExtensionMasterOption[] = [],
+): TaxExtensionMasterOption[] {
+    const grouped = new Map<string, TaxExtensionMasterOption>();
+
+    options.forEach((option) => {
+        const id = Number(option.id ?? 0);
+        const name = String(option.name ?? '')
+            .trim()
+            .toLowerCase();
+        const type = String(option.type ?? 'tax')
+            .trim()
+            .toLowerCase();
+        const mode = String(option.calculation_mode ?? 'fixed')
+            .trim()
+            .toLowerCase();
+        const value = Number(option.calculation_value ?? 0);
+
+        const key =
+            mode === 'percentage'
+                ? [name, type, mode, String(value)].join('|')
+                : [name, type, mode].join('|');
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                id,
+                name: option.name,
+                type,
+                calculation_mode: option.calculation_mode ?? null,
+                calculation_value: option.calculation_value ?? null,
+            });
+        }
+    });
+
+    return Array.from(grouped.values());
+}
 
 type QuotationItemTaxInput = {
     _key?: string;
@@ -145,10 +208,25 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 }: QuotationItemTableFormProps<T>) {
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [availableTaxExtensionMasters, setAvailableTaxExtensionMasters] =
-        useState<TaxExtensionMasterOption[]>(taxExtensionMasters);
+        useState<TaxExtensionMasterOption[]>(
+            normalizeTaxExtensionMasterOptions(taxExtensionMasters),
+        );
+    const [isTaxEditorOpen, setIsTaxEditorOpen] = useState(false);
+    const [taxEditorTarget, setTaxEditorTarget] = useState<{
+        itemKey: string;
+        taxIndex: number;
+    } | null>(null);
+    const [taxDraft, setTaxDraft] = useState<TaxEditorDraft>({
+        name: 'Extension',
+        type: 'tax',
+        calculation_mode: 'fixed',
+        amount: null,
+    });
 
     useEffect(() => {
-        setAvailableTaxExtensionMasters(taxExtensionMasters);
+        setAvailableTaxExtensionMasters(
+            normalizeTaxExtensionMasterOptions(taxExtensionMasters),
+        );
     }, [taxExtensionMasters]);
 
     const isLinkedMemberItem = (item: T): boolean =>
@@ -165,7 +243,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         const mode = String(tax.calculation_mode ?? '');
         const hasMode = ['fixed', 'percentage'].includes(mode);
         const value = Number(tax.calculation_value ?? 0);
-        const hasValue = value > 0;
+        const hasValue = value !== 0;
 
         return !(hasMaster || hasName || hasMode || hasValue);
     };
@@ -286,7 +364,11 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
             return false;
         }
 
-        return String(item.description ?? '').trim().toLowerCase() === 'umrah packages';
+        return (
+            String(item.description ?? '')
+                .trim()
+                .toLowerCase() === 'umrah packages'
+        );
     };
 
     const hasNonZeroChildAmount = (target: T): boolean => {
@@ -305,7 +387,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
 
         if (
             !['fixed', 'percentage'].includes(calculationMode) ||
-            calculationValue <= 0
+            calculationValue === 0
         ) {
             return 0;
         }
@@ -315,6 +397,24 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         return calculationMode === 'percentage'
             ? (lineAmount * calculationValue) / 100
             : calculationValue;
+    };
+
+    const normalizeSelectedExtensionValue = (
+        option: ExtensionMasterComboboxOption | TaxExtensionMasterOption,
+    ): number => {
+        const rawValue = Number(option.calculation_value ?? 0);
+
+        if (!Number.isFinite(rawValue)) {
+            return 0;
+        }
+
+        const optionType = String(option.type ?? '').toLowerCase();
+
+        if (optionType === 'discount') {
+            return -Math.abs(rawValue);
+        }
+
+        return Math.abs(rawValue);
     };
 
     const normalizeSortOrder = (list: T[]) =>
@@ -758,6 +858,116 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
         [availableTaxExtensionMasters],
     );
 
+    const inferTaxType = useCallback(
+        (tax: QuotationItemTaxInput): 'tax' | 'discount' => {
+            const linkedMasterType =
+                Number(tax.quotation_extension_master_id ?? 0) > 0
+                    ? String(
+                          taxMasterById.get(
+                              Number(tax.quotation_extension_master_id),
+                          )?.type ?? '',
+                      )
+                          .trim()
+                          .toLowerCase()
+                    : '';
+
+            if (linkedMasterType === 'discount') {
+                return 'discount';
+            }
+
+            return Number(tax.calculation_value ?? 0) < 0 ? 'discount' : 'tax';
+        },
+        [taxMasterById],
+    );
+
+    const formatTaxLabel = useCallback((tax: QuotationItemTaxInput): string => {
+        const name = String(tax.name ?? '').trim() || 'Extension';
+        const mode = String(tax.calculation_mode ?? 'fixed').toLowerCase();
+        const value = Math.abs(Number(tax.calculation_value ?? 0));
+
+        if (mode === 'percentage') {
+            return `${name} ${value}%`;
+        }
+
+        return name;
+    }, []);
+
+    const openTaxEditor = useCallback(
+        (item: T, taxIndex: number, seedTax?: QuotationItemTaxInput): void => {
+            const displayTaxes = getDisplayTaxes(item);
+            const targetTax =
+                seedTax ??
+                displayTaxes[taxIndex] ??
+                createEmptyTax(taxIndex + 1);
+
+            setTaxEditorTarget({ itemKey: item._key, taxIndex });
+            setTaxDraft({
+                name: String(targetTax.name ?? '').trim() || 'Extension',
+                type: inferTaxType(targetTax),
+                calculation_mode:
+                    String(targetTax.calculation_mode ?? 'fixed') ===
+                    'percentage'
+                        ? 'percentage'
+                        : 'fixed',
+                amount: Math.abs(Number(targetTax.calculation_value ?? 0)),
+            });
+            setIsTaxEditorOpen(true);
+        },
+        [inferTaxType],
+    );
+
+    const closeTaxEditor = useCallback((open: boolean): void => {
+        setIsTaxEditorOpen(open);
+
+        if (!open) {
+            setTaxEditorTarget(null);
+        }
+    }, []);
+
+    const saveTaxEditor = useCallback((): void => {
+        if (!taxEditorTarget) {
+            return;
+        }
+
+        const targetItem = items.find(
+            (item) => item._key === taxEditorTarget.itemKey,
+        );
+
+        if (!targetItem) {
+            setIsTaxEditorOpen(false);
+            setTaxEditorTarget(null);
+
+            return;
+        }
+
+        const baseValue = Math.abs(Number(taxDraft.amount ?? 0));
+        const signedValue =
+            taxDraft.type === 'discount' ? -baseValue : baseValue;
+
+        const nextTaxes = getDisplayTaxes(targetItem).map(
+            (currentTax, index) => {
+                if (index !== taxEditorTarget.taxIndex) {
+                    return currentTax;
+                }
+
+                return {
+                    ...currentTax,
+                    quotation_extension_master_id: null,
+                    name: taxDraft.name.trim() || 'Extension',
+                    calculation_mode: taxDraft.calculation_mode,
+                    calculation_value: signedValue,
+                };
+            },
+        );
+
+        updateItemByKey(targetItem._key, {
+            taxes: withTrailingEmptyTax(nextTaxes),
+        } as Partial<T>);
+
+        setIsTaxEditorOpen(false);
+        setTaxEditorTarget(null);
+    }, [items, taxDraft, taxEditorTarget]);
+
     // Columns
     const columns: ColumnDef<VisibleItem<T>>[] = [
         ...(!disabled
@@ -940,43 +1150,45 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                     child as Partial<QuotationItemSchema>;
 
                                                 return {
-                                                _key: nanoid(),
-                                                id: normalizedChild.id,
-                                                parent_id:
-                                                    payload.parent.id ?? null,
-                                                parent_key: parentKey,
-                                                description:
-                                                    normalizedChild.description ??
-                                                    '',
-                                                quantity:
-                                                    normalizedChild.quantity ??
-                                                    1,
-                                                rate:
-                                                    normalizedChild.rate ??
-                                                    null,
-                                                taxes: getDisplayTaxes(
-                                                    normalizedChild as T,
-                                                ),
-                                                customer_confirmation_member_id:
-                                                    Number(
-                                                        normalizedChild.customer_confirmation_member_id ??
-                                                            0,
-                                                    ) > 0
-                                                        ? Number(
-                                                              normalizedChild.customer_confirmation_member_id,
-                                                          )
-                                                        : null,
-                                                sharing_plan:
-                                                    normalizedChild.sharing_plan ??
-                                                    null,
-                                                is_header:
-                                                    normalizedChild.is_header ??
-                                                    false,
-                                                is_optional:
-                                                    normalizedChild.is_optional ??
-                                                    payload.parent.is_optional,
-                                                sort_order: 0,
-                                            };
+                                                    _key: nanoid(),
+                                                    id: normalizedChild.id,
+                                                    parent_id:
+                                                        payload.parent.id ??
+                                                        null,
+                                                    parent_key: parentKey,
+                                                    description:
+                                                        normalizedChild.description ??
+                                                        '',
+                                                    quantity:
+                                                        normalizedChild.quantity ??
+                                                        1,
+                                                    rate:
+                                                        normalizedChild.rate ??
+                                                        null,
+                                                    taxes: getDisplayTaxes(
+                                                        normalizedChild as T,
+                                                    ),
+                                                    customer_confirmation_member_id:
+                                                        Number(
+                                                            normalizedChild.customer_confirmation_member_id ??
+                                                                0,
+                                                        ) > 0
+                                                            ? Number(
+                                                                  normalizedChild.customer_confirmation_member_id,
+                                                              )
+                                                            : null,
+                                                    sharing_plan:
+                                                        normalizedChild.sharing_plan ??
+                                                        null,
+                                                    is_header:
+                                                        normalizedChild.is_header ??
+                                                        false,
+                                                    is_optional:
+                                                        normalizedChild.is_optional ??
+                                                        payload.parent
+                                                            .is_optional,
+                                                    sort_order: 0,
+                                                };
                                             },
                                         ) as T[];
 
@@ -1205,8 +1417,7 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                 const hasLockedMemberChildren =
                     hasLockedLinkedMemberChildren(item);
                 const lockedByUmrahChildAmount =
-                    isUmrahPackagesHeader(item) &&
-                    hasNonZeroChildAmount(item);
+                    isUmrahPackagesHeader(item) && hasNonZeroChildAmount(item);
                 const disableRemove =
                     isLockedMemberItem ||
                     hasLockedMemberChildren ||
@@ -1626,107 +1837,121 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                                                                 >
                                                                     <div className="relative flex w-full flex-col gap-1">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-base">
-                                                                                Tax
-                                                                            </span>
                                                                             <div className="flex-1">
-                                                                                <ExtensionMasterCombobox
-                                                                                    value={
-                                                                                        Number(
-                                                                                            tax.quotation_extension_master_id ??
-                                                                                                0,
-                                                                                        ) >
-                                                                                        0
-                                                                                            ? Number(
-                                                                                                  tax.quotation_extension_master_id,
-                                                                                              )
-                                                                                            : null
-                                                                                    }
-                                                                                    extensionType="tax"
-                                                                                    options={
-                                                                                        availableTaxExtensionMasters as ExtensionMasterComboboxOption[]
-                                                                                    }
-                                                                                    disabled={
-                                                                                        disabled
-                                                                                    }
-                                                                                    placeholder="Select tax"
-                                                                                    onSelect={(
-                                                                                        option,
-                                                                                    ) => {
-                                                                                        const selectedTaxMaster =
-                                                                                            taxMasterById.get(
-                                                                                                Number(
-                                                                                                    option.id,
-                                                                                                ),
-                                                                                            ) ??
-                                                                                            option;
-
-                                                                                        const nextTaxes =
-                                                                                            getDisplayTaxes(
-                                                                                                item,
-                                                                                            ).map(
-                                                                                                (
-                                                                                                    currentTax,
-                                                                                                    currentTaxIndex,
-                                                                                                ) => {
-                                                                                                    if (
-                                                                                                        currentTaxIndex !==
-                                                                                                        taxIndex
-                                                                                                    ) {
-                                                                                                        return currentTax;
-                                                                                                    }
-
-                                                                                                    return {
-                                                                                                        ...currentTax,
-                                                                                                        quotation_extension_master_id:
-                                                                                                            Number(
-                                                                                                                selectedTaxMaster.id,
-                                                                                                            ),
-                                                                                                        name:
-                                                                                                            selectedTaxMaster.name ??
-                                                                                                            null,
-                                                                                                        calculation_mode:
-                                                                                                            selectedTaxMaster.calculation_mode ??
-                                                                                                            null,
-                                                                                                        calculation_value:
-                                                                                                            selectedTaxMaster.calculation_value ??
-                                                                                                            null,
-                                                                                                    };
-                                                                                                },
-                                                                                            );
-
-                                                                                        updateItemByKey(
-                                                                                            item._key,
-                                                                                            {
-                                                                                                taxes: withTrailingEmptyTax(
-                                                                                                    nextTaxes,
-                                                                                                ),
-                                                                                            } as Partial<T>,
-                                                                                        );
-                                                                                    }}
-                                                                                    onOptionsChange={(
-                                                                                        nextOptions,
-                                                                                    ) => {
-                                                                                        setAvailableTaxExtensionMasters(
-                                                                                            nextOptions.map(
-                                                                                                (
-                                                                                                    option,
-                                                                                                ) => ({
-                                                                                                    id: Number(
+                                                                                {isEmptyTax(
+                                                                                    tax,
+                                                                                ) ? (
+                                                                                    <ExtensionMasterCombobox
+                                                                                        value={
+                                                                                            null
+                                                                                        }
+                                                                                        extensionType="item"
+                                                                                        options={
+                                                                                            availableTaxExtensionMasters as ExtensionMasterComboboxOption[]
+                                                                                        }
+                                                                                        disabled={
+                                                                                            disabled
+                                                                                        }
+                                                                                        placeholder="Select extension"
+                                                                                        onSelect={(
+                                                                                            option,
+                                                                                        ) => {
+                                                                                            const selectedTaxMaster =
+                                                                                                taxMasterById.get(
+                                                                                                    Number(
                                                                                                         option.id,
                                                                                                     ),
-                                                                                                    name: option.name,
+                                                                                                ) ??
+                                                                                                option;
+
+                                                                                            const nextSelectedTax: QuotationItemTaxInput =
+                                                                                                {
+                                                                                                    ...tax,
+                                                                                                    quotation_extension_master_id:
+                                                                                                        null,
+                                                                                                    name:
+                                                                                                        selectedTaxMaster.name ??
+                                                                                                        null,
                                                                                                     calculation_mode:
-                                                                                                        option.calculation_mode ??
+                                                                                                        selectedTaxMaster.calculation_mode ??
                                                                                                         null,
                                                                                                     calculation_value:
-                                                                                                        option.calculation_value ??
-                                                                                                        null,
-                                                                                                }),
-                                                                                            ),
-                                                                                        );
-                                                                                    }}
-                                                                                />
+                                                                                                        normalizeSelectedExtensionValue(
+                                                                                                            selectedTaxMaster,
+                                                                                                        ),
+                                                                                                };
+
+                                                                                            const nextTaxes =
+                                                                                                getDisplayTaxes(
+                                                                                                    item,
+                                                                                                ).map(
+                                                                                                    (
+                                                                                                        currentTax,
+                                                                                                        currentTaxIndex,
+                                                                                                    ) => {
+                                                                                                        if (
+                                                                                                            currentTaxIndex !==
+                                                                                                            taxIndex
+                                                                                                        ) {
+                                                                                                            return currentTax;
+                                                                                                        }
+
+                                                                                                        return nextSelectedTax;
+                                                                                                    },
+                                                                                                );
+
+                                                                                            updateItemByKey(
+                                                                                                item._key,
+                                                                                                {
+                                                                                                    taxes: withTrailingEmptyTax(
+                                                                                                        nextTaxes,
+                                                                                                    ),
+                                                                                                } as Partial<T>,
+                                                                                            );
+                                                                                        }}
+                                                                                        onOptionsChange={(
+                                                                                            nextOptions,
+                                                                                        ) => {
+                                                                                            setAvailableTaxExtensionMasters(
+                                                                                                normalizeTaxExtensionMasterOptions(
+                                                                                                    nextOptions.map(
+                                                                                                        (
+                                                                                                            option,
+                                                                                                        ) => ({
+                                                                                                            id: Number(
+                                                                                                                option.id,
+                                                                                                            ),
+                                                                                                            name: option.name,
+                                                                                                            type: option.type,
+                                                                                                            calculation_mode:
+                                                                                                                option.calculation_mode ??
+                                                                                                                null,
+                                                                                                            calculation_value:
+                                                                                                                option.calculation_value ??
+                                                                                                                null,
+                                                                                                        }),
+                                                                                                    ),
+                                                                                                ),
+                                                                                            );
+                                                                                        }}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="w-full cursor-pointer rounded-md border px-2 py-1 text-left text-base font-medium hover:bg-muted"
+                                                                                        onClick={() =>
+                                                                                            openTaxEditor(
+                                                                                                item,
+                                                                                                taxIndex,
+                                                                                                tax,
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        {formatTaxLabel(
+                                                                                            tax,
+                                                                                        )}
+                                                                                    </button>
+                                                                                )}
                                                                             </div>
                                                                             {!disabled &&
                                                                                 !isEmptyTax(
@@ -1813,6 +2038,103 @@ export default function QuotationItemTableForm<T extends QuotationItemSchema>({
                     </SortableContext>
                 </DndContext>
             </div>
+
+            <Dialog open={isTaxEditorOpen} onOpenChange={closeTaxEditor}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Configure Extension</DialogTitle>
+                        <DialogDescription>
+                            Update the selected item extension values.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                Extension Name
+                            </label>
+                            <ProperInput
+                                value={taxDraft.name}
+                                onCommit={(value) =>
+                                    setTaxDraft((prev) => ({
+                                        ...prev,
+                                        name: value,
+                                    }))
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">Type</label>
+                            <ProperInputSelect
+                                options={TAX_TYPE_OPTIONS}
+                                value={taxDraft.type}
+                                onValueChange={(value) =>
+                                    setTaxDraft((prev) => ({
+                                        ...prev,
+                                        type:
+                                            value === 'discount'
+                                                ? 'discount'
+                                                : 'tax',
+                                    }))
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                Calculation
+                            </label>
+                            <ProperInputSelect
+                                options={TAX_CALCULATION_MODE_OPTIONS}
+                                value={taxDraft.calculation_mode}
+                                onValueChange={(value) =>
+                                    setTaxDraft((prev) => ({
+                                        ...prev,
+                                        calculation_mode:
+                                            value === 'percentage'
+                                                ? 'percentage'
+                                                : 'fixed',
+                                    }))
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                {taxDraft.calculation_mode === 'percentage'
+                                    ? 'Value (%)'
+                                    : 'Amount'}
+                            </label>
+                            <ProperInput
+                                value={taxDraft.amount ?? ''}
+                                type="number"
+                                inputProps={{ step: 'any', min: 0 }}
+                                placeholder="0"
+                                onCommit={(value) =>
+                                    setTaxDraft((prev) => ({
+                                        ...prev,
+                                        amount: Math.abs(Number(value ?? 0)),
+                                    }))
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => closeTaxEditor(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={saveTaxEditor}>
+                            Save
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -39,6 +39,7 @@ type InvoiceExtensionMasterInput = TotalsSummaryExtensionMaster &
 type TaxExtensionMasterOption = {
     id: number;
     name: string;
+    type?: string;
     calculation_mode?: string | null;
     calculation_value?: string | number | null;
 };
@@ -187,7 +188,9 @@ export default function InvoiceForm({
         const grouped = new Map<string, TaxExtensionMasterOption>();
 
         normalizedExtensionMasters.forEach((master) => {
-            if (String(master.type ?? '').toLowerCase() !== 'tax') {
+            const masterType = String(master.type ?? '').toLowerCase();
+
+            if (!['tax', 'discount'].includes(masterType)) {
                 return;
             }
 
@@ -201,6 +204,7 @@ export default function InvoiceForm({
             const key = [
                 id,
                 name.toLowerCase(),
+                masterType,
                 calculationMode,
                 calculationValue,
             ].join('|');
@@ -209,6 +213,7 @@ export default function InvoiceForm({
                 grouped.set(key, {
                     id,
                     name,
+                    type: masterType,
                     calculation_mode: calculationMode,
                     calculation_value: calculationValue,
                 });
@@ -224,9 +229,11 @@ export default function InvoiceForm({
                         ? 'percentage'
                         : String(tax.calculation_mode ?? 'fixed');
                 const calculationValue = Number(tax.calculation_value ?? 0);
+                const taxType = calculationValue < 0 ? 'discount' : 'tax';
                 const key = [
                     id,
                     name.toLowerCase(),
+                    taxType,
                     calculationMode,
                     calculationValue,
                 ].join('|');
@@ -235,6 +242,7 @@ export default function InvoiceForm({
                     grouped.set(key, {
                         id,
                         name,
+                        type: taxType,
                         calculation_mode: calculationMode,
                         calculation_value: calculationValue,
                     });

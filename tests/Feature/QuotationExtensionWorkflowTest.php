@@ -155,6 +155,160 @@ class QuotationExtensionWorkflowTest extends TestCase
         }));
     }
 
+    public function test_update_quotation_merges_extensions_by_name_and_type_and_ignores_master_id(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-MERGE-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation merge test',
+        ]);
+
+        $item = $quotation->quotationItems()->create([
+            'description' => 'Package cost',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        app(QuotationService::class)->update([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(10)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'draft',
+            'description' => 'Quotation merge test updated',
+            'items' => [
+                [
+                    'id' => $item->id,
+                    '_key' => 'item-existing',
+                    'description' => 'Package cost',
+                    'is_header' => false,
+                    'quantity' => 1,
+                    'rate' => 1000,
+                    'sort_order' => 1,
+                ],
+            ],
+            'extensions' => [
+                [
+                    'quotation_extension_master_id' => 1001,
+                    'name' => 'Promo Bundle',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 25,
+                    'amount' => -25,
+                    'sort_order' => 1,
+                ],
+                [
+                    'quotation_extension_master_id' => 2002,
+                    'name' => 'Promo Bundle',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 15,
+                    'amount' => -15,
+                    'sort_order' => 2,
+                ],
+            ],
+        ], $quotation->id);
+
+        $quotation->refresh();
+        $extensions = collect($quotation->extensions ?? [])->values();
+
+        $this->assertCount(1, $extensions);
+        $this->assertSame(null, $extensions[0]['quotation_extension_master_id'] ?? null);
+        $this->assertSame('Promo Bundle', $extensions[0]['name'] ?? null);
+        $this->assertSame('discount', $extensions[0]['type'] ?? null);
+        $this->assertSame('fixed', $extensions[0]['calculation_mode'] ?? null);
+        $this->assertSame(40.0, (float) ($extensions[0]['calculation_value'] ?? 0));
+        $this->assertSame(-40.0, (float) ($extensions[0]['amount'] ?? 0));
+        $this->assertSame(960.0, (float) $quotation->total_amount);
+    }
+
+    public function test_get_for_data_table_uses_order_invoice_totals_when_available(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'customer_number' => 'CUST-EXT-DATATABLE-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'transfer',
+            'status' => 'accepted',
+            'description' => 'Quotation datatable total test',
+        ]);
+
+        $quotation->quotationItems()->create([
+            'description' => 'Package cost',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 1',
+            'amount' => 700,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(7)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice 2',
+            'amount' => 200,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(14)->format('Y-m-d'),
+            'status' => 'outstanding',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Cancelled invoice',
+            'amount' => 500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(10)->format('Y-m-d'),
+            'status' => 'cancelled',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Refund invoice',
+            'amount' => -50,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(10)->format('Y-m-d'),
+            'status' => 'refund',
+        ]);
+
+        $rows = app(QuotationService::class)->getForDataTable([], null);
+        $row = $rows->firstWhere('id', $quotation->id);
+
+        $this->assertNotNull($row);
+        $this->assertSame(900.0, (float) ($row['total_amount'] ?? 0));
+    }
+
     public function test_update_converted_quotation_does_not_override_invoice_owned_extensions(): void
     {
         $user = User::factory()->create();

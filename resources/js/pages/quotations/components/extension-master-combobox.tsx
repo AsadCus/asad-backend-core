@@ -49,7 +49,7 @@ export type ExtensionMasterComboboxOption = {
 interface ExtensionMasterComboboxProps {
     value: number | null;
     options: ExtensionMasterComboboxOption[];
-    extensionType: 'discount' | 'tax' | 'additional';
+    extensionType: 'discount' | 'tax' | 'additional' | 'item';
     triggerMode?: 'input' | 'button';
     triggerButtonLabel?: string;
     open?: boolean;
@@ -112,26 +112,42 @@ export default function ExtensionMasterCombobox({
     const [newCalculationMode, setNewCalculationMode] = useState<
         'fixed' | 'percentage'
     >('fixed');
+    const [newItemType, setNewItemType] = useState<'tax' | 'discount'>('tax');
     const [newCalculationValue, setNewCalculationValue] = useState('');
     const [localOptions, setLocalOptions] = useState(options);
 
-    const createType = extensionType === 'additional' ? 'other' : extensionType;
+    const createType =
+        extensionType === 'additional'
+            ? 'other'
+            : extensionType === 'item'
+              ? newItemType
+              : extensionType;
 
     const extensionTypeLabel =
-        extensionType === 'additional' ? 'additional charges' : extensionType;
+        extensionType === 'additional'
+            ? 'additional charges'
+            : extensionType === 'item'
+              ? 'item'
+              : extensionType;
 
     useEffect(() => {
         setLocalOptions(options);
     }, [options]);
 
     const filteredOptions = useMemo(() => {
-        return localOptions
+        const visibleOptions = localOptions
             .filter((option) => option.is_active !== false)
             .filter((option) => {
-                const optionType = String(option.type ?? extensionType);
+                const optionType = String(option.type ?? extensionType)
+                    .trim()
+                    .toLowerCase();
 
                 if (extensionType === 'additional') {
                     return ['credit_card', 'other'].includes(optionType);
+                }
+
+                if (extensionType === 'item') {
+                    return ['tax', 'discount'].includes(optionType);
                 }
 
                 return optionType === extensionType;
@@ -145,15 +161,52 @@ export default function ExtensionMasterCombobox({
                     .toLowerCase()
                     .includes(searchValue.toLowerCase());
             });
+
+        const uniqueOptions = new Map<string, ExtensionMasterComboboxOption>();
+
+        visibleOptions.forEach((option) => {
+            const optionId = Number(option.id ?? 0);
+            const optionType = String(option.type ?? extensionType)
+                .trim()
+                .toLowerCase();
+            const optionMode = String(option.calculation_mode ?? 'fixed')
+                .trim()
+                .toLowerCase();
+            const optionValue = Number(option.calculation_value ?? 0);
+            const optionName = String(option.name ?? '')
+                .trim()
+                .toLowerCase();
+            const optionLabel = getOptionLabel(option).trim().toLowerCase();
+
+            const key =
+                extensionType === 'item'
+                    ? [optionType, optionLabel].join('|')
+                    : optionId > 0
+                      ? `id:${optionId}`
+                      : [optionName, optionType, optionMode, optionValue].join(
+                            '|',
+                        );
+
+            if (!uniqueOptions.has(key)) {
+                uniqueOptions.set(key, option);
+            }
+        });
+
+        return Array.from(uniqueOptions.values());
     }, [extensionType, localOptions, searchValue]);
 
-    const selectedOption = useMemo(
-        () =>
-            localOptions.find(
-                (option) => Number(option.id) === Number(value),
-            ) ?? null,
-        [localOptions, value],
-    );
+    const selectedOption = useMemo(() => {
+        const selectedId = Number(value ?? 0);
+
+        if (!Number.isFinite(selectedId) || selectedId <= 0) {
+            return null;
+        }
+
+        return (
+            localOptions.find((option) => Number(option.id) === selectedId) ??
+            null
+        );
+    }, [localOptions, value]);
 
     const selectedText = selectedOption
         ? getOptionLabel(selectedOption)
@@ -385,6 +438,7 @@ export default function ExtensionMasterCombobox({
                                     onSelect={() => {
                                         setNewName(searchValue || '');
                                         setNewCalculationMode('fixed');
+                                        setNewItemType('tax');
                                         setNewCalculationValue('');
                                         setOpenCreateDialog(true);
                                     }}
@@ -424,6 +478,31 @@ export default function ExtensionMasterCombobox({
                     </DialogHeader>
 
                     <div className="space-y-3">
+                        {extensionType === 'item' && (
+                            <div className="space-y-1">
+                                <Label htmlFor="new-item-type">Type</Label>
+                                <Select
+                                    value={newItemType}
+                                    disabled={isCreating}
+                                    onValueChange={(value) =>
+                                        setNewItemType(
+                                            value as 'tax' | 'discount',
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger id="new-item-type">
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="tax">Tax</SelectItem>
+                                        <SelectItem value="discount">
+                                            Discount
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
                         <div className="space-y-1">
                             <Label htmlFor={`new-${extensionType}-name`}>
                                 Name

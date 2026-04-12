@@ -3,7 +3,8 @@
 namespace Tests\Unit;
 
 use App\Rules\QuotationItemRule;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Support\Facades\Validator;
+use Tests\TestCase;
 
 class QuotationItemRuleTest extends TestCase
 {
@@ -14,5 +15,28 @@ class QuotationItemRuleTest extends TestCase
         $this->assertArrayHasKey('items.*.rate', $rules);
         $this->assertContains('numeric', $rules['items.*.rate']);
         $this->assertNotContains('min:0', $rules['items.*.rate']);
+    }
+
+    public function test_header_item_can_exist_without_child(): void
+    {
+        $rules = (new QuotationItemRule)->rules('items');
+
+        $payload = [
+            'items' => [
+                [
+                    '_key' => 'header-1',
+                    'description' => 'Header without child',
+                    'is_header' => true,
+                    'is_optional' => false,
+                    'quantity' => null,
+                    'rate' => null,
+                    'taxes' => [],
+                ],
+            ],
+        ];
+
+        $validator = Validator::make($payload, $rules);
+
+        $this->assertTrue($validator->passes(), 'Header item without child should be valid.');
     }
 }

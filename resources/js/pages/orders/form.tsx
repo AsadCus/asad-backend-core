@@ -257,6 +257,7 @@ type TaxLineItem = {
 
 function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
     name: string;
+    type: string;
     calculation_mode: string;
     calculation_value: number;
     amount: number;
@@ -265,6 +266,7 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
         string,
         {
             name: string;
+            type: string;
             calculation_mode: string;
             calculation_value: number;
             amount: number;
@@ -284,20 +286,24 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
 
             if (
                 !['fixed', 'percentage'].includes(calculationMode) ||
-                calculationValue <= 0
+                calculationValue === 0
             ) {
                 return;
             }
 
+            const taxType = calculationValue < 0 ? 'discount' : 'tax';
+
             const key = [
                 Number(tax.quotation_extension_master_id ?? 0),
                 String(tax.name ?? 'Tax').toLowerCase(),
+                taxType,
                 calculationMode,
                 calculationValue,
             ].join('|');
 
             const current = grouped.get(key) ?? {
                 name: String(tax.name ?? 'Tax'),
+                type: taxType,
                 calculation_mode: calculationMode,
                 calculation_value: calculationValue,
                 amount: 0,
@@ -399,6 +405,49 @@ function createEmptyInvoice(defaultPaymentMethod = ''): InvoiceSchema {
         extensions: [],
         items: [],
         amount: 0,
+    };
+}
+
+function sanitizeQuotationExtensionMasterId(
+    value: unknown,
+    validMasterIds: Set<number>,
+): number | null {
+    const parsedId = Number(value ?? 0);
+
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+        return null;
+    }
+
+    return validMasterIds.has(parsedId) ? parsedId : null;
+}
+
+function sanitizeOrderPayloadBeforeSubmit(
+    payload: OrderSchema,
+    validMasterIds: Set<number>,
+): OrderSchema {
+    return {
+        ...payload,
+        invoices: (payload.invoices ?? []).map((invoice) => ({
+            ...invoice,
+            extensions: (invoice.extensions ?? []).map((extension) => ({
+                ...extension,
+                quotation_extension_master_id: sanitizeQuotationExtensionMasterId(
+                    extension.quotation_extension_master_id,
+                    validMasterIds,
+                ),
+            })),
+            items: (invoice.items ?? []).map((item) => ({
+                ...item,
+                taxes: (item.taxes ?? []).map((tax) => ({
+                    ...tax,
+                    quotation_extension_master_id:
+                        sanitizeQuotationExtensionMasterId(
+                            tax.quotation_extension_master_id,
+                            validMasterIds,
+                        ),
+                })),
+            })),
+        })),
     };
 }
 
@@ -744,6 +793,8 @@ export default function OrderForm({
           }
         : initialFormState;
 
+    const form = useForm<OrderSchema>(defaultData);
+
     const {
         data,
         setData,
@@ -754,7 +805,17 @@ export default function OrderForm({
         reset,
         setError,
         clearErrors,
-    } = useForm<OrderSchema>(defaultData);
+    } = form;
+
+    const validOrderExtensionMasterIds = useMemo(
+        () =>
+            new Set(
+                normalizedOrderExtensionMasters
+                    .map((master) => Number(master.id ?? 0))
+                    .filter((id) => Number.isInteger(id) && id > 0),
+            ),
+        [normalizedOrderExtensionMasters],
+    );
 
     const invoicesGrandTotal = useMemo(
         () =>
@@ -1279,6 +1340,13 @@ export default function OrderForm({
 
         const url = '/order';
 
+        form.transform((currentData) =>
+            sanitizeOrderPayloadBeforeSubmit(
+                currentData,
+                validOrderExtensionMasterIds,
+            ),
+        );
+
         if (isCreate) {
             post(url, {
                 preserveState: true,
@@ -1293,6 +1361,9 @@ export default function OrderForm({
                     }
 
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+                onFinish: () => {
+                    form.transform((currentData) => currentData);
                 },
             });
         } else if (isEdit) {
@@ -1309,6 +1380,9 @@ export default function OrderForm({
                     }
 
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+                onFinish: () => {
+                    form.transform((currentData) => currentData);
                 },
             });
         }
@@ -1757,10 +1831,45 @@ export default function OrderForm({
             {
                 id: number;
                 name: string;
+                type: string;
                 calculation_mode: string;
                 calculation_value: number;
             }
         >();
+
+        normalizedOrderExtensionMasters.forEach((master) => {
+            const masterType = String(master.type ?? '').toLowerCase();
+
+            if (!['tax', 'discount'].includes(masterType)) {
+                return;
+            }
+
+            const id = Number(master.id ?? 0);
+            const name = String(master.name ?? 'Tax');
+            const calculationMode =
+                String(master.calculation_mode ?? '') === 'percentage'
+                    ? 'percentage'
+                    : String(master.calculation_mode ?? 'fixed');
+            const calculationValue = Number(master.calculation_value ?? 0);
+
+            const key = [
+                id,
+                name.toLowerCase(),
+                masterType,
+                calculationMode,
+                calculationValue,
+            ].join('|');
+
+            if (!grouped.has(key)) {
+                grouped.set(key, {
+                    id,
+                    name,
+                    type: masterType,
+                    calculation_mode: calculationMode,
+                    calculation_value: calculationValue,
+                });
+            }
+        });
 
         const collectTaxesFromItems = (items: InvoiceSchema['items'] = []) => {
             items.forEach((item) => {
@@ -1770,14 +1879,17 @@ export default function OrderForm({
 
                     if (
                         !['fixed', 'percentage'].includes(calculationMode) ||
-                        calculationValue <= 0
+                        calculationValue === 0
                     ) {
                         return;
                     }
 
+                    const taxType = calculationValue < 0 ? 'discount' : 'tax';
+
                     const key = [
                         Number(tax.quotation_extension_master_id ?? 0),
                         String(tax.name ?? 'Tax').toLowerCase(),
+                        taxType,
                         calculationMode,
                         calculationValue,
                     ].join('|');
@@ -1786,6 +1898,7 @@ export default function OrderForm({
                         grouped.set(key, {
                             id: Number(tax.quotation_extension_master_id ?? 0),
                             name: String(tax.name ?? 'Tax'),
+                            type: taxType,
                             calculation_mode: calculationMode,
                             calculation_value: calculationValue,
                         });
@@ -1805,14 +1918,17 @@ export default function OrderForm({
 
                 if (
                     !['fixed', 'percentage'].includes(calculationMode) ||
-                    calculationValue <= 0
+                    calculationValue === 0
                 ) {
                     return;
                 }
 
+                const taxType = calculationValue < 0 ? 'discount' : 'tax';
+
                 const key = [
                     Number(tax.quotation_extension_master_id ?? 0),
                     String(tax.name ?? 'Tax').toLowerCase(),
+                    taxType,
                     calculationMode,
                     calculationValue,
                 ].join('|');
@@ -1821,6 +1937,7 @@ export default function OrderForm({
                     grouped.set(key, {
                         id: Number(tax.quotation_extension_master_id ?? 0),
                         name: String(tax.name ?? 'Tax'),
+                        type: taxType,
                         calculation_mode: calculationMode,
                         calculation_value: calculationValue,
                     });
@@ -1831,7 +1948,7 @@ export default function OrderForm({
         return Array.from(grouped.values()).sort((left, right) =>
             left.name.localeCompare(right.name),
         );
-    }, [data.invoices, quotation]);
+    }, [data.invoices, normalizedOrderExtensionMasters, quotation]);
 
     // preview
     // const [previewInvoice, setPreviewInvoice] = useState<InvoiceSchema | null>(
