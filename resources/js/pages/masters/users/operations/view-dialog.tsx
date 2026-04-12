@@ -10,7 +10,9 @@ interface OperationsViewDialogProps {
     initialData?: UserSchema;
     roles?: OptionType[];
     branches?: OptionType[];
+    countries?: OptionType[];
     salesList?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function OperationsViewDialog({
@@ -20,7 +22,9 @@ export default function OperationsViewDialog({
     initialData,
     roles = [],
     branches = [],
+    countries = [],
     salesList = [],
+    scopeMode = 'country',
 }: OperationsViewDialogProps) {
     const title =
         mode === 'create'
@@ -38,9 +42,11 @@ export default function OperationsViewDialog({
             initialData={initialData}
             roles={roles}
             branches={branches}
+            countries={countries}
             salesList={salesList}
             isOperations
             submitUrl={index().url}
+            scopeMode={scopeMode}
         />
     );
 }

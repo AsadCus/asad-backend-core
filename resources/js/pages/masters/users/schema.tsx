@@ -13,6 +13,8 @@ const baseUserSchema = z
         send_email: z.boolean().optional(),
         contact: z.string().optional(),
         role: z.enum(['admin', 'sales', 'operations', 'customer']),
+        scope_mode: z.enum(['country', 'branch']).optional(),
+        scope_ids: z.array(z.string()).optional(),
         country_id: z.string().optional(),
         country_name: z.string().optional(),
         branch_id: z.string().optional(),
@@ -53,19 +55,20 @@ const baseUserSchema = z
             }
         }
 
-        if (data.role === 'sales' && !data.branch_id?.trim()) {
-            ctx.addIssue({
-                code: 'custom',
-                path: ['branch_id'],
-                message: 'The branch field is required for sales.',
-            });
-        }
+        const scopeMode = data.scope_mode ?? 'country';
+        const scopeIds = (data.scope_ids ?? []).filter((id) => id.trim().length > 0);
 
-        if (data.role === 'operations' && !data.branch_id?.trim()) {
+        if (
+            (data.role === 'admin' || data.role === 'sales' || data.role === 'operations') &&
+            scopeIds.length === 0
+        ) {
             ctx.addIssue({
                 code: 'custom',
-                path: ['branch_id'],
-                message: 'The branch field is required for operations.',
+                path: ['scope_ids'],
+                message:
+                    scopeMode === 'branch'
+                        ? 'At least one branch is required.'
+                        : 'At least one country is required.',
             });
         }
     });

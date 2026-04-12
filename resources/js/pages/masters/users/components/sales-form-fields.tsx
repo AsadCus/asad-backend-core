@@ -3,21 +3,23 @@ import { UserSchema } from '../schema';
 import { AdminFormFields } from './admin-form-fields';
 
 interface SalesFormFieldsProps {
-    data: Pick<UserSchema, 'name' | 'email' | 'contact' | 'branch_id'>;
+    data: Pick<UserSchema, 'name' | 'email' | 'contact' | 'scope_ids'>;
     errors: Partial<Record<keyof UserSchema, string>>;
-    branches: OptionType[];
+    scopeMode?: 'country' | 'branch';
+    scopeOptions: OptionType[];
     isView: boolean;
     isSalesUser: boolean;
     onChange: (
-        field: 'name' | 'email' | 'contact' | 'branch_id',
-        value: string,
+        field: 'name' | 'email' | 'contact' | 'scope_ids',
+        value: string | string[],
     ) => void;
 }
 
 export function SalesFormFields({
     data,
     errors,
-    branches,
+    scopeMode = 'country',
+    scopeOptions,
     isView,
     isSalesUser,
     onChange,
@@ -29,10 +31,11 @@ export function SalesFormFields({
                     name: data.name,
                     email: data.email,
                     contact: data.contact,
-                    branch_id: data.branch_id,
+                    scope_ids: data.scope_ids,
                 }}
                 errors={errors}
-                branches={branches}
+                scopeMode={scopeMode}
+                scopeOptions={scopeOptions}
                 isView={isView || isSalesUser}
                 onChange={(field, value) => onChange(field, value)}
             />

@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Admin;
 use App\Models\Branch;
 use App\Models\Country;
 use App\Models\Manifest;
 use App\Models\Package;
+use App\Models\Sales;
 use App\Models\User;
 use App\Services\ManifestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,10 +39,16 @@ class ManifestCountryScopeTest extends TestCase
             'country_id' => $countryA->id,
         ]);
 
-        $adminUser = User::factory()->create([
-            'branch_id' => $branchA->id,
-        ]);
+        $adminUser = User::factory()->create();
         $adminUser->assignRole($adminRole);
+
+        Admin::query()->create([
+            'user_id' => $adminUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => $countryA->id,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [$countryA->id],
+        ]);
 
         $packageA = Package::create([
             'package_number' => 'PKG-COUNTRY-A',
@@ -90,10 +98,16 @@ class ManifestCountryScopeTest extends TestCase
             'adjective' => 'Indonesian',
         ]);
 
-        $adminUser = User::factory()->create([
-            'branch_id' => null,
-        ]);
+        $adminUser = User::factory()->create();
         $adminUser->assignRole($adminRole);
+
+        Admin::query()->create([
+            'user_id' => $adminUser->id,
+            'branch_id' => null,
+            'country_id' => null,
+            'branch_ids' => [],
+            'country_ids' => [],
+        ]);
 
         $packageA = Package::create([
             'package_number' => 'PKG-COUNTRY-A2',
@@ -147,10 +161,16 @@ class ManifestCountryScopeTest extends TestCase
             'country_id' => $countryA->id,
         ]);
 
-        $salesUser = User::factory()->create([
-            'branch_id' => $branchA->id,
-        ]);
+        $salesUser = User::factory()->create();
         $salesUser->assignRole($salesRole);
+
+        Sales::query()->create([
+            'user_id' => $salesUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => $countryA->id,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [$countryA->id],
+        ]);
 
         $packageA = Package::create([
             'package_number' => 'PKG-SALES-A',
@@ -205,10 +225,16 @@ class ManifestCountryScopeTest extends TestCase
             'country_id' => $countryA->id,
         ]);
 
-        $salesUser = User::factory()->create([
-            'branch_id' => $branchA->id,
-        ]);
+        $salesUser = User::factory()->create();
         $salesUser->assignRole($salesRole);
+
+        Sales::query()->create([
+            'user_id' => $salesUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => $countryA->id,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [$countryA->id],
+        ]);
 
         $packageA = Package::create([
             'package_number' => 'PKG-SCOPE-OFF-A',

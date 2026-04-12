@@ -20,6 +20,8 @@ class Enquiry extends Model
         'created_by',
         'package_id',
         'handled_by',
+        'branch_id',
+        'country_id',
     ];
 
     protected function casts(): array
@@ -67,6 +69,16 @@ class Enquiry extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class, 'package_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 
     /**

@@ -17,12 +17,14 @@ interface RoleUserFormDialogProps {
     initialData?: UserSchema;
     roles?: OptionType[];
     branches?: OptionType[];
+    countries?: OptionType[];
     salesList?: OptionType[];
     isAdmin?: boolean;
     isSales?: boolean;
     isOperations?: boolean;
     isCustomer?: boolean;
     submitUrl: string;
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function RoleUserFormDialog({
@@ -33,12 +35,14 @@ export default function RoleUserFormDialog({
     initialData,
     roles = [],
     branches = [],
+    countries = [],
     salesList = [],
     isAdmin = false,
     isSales = false,
     isOperations = false,
     isCustomer = false,
     submitUrl,
+    scopeMode = 'country',
 }: RoleUserFormDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,12 +60,14 @@ export default function RoleUserFormDialog({
                         initialData={initialData}
                         roles={roles}
                         branches={branches}
+                        countries={countries}
                         salesList={salesList}
                         isAdmin={isAdmin}
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
                         submitUrl={submitUrl}
+                        scopeMode={scopeMode}
                         onCancel={() => onOpenChange(false)}
                     />
                 </div>

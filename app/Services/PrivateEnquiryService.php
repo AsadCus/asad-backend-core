@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Branch;
 use App\Models\Enquiry;
 use App\Models\Notification;
 use App\Models\PrivateEnquiry;
@@ -22,11 +23,23 @@ class PrivateEnquiryService
             ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
             ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
                 $query->whereHas('enquiry', function ($enquiryQuery) {
+                    $scopeMode = DataScope::mode();
+                    $countryIds = DataScope::scopedCountryIds();
+                    $branchIds = DataScope::scopedBranchIds();
+
                     $enquiryQuery->where(function ($visibilityQuery) {
                         $visibilityQuery
                             ->where('handled_by', auth()->id())
                             ->orWhereNull('handled_by');
                     });
+
+                    if ($scopeMode === 'branch' && ! empty($branchIds)) {
+                        $enquiryQuery->whereIn('branch_id', $branchIds);
+                    }
+
+                    if ($scopeMode === 'country' && ! empty($countryIds)) {
+                        $enquiryQuery->whereIn('country_id', $countryIds);
+                    }
                 });
             })
             ->when($filters['from_date'] ?? null, function ($q, $value) {
@@ -83,6 +96,8 @@ class PrivateEnquiryService
                     'other_remarks' => $privateEnquiry->other_remarks,
                     'last_remark' => $privateEnquiry->enquiry?->latestRemark->remark ?? '-',
                     'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name ?? '-',
+                    'branch_id' => $privateEnquiry->enquiry?->branch_id,
+                    'country_id' => $privateEnquiry->enquiry?->country_id,
                     'created_at' => $privateEnquiry->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $privateEnquiry->updated_at?->translatedFormat('d F Y'),
                 ];
@@ -94,20 +109,12 @@ class PrivateEnquiryService
     public function store(array $data = []): PrivateEnquiry
     {
         return DB::transaction(function () use ($data) {
-            // Format date fields if present
-            foreach (
-                [
-                    'passport_expiry_date',
-                    'departure_date',
-                    'return_date',
-                ] as $dateField
-            ) {
+            foreach (['passport_expiry_date', 'departure_date', 'return_date'] as $dateField) {
                 if (! empty($data[$dateField])) {
                     $data[$dateField] = Carbon::parse($data[$dateField])->format('Y-m-d');
                 }
             }
 
-            // Create parent enquiry record
             $parentEnquiry = Enquiry::create([
                 'type' => 'private',
                 'enquiry_number' => $this->numberingService->ensureNumber(
@@ -121,6 +128,7 @@ class PrivateEnquiryService
                 'contact_number' => $data['contact_number'] ?? '',
                 'email' => $data['email'] ?? '',
                 'created_by' => auth()->id(),
+                ...$this->resolveEnquiryScopePayload($data),
             ]);
 
             $privateEnquiry = PrivateEnquiry::create([
@@ -159,7 +167,6 @@ class PrivateEnquiryService
                 ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $privateEnquiry->id, 'enquiry_id' => $parentEnquiry->id])
                 ->log('Private enquiry created successfully #'.$privateEnquiry->id);
 
-            // Create notification for admin/sales users
             $this->createEnquiryNotification($privateEnquiry, $parentEnquiry);
 
             return $privateEnquiry;
@@ -172,11 +179,23 @@ class PrivateEnquiryService
 
         if (DataScope::shouldScopeSalesEnquiries()) {
             $query->whereHas('enquiry', function ($enquiryQuery) {
+                $scopeMode = DataScope::mode();
+                $countryIds = DataScope::scopedCountryIds();
+                $branchIds = DataScope::scopedBranchIds();
+
                 $enquiryQuery->where(function ($visibilityQuery) {
                     $visibilityQuery
                         ->where('handled_by', auth()->id())
                         ->orWhereNull('handled_by');
                 });
+
+                if ($scopeMode === 'branch' && ! empty($branchIds)) {
+                    $enquiryQuery->whereIn('branch_id', $branchIds);
+                }
+
+                if ($scopeMode === 'country' && ! empty($countryIds)) {
+                    $enquiryQuery->whereIn('country_id', $countryIds);
+                }
             });
         }
 
@@ -218,6 +237,8 @@ class PrivateEnquiryService
             'chronic_disease_details' => $privateEnquiry->chronic_disease_details,
             'need_wheelchair' => $privateEnquiry->need_wheelchair,
             'other_remarks' => $privateEnquiry->other_remarks,
+            'branch_id' => $privateEnquiry->enquiry?->branch_id,
+            'country_id' => $privateEnquiry->enquiry?->country_id,
             'created_at' => $privateEnquiry->created_at?->translatedFormat('d F Y'),
             'updated_at' => $privateEnquiry->updated_at?->translatedFormat('d F Y'),
         ];
@@ -228,13 +249,7 @@ class PrivateEnquiryService
         return DB::transaction(function () use ($data, $id) {
             $privateEnquiry = PrivateEnquiry::with('enquiry')->findOrFail($id);
 
-            foreach (
-                [
-                    'passport_expiry_date',
-                    'departure_date',
-                    'return_date',
-                ] as $dateField
-            ) {
+            foreach (['passport_expiry_date', 'departure_date', 'return_date'] as $dateField) {
                 if (! empty($data[$dateField])) {
                     $data[$dateField] = Carbon::parse($data[$dateField])->format('Y-m-d');
                 }
@@ -270,7 +285,6 @@ class PrivateEnquiryService
                 'other_remarks' => $data['other_remarks'] ?? $privateEnquiry->other_remarks,
             ]);
 
-            // Sync parent enquiry common fields
             if ($privateEnquiry->enquiry) {
                 $privateEnquiry->enquiry->update([
                     'enquiry_number' => array_key_exists('enquiry_number', $data)
@@ -284,6 +298,7 @@ class PrivateEnquiryService
                     'name' => $data['name'] ?? $privateEnquiry->enquiry?->name,
                     'contact_number' => $data['contact_number'] ?? $privateEnquiry->enquiry?->contact_number,
                     'email' => $data['email'] ?? $privateEnquiry->enquiry?->email,
+                    ...$this->resolveEnquiryScopePayload($data, $privateEnquiry->enquiry?->branch_id, $privateEnquiry->enquiry?->country_id),
                 ]);
             }
 
@@ -310,12 +325,39 @@ class PrivateEnquiryService
             ->withProperties(['subject_type' => 'PrivateEnquiry', 'subject_id' => $privateEnquiry->id, 'enquiry_id' => $privateEnquiry->enquiry_id])
             ->log('Private enquiry deleted successfully #'.$privateEnquiry->id);
 
-        // Also delete parent enquiry
         if ($privateEnquiry->enquiry_id) {
             Enquiry::where('id', $privateEnquiry->enquiry_id)->delete();
         }
 
         return $privateEnquiry->delete();
+    }
+
+    /**
+     * @return array{branch_id:int|null,country_id:int|null}
+     */
+    private function resolveEnquiryScopePayload(array $data, ?int $fallbackBranchId = null, ?int $fallbackCountryId = null): array
+    {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
+        if ($scopeMode === 'branch') {
+            $branchId = isset($data['branch_id']) ? (int) $data['branch_id'] : (int) ($fallbackBranchId ?? 0);
+            $resolvedBranchId = $branchId > 0 ? $branchId : null;
+            $resolvedCountryId = $resolvedBranchId
+                ? (int) (Branch::query()->whereKey($resolvedBranchId)->value('country_id') ?? 0)
+                : 0;
+
+            return [
+                'branch_id' => $resolvedBranchId,
+                'country_id' => $resolvedCountryId > 0 ? $resolvedCountryId : null,
+            ];
+        }
+
+        $countryId = isset($data['country_id']) ? (int) $data['country_id'] : (int) ($fallbackCountryId ?? 0);
+
+        return [
+            'branch_id' => null,
+            'country_id' => $countryId > 0 ? $countryId : null,
+        ];
     }
 
     /**
@@ -345,8 +387,7 @@ class PrivateEnquiryService
                 ]);
             }
         } catch (\Exception $e) {
-            // Silently fail if roles don't exist (e.g., in tests)
-            // The enquiry creation itself should not fail due to notification issues
+            // Silently fail if roles don't exist (e.g., in tests).
         }
     }
 }

@@ -239,10 +239,24 @@ class EnquiryService
             return;
         }
 
+        $scopeMode = DataScope::mode();
+        $countryIds = DataScope::scopedCountryIds();
+        $branchIds = DataScope::scopedBranchIds();
+
         $query->where(function (Builder $visibilityQuery) {
             $visibilityQuery
                 ->where('handled_by', auth()->id())
                 ->orWhereNull('handled_by');
         });
+
+        if ($scopeMode === 'branch' && ! empty($branchIds)) {
+            $query->whereIn('branch_id', $branchIds);
+
+            return;
+        }
+
+        if ($scopeMode === 'country' && ! empty($countryIds)) {
+            $query->whereIn('country_id', $countryIds);
+        }
     }
 }

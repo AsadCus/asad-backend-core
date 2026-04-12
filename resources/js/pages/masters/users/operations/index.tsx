@@ -71,14 +71,18 @@ interface OperationsProps {
     dataUser: UserSchema[];
     dataRole: OptionType[];
     dataBranch: OptionType[];
+    dataCountry: OptionType[];
     dataSales: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function Operations({
     dataUser,
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
+    scopeMode = 'country',
 }: OperationsProps) {
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -157,7 +161,9 @@ export default function Operations({
                 initialData={selectedUser}
                 roles={dataRole}
                 branches={dataBranch}
+                countries={dataCountry}
                 salesList={dataSales}
+                scopeMode={scopeMode}
             />
             <ConfirmDialog />
         </>

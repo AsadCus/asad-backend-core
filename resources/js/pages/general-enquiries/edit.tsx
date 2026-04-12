@@ -8,6 +8,9 @@ import GeneralEnquiryForm, { GeneralEnquiryFormSchema } from './form';
 interface EditGeneralEnquiryProps {
     data: GeneralEnquiryFormSchema;
     packageOptions: OptionType[];
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,6 +23,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function EditGeneralEnquiry({
     data,
     packageOptions = [],
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
 }: EditGeneralEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -40,6 +46,9 @@ export default function EditGeneralEnquiry({
                         mode="edit"
                         initialData={data}
                         packageOptions={packageOptions}
+                        branchOptions={branchOptions}
+                        countryOptions={countryOptions}
+                        scopeMode={scopeMode}
                         onCancel={handleCancel}
                     />
                 </div>

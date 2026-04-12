@@ -29,6 +29,7 @@ interface UserFormProps {
     onSubmit?: (values: UserSchema) => void;
     onCancel?: () => void;
     branches?: OptionType[];
+    countries?: OptionType[];
     roles?: OptionType[];
     salesList?: OptionType[];
     isAdmin?: boolean;
@@ -36,6 +37,7 @@ interface UserFormProps {
     isOperations?: boolean;
     isCustomer?: boolean;
     submitUrl?: string;
+    scopeMode?: 'country' | 'branch';
 }
 
 export function UserForm({
@@ -43,6 +45,7 @@ export function UserForm({
     initialData,
     onCancel,
     branches = [],
+    countries = [],
     roles = [],
     salesList = [],
     isAdmin,
@@ -50,6 +53,7 @@ export function UserForm({
     isOperations,
     isCustomer,
     submitUrl,
+    scopeMode,
 }: UserFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -75,6 +79,8 @@ export function UserForm({
         send_email: false,
         contact: '',
         role: determinedRole,
+        scope_mode: 'country',
+        scope_ids: [],
         country_id: '',
         branch_id: '',
         company_name: '',
@@ -101,9 +107,40 @@ export function UserForm({
     };
 
     const { auth } = usePage<SharedData>().props;
+    const resolvedScopeMode: 'country' | 'branch' =
+        (scopeMode as 'country' | 'branch') ??
+        (auth?.scope_mode as 'country' | 'branch' | undefined) ??
+        'country';
+
+    initialFormState.scope_mode = resolvedScopeMode;
+
     if (auth?.roles?.includes('sales')) {
         initialFormState.branch_id = String(auth?.user?.sales?.branch_id ?? '');
         initialFormState.handled_by = String(auth?.user?.id ?? '');
+
+        if (resolvedScopeMode === 'branch') {
+            const authSalesBranchIds = Array.isArray(
+                auth?.user?.sales?.branch_ids,
+            )
+                ? auth.user.sales.branch_ids
+                : [auth?.user?.sales?.branch_id];
+
+            initialFormState.scope_ids = authSalesBranchIds
+                .map((id) => String(id ?? '').trim())
+                .filter((id) => id.length > 0);
+        }
+
+        if (resolvedScopeMode === 'country') {
+            const authSalesCountryIds = Array.isArray(
+                auth?.user?.sales?.country_ids,
+            )
+                ? auth.user.sales.country_ids
+                : [auth?.user?.sales?.country_id];
+
+            initialFormState.scope_ids = authSalesCountryIds
+                .map((id) => String(id ?? '').trim())
+                .filter((id) => id.length > 0);
+        }
     }
 
     let defaultData: UserSchema;
@@ -113,6 +150,8 @@ export function UserForm({
             ...initialData,
             password: '',
             password_confirmation: '',
+            scope_mode: initialData.scope_mode ?? resolvedScopeMode,
+            scope_ids: initialData.scope_ids ?? [],
         };
 
         if (auth?.roles?.includes('sales')) {
@@ -137,6 +176,7 @@ export function UserForm({
         clearErrors,
         transform,
     } = form;
+    const scopeOptions = resolvedScopeMode === 'branch' ? branches : countries;
     const selectedBranchId = data.branch_id;
     const filteredSalesList = salesList.filter(
         (sale: OptionType & { branch_id?: string | number | null }) => {
@@ -417,18 +457,30 @@ export function UserForm({
                                     name: data.name,
                                     email: data.email,
                                     contact: data.contact,
-                                    branch_id: data.branch_id,
+                                    scope_ids: data.scope_ids,
                                 }}
                                 errors={
                                     errors as Partial<
                                         Record<keyof UserSchema, string>
                                     >
                                 }
-                                branches={branches}
+                                scopeMode={resolvedScopeMode}
+                                scopeOptions={scopeOptions}
                                 isView={isView}
-                                onChange={(field, value) =>
-                                    setData(field, value)
-                                }
+                                onChange={(field, value) => {
+                                    if (field === 'scope_ids') {
+                                        setData(
+                                            'scope_ids',
+                                            Array.isArray(value)
+                                                ? value
+                                                : [String(value)],
+                                        );
+
+                                        return;
+                                    }
+
+                                    setData(field, String(value));
+                                }}
                             />
                         )}
 
@@ -438,22 +490,30 @@ export function UserForm({
                                     name: data.name,
                                     email: data.email,
                                     contact: data.contact,
-                                    branch_id: data.branch_id,
+                                    scope_ids: data.scope_ids,
                                 }}
                                 errors={
                                     errors as Partial<
                                         Record<keyof UserSchema, string>
                                     >
                                 }
-                                branches={branches}
+                                scopeMode={resolvedScopeMode}
+                                scopeOptions={scopeOptions}
                                 isView={isView}
                                 isSalesUser={auth.roles.includes('sales')}
                                 onChange={(field, value) => {
-                                    setData(field, value);
+                                    if (field === 'scope_ids') {
+                                        setData(
+                                            'scope_ids',
+                                            Array.isArray(value)
+                                                ? value
+                                                : [String(value)],
+                                        );
 
-                                    if (field === 'branch_id') {
-                                        setData('handled_by', '');
+                                        return;
                                     }
+
+                                    setData(field, String(value));
                                 }}
                             />
                         )}

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Country;
 use App\Models\User;
 use App\Services\UserRoles\AdminUserService;
 use App\Services\UserRoles\CustomerUserService;
@@ -86,12 +87,13 @@ class UserService
             $admins = User::query()
                 ->whereDoesntHave('ghostUser')
                 ->role('admin')
-                ->with('branch.country')
+                ->with('admin.country')
                 ->get();
 
             foreach ($admins as $admin) {
-                $countryName = $admin->branch?->country?->name ?? 'Unassigned';
-                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                foreach ($this->resolveCountryNamesForUser($admin, 'admin') as $countryName) {
+                    $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                }
             }
         }
 
@@ -99,12 +101,13 @@ class UserService
             $salesUsers = User::query()
                 ->whereDoesntHave('ghostUser')
                 ->role('sales')
-                ->with('sales.branch.country')
+                ->with('sales.country')
                 ->get();
 
             foreach ($salesUsers as $salesUser) {
-                $countryName = $salesUser->sales?->branch?->country?->name ?? 'Unassigned';
-                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                foreach ($this->resolveCountryNamesForUser($salesUser, 'sales') as $countryName) {
+                    $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                }
             }
         }
 
@@ -112,12 +115,13 @@ class UserService
             $operationsUsers = User::query()
                 ->whereDoesntHave('ghostUser')
                 ->role('operations')
-                ->with('branch.country')
+                ->with('operation.country')
                 ->get();
 
             foreach ($operationsUsers as $operationsUser) {
-                $countryName = $operationsUser->branch?->country?->name ?? 'Unassigned';
-                $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                foreach ($this->resolveCountryNamesForUser($operationsUser, 'operations') as $countryName) {
+                    $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                }
             }
         }
 
@@ -130,6 +134,48 @@ class UserService
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveCountryNamesForUser(User $user, string $role): array
+    {
+        $scope = match ($role) {
+            'admin' => $user->admin,
+            'sales' => $user->sales,
+            'operations' => $user->operation,
+            default => null,
+        };
+
+        if (! $scope) {
+            return ['Unassigned'];
+        }
+
+        $countryIds = is_array($scope->country_ids ?? null) ? $scope->country_ids : [];
+        $primaryCountryId = (int) ($scope->country_id ?? 0);
+
+        if ($primaryCountryId > 0) {
+            $countryIds[] = $primaryCountryId;
+        }
+
+        $countryIds = array_values(array_unique(array_filter(array_map(
+            static fn ($id) => (int) $id,
+            $countryIds,
+        ), static fn (int $id) => $id > 0)));
+
+        if (empty($countryIds)) {
+            return ['Unassigned'];
+        }
+
+        $countryNames = Country::query()
+            ->whereIn('id', $countryIds)
+            ->pluck('name')
+            ->filter()
+            ->values()
+            ->all();
+
+        return empty($countryNames) ? ['Unassigned'] : $countryNames;
     }
 
     public function store(array $data)

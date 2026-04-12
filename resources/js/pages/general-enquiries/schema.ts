@@ -11,6 +11,8 @@ export const generalEnquirySchema = z.object({
     name: z.string().optional(),
     contact_number: z.string().optional(),
     email: z.string().optional(),
+    branch_id: z.number().nullable().optional(),
+    country_id: z.number().nullable().optional(),
     preferred_destinations: z.string().optional(),
     preferred_travelling_date: z.string().optional(),
     no_of_adults: z.number().optional(),

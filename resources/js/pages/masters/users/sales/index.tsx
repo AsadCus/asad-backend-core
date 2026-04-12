@@ -71,14 +71,18 @@ interface SalesProps {
     dataUser: UserSchema[];
     dataRole: OptionType[];
     dataBranch: OptionType[];
+    dataCountry: OptionType[];
     dataSales: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function Sales({
     dataUser,
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
+    scopeMode = 'country',
 }: SalesProps) {
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -157,7 +161,9 @@ export default function Sales({
                 initialData={selectedUser}
                 roles={dataRole}
                 branches={dataBranch}
+                countries={dataCountry}
                 salesList={dataSales}
+                scopeMode={scopeMode}
             />
             <ConfirmDialog />
         </>

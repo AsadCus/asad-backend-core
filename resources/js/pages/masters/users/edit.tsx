@@ -23,22 +23,26 @@ interface EditUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
+    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function EditUser({
     data,
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    scopeMode = 'country',
 }: EditUserProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -65,6 +69,7 @@ export default function EditUser({
                         mode="edit"
                         initialData={data}
                         branches={dataBranch}
+                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
@@ -72,6 +77,7 @@ export default function EditUser({
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
+                        scopeMode={scopeMode}
                     />
                 </div>
             </div>

@@ -22,12 +22,14 @@ interface CreateUserProps {
     data: UserSchema[];
     dataRole: [];
     dataBranch: [];
+    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
     submitUrl?: string;
+    scopeMode?: 'country' | 'branch';
 }
 
 export function resolveUserRoleLabel({
@@ -51,12 +53,14 @@ export function resolveUserRoleLabel({
 export default function CreateUser({
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
     isOperations = false,
     isCustomer = false,
     submitUrl,
+    scopeMode = 'country',
 }: CreateUserProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -82,6 +86,7 @@ export default function CreateUser({
                     <UserForm
                         mode="create"
                         branches={dataBranch}
+                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
@@ -90,6 +95,7 @@ export default function CreateUser({
                         isOperations={isOperations}
                         isCustomer={isCustomer}
                         submitUrl={submitUrl}
+                        scopeMode={scopeMode}
                     />
                 </div>
             </div>

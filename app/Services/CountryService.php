@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Admin;
 use App\Models\Country;
+use App\Models\Enquiry;
+use App\Models\Operation;
+use App\Models\Sales;
 use Illuminate\Support\Facades\DB;
 
 class CountryService
@@ -112,16 +116,69 @@ class CountryService
 
     public function delete($id)
     {
-        $country = Country::find($id);
-        if (! $country) {
-            return false;
+        return DB::transaction(function () use ($id) {
+            $country = Country::find($id);
+            if (! $country) {
+                return false;
+            }
+
+            Enquiry::query()
+                ->where('country_id', $country->id)
+                ->update(['country_id' => null]);
+
+            Sales::query()
+                ->where('country_id', $country->id)
+                ->update(['country_id' => null]);
+
+            Admin::query()
+                ->where('country_id', $country->id)
+                ->update(['country_id' => null]);
+
+            Operation::query()
+                ->where('country_id', $country->id)
+                ->update(['country_id' => null]);
+
+            $this->pruneCountryScopeListFromRoleAssignments((int) $country->id);
+
+            activity()
+                ->performedOn($country)
+                ->withProperties(['subject_type' => 'Country', 'subject_id' => $country->id ?? null])
+                ->log('Country deleted successfully #'.($country->id ?? null));
+
+            return $country->delete();
+        });
+    }
+
+    private function pruneCountryScopeListFromRoleAssignments(int $countryId): void
+    {
+        foreach (Admin::query()->whereJsonContains('country_ids', $countryId)->get() as $admin) {
+            $nextCountryIds = collect($admin->country_ids ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => $id === $countryId)
+                ->values()
+                ->all();
+
+            $admin->update(['country_ids' => $nextCountryIds]);
         }
 
-        activity()
-            ->performedOn($country)
-            ->withProperties(['subject_type' => 'Country', 'subject_id' => $country->id ?? null])
-            ->log('Country deleted successfully #'.($country->id ?? null));
+        foreach (Operation::query()->whereJsonContains('country_ids', $countryId)->get() as $operation) {
+            $nextCountryIds = collect($operation->country_ids ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => $id === $countryId)
+                ->values()
+                ->all();
 
-        return $country->delete();
+            $operation->update(['country_ids' => $nextCountryIds]);
+        }
+
+        foreach (Sales::query()->whereJsonContains('country_ids', $countryId)->get() as $sales) {
+            $nextCountryIds = collect($sales->country_ids ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => $id === $countryId)
+                ->values()
+                ->all();
+
+            $sales->update(['country_ids' => $nextCountryIds]);
+        }
     }
 }

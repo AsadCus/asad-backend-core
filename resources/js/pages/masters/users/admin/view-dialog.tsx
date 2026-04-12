@@ -10,7 +10,9 @@ interface AdminViewDialogProps {
     initialData?: UserSchema;
     roles?: OptionType[];
     branches?: OptionType[];
+    countries?: OptionType[];
     salesList?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function AdminViewDialog({
@@ -20,7 +22,9 @@ export default function AdminViewDialog({
     initialData,
     roles = [],
     branches = [],
+    countries = [],
     salesList = [],
+    scopeMode = 'country',
 }: AdminViewDialogProps) {
     const title =
         mode === 'create'
@@ -38,9 +42,11 @@ export default function AdminViewDialog({
             initialData={initialData}
             roles={roles}
             branches={branches}
+            countries={countries}
             salesList={salesList}
             isAdmin
             submitUrl={index().url}
+            scopeMode={scopeMode}
         />
     );
 }

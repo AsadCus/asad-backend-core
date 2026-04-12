@@ -5,20 +5,22 @@ import { OptionType } from '@/types';
 import { UserSchema } from '../schema';
 
 interface AdminFormFieldsProps {
-    data: Pick<UserSchema, 'name' | 'email' | 'contact' | 'branch_id'>;
+    data: Pick<UserSchema, 'name' | 'email' | 'contact' | 'scope_ids'>;
     errors: Partial<Record<keyof UserSchema, string>>;
-    branches?: OptionType[];
+    scopeMode?: 'country' | 'branch';
+    scopeOptions?: OptionType[];
     isView: boolean;
     onChange: (
-        field: 'name' | 'email' | 'contact' | 'branch_id',
-        value: string,
+        field: 'name' | 'email' | 'contact' | 'scope_ids',
+        value: string | string[],
     ) => void;
 }
 
 export function AdminFormFields({
     data,
     errors,
-    branches = [],
+    scopeMode = 'country',
+    scopeOptions = [],
     isView,
     onChange,
 }: AdminFormFieldsProps) {
@@ -85,20 +87,27 @@ export function AdminFormFields({
                     />
                 </FormField>
 
-                {branches.length > 0 && (
+                {scopeOptions.length > 0 && (
                     <FormField
-                        label="Branch"
+                        label={
+                            scopeMode === 'branch' ? 'Branches' : 'Countries'
+                        }
                         fieldRequirementsProps={{ required: true }}
-                        error={errors.branch_id}
+                        error={errors.scope_ids}
                     >
                         <ProperInputSelect
+                            mode="multi"
                             disabled={isView}
-                            options={branches}
-                            value={data.branch_id}
+                            options={scopeOptions}
+                            value={data.scope_ids ?? []}
                             onValueChange={(value) =>
-                                onChange('branch_id', String(value))
+                                onChange('scope_ids', value)
                             }
-                            placeholder="Select branch"
+                            placeholder={
+                                scopeMode === 'branch'
+                                    ? 'Select branches'
+                                    : 'Select countries'
+                            }
                         />
                     </FormField>
                 )}

@@ -942,7 +942,7 @@ export default function OrderForm({
                             status:
                                 existingEditableInvoice.status ??
                                 invoice.status ??
-                                'issued',
+                                'outstanding',
                             invoice_date:
                                 existingEditableInvoice.invoice_date ??
                                 invoice.invoice_date,
@@ -1538,7 +1538,9 @@ export default function OrderForm({
 
         (data.invoices ?? []).forEach((invoice) => {
             (invoice.items ?? []).forEach((item) => {
-                const memberId = Number(item.customer_confirmation_member_id ?? 0);
+                const memberId = Number(
+                    item.customer_confirmation_member_id ?? 0,
+                );
 
                 if (Number.isFinite(memberId) && memberId > 0) {
                     memberIds.add(memberId);

@@ -9,6 +9,7 @@ use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\ManifestRoom;
 use App\Models\ManifestRoomMember;
+use App\Models\Operation;
 use App\Models\Package;
 use App\Models\PackageAccommodation;
 use App\Models\PackageFlight;
@@ -49,12 +50,18 @@ class OpsMovementWorkflowTest extends TestCase
             'country_id' => $countryA->id,
         ]);
 
-        $operationsUser = User::factory()->create([
-            'branch_id' => $branchA->id,
-        ]);
+        $operationsUser = User::factory()->create();
 
         Role::findOrCreate('operations', 'web');
         $operationsUser->assignRole('operations');
+
+        Operation::query()->create([
+            'user_id' => $operationsUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => $countryA->id,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [$countryA->id],
+        ]);
 
         $visiblePackage = Package::create([
             'package_number' => 'PKG-OPS-COUNTRY-1',
@@ -111,12 +118,18 @@ class OpsMovementWorkflowTest extends TestCase
             'country_id' => $countryA->id,
         ]);
 
-        $operationsUser = User::factory()->create([
-            'branch_id' => $branchA->id,
-        ]);
+        $operationsUser = User::factory()->create();
 
         Role::findOrCreate('operations', 'web');
         $operationsUser->assignRole('operations');
+
+        Operation::query()->create([
+            'user_id' => $operationsUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => $countryA->id,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [$countryA->id],
+        ]);
 
         $visiblePackage = Package::create([
             'package_number' => 'PKG-OPS-COUNTRY-3',

@@ -7,6 +7,9 @@ import GeneralEnquiryForm from './form';
 
 interface CreateGeneralEnquiryProps {
     packageOptions: OptionType[];
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,6 +21,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function CreateGeneralEnquiry({
     packageOptions = [],
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
 }: CreateGeneralEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -37,6 +43,9 @@ export default function CreateGeneralEnquiry({
                     <GeneralEnquiryForm
                         mode="create"
                         packageOptions={packageOptions}
+                        branchOptions={branchOptions}
+                        countryOptions={countryOptions}
+                        scopeMode={scopeMode}
                         onCancel={handleCancel}
                     />
                 </div>

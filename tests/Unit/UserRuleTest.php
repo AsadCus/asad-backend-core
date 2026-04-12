@@ -26,8 +26,10 @@ class UserRuleTest extends TestCase
         $this->assertTrue($validator->passes(), 'Customer payload with minimal required fields should be valid.');
     }
 
-    public function test_sales_role_still_requires_branch_id(): void
+    public function test_sales_role_requires_scope_ids_in_country_mode(): void
     {
+        config(['data_scope.mode' => 'country']);
+
         $rule = new UserRule;
 
         $payload = [
@@ -39,11 +41,13 @@ class UserRuleTest extends TestCase
         $validator = Validator::make($payload, $rule->rules('sales'));
 
         $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('branch_id', $validator->errors()->toArray());
+        $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
     }
 
-    public function test_admin_role_requires_branch_id(): void
+    public function test_admin_role_requires_scope_ids_in_branch_mode(): void
     {
+        config(['data_scope.mode' => 'branch']);
+
         $rule = new UserRule;
 
         $payload = [
@@ -55,6 +59,6 @@ class UserRuleTest extends TestCase
         $validator = Validator::make($payload, $rule->rules('admin'));
 
         $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('branch_id', $validator->errors()->toArray());
+        $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
     }
 }

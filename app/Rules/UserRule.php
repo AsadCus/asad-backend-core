@@ -6,6 +6,8 @@ class UserRule
 {
     public function rules(string $role, ?string $action = null, ?string $id = null): array
     {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -18,16 +20,11 @@ class UserRule
             $rules['email'] = 'required|email|unique:users,email,'.$id;
         }
 
-        if ($role === 'sales') {
-            $rules['branch_id'] = 'required|integer|exists:branches,id';
-        }
-
-        if ($role === 'admin') {
-            $rules['branch_id'] = 'required|integer|exists:branches,id';
-        }
-
-        if ($role === 'operations') {
-            $rules['branch_id'] = 'required|integer|exists:branches,id';
+        if (in_array($role, ['admin', 'sales', 'operations'], true)) {
+            $rules['scope_ids'] = 'required|array|min:1';
+            $rules['scope_ids.*'] = $scopeMode === 'branch'
+                ? 'required|integer|exists:branches,id'
+                : 'required|integer|exists:countries,id';
         }
 
         if ($role === 'customer') {
@@ -54,6 +51,8 @@ class UserRule
             $rules['photo_path'] = 'nullable|string';
             $rules['branch_id'] = 'nullable';
             $rules['handled_by'] = 'nullable';
+            $rules['scope_ids'] = 'nullable|array';
+            $rules['scope_ids.*'] = 'nullable|integer';
         }
 
         return $rules;

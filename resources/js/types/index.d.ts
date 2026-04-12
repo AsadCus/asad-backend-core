@@ -80,7 +80,10 @@ export interface User {
 export interface Sales {
     id: number;
     user_id: number;
-    branch_id: number;
+    branch_id?: number | null;
+    country_id?: number | null;
+    branch_ids?: number[];
+    country_ids?: number[];
     registration_number: string;
 }
 

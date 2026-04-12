@@ -1721,11 +1721,11 @@ class ManifestController extends Controller
         $user = DataScope::user();
 
         if ($user && DataScope::shouldScopePackageAndManifestCountry($user)) {
-            $countryId = DataScope::scopedCountryId($user);
+            $countryIds = DataScope::scopedCountryIds($user);
 
-            if ($countryId !== null) {
-                $query->whereHas('package', function (Builder $packageQuery) use ($countryId) {
-                    $packageQuery->where('country_id', $countryId);
+            if (! empty($countryIds)) {
+                $query->whereHas('package', function (Builder $packageQuery) use ($countryIds) {
+                    $packageQuery->whereIn('country_id', $countryIds);
                 });
             }
         }

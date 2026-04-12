@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Rules\PrivateEnquiryRule;
+use App\Services\BranchService;
+use App\Services\CountryService;
 use App\Services\PackageService;
 use App\Services\PrivateEnquiryService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class PrivateEnquiryController extends Controller
@@ -14,6 +17,8 @@ class PrivateEnquiryController extends Controller
         protected PrivateEnquiryService $privateEnquiryService,
         protected PrivateEnquiryRule $privateEnquiryRule,
         protected PackageService $packageService,
+        protected BranchService $branchService,
+        protected CountryService $countryService,
     ) {}
 
     /**
@@ -34,7 +39,11 @@ class PrivateEnquiryController extends Controller
      */
     public function create()
     {
-        return Inertia::render('private-enquiries/create');
+        return Inertia::render('private-enquiries/create', [
+            'branchOptions' => $this->branchService->getForFilter(),
+            'countryOptions' => $this->countryService->getForFilter(),
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
+        ]);
     }
 
     /**
@@ -51,6 +60,7 @@ class PrivateEnquiryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->privateEnquiryRule->rules());
+        $this->ensureInternalScopeProvided($validated);
         $this->privateEnquiryService->store($validated);
 
         return redirect()->route('private-enquiries.index')
@@ -97,6 +107,9 @@ class PrivateEnquiryController extends Controller
 
         return Inertia::render('private-enquiries/edit', [
             'data' => $enquiry,
+            'branchOptions' => $this->branchService->getForFilter(),
+            'countryOptions' => $this->countryService->getForFilter(),
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -106,6 +119,7 @@ class PrivateEnquiryController extends Controller
     public function update(Request $request, string $id)
     {
         $validated = $request->validate($this->privateEnquiryRule->rules($id));
+        $this->ensureInternalScopeProvided($validated);
 
         $this->privateEnquiryService->update($validated, $id);
 
@@ -131,5 +145,25 @@ class PrivateEnquiryController extends Controller
 
         return redirect()->route('private-enquiries.index')
             ->with('success', 'Private enquiry deleted successfully.');
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function ensureInternalScopeProvided(array $validated): void
+    {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
+        if ($scopeMode === 'branch' && empty($validated['branch_id'])) {
+            throw ValidationException::withMessages([
+                'branch_id' => 'Branch is required.',
+            ]);
+        }
+
+        if ($scopeMode === 'country' && empty($validated['country_id'])) {
+            throw ValidationException::withMessages([
+                'country_id' => 'Country is required.',
+            ]);
+        }
     }
 }

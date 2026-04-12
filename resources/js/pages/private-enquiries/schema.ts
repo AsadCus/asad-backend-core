@@ -10,6 +10,8 @@ export const privateEnquirySchema = z.object({
     name: z.string().optional(),
     contact_number: z.string().optional(),
     email: z.string().optional(),
+    branch_id: z.number().nullable().optional(),
+    country_id: z.number().nullable().optional(),
     passport_expiry_date: z.string().optional(),
     departure_date: z.string().optional(),
     return_date: z.string().optional(),

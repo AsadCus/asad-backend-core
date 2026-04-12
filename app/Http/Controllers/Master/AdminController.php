@@ -46,13 +46,16 @@ class AdminController extends Controller
         $dataUser = $this->adminUserService->getForDataTable();
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/admin/index', [
             'dataUser' => $dataUser,
             'dataRole' => $dataRole,
             'dataBranch' => $dataBranch,
+            'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -73,6 +76,7 @@ class AdminController extends Controller
             'dataSales' => $dataSales,
             'isAdmin' => true,
             'submitUrl' => '/master/user/admin',
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -117,6 +121,7 @@ class AdminController extends Controller
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
             'isAdmin' => true,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -138,6 +143,7 @@ class AdminController extends Controller
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
             'isAdmin' => true,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 

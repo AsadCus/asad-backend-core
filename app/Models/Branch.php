@@ -27,4 +27,19 @@ class Branch extends Model
     {
         return $this->hasMany(Customer::class, 'branch_id');
     }
+
+    public function admins(): HasMany
+    {
+        return $this->hasMany(Admin::class, 'branch_id');
+    }
+
+    public function operations(): HasMany
+    {
+        return $this->hasMany(Operation::class, 'branch_id');
+    }
+
+    public function enquiries(): HasMany
+    {
+        return $this->hasMany(Enquiry::class, 'branch_id');
+    }
 }

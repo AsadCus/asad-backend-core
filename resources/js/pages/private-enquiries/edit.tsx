@@ -1,12 +1,15 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/private-enquiries';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import PrivateEnquiryForm, { PrivateEnquiryFormSchema } from './form';
 
 interface EditPrivateEnquiryProps {
     data: PrivateEnquiryFormSchema;
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,7 +19,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function EditPrivateEnquiry({ data }: EditPrivateEnquiryProps) {
+export default function EditPrivateEnquiry({
+    data,
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
+}: EditPrivateEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -35,6 +43,9 @@ export default function EditPrivateEnquiry({ data }: EditPrivateEnquiryProps) {
                         mode="edit"
                         initialData={data}
                         onCancel={handleCancel}
+                        branchOptions={branchOptions}
+                        countryOptions={countryOptions}
+                        scopeMode={scopeMode}
                     />
                 </div>
             </div>

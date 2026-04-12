@@ -5,7 +5,6 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Auth\Traits\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -29,7 +28,6 @@ class User extends Authenticatable
         'email',
         'password',
         'contact',
-        'branch_id',
         'created_at',
         'updated_at',
     ];
@@ -62,9 +60,14 @@ class User extends Authenticatable
         return $this->hasOne(Sales::class, 'user_id');
     }
 
-    public function branch(): BelongsTo
+    public function admin(): HasOne
     {
-        return $this->belongsTo(Branch::class, 'branch_id');
+        return $this->hasOne(Admin::class, 'user_id');
+    }
+
+    public function operation(): HasOne
+    {
+        return $this->hasOne(Operation::class, 'user_id');
     }
 
     public function customer(): HasOne

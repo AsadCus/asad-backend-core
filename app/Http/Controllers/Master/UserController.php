@@ -65,6 +65,7 @@ class UserController extends Controller
             // 'dataSales' => $dataSales,
             'roleStats' => $roleStats,
             'countryStats' => $countryStats,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -83,6 +84,7 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -117,6 +119,7 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -137,6 +140,7 @@ class UserController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 

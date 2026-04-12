@@ -622,13 +622,13 @@ class PackageService
             return;
         }
 
-        $countryId = DataScope::scopedCountryId($user);
+        $countryIds = DataScope::scopedCountryIds($user);
 
-        if ($countryId === null) {
+        if (empty($countryIds)) {
             return;
         }
 
-        $query->where('country_id', $countryId);
+        $query->whereIn('country_id', $countryIds);
     }
 
     /**

@@ -23,22 +23,26 @@ interface ViewUserProps {
     data: UserSchema;
     dataRole: [];
     dataBranch: [];
+    dataCountry: [];
     dataSales: [];
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function ViewUser({
     data,
     dataRole,
     dataBranch,
+    dataCountry,
     dataSales,
     isAdmin = false,
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    scopeMode = 'country',
 }: ViewUserProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
@@ -65,10 +69,12 @@ export default function ViewUser({
                         mode="view"
                         initialData={data}
                         branches={dataBranch}
+                        countries={dataCountry}
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
                         isOperations={isOperations}
+                        scopeMode={scopeMode}
                     />
                 </div>
             </div>

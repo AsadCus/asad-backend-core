@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Branch;
 use App\Models\Enquiry;
 use App\Models\GeneralEnquiry;
 use App\Models\Notification;
@@ -22,11 +23,23 @@ class GeneralEnquiryService
             ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
             ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
                 $query->whereHas('enquiry', function ($enquiryQuery) {
+                    $scopeMode = DataScope::mode();
+                    $countryIds = DataScope::scopedCountryIds();
+                    $branchIds = DataScope::scopedBranchIds();
+
                     $enquiryQuery->where(function ($visibilityQuery) {
                         $visibilityQuery
                             ->where('handled_by', auth()->id())
                             ->orWhereNull('handled_by');
                     });
+
+                    if ($scopeMode === 'branch' && ! empty($branchIds)) {
+                        $enquiryQuery->whereIn('branch_id', $branchIds);
+                    }
+
+                    if ($scopeMode === 'country' && ! empty($countryIds)) {
+                        $enquiryQuery->whereIn('country_id', $countryIds);
+                    }
                 });
             })
             ->when($filters['from_date'] ?? null, function ($q, $value) {
@@ -62,6 +75,8 @@ class GeneralEnquiryService
                     'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
                     'last_remark' => $generalEnquiry->enquiry?->latestRemark->remark ?? '-',
                     'handled_by_name' => $generalEnquiry->enquiry?->handledBy?->name ?? '-',
+                    'branch_id' => $generalEnquiry->enquiry?->branch_id,
+                    'country_id' => $generalEnquiry->enquiry?->country_id,
                     'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
                 ];
@@ -91,6 +106,7 @@ class GeneralEnquiryService
                 'contact_number' => $data['contact_number'] ?? '',
                 'email' => $data['email'] ?? '',
                 'created_by' => auth()->id(),
+                ...$this->resolveEnquiryScopePayload($data),
             ]);
 
             $generalEnquiry = GeneralEnquiry::create([
@@ -120,11 +136,23 @@ class GeneralEnquiryService
 
         if (DataScope::shouldScopeSalesEnquiries()) {
             $query->whereHas('enquiry', function ($enquiryQuery) {
+                $scopeMode = DataScope::mode();
+                $countryIds = DataScope::scopedCountryIds();
+                $branchIds = DataScope::scopedBranchIds();
+
                 $enquiryQuery->where(function ($visibilityQuery) {
                     $visibilityQuery
                         ->where('handled_by', auth()->id())
                         ->orWhereNull('handled_by');
                 });
+
+                if ($scopeMode === 'branch' && ! empty($branchIds)) {
+                    $enquiryQuery->whereIn('branch_id', $branchIds);
+                }
+
+                if ($scopeMode === 'country' && ! empty($countryIds)) {
+                    $enquiryQuery->whereIn('country_id', $countryIds);
+                }
             });
         }
 
@@ -145,6 +173,8 @@ class GeneralEnquiryService
             'no_of_children' => $generalEnquiry->no_of_children,
             'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
             'package_id' => $generalEnquiry->enquiry?->package_id,
+            'branch_id' => $generalEnquiry->enquiry?->branch_id,
+            'country_id' => $generalEnquiry->enquiry?->country_id,
             'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),
             'updated_at' => $generalEnquiry->updated_at?->translatedFormat('d F Y'),
         ];
@@ -181,6 +211,7 @@ class GeneralEnquiryService
                     'name' => $data['name'] ?? $generalEnquiry->enquiry?->name,
                     'contact_number' => $data['contact_number'] ?? $generalEnquiry->enquiry?->contact_number,
                     'email' => $data['email'] ?? $generalEnquiry->enquiry?->email,
+                    ...$this->resolveEnquiryScopePayload($data, $generalEnquiry->enquiry?->branch_id, $generalEnquiry->enquiry?->country_id),
                 ]);
             }
 
@@ -245,5 +276,33 @@ class GeneralEnquiryService
             // Silently fail if roles don't exist (e.g., in tests)
             // The enquiry creation itself should not fail due to notification issues
         }
+    }
+
+    /**
+     * @return array{branch_id:int|null,country_id:int|null}
+     */
+    private function resolveEnquiryScopePayload(array $data, ?int $fallbackBranchId = null, ?int $fallbackCountryId = null): array
+    {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
+        if ($scopeMode === 'branch') {
+            $branchId = isset($data['branch_id']) ? (int) $data['branch_id'] : (int) ($fallbackBranchId ?? 0);
+            $resolvedBranchId = $branchId > 0 ? $branchId : null;
+            $resolvedCountryId = $resolvedBranchId
+                ? (int) (Branch::query()->whereKey($resolvedBranchId)->value('country_id') ?? 0)
+                : 0;
+
+            return [
+                'branch_id' => $resolvedBranchId,
+                'country_id' => $resolvedCountryId > 0 ? $resolvedCountryId : null,
+            ];
+        }
+
+        $countryId = isset($data['country_id']) ? (int) $data['country_id'] : (int) ($fallbackCountryId ?? 0);
+
+        return [
+            'branch_id' => null,
+            'country_id' => $countryId > 0 ? $countryId : null,
+        ];
     }
 }

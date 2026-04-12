@@ -53,12 +53,13 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $user?->load(['roles.permissions', 'sales']),
+                'user' => $user?->load(['roles.permissions', 'sales', 'admin', 'operation']),
                 'roles' => $user?->getRoleNames(),
                 'permissions' => $user?->getAllPermissions()->pluck('name'),
                 'notifications' => $user
                     ? $this->notificationService->getUserNotifications($user->id)
                     : [],
+                'scope_mode' => strtolower((string) config('data_scope.mode', 'country')),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

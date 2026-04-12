@@ -12,6 +12,8 @@ class PrivateEnquiryRule
             'name' => ['required', 'string', 'max:255'],
             'contact_number' => ['required', 'string', 'max:30'],
             'email' => ['required', 'email', 'max:255'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'passport_expiry_date' => ['required', 'date'],
             'departure_date' => ['required', 'date'],
             'return_date' => ['required', 'date'],

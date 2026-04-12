@@ -46,13 +46,16 @@ class SalesController extends Controller
         $dataUser = $this->salesUserService->getForDataTable();
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/sales/index', [
             'dataUser' => $dataUser,
             'dataRole' => $dataRole,
             'dataBranch' => $dataBranch,
+            'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -73,6 +76,7 @@ class SalesController extends Controller
             'dataSales' => $dataSales,
             'isSales' => true,
             'submitUrl' => '/master/user/sales',
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -117,6 +121,7 @@ class SalesController extends Controller
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
             'isSales' => true,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -138,6 +143,7 @@ class SalesController extends Controller
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
             'isSales' => true,
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 

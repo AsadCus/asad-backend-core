@@ -786,14 +786,14 @@ class ManifestService
             return;
         }
 
-        $countryId = DataScope::scopedCountryId($user);
+        $countryIds = DataScope::scopedCountryIds($user);
 
-        if ($countryId === null) {
+        if (empty($countryIds)) {
             return;
         }
 
-        $query->whereHas('package', function (Builder $packageQuery) use ($countryId) {
-            $packageQuery->where('country_id', $countryId);
+        $query->whereHas('package', function (Builder $packageQuery) use ($countryIds) {
+            $packageQuery->whereIn('country_id', $countryIds);
         });
     }
 

@@ -10,7 +10,9 @@ interface SalesViewDialogProps {
     initialData?: UserSchema;
     roles?: OptionType[];
     branches?: OptionType[];
+    countries?: OptionType[];
     salesList?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function SalesViewDialog({
@@ -20,7 +22,9 @@ export default function SalesViewDialog({
     initialData,
     roles = [],
     branches = [],
+    countries = [],
     salesList = [],
+    scopeMode = 'country',
 }: SalesViewDialogProps) {
     const title =
         mode === 'create'
@@ -38,9 +42,11 @@ export default function SalesViewDialog({
             initialData={initialData}
             roles={roles}
             branches={branches}
+            countries={countries}
             salesList={salesList}
             isSales
             submitUrl={index().url}
+            scopeMode={scopeMode}
         />
     );
 }

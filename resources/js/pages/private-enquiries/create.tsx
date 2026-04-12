@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/private-enquiries';
-import { type BreadcrumbItem } from '@/types';
+import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import PrivateEnquiryForm from './form';
@@ -12,7 +12,17 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreatePrivateEnquiry() {
+interface CreatePrivateEnquiryProps {
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
+}
+
+export default function CreatePrivateEnquiry({
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
+}: CreatePrivateEnquiryProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -28,7 +38,13 @@ export default function CreatePrivateEnquiry() {
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <PrivateEnquiryForm mode="create" onCancel={handleCancel} />
+                    <PrivateEnquiryForm
+                        mode="create"
+                        onCancel={handleCancel}
+                        branchOptions={branchOptions}
+                        countryOptions={countryOptions}
+                        scopeMode={scopeMode}
+                    />
                 </div>
             </div>
         </AppLayout>

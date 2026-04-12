@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Rules\GeneralEnquiryRule;
+use App\Services\BranchService;
+use App\Services\CountryService;
 use App\Services\GeneralEnquiryService;
 use App\Services\PackageService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class GeneralEnquiryController extends Controller
@@ -14,6 +17,8 @@ class GeneralEnquiryController extends Controller
         protected GeneralEnquiryService $generalEnquiryService,
         protected GeneralEnquiryRule $generalEnquiryRule,
         protected PackageService $packageService,
+        protected BranchService $branchService,
+        protected CountryService $countryService,
     ) {}
 
     /**
@@ -41,6 +46,9 @@ class GeneralEnquiryController extends Controller
     {
         return Inertia::render('general-enquiries/create', [
             'packageOptions' => $this->packageService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
+            'countryOptions' => $this->countryService->getForFilter(),
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -50,6 +58,7 @@ class GeneralEnquiryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules());
+        $this->ensureInternalScopeProvided($validated);
         $generalEnquiry = $this->generalEnquiryService->store($validated);
 
         // Update package on the parent enquiry if provided
@@ -102,6 +111,9 @@ class GeneralEnquiryController extends Controller
         return Inertia::render('general-enquiries/edit', [
             'data' => $enquiry,
             'packageOptions' => $this->packageService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
+            'countryOptions' => $this->countryService->getForFilter(),
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
 
@@ -111,6 +123,7 @@ class GeneralEnquiryController extends Controller
     public function update(Request $request, string $id)
     {
         $validated = $request->validate($this->generalEnquiryRule->rules($id));
+        $this->ensureInternalScopeProvided($validated);
         $this->generalEnquiryService->update($validated, $id);
 
         // Update package on the parent enquiry if provided
@@ -141,5 +154,25 @@ class GeneralEnquiryController extends Controller
 
         return redirect()->route('general-enquiries.index')
             ->with('success', 'General enquiry deleted successfully.');
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function ensureInternalScopeProvided(array $validated): void
+    {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
+        if ($scopeMode === 'branch' && empty($validated['branch_id'])) {
+            throw ValidationException::withMessages([
+                'branch_id' => 'Branch is required.',
+            ]);
+        }
+
+        if ($scopeMode === 'country' && empty($validated['country_id'])) {
+            throw ValidationException::withMessages([
+                'country_id' => 'Country is required.',
+            ]);
+        }
     }
 }

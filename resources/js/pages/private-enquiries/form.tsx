@@ -7,8 +7,10 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
+import EnquiryScopeCard from '../enquiries/components/enquiry-scope-card';
 import PrivateEnquiryFormFields, { internalFieldOptions } from './form-fields';
 import { PrivateEnquirySchema } from './schema';
 import { privateEnquiryValidationSchema } from './validation';
@@ -19,12 +21,18 @@ interface PrivateEnquiryFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: PrivateEnquirySchema;
     onCancel?: () => void;
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
 }
 
 export default function PrivateEnquiryForm({
     mode,
     initialData,
     onCancel,
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
 }: PrivateEnquiryFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -36,6 +44,8 @@ export default function PrivateEnquiryForm({
         name: '',
         contact_number: '',
         email: '',
+        branch_id: null,
+        country_id: null,
         passport_expiry_date: '',
         departure_date: '',
         return_date: '',
@@ -89,6 +99,16 @@ export default function PrivateEnquiryForm({
                     setError(key, issue.message);
                 }
             });
+            valid = false;
+        }
+
+        if (scopeMode === 'branch' && !data.branch_id) {
+            setError('branch_id', 'Branch is required.');
+            valid = false;
+        }
+
+        if (scopeMode === 'country' && !data.country_id) {
+            setError('country_id', 'Country is required.');
             valid = false;
         }
 
@@ -148,6 +168,23 @@ export default function PrivateEnquiryForm({
                         </p>
                     </div>
                 )}
+
+                <EnquiryScopeCard
+                    scopeMode={scopeMode}
+                    branchOptions={branchOptions}
+                    countryOptions={countryOptions}
+                    branchId={data.branch_id ?? null}
+                    countryId={data.country_id ?? null}
+                    isView={isView}
+                    processing={processing}
+                    onBranchChange={(branchId) =>
+                        setData('branch_id', branchId)
+                    }
+                    onCountryChange={(countryId) =>
+                        setData('country_id', countryId)
+                    }
+                    renderError={renderError}
+                />
 
                 <Card>
                     <CardHeader>

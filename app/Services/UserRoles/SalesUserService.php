@@ -2,6 +2,8 @@
 
 namespace App\Services\UserRoles;
 
+use App\Models\Branch;
+use App\Models\Country;
 use App\Models\Sales;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -12,17 +14,36 @@ class SalesUserService
 {
     public function getForDataTable()
     {
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+
         return User::query()
             ->whereDoesntHave('ghostUser')
             ->role('sales')
-            ->with('roles', 'sales.branch.country')
+            ->with('roles', 'sales.branch.country', 'sales.country')
             ->get()
-            ->map(function ($user) {
+            ->map(function ($user) use ($scopeMode) {
+                $salesScope = $user->sales;
+                $branchNames = collect($this->resolveBranchIds($salesScope))
+                    ->map(fn (int $id) => Branch::query()->whereKey($id)->value('name'))
+                    ->filter()
+                    ->values();
+                $countryNames = collect($this->resolveCountryIds($salesScope))
+                    ->map(fn (int $id) => Country::query()->whereKey($id)->value('name'))
+                    ->filter()
+                    ->values();
+
                 $user->role = 'sales';
                 $user->contact = $user->contact ?? '';
-                $user->branch_id = (string) ($user->sales->branch_id ?? '');
-                $user->branch_name = $user->sales->branch?->name ?? '-';
-                $user->country_name = $user->sales->branch?->country?->name ?? '-';
+                $user->scope_mode = $scopeMode;
+                $user->scope_ids = array_map(
+                    'strval',
+                    $scopeMode === 'branch'
+                        ? $this->resolveBranchIds($salesScope)
+                        : $this->resolveCountryIds($salesScope),
+                );
+                $user->branch_id = $salesScope?->branch_id ? (string) $salesScope->branch_id : '';
+                $user->branch_name = $branchNames->implode(', ') ?: '-';
+                $user->country_name = $countryNames->implode(', ') ?: '-';
 
                 return $user;
             });
@@ -31,11 +52,15 @@ class SalesUserService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+            $scopeIds = $this->normalizeScopeIds($data['scope_ids'] ?? []);
+            [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
+                $this->resolveScopePayload($scopeIds, $scopeMode);
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
-                'branch_id' => $data['branch_id'] ?? null,
                 'password' => isset($data['password'])
                     ? Hash::make($data['password'])
                     : Hash::make('password'),
@@ -45,7 +70,10 @@ class SalesUserService
 
             Sales::create([
                 'user_id' => $user->id,
-                'branch_id' => $data['branch_id'] ?? null,
+                'branch_id' => $primaryBranchId,
+                'country_id' => $primaryCountryId,
+                'branch_ids' => $branchIds,
+                'country_ids' => $countryIds,
             ]);
 
             activity()
@@ -59,7 +87,9 @@ class SalesUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('sales')->with('sales.branch.country')->findOrFail($id);
+        $user = User::role('sales')->with('sales.branch.country', 'sales.country')->findOrFail($id);
+        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+        $salesScope = $user->sales;
 
         return [
             'id' => $user->id,
@@ -67,10 +97,17 @@ class SalesUserService
             'email' => $user->email,
             'contact' => $user->contact ?? '',
             'role' => 'sales',
-            'country_id' => '',
-            'country_name' => $user->sales?->branch?->country?->name ?? '',
-            'branch_id' => (string) ($user->sales->branch_id ?? ''),
-            'branch_name' => $user->sales?->branch?->name ?? '',
+            'scope_mode' => $scopeMode,
+            'scope_ids' => array_map(
+                'strval',
+                $scopeMode === 'branch'
+                    ? $this->resolveBranchIds($salesScope)
+                    : $this->resolveCountryIds($salesScope),
+            ),
+            'country_id' => $salesScope?->country_id ? (string) $salesScope->country_id : '',
+            'country_name' => $salesScope?->country?->name ?? '',
+            'branch_id' => $salesScope?->branch_id ? (string) $salesScope->branch_id : '',
+            'branch_name' => $salesScope?->branch?->name ?? '',
             'company_name' => '',
             'customer_id' => null,
             'customer_number' => '',
@@ -99,13 +136,17 @@ class SalesUserService
     public function update(array $data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
+            $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+            $scopeIds = $this->normalizeScopeIds($data['scope_ids'] ?? []);
+            [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
+                $this->resolveScopePayload($scopeIds, $scopeMode);
+
             $user = User::role('sales')->with('sales')->findOrFail($id);
 
             $user->update([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact' => $data['contact'] ?? null,
-                'branch_id' => $data['branch_id'] ?? $user->branch_id,
                 'password' => isset($data['password']) && $data['password']
                     ? Hash::make($data['password'])
                     : $user->password,
@@ -113,7 +154,18 @@ class SalesUserService
 
             if ($user->sales) {
                 $user->sales->update([
-                    'branch_id' => $data['branch_id'] ?? null,
+                    'branch_id' => $primaryBranchId,
+                    'country_id' => $primaryCountryId,
+                    'branch_ids' => $branchIds,
+                    'country_ids' => $countryIds,
+                ]);
+            } else {
+                Sales::create([
+                    'user_id' => $user->id,
+                    'branch_id' => $primaryBranchId,
+                    'country_id' => $primaryCountryId,
+                    'branch_ids' => $branchIds,
+                    'country_ids' => $countryIds,
                 ]);
             }
 
@@ -124,5 +176,90 @@ class SalesUserService
 
             return $user;
         });
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function normalizeScopeIds(mixed $scopeIds): array
+    {
+        if (! is_array($scopeIds)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($id) => (int) $id,
+            $scopeIds,
+        ), static fn (int $id) => $id > 0)));
+    }
+
+    /**
+     * @return array{0:int|null,1:int|null,2:array<int,int>,3:array<int,int>}
+     */
+    private function resolveScopePayload(array $scopeIds, string $scopeMode): array
+    {
+        if ($scopeMode === 'branch') {
+            $branchIds = $scopeIds;
+            $countryIds = Branch::query()
+                ->whereIn('id', $branchIds)
+                ->pluck('country_id')
+                ->map(fn ($countryId) => (int) $countryId)
+                ->filter(fn (int $countryId) => $countryId > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            return [
+                ! empty($branchIds) ? $branchIds[0] : null,
+                ! empty($countryIds) ? $countryIds[0] : null,
+                $branchIds,
+                $countryIds,
+            ];
+        }
+
+        $countryIds = $scopeIds;
+
+        return [
+            null,
+            ! empty($countryIds) ? $countryIds[0] : null,
+            [],
+            $countryIds,
+        ];
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function resolveBranchIds(?Sales $salesScope): array
+    {
+        $branchIds = is_array($salesScope?->branch_ids) ? $salesScope->branch_ids : [];
+        $primaryBranchId = (int) ($salesScope?->branch_id ?? 0);
+
+        if ($primaryBranchId > 0) {
+            $branchIds[] = $primaryBranchId;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($id) => (int) $id,
+            $branchIds,
+        ), static fn (int $id) => $id > 0)));
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function resolveCountryIds(?Sales $salesScope): array
+    {
+        $countryIds = is_array($salesScope?->country_ids) ? $salesScope->country_ids : [];
+        $primaryCountryId = (int) ($salesScope?->country_id ?? 0);
+
+        if ($primaryCountryId > 0) {
+            $countryIds[] = $primaryCountryId;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($id) => (int) $id,
+            $countryIds,
+        ), static fn (int $id) => $id > 0)));
     }
 }

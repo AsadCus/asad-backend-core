@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Sales extends Model
+class Admin extends Model
 {
     protected $fillable = [
         'user_id',
@@ -13,7 +13,6 @@ class Sales extends Model
         'country_id',
         'branch_ids',
         'country_ids',
-        'registration_number',
     ];
 
     protected function casts(): array
