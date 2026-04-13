@@ -608,8 +608,198 @@ class CustomerConfirmationService
             ->all();
     }
 
+
+    /**
+     * Get customer info and all receipts for a specific confirmation member — for PDF export.
+     *
+     * @return array{
+     *   customer_name: string,
+     *   customer_number: string,
+     *   customer_email: string,
+     *   customer_contact: string,
+     *   customer_address: string,
+     *   package_name: string,
+     *   package_number: string,
+     *   date_of_application: string|null,
+     *   payment_status: string,
+     *   sharing_plan: string|null,
+     *   receipts: array
+     * }
+     */
+    public function getMemberReceiptsForPdf(int $confirmationId, int $memberId, array $paymentMethodMap = []): array
+    {
+        $member = CustomerConfirmationMember::with([
+            'customer.user',
+            'confirmation.package',
+            'confirmation.enquiry',
+            'quotationItems.invoices.receipt.receiptNotes',
+            'quotationItems.invoices.quotationItems.taxes',
+            'quotationItems.invoices.order.invoices',
+        ])->where('customer_confirmation_id', $confirmationId)
+            ->findOrFail($memberId);
+
+        $group = $member->confirmation;
+        $package = $group?->package;
+        $customer = $member->customer;
+        $user = $customer?->user;
+
+        // Collect all invoices linked to this member's quotation items
+        $invoiceIds = collect();
+        foreach ($member->quotationItems as $qi) {
+            foreach ($qi->invoices as $invoice) {
+                $invoiceIds->push((int) $invoice->id);
+            }
+        }
+        $invoiceIds = $invoiceIds->unique()->values();
+
+        // Collect all receipts from those invoices
+        $receipts = [];
+
+        foreach ($invoiceIds as $invoiceId) {
+            // Find the invoice across all loaded relations
+            $invoice = null;
+            foreach ($member->quotationItems as $qi) {
+                foreach ($qi->invoices as $inv) {
+                    if ((int) $inv->id === $invoiceId) {
+                        $invoice = $inv;
+                        break 2;
+                    }
+                }
+            }
+
+            if (! $invoice) {
+                continue;
+            }
+
+            // Use first receipt on each invoice
+            $receipt = $invoice->receipt->first();
+            if (! $receipt) {
+                continue;
+            }
+
+            $invoiceItems = collect($invoice->quotationItems ?? []);
+            $subtotalAmount = (float) $invoiceItems
+                ->where('is_header', false)
+                ->sum(fn ($item): float => (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0));
+
+            $totalAmount = (float) ($receipt->amount ?? 0);
+
+            $paymentMethodValue = (string) ($receipt->payment_method ?? '');
+            $paymentMethodLabel = $paymentMethodMap[$paymentMethodValue] ?? ucfirst($paymentMethodValue);
+
+            $allOrderInvoices = collect($invoice->order?->invoices ?? []);
+
+            $activeNonCancelledInvoices = $allOrderInvoices
+                ->filter(fn ($inv) => strtolower(trim((string) ($inv->status ?? ''))) !== 'cancelled')
+                ->sortBy(fn ($inv) => (int) ($inv->invoice_date?->timestamp ?? $inv->id ?? 0))
+                ->values();
+
+            $milestoneInvoices = $activeNonCancelledInvoices
+                ->filter(fn ($inv) => strtolower(trim((string) ($inv->status ?? ''))) === 'paid'
+                    || \App\Support\InvoiceStatus::isRefund($inv->status))
+                ->values();
+
+            $normalizedTotalAmount = $activeNonCancelledInvoices->isNotEmpty()
+                ? (float) $activeNonCancelledInvoices->sum(fn ($inv) => (float) ($inv->amount ?? 0))
+                : $totalAmount;
+
+            if ($milestoneInvoices->isEmpty()) {
+                $invoicePaymentProgress = [[
+                    'label' => 'Pending Payment',
+                    'amount_paid' => 0.0,
+                    'total_amount' => $normalizedTotalAmount,
+                ]];
+            } else {
+                $invoicePaymentProgress = $milestoneInvoices->map(function ($inv, int $index) use ($normalizedTotalAmount): array {
+                    $labelSuffix = \App\Support\InvoiceStatus::isRefund($inv->status) ? 'Refund' : 'Payment';
+
+                    return [
+                        'label' => $this->toOrdinalForPdf($index + 1).' '.$labelSuffix,
+                        'amount_paid' => (float) ($inv->amount ?? 0),
+                        'total_amount' => $normalizedTotalAmount,
+                    ];
+                })->values()->all();
+            }
+
+            $receiptNotes = $receipt->receiptNotes ?? collect();
+
+            $receipts[] = [
+                'receipt_number' => (string) ($receipt->receipt_number ?? '-'),
+                'receipt_date' => (string) ($receipt->receipt_date_formatted ?? ''),
+                'invoice_number' => (string) ($invoice->invoice_number ?? '-'),
+                'invoice_description' => (string) ($invoice->description ?? '-'),
+                'order_number' => (string) ($invoice->order?->order_number ?? '-'),
+                'amount' => (float) ($receipt->amount ?? 0),
+                'payment_method' => $paymentMethodValue,
+                'payment_method_label' => $paymentMethodLabel,
+                'reference' => (string) ($receipt->reference ?? ''),
+                'description' => (string) ($receipt->description ?? ''),
+                'subtotal_amount' => round($subtotalAmount, 2),
+                'total_amount' => round($totalAmount, 2),
+                'extensions' => [],
+                'notes' => $receiptNotes->sortBy('sort_order')->values()->toArray(),
+                'invoice_payment_progress' => $invoicePaymentProgress,
+                'items' => $invoiceItems->map(fn ($item) => [
+                    'id' => $item->id,
+                    'parent_id' => $item->parent_id,
+                    'type' => $item->type ?? null,
+                    'description' => $item->description,
+                    'is_header' => (bool) ($item->is_header ?? false),
+                    'quantity' => (float) ($item->quantity ?? 0),
+                    'rate' => (float) ($item->rate ?? 0),
+                    'sort_order' => $item->sort_order ?? 0,
+                    '_key' => 'item-'.$item->id,
+                    'parent_key' => null,
+                ])->values()->all(),
+            ];
+        }
+
+        // Sort receipts by receipt_number
+        usort($receipts, fn ($a, $b) => strcmp((string) ($a['receipt_number'] ?? ''), (string) ($b['receipt_number'] ?? '')));
+
+        $statusSnapshot = $this->resolveMemberFinancialSnapshot($member, $package);
+
+        return [
+            'customer_name' => $user?->name ?? '-',
+            'customer_number' => $customer?->customer_number ?? '-',
+            'customer_email' => $user?->email ?? '-',
+            'customer_contact' => $user?->contact ?? '-',
+            'customer_address' => $customer?->address ?? '-',
+            'nric_number' => $customer?->nric_number ?? '-',
+            'passport_number' => $customer?->passport_number ?? '-',
+            'package_name' => $package?->name ?? '-',
+            'package_number' => $package?->package_number ?? '-',
+            'date_of_application' => $group?->date_of_application_formatted ?? '-',
+            'payment_status' => (string) ($statusSnapshot['status'] ?? '-'),
+            'paid_amount' => round((float) ($statusSnapshot['paid_amount'] ?? 0), 2),
+            'total_amount' => round((float) ($statusSnapshot['total_amount'] ?? 0), 2),
+            'sharing_plan' => $member->sharing_plan ?? null,
+            'is_leader' => (bool) $member->is_leader,
+            'receipts' => $receipts,
+        ];
+    }
+
+    /** @internal Used by getMemberReceiptsForPdf only */
+    private function toOrdinalForPdf(int $number): string
+    {
+
+        $mod100 = $number % 100;
+
+        if ($mod100 >= 11 && $mod100 <= 13) {
+            return $number.'th';
+        }
+
+        return match ($number % 10) {
+            1 => $number.'st',
+            2 => $number.'nd',
+            3 => $number.'rd',
+            default => $number.'th',
+        };
+    }
+
     private function resolveMemberPaidAmount(CustomerConfirmationMember $member): float
     {
+
         $memberItems = $member->quotationItems
             ->filter(fn ($item): bool => ! (bool) $item->is_header)
             ->values();

@@ -291,6 +291,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('export-member-receipts-pdf') && (
+                <Item onClick={() => onAction?.('export-member-receipts-pdf', row)}>
+                    Export All Receipts PDF
+                </Item>
+            )}
+
             {actions.includes('handle-customer') && !handledBy && (
                 <Item onClick={() => onAction?.('handle-customer', row)}>
                     Handle

@@ -38,6 +38,7 @@ import {
     generateQuotations,
     show as showGroup,
 } from '@/routes/customer-confirmations';
+import { receiptsPdf as memberReceiptsPdf } from '@/routes/customer-confirmations/members';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
@@ -1455,6 +1456,13 @@ export default function ConfirmedCustomerIndex({
                         rowActions.push('create-balance-invoice');
                     }
 
+                    if (
+                        member.status !== 'cancelled' &&
+                        (member.paid_amount ?? 0) > 0
+                    ) {
+                        rowActions.push('export-member-receipts-pdf');
+                    }
+
                     return rowActions;
                 }}
                 addButtonText=""
@@ -1500,6 +1508,16 @@ export default function ConfirmedCustomerIndex({
                             cancelText: 'Back',
                             onConfirm: () => cancelMember(member.id),
                         });
+                    }
+
+                    if (action === 'export-member-receipts-pdf') {
+                        window.open(
+                            memberReceiptsPdf({
+                                id: member.group_id,
+                                memberId: member.id,
+                            }).url,
+                            '_blank',
+                        );
                     }
                 }}
                 onRowDoubleClick={(member) => {
