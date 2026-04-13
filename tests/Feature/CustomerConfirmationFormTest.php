@@ -34,6 +34,8 @@ class CustomerConfirmationFormTest extends TestCase
 
     protected User $adminUser;
 
+    protected Package $defaultPackage;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -57,6 +59,12 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->adminUser = User::factory()->create();
         $this->adminUser->assignRole('admin');
+
+        $this->defaultPackage = Package::create([
+            'package_number' => 'PKG-DEFAULT-TEST',
+            'name' => 'Default Test Package',
+            'status' => 'active',
+        ]);
     }
 
     /**
@@ -160,6 +168,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $response = $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-15',
             'package_room_type' => 'double',
             'members' => [
@@ -258,6 +267,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -297,6 +307,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -345,6 +356,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -434,6 +446,7 @@ class CustomerConfirmationFormTest extends TestCase
         // Create with 2 members
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -502,6 +515,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -564,6 +578,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-10',
             'members' => [
                 $this->memberPayload([
@@ -625,6 +640,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -699,6 +715,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -754,6 +771,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-02',
             'members' => [
                 $this->memberPayload([
@@ -808,6 +826,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-02',
             'members' => [
                 $this->memberPayload([
@@ -864,6 +883,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-03',
             'members' => [
                 $this->memberPayload([
@@ -918,6 +938,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-03',
             'members' => [
                 $this->memberPayload([
@@ -991,6 +1012,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-01-03',
             'members' => [
                 $this->memberPayload([
@@ -1369,6 +1391,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-09-01',
             'members' => [
                 $this->memberPayload([
@@ -1425,6 +1448,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-09-10',
             'members' => [
                 $this->memberPayload([
@@ -1474,6 +1498,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $firstEnquiry->id), [
             'enquiry_id' => $firstEnquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-10-01',
             'members' => [$this->memberPayload([
                 'name' => 'Bulk Leader One',
@@ -1484,6 +1509,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $secondEnquiry->id), [
             'enquiry_id' => $secondEnquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-10-02',
             'members' => [$this->memberPayload([
                 'name' => 'Bulk Leader Two',
@@ -1528,6 +1554,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-11-01',
             'members' => [$this->memberPayload([
                 'name' => 'Holding Redirect Leader',
@@ -1599,6 +1626,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $response = $this->post(route('customer-confirmation.public.store'), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-03-01',
             'package_room_type' => 'quad',
             'members' => [
@@ -1655,6 +1683,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-04-01',
             'members' => [
                 $this->memberPayload([
@@ -1726,6 +1755,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-06-01',
             'members' => [
                 $this->memberPayload([
@@ -1772,6 +1802,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $this->defaultPackage->id,
             'date_of_application' => '2026-09-01',
             'package_room_type' => 'double',
             'members' => [

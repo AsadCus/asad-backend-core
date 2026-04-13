@@ -441,6 +441,12 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-HANDLED-CONFIRM-001',
+            'name' => 'Handled Confirm Package',
+            'status' => 'open',
+        ]);
+
         $previousHandler = User::factory()->create();
 
         $enquiry = Enquiry::create([
@@ -455,6 +461,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -476,6 +483,12 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-ALREADY-CONFIRMED-001',
+            'name' => 'Already Confirmed Package',
+            'status' => 'open',
+        ]);
+
         // Enquiry already in confirmed state
         $enquiry = Enquiry::create([
             'type' => 'general',
@@ -488,6 +501,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $response = $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -628,6 +642,12 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-NEW-CUSTOMER-001',
+            'name' => 'New Customer Package',
+            'status' => 'open',
+        ]);
+
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Negotiating->value,
@@ -639,6 +659,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
@@ -667,6 +688,12 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-REUSE-CUSTOMER-001',
+            'name' => 'Reuse Customer Package',
+            'status' => 'open',
+        ]);
+
         // Pre-create a user + customer
         $existingUser = User::factory()->create(['email' => 'existing@test.com']);
         $existingCustomer = Customer::create([
@@ -685,6 +712,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $this->post(route('enquiries.confirm', $enquiry->id), [
             'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
             'date_of_application' => '2026-01-01',
             'members' => [
                 $this->memberPayload([
