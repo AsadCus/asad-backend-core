@@ -706,8 +706,20 @@ class OpsMovementWorkflowTest extends TestCase
             ->all();
 
         $this->assertSame(
-            ['Main Powerexpense', 'Petty Cash', 'Contigency'],
+            ['Manpower Expenses', 'Petty Cash', 'Contingency'],
             $budgetTitles,
+        );
+
+        $this->assertSame('Mutawwif', data_get($opsMovement, 'budget.0.items.0.item_name'));
+        $this->assertSame('Assisting Mutawwif', data_get($opsMovement, 'budget.0.items.1.item_name'));
+        $this->assertSame('Mutawwif Meal', data_get($opsMovement, 'budget.0.items.2.item_name'));
+        $this->assertSame('Hotel Porter', data_get($opsMovement, 'budget.1.items.0.item_name'));
+        $this->assertSame('Bus Tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
+        $this->assertSame('Tipping for Airport Porter', data_get($opsMovement, 'budget.1.items.2.item_name'));
+        $this->assertSame('Contingency Fund', data_get($opsMovement, 'budget.2.items.0.item_name'));
+        $this->assertSame(
+            'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
+            data_get($opsMovement, 'budget.2.items.0.remarks'),
         );
     }
 }

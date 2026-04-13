@@ -751,19 +751,85 @@ class OpsMovementService
     {
         return [
             [
-                'title' => 'Main Powerexpense',
+                'title' => 'Manpower Expenses',
                 'sort_order' => 1,
-                'items' => [],
+                'items' => [
+                    [
+                        'item_name' => 'Mutawwif',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 1,
+                    ],
+                    [
+                        'item_name' => 'Assisting Mutawwif',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 2,
+                    ],
+                    [
+                        'item_name' => 'Mutawwif Meal',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 3,
+                    ],
+                ],
             ],
             [
                 'title' => 'Petty Cash',
                 'sort_order' => 2,
-                'items' => [],
+                'items' => [
+                    [
+                        'item_name' => 'Hotel Porter',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 1,
+                    ],
+                    [
+                        'item_name' => 'Bus Tipping',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 2,
+                    ],
+                    [
+                        'item_name' => 'Tipping for Airport Porter',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 3,
+                    ],
+                ],
             ],
             [
-                'title' => 'Contigency',
+                'title' => 'Contingency',
                 'sort_order' => 3,
-                'items' => [],
+                'items' => [
+                    [
+                        'item_name' => 'Contingency Fund',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
+                        'sort_order' => 1,
+                    ],
+                    [
+                        'item_name' => 'Emergency Reserve',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 2,
+                    ],
+                    [
+                        'item_name' => 'Miscellaneous',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 3,
+                    ],
+                ],
             ],
         ];
     }

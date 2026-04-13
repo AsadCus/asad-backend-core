@@ -83,38 +83,9 @@
 
         /*
         |----------------------------------------------------------------------
-        | DEFAULT TEMPLATE ITEMS (max 3 per section)
-        | Used only when no real data exists for that section.
-        |----------------------------------------------------------------------
-        */
-        $defaultItems = [
-            'manpower' => [
-                ['item_name' => 'Mutawwif', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-                ['item_name' => 'Assisting Mutawwif', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-                ['item_name' => 'Mutawwif Meal', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-            ],
-            'pettycash' => [
-                ['item_name' => 'Hotel Porter', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-                ['item_name' => 'Bus Tipping', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-                ['item_name' => 'Tipping for Airport Porter', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-            ],
-            'contingency' => [
-                [
-                    'item_name' => 'Contingency Fund',
-                    'unit_price' => 0,
-                    'quantity' => 0,
-                    'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
-                ],
-                ['item_name' => 'Emergency Reserve', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-                ['item_name' => 'Miscellaneous', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
-            ],
-        ];
-
-        /*
-        |----------------------------------------------------------------------
         | RESOLVE SECTIONS
         | Match dynamic budget data to the 3 fixed sections by key or title.
-        | Falls back to template items if no data found.
+        | Do not inject template rows at report time.
         |----------------------------------------------------------------------
         */
         $budgetData = collect($opsMovement['budget'] ?? []);
@@ -130,15 +101,15 @@
         $sections = [
             [
                 'title' => 'Manpower Expenses',
-                'items' => $resolveItems(['manpowerexpenses', 'manpower']) ?: $defaultItems['manpower'],
+                'items' => $resolveItems(['manpowerexpenses', 'manpower']),
             ],
             [
                 'title' => 'Petty Cash',
-                'items' => $resolveItems(['pettycash']) ?: $defaultItems['pettycash'],
+                'items' => $resolveItems(['pettycash']),
             ],
             [
                 'title' => 'Contingency',
-                'items' => $resolveItems(['contingency']) ?: $defaultItems['contingency'],
+                'items' => $resolveItems(['contingency']),
             ],
         ];
 
