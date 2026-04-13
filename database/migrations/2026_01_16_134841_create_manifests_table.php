@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('manifests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('package_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('in_charge_official_id')->nullable()->constrained('package_officials')->nullOnDelete();
             $table->string('manifest_number')->unique();
             $table->text('notes')->nullable();
             $table->json('ops_movement_extension')->nullable();
@@ -26,7 +25,6 @@ return new class extends Migration
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
             $table->unsignedBigInteger('manifest_sharing_group_id')->nullable();
             $table->foreignId('customer_confirmation_member_id')->nullable()->constrained('customer_confirmation_members')->nullOnDelete();
-            $table->foreignId('package_official_id')->nullable()->constrained('package_officials')->nullOnDelete();
             $table->string('relationship')->nullable();
             $table->string('sharing_plan')->nullable();
             $table->string('name')->nullable();
