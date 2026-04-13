@@ -391,6 +391,110 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertSame(500.0, (float) ($memberRow['discount'] ?? 0));
     }
 
+    public function test_grouped_index_totals_include_negative_item_discount_extensions(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $data['item']->id,
+            'name' => 'Item Discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $data['depositInvoice']->update([
+            'amount' => 4700,
+            'status' => 'issued',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 4700,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+        $this->assertSame(4700.0, (float) ($group['total_amount'] ?? 0));
+        $this->assertSame(4700.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(4700.0, (float) ($memberRow['total_amount'] ?? 0));
+        $this->assertSame(4700.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
+    }
+
+    public function test_grouped_index_assigns_item_discount_to_item_owner_member_not_payer(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        $secondaryUser = User::factory()->create();
+        $secondaryCustomer = Customer::create([
+            'user_id' => $secondaryUser->id,
+            'customer_number' => 'CUST-002',
+        ]);
+
+        $secondaryMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $data['confirmation']->id,
+            'customer_id' => $secondaryCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $secondaryItem = QuotationItem::create([
+            'quotation_id' => $data['quotation']->id,
+            'customer_confirmation_member_id' => $secondaryMember->id,
+            'description' => 'Second member package',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 2,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $secondaryItem->id,
+            'name' => 'Item Discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $data['depositInvoice']->quotationItems()->sync([$data['item']->id, $secondaryItem->id]);
+        $data['depositInvoice']->update([
+            'amount' => 9700,
+            'status' => 'issued',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 9700,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+
+        $this->assertNotNull($group);
+
+        $payerRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+        $discountOwnerRow = collect($group['members'] ?? [])->firstWhere('id', $secondaryMember->id);
+
+        $this->assertNotNull($payerRow);
+        $this->assertNotNull($discountOwnerRow);
+        $this->assertSame(0.0, (float) ($payerRow['discount'] ?? 0));
+        $this->assertSame(5000.0, (float) ($payerRow['paid_amount'] ?? 0));
+        $this->assertSame(300.0, (float) ($discountOwnerRow['discount'] ?? 0));
+        $this->assertSame(4700.0, (float) ($discountOwnerRow['paid_amount'] ?? 0));
+    }
+
     public function test_grouped_index_paid_amount_excludes_positive_invoice_extensions_for_paid_invoice_fallback(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();

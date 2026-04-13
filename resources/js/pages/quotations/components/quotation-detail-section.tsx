@@ -66,9 +66,9 @@ function mergeSummaryExtensionsByNameAndType(
         const calculationValue = Number(extension.calculation_value ?? 0);
         const mergeLabel =
             calculationMode === 'percentage'
-                ? `${name} ${calculationValue}%`
+                ? `${name} ${Math.abs(calculationValue)}%`
                 : name;
-        const key = mergeLabel.toLowerCase();
+        const key = `${type}|${mergeLabel.toLowerCase()}`;
         const amount = Number(extension.amount ?? 0);
 
         if (!grouped.has(key)) {
@@ -383,9 +383,9 @@ export default function QuotationDetailSection({
             const calculationValue = Number(extension.calculation_value ?? 0);
             const mergeLabel =
                 calculationMode === 'percentage'
-                    ? `${name} ${calculationValue}%`
+                    ? `${name} ${Math.abs(calculationValue)}%`
                     : name;
-            const key = mergeLabel.toLowerCase();
+            const key = `${type}|${mergeLabel.toLowerCase()}`;
 
             if (!grouped.has(key)) {
                 grouped.set(key, {

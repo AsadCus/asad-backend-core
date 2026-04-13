@@ -29,6 +29,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         SharedData & { appearance?: AppearanceSetting }
     >().props;
 
+    const showSignupLink = false; // You can set this to true if you want to show the sign-up link
+
     return (
         <AuthLayout
             title="Log in to your account"
@@ -135,12 +137,15 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             </Button>
                         </div>
 
-                        <div className="text-center text-base text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
-                        </div>
+                        {/* Sign up link */}
+                        {showSignupLink && (
+                            <div className="text-center text-base text-muted-foreground">
+                                Don't have an account?{' '}
+                                <TextLink href={register()} tabIndex={5}>
+                                    Sign up
+                                </TextLink>
+                            </div>
+                        )}
                     </>
                 )}
             </Form>

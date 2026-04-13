@@ -253,6 +253,51 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildReportPayloadWithStalePercentageSuffix(): array
+    {
+        return [
+            'quotation_number' => 'Q-PCT-001',
+            'invoice_number' => 'INV-PCT-001',
+            'receipt_number' => 'OR-PCT-001',
+            'customer_name' => 'Test Customer',
+            'customer_address' => 'Test Address',
+            'subtotal_amount' => 1000,
+            'extension_total_amount' => -100,
+            'total_amount' => 900,
+            'quotation_date' => now()->format('d F Y'),
+            'invoice_date' => now()->format('d F Y'),
+            'receipt_date' => now()->format('d F Y'),
+            'payment_plan' => 'full',
+            'payment_plan_label' => 'Full Payment',
+            'payment_method' => 'transfer',
+            'payment_method_label' => 'Transfer',
+            'extensions' => [
+                [
+                    'id' => null,
+                    'quotation_extension_master_id' => null,
+                    'name' => 'Discount Package 1%',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => -10.0000,
+                    'amount' => -100,
+                    'sort_order' => 1,
+                ],
+            ],
+            'invoice_payment_progress' => [
+                [
+                    'label' => 'Pending Payment',
+                    'amount_paid' => 0,
+                    'total_amount' => 900,
+                ],
+            ],
+            'notes' => [],
+            'items' => [],
+        ];
+    }
+
     public function test_payment_progress_rows_use_paid_or_outstanding_values_and_exclude_refund_rows(): void
     {
         $graph = $this->createMixedPaymentStatusGraph();
@@ -286,5 +331,50 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(2000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.1.amount_paid'));
         $this->assertSame(0.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.amount_paid'));
         $this->assertSame(3000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.total_amount'));
+    }
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function test_quotation_report_view_normalizes_percentage_labels_from_extension_values(): void
+    {
+        $quotationPayload = $this->buildReportPayloadWithStalePercentageSuffix();
+
+        $quotationHtml = view('quotations.report-content', [
+            'data' => $quotationPayload,
+            'items' => $quotationPayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $this->assertStringContainsString('Discount Package 10%:', $quotationHtml);
+    }
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function test_invoice_report_view_normalizes_percentage_labels_from_extension_values(): void
+    {
+        $invoicePayload = $this->buildReportPayloadWithStalePercentageSuffix();
+
+        $invoiceHtml = view('invoices.report-content', [
+            'data' => $invoicePayload,
+            'items' => $invoicePayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $this->assertStringContainsString('Discount Package 10%:', $invoiceHtml);
+    }
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function test_receipt_report_view_normalizes_percentage_labels_from_extension_values(): void
+    {
+        $receiptPayload = $this->buildReportPayloadWithStalePercentageSuffix();
+
+        $receiptHtml = view('receipts.report-content', [
+            'data' => $receiptPayload,
+            'items' => $receiptPayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $this->assertStringContainsString('Discount Package 10%:', $receiptHtml);
     }
 }

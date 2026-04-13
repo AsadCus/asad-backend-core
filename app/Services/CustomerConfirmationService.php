@@ -982,9 +982,41 @@ class CustomerConfirmationService
                     return $amount < 0 ? abs($amount) : 0;
                 });
 
-            $invoiceDiscountTotal = (float) collect($quotation->order?->invoices ?? collect())
+            $remainingCapByMemberId = [];
+            foreach ($memberCapsById as $memberId => $memberCap) {
+                $remainingCapByMemberId[(int) $memberId] = round(max((float) $memberCap, 0), 2);
+            }
+
+            $orderInvoices = collect($quotation->order?->invoices ?? collect())->values();
+
+            $quotationItemDiscountByMemberId = $orderInvoices->isEmpty()
+                ? $this->resolveNegativeItemDiscountByMemberFromItems($quotationItems)
+                : [];
+
+            foreach ($quotationItemDiscountByMemberId as $memberId => $itemDiscountAmount) {
+                $memberCapRemaining = round((float) ($remainingCapByMemberId[$memberId] ?? 0), 2);
+
+                if ($memberCapRemaining <= 0) {
+                    continue;
+                }
+
+                $allocatedItemDiscount = round(min($itemDiscountAmount, $memberCapRemaining), 2);
+
+                if ($allocatedItemDiscount <= 0) {
+                    continue;
+                }
+
+                $discountByMemberId[$memberId] = round(
+                    (float) ($discountByMemberId[$memberId] ?? 0) + $allocatedItemDiscount,
+                    2,
+                );
+
+                $remainingCapByMemberId[$memberId] = round(max($memberCapRemaining - $allocatedItemDiscount, 0), 2);
+            }
+
+            $invoiceDiscountTotal = (float) $orderInvoices
                 ->sum(function ($invoice): float {
-                    return (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
+                    $invoiceExtensionDiscountTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])
                         ->sum(function ($extension): float {
                             if (! is_array($extension)) {
                                 return 0;
@@ -994,7 +1026,38 @@ class CustomerConfirmationService
 
                             return $amount < 0 ? abs($amount) : 0;
                         });
+
+                    return $invoiceExtensionDiscountTotal;
                 });
+
+            foreach ($orderInvoices as $invoice) {
+                $invoiceItems = $invoice->quotationItems
+                    ->filter(fn ($item): bool => ! (bool) $item->is_header)
+                    ->values();
+
+                $invoiceItemDiscountByMemberId = $this->resolveNegativeItemDiscountByMemberFromItems($invoiceItems);
+
+                foreach ($invoiceItemDiscountByMemberId as $memberId => $itemDiscountAmount) {
+                    $memberCapRemaining = round((float) ($remainingCapByMemberId[$memberId] ?? 0), 2);
+
+                    if ($memberCapRemaining <= 0) {
+                        continue;
+                    }
+
+                    $allocatedItemDiscount = round(min($itemDiscountAmount, $memberCapRemaining), 2);
+
+                    if ($allocatedItemDiscount <= 0) {
+                        continue;
+                    }
+
+                    $discountByMemberId[$memberId] = round(
+                        (float) ($discountByMemberId[$memberId] ?? 0) + $allocatedItemDiscount,
+                        2,
+                    );
+
+                    $remainingCapByMemberId[$memberId] = round(max($memberCapRemaining - $allocatedItemDiscount, 0), 2);
+                }
+            }
 
             $totalDiscount = round($quotationDiscountTotal + $invoiceDiscountTotal, 2);
 
@@ -1013,7 +1076,7 @@ class CustomerConfirmationService
                     break;
                 }
 
-                $memberCap = round((float) ($memberCapsById[$memberId] ?? 0), 2);
+                $memberCap = round((float) ($remainingCapByMemberId[$memberId] ?? 0), 2);
 
                 if ($memberCap <= 0) {
                     continue;
@@ -1030,6 +1093,7 @@ class CustomerConfirmationService
                     2,
                 );
 
+                $remainingCapByMemberId[$memberId] = round(max($memberCap - $allocatedDiscount, 0), 2);
                 $remainingDiscount = round($remainingDiscount - $allocatedDiscount, 2);
             }
         }
@@ -1100,8 +1164,11 @@ class CustomerConfirmationService
                 continue;
             }
 
-            $quotationSubtotal = (float) $quotation->quotationItems
+            $quotationItems = $quotation->quotationItems
                 ->where('is_header', false)
+                ->values();
+
+            $quotationSubtotal = (float) $quotationItems
                 ->sum(function ($item): float {
                     return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
                 });
@@ -1129,7 +1196,16 @@ class CustomerConfirmationService
                 $discountShare += $quotationDiscountTotal * ($memberSubtotal / $quotationSubtotal);
             }
 
-            $orderInvoices = $quotation->order?->invoices ?? collect();
+            $orderInvoices = collect($quotation->order?->invoices ?? collect())->values();
+
+            $quotationItemDiscountTotal = $orderInvoices->isEmpty()
+                ? $this->resolveNegativeItemDiscountTotalFromItems($quotationItems)
+                : 0.0;
+
+            if ($quotationItemDiscountTotal > 0) {
+                $discountShare += $quotationItemDiscountTotal * ($memberSubtotal / $quotationSubtotal);
+            }
+
             foreach ($orderInvoices as $invoice) {
                 $invoiceItems = $invoice->quotationItems
                     ->filter(fn ($item): bool => ! (bool) $item->is_header)
@@ -1164,6 +1240,9 @@ class CustomerConfirmationService
                         return $amount < 0 ? abs($amount) : 0;
                     });
 
+                $invoiceItemDiscountTotal = $this->resolveNegativeItemDiscountTotalFromItems($invoiceItems);
+                $invoiceDiscountTotal += $invoiceItemDiscountTotal;
+
                 if ($invoiceDiscountTotal <= 0) {
                     continue;
                 }
@@ -1173,6 +1252,57 @@ class CustomerConfirmationService
         }
 
         return round($discountShare, 2);
+    }
+
+    /**
+     * @param  Collection<int, QuotationItem>  $items
+     */
+    private function resolveNegativeItemDiscountTotalFromItems(Collection $items): float
+    {
+        return round((float) array_sum($this->resolveNegativeItemDiscountByMemberFromItems($items)), 2);
+    }
+
+    /**
+     * @param  Collection<int, QuotationItem>  $items
+     * @return array<int, float>
+     */
+    private function resolveNegativeItemDiscountByMemberFromItems(Collection $items): array
+    {
+        $discountByMemberId = [];
+
+        foreach ($items as $item) {
+            $memberId = (int) ($item->customer_confirmation_member_id ?? 0);
+
+            if ($memberId <= 0) {
+                continue;
+            }
+
+            $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+
+            foreach ($item->taxes ?? [] as $tax) {
+                $calculationMode = strtolower(trim((string) ($tax->calculation_mode ?? '')));
+                $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                if ($calculationValue >= 0 || ! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    continue;
+                }
+
+                $discountAmount = $calculationMode === 'percentage'
+                    ? ($lineAmount * $calculationValue / 100)
+                    : $calculationValue;
+
+                if ($discountAmount >= 0) {
+                    continue;
+                }
+
+                $discountByMemberId[$memberId] = round(
+                    (float) ($discountByMemberId[$memberId] ?? 0) + abs($discountAmount),
+                    2,
+                );
+            }
+        }
+
+        return $discountByMemberId;
     }
 
     private function hasActiveQuotationItemLink(CustomerConfirmationMember $member): bool

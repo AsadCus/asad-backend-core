@@ -325,3 +325,32 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* scrollbar for datatable */
+@layer utilities {
+    .always-scrollbars {
+        scrollbar-gutter: stable;
+        scrollbar-width: auto;
+        scrollbar-color: auto;
+    }
+
+    .always-scrollbars::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    .always-scrollbars::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .always-scrollbars::-webkit-scrollbar-thumb {
+        background-color: var(--muted-foreground);
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+
+    .always-scrollbars::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+}

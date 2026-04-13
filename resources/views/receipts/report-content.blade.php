@@ -231,11 +231,25 @@
             {
                 $name = trim((string) ($extension['name'] ?? 'Extension'));
                 $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
-                $value = (float) ($extension['calculation_value'] ?? 0);
+                $value = abs((float) ($extension['calculation_value'] ?? 0));
 
-                if ($mode === 'percentage') {
-                    $formattedValue = floor($value) == $value ? number_format($value, 0) : number_format($value, 2);
-                    return $name . ' ' . rtrim(rtrim($formattedValue, '0'), '.') . '%';
+                $nameContainsPercent = preg_match('/-?\d+(?:\.\d+)?\s*%$/', $name) === 1;
+                $isPercentage = $mode === 'percentage' || $nameContainsPercent;
+
+                if ($isPercentage) {
+                    if ($value <= 0 && $nameContainsPercent) {
+                        preg_match('/(-?\d+(?:\.\d+)?)\s*%$/', $name, $matches);
+                        $value = abs((float) ($matches[1] ?? 0));
+                    }
+
+                    $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
+                    $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
+                    $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
+                    $normalizedValue = str_contains($formattedValue, '.')
+                        ? rtrim(rtrim($formattedValue, '0'), '.')
+                        : $formattedValue;
+
+                    return ($baseName !== '' ? $baseName : $name) . ' ' . $normalizedValue . '%';
                 }
 
                 return $name;

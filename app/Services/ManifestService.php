@@ -2318,6 +2318,57 @@ class ManifestService
         return round($taxTotal, 2);
     }
 
+    /**
+     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     */
+    private function resolveNegativeItemDiscountTotalFromInvoiceItems(Collection $invoiceItems): float
+    {
+        return round((float) array_sum($this->resolveNegativeItemDiscountByMemberFromInvoiceItems($invoiceItems)), 2);
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     * @return array<int, float>
+     */
+    private function resolveNegativeItemDiscountByMemberFromInvoiceItems(Collection $invoiceItems): array
+    {
+        $discountByMemberId = [];
+
+        foreach ($invoiceItems as $invoiceItem) {
+            $memberId = (int) ($invoiceItem->customer_confirmation_member_id ?? 0);
+
+            if ($memberId <= 0) {
+                continue;
+            }
+
+            $lineAmount = (float) ($invoiceItem->quantity ?? 0) * (float) ($invoiceItem->rate ?? 0);
+
+            foreach ($invoiceItem->taxes ?? [] as $tax) {
+                $calculationMode = strtolower(trim((string) ($tax->calculation_mode ?? '')));
+                $calculationValue = (float) ($tax->calculation_value ?? 0);
+
+                if ($calculationValue >= 0 || ! in_array($calculationMode, ['fixed', 'percentage'], true)) {
+                    continue;
+                }
+
+                $discountAmount = $calculationMode === 'percentage'
+                    ? ($lineAmount * $calculationValue / 100)
+                    : $calculationValue;
+
+                if ($discountAmount >= 0) {
+                    continue;
+                }
+
+                $discountByMemberId[$memberId] = round(
+                    (float) ($discountByMemberId[$memberId] ?? 0) + abs($discountAmount),
+                    2,
+                );
+            }
+        }
+
+        return $discountByMemberId;
+    }
+
     private function resolveNegativeExtensionDiscountShareForMember(
         CustomerConfirmationMember $member,
         ?Package $package,
@@ -2447,6 +2498,35 @@ class ManifestService
 
                 if ($invoiceId <= 0) {
                     continue;
+                }
+
+                $invoiceItems = $invoice->quotationItems
+                    ->filter(fn ($item): bool => ! (bool) $item->is_header)
+                    ->values();
+
+                $itemDiscountByMemberId = $this->resolveNegativeItemDiscountByMemberFromInvoiceItems($invoiceItems);
+
+                foreach ($itemDiscountByMemberId as $memberId => $itemDiscountAmount) {
+                    $memberCapRemaining = round((float) ($remainingCapByMemberId[$memberId] ?? 0), 2);
+
+                    if ($memberCapRemaining <= 0) {
+                        continue;
+                    }
+
+                    $allocatedItemDiscount = round(min($itemDiscountAmount, $memberCapRemaining), 2);
+
+                    if ($allocatedItemDiscount <= 0) {
+                        continue;
+                    }
+
+                    if ((int) $memberId === $targetMemberId) {
+                        $discountByInvoiceId[$invoiceId] = round(
+                            (float) ($discountByInvoiceId[$invoiceId] ?? 0) + $allocatedItemDiscount,
+                            2,
+                        );
+                    }
+
+                    $remainingCapByMemberId[$memberId] = round(max($memberCapRemaining - $allocatedItemDiscount, 0), 2);
                 }
 
                 $invoiceDiscountTotal = (float) collect(is_array($invoice->extensions) ? $invoice->extensions : [])

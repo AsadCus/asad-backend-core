@@ -616,265 +616,275 @@ export function DataTable<TData extends RowData, TValue = unknown>({
 
             {/* Table */}
             <div className="overflow-hidden rounded-md border">
-                <Table
-                    className={cn({
-                        '[&_td]:py-1 [&_th]:py-1': density === 'compact',
-                        '[&_td]:py-2 [&_th]:py-2': density === 'standard',
-                        '[&_td]:py-3 [&_th]:py-3': density === 'flexible',
-                    })}
-                >
-                    <TableHeader>
-                        {table.getHeaderGroups().map((hg) => (
-                            <TableRow key={hg.id}>
-                                {hg.headers.map((header) => (
-                                    <TableHead
-                                        key={header.id}
-                                        className={cn(
-                                            header.column.columnDef.meta
-                                                ?.className,
-                                            header.column.getCanSort()
-                                                ? 'cursor-pointer select-none'
-                                                : '',
-                                        )}
-                                        onClick={header.column.getToggleSortingHandler()}
-                                    >
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                  header.column.columnDef
-                                                      .header,
-                                                  header.getContext(),
-                                              )}
-                                        {{
-                                            asc: (
-                                                <ArrowUp className="ml-1 inline h-4 w-4" />
-                                            ),
-                                            desc: (
-                                                <ArrowDown className="ml-1 inline h-4 w-4" />
-                                            ),
-                                        }[
-                                            header.column.getIsSorted() as string
-                                        ] ??
-                                            (header.column.getCanSort() ? (
-                                                <ChevronsUpDown className="ml-1 inline h-4 w-4 text-muted-foreground" />
-                                            ) : null)}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
+                <div className="always-scrollbars max-h-[50vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
+                    <Table
+                        className={cn(
+                            'min-w-full [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-background',
+                            {
+                                '[&_td]:py-1 [&_th]:py-1':
+                                    density === 'compact',
+                                '[&_td]:py-2 [&_th]:py-2':
+                                    density === 'standard',
+                                '[&_td]:py-3 [&_th]:py-3':
+                                    density === 'flexible',
+                            },
+                        )}
+                    >
+                        <TableHeader>
+                            {table.getHeaderGroups().map((hg) => (
+                                <TableRow key={hg.id}>
+                                    {hg.headers.map((header) => (
+                                        <TableHead
+                                            key={header.id}
+                                            className={cn(
+                                                header.column.columnDef.meta
+                                                    ?.className,
+                                                header.column.getCanSort()
+                                                    ? 'cursor-pointer select-none'
+                                                    : '',
+                                            )}
+                                            onClick={header.column.getToggleSortingHandler()}
+                                        >
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef
+                                                          .header,
+                                                      header.getContext(),
+                                                  )}
+                                            {{
+                                                asc: (
+                                                    <ArrowUp className="ml-1 inline h-4 w-4" />
+                                                ),
+                                                desc: (
+                                                    <ArrowDown className="ml-1 inline h-4 w-4" />
+                                                ),
+                                            }[
+                                                header.column.getIsSorted() as string
+                                            ] ??
+                                                (header.column.getCanSort() ? (
+                                                    <ChevronsUpDown className="ml-1 inline h-4 w-4 text-muted-foreground" />
+                                                ) : null)}
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
 
-                    <TableBody>
-                        {displayRows.length > 0 ? (
-                            displayRows.map((row) => {
-                                const rowToneClass =
-                                    rowToneClassById.get(row.id) ??
-                                    'bg-background';
+                        <TableBody>
+                            {displayRows.length > 0 ? (
+                                displayRows.map((row) => {
+                                    const rowToneClass =
+                                        rowToneClassById.get(row.id) ??
+                                        'bg-background';
 
-                                return (
-                                    <React.Fragment key={row.id}>
-                                        <ContextMenu>
-                                            <ContextMenuTrigger asChild>
-                                                <TableRow
-                                                    key={row.id}
-                                                    data-row-id={row.id}
-                                                    data-state={
-                                                        row.getIsSelected() &&
-                                                        'selected'
-                                                    }
-                                                    className={cn(
-                                                        'relative align-top transition-colors hover:bg-accent',
-                                                        rowToneClass,
-                                                        row.getIsSelected() &&
-                                                            'bg-accent',
-                                                        onRowDoubleClick &&
-                                                            'cursor-pointer',
-                                                    )}
-                                                    onClick={(event) => {
-                                                        if (!onRowDoubleClick) {
-                                                            return;
+                                    return (
+                                        <React.Fragment key={row.id}>
+                                            <ContextMenu>
+                                                <ContextMenuTrigger asChild>
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-row-id={row.id}
+                                                        data-state={
+                                                            row.getIsSelected() &&
+                                                            'selected'
                                                         }
-
-                                                        if (
-                                                            shouldIgnoreRowOpen(
-                                                                event,
-                                                            )
-                                                        ) {
-                                                            return;
-                                                        }
-
-                                                        onRowDoubleClick(
-                                                            row.original,
-                                                        );
-                                                    }}
-                                                >
-                                                    {row
-                                                        .getVisibleCells()
-                                                        .map(
-                                                            (
-                                                                cell: Cell<
-                                                                    TData,
-                                                                    unknown
-                                                                >,
-                                                            ) => (
-                                                                <TableCell
-                                                                    key={
-                                                                        cell.id
-                                                                    }
-                                                                    className={cn(
-                                                                        cell
-                                                                            .column
-                                                                            .columnDef
-                                                                            .meta
-                                                                            ?.className,
-                                                                    )}
-                                                                >
-                                                                    {flexRender(
-                                                                        cell
-                                                                            .column
-                                                                            .columnDef
-                                                                            .cell,
-                                                                        cell.getContext(),
-                                                                    )}
-                                                                </TableCell>
-                                                            ),
-                                                        )}
-                                                </TableRow>
-                                            </ContextMenuTrigger>
-                                            <ContextMenuContent className="w-48">
-                                                <ActionMenuItems
-                                                    row={row}
-                                                    actions={
-                                                        getRowActions
-                                                            ? [
-                                                                  ...actions,
-                                                                  ...getRowActions(
-                                                                      row.original,
-                                                                  ),
-                                                              ]
-                                                            : actions
-                                                    }
-                                                    onAction={(
-                                                        action,
-                                                        payload,
-                                                    ) => {
-                                                        if (onAction) {
-                                                            if (
-                                                                payload &&
-                                                                typeof payload ===
-                                                                    'object' &&
-                                                                'original' in
-                                                                    payload
-                                                            ) {
-                                                                onAction(
-                                                                    action,
-                                                                    payload,
-                                                                );
-                                                            } else {
-                                                                onAction(
-                                                                    action,
-                                                                    undefined,
-                                                                );
-                                                            }
-                                                        } else {
-                                                            const item =
-                                                                payload &&
-                                                                typeof payload ===
-                                                                    'object' &&
-                                                                'original' in
-                                                                    payload
-                                                                    ? payload.original
-                                                                    : payload;
-
-                                                            if (
-                                                                action ===
-                                                                'view'
-                                                            )
-                                                                console.log(
-                                                                    'View item',
-                                                                    item,
-                                                                );
-                                                            if (
-                                                                action ===
-                                                                'edit'
-                                                            )
-                                                                console.log(
-                                                                    'Edit item',
-                                                                    item,
-                                                                );
-                                                            if (
-                                                                action ===
-                                                                'delete'
-                                                            )
-                                                                console.log(
-                                                                    'Delete item',
-                                                                    item,
-                                                                );
-                                                        }
-                                                    }}
-                                                    mode="context"
-                                                />
-                                            </ContextMenuContent>
-                                        </ContextMenu>
-
-                                        {row.getIsExpanded() &&
-                                            renderSubComponent && (
-                                                <TableRow
-                                                    className={cn(
-                                                        inheritExpandedRowBackground &&
+                                                        className={cn(
+                                                            'relative align-top transition-colors hover:bg-accent',
                                                             rowToneClass,
-                                                    )}
-                                                >
-                                                    <TableCell
-                                                        colSpan={
-                                                            row.getVisibleCells()
-                                                                .length
+                                                            row.getIsSelected() &&
+                                                                'bg-accent',
+                                                            onRowDoubleClick &&
+                                                                'cursor-pointer',
+                                                        )}
+                                                        onClick={(event) => {
+                                                            if (
+                                                                !onRowDoubleClick
+                                                            ) {
+                                                                return;
+                                                            }
+
+                                                            if (
+                                                                shouldIgnoreRowOpen(
+                                                                    event,
+                                                                )
+                                                            ) {
+                                                                return;
+                                                            }
+
+                                                            onRowDoubleClick(
+                                                                row.original,
+                                                            );
+                                                        }}
+                                                    >
+                                                        {row
+                                                            .getVisibleCells()
+                                                            .map(
+                                                                (
+                                                                    cell: Cell<
+                                                                        TData,
+                                                                        unknown
+                                                                    >,
+                                                                ) => (
+                                                                    <TableCell
+                                                                        key={
+                                                                            cell.id
+                                                                        }
+                                                                        className={cn(
+                                                                            cell
+                                                                                .column
+                                                                                .columnDef
+                                                                                .meta
+                                                                                ?.className,
+                                                                        )}
+                                                                    >
+                                                                        {flexRender(
+                                                                            cell
+                                                                                .column
+                                                                                .columnDef
+                                                                                .cell,
+                                                                            cell.getContext(),
+                                                                        )}
+                                                                    </TableCell>
+                                                                ),
+                                                            )}
+                                                    </TableRow>
+                                                </ContextMenuTrigger>
+                                                <ContextMenuContent className="w-48">
+                                                    <ActionMenuItems
+                                                        row={row}
+                                                        actions={
+                                                            getRowActions
+                                                                ? [
+                                                                      ...actions,
+                                                                      ...getRowActions(
+                                                                          row.original,
+                                                                      ),
+                                                                  ]
+                                                                : actions
                                                         }
+                                                        onAction={(
+                                                            action,
+                                                            payload,
+                                                        ) => {
+                                                            if (onAction) {
+                                                                if (
+                                                                    payload &&
+                                                                    typeof payload ===
+                                                                        'object' &&
+                                                                    'original' in
+                                                                        payload
+                                                                ) {
+                                                                    onAction(
+                                                                        action,
+                                                                        payload,
+                                                                    );
+                                                                } else {
+                                                                    onAction(
+                                                                        action,
+                                                                        undefined,
+                                                                    );
+                                                                }
+                                                            } else {
+                                                                const item =
+                                                                    payload &&
+                                                                    typeof payload ===
+                                                                        'object' &&
+                                                                    'original' in
+                                                                        payload
+                                                                        ? payload.original
+                                                                        : payload;
+
+                                                                if (
+                                                                    action ===
+                                                                    'view'
+                                                                )
+                                                                    console.log(
+                                                                        'View item',
+                                                                        item,
+                                                                    );
+                                                                if (
+                                                                    action ===
+                                                                    'edit'
+                                                                )
+                                                                    console.log(
+                                                                        'Edit item',
+                                                                        item,
+                                                                    );
+                                                                if (
+                                                                    action ===
+                                                                    'delete'
+                                                                )
+                                                                    console.log(
+                                                                        'Delete item',
+                                                                        item,
+                                                                    );
+                                                            }
+                                                        }}
+                                                        mode="context"
+                                                    />
+                                                </ContextMenuContent>
+                                            </ContextMenu>
+
+                                            {row.getIsExpanded() &&
+                                                renderSubComponent && (
+                                                    <TableRow
                                                         className={cn(
                                                             inheritExpandedRowBackground &&
                                                                 rowToneClass,
                                                         )}
                                                     >
-                                                        <div
-                                                            data-expanded-row={
-                                                                row.id
+                                                        <TableCell
+                                                            colSpan={
+                                                                row.getVisibleCells()
+                                                                    .length
                                                             }
                                                             className={cn(
                                                                 inheritExpandedRowBackground &&
                                                                     rowToneClass,
                                                             )}
                                                         >
-                                                            {renderSubComponent(
-                                                                row,
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                    </React.Fragment>
-                                );
-                            })
-                        ) : renderEmptyState ? (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                >
-                                    {renderEmptyState(table)}
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                >
-                                    No results.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                                                            <div
+                                                                data-expanded-row={
+                                                                    row.id
+                                                                }
+                                                                className={cn(
+                                                                    inheritExpandedRowBackground &&
+                                                                        rowToneClass,
+                                                                )}
+                                                            >
+                                                                {renderSubComponent(
+                                                                    row,
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            ) : renderEmptyState ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        className="h-24 text-center"
+                                    >
+                                        {renderEmptyState(table)}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        className="h-24 text-center"
+                                    >
+                                        No results.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             <DataTablePagination

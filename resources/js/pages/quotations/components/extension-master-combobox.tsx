@@ -78,7 +78,7 @@ function formatNumber(value: number): string {
 
 function getOptionLabel(option: ExtensionMasterComboboxOption): string {
     const mode = String(option.calculation_mode ?? 'fixed');
-    const amount = Number(option.calculation_value ?? 0);
+    const amount = Math.abs(Number(option.calculation_value ?? 0));
 
     if (mode === 'percentage') {
         return `${option.name} ${formatNumber(amount)}%`;

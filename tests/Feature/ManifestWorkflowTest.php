@@ -3386,6 +3386,222 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
+    public function test_get_for_edit_show_payment_buckets_include_negative_item_discount_extensions(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-005A',
+            'name' => 'Manifest Financial Item Discount Inclusion',
+            'status' => 'open',
+            'price_double' => 5000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-005A',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Item Discount', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Package full payment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $quotationItem->id,
+            'name' => 'Item Discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Issued invoice with item discount',
+            'amount' => 4700,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 4700,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
+        $this->assertSame(4700.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertNull($memberRow['second_payment']);
+        $this->assertNull($memberRow['third_payment']);
+        $this->assertSame(0.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
+    public function test_get_for_edit_show_assigns_item_discount_to_item_owner_member_not_payer(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-005B',
+            'name' => 'Manifest Financial Item Discount Ownership',
+            'status' => 'open',
+            'price_double' => 2500,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-005B',
+        ]);
+
+        $payerMember = $this->createMemberForPackage(
+            $package->id,
+            'Financial Payer Member',
+            $actingUser->id,
+        );
+
+        $discountOwnerMember = $this->createMemberForPackage(
+            $package->id,
+            'Financial Discount Owner Member',
+            $actingUser->id,
+            $payerMember->customer_confirmation_id,
+        );
+
+        $payerMember->update(['sharing_plan' => 'double']);
+        $discountOwnerMember->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $payerMember->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $discountOwnerMember->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 2,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $payerMember->customer_id,
+            'customer_confirmation_id' => $payerMember->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $payerItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $payerMember->id,
+            'description' => 'Payer package item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2500,
+            'sort_order' => 1,
+        ]);
+
+        $discountOwnerItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $discountOwnerMember->id,
+            'description' => 'Discount owner package item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 2500,
+            'sort_order' => 2,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $discountOwnerItem->id,
+            'name' => 'Item Discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => -300,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Issued invoice with member-specific item discount',
+            'amount' => 4700,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$payerItem->id, $discountOwnerItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 4700,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $payerRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $payerMember->id);
+        $discountOwnerRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $discountOwnerMember->id);
+
+        $this->assertNotNull($payerRow);
+        $this->assertNotNull($discountOwnerRow);
+        $this->assertSame(0.0, (float) ($payerRow['discount'] ?? 0));
+        $this->assertSame(2500.0, (float) ($payerRow['deposit_payment'] ?? 0));
+        $this->assertSame(300.0, (float) ($discountOwnerRow['discount'] ?? 0));
+        $this->assertSame(2200.0, (float) ($discountOwnerRow['deposit_payment'] ?? 0));
+        $this->assertSame(0.0, (float) ($payerRow['balance_due'] ?? 0));
+        $this->assertSame(0.0, (float) ($discountOwnerRow['balance_due'] ?? 0));
+    }
+
     public function test_get_for_edit_show_maps_paid_amounts_to_receipt_date_sequence_slots(): void
     {
         $actingUser = User::factory()->create();

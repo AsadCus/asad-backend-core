@@ -97,7 +97,7 @@ function formatExtensionLabel(
         return name;
     }
 
-    return `${name} ${Number(calculationValue ?? 0)}%`;
+    return `${name} ${Math.abs(Number(calculationValue ?? 0))}%`;
 }
 
 function normalizeExtensions(

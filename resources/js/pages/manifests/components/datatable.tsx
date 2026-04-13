@@ -1295,7 +1295,9 @@ export default function ManifestDatatable({
     const getStickyHeaderClassName = (column: 'drag' | 'serial' | 'name') => {
         return cn(
             'sticky top-0 bg-muted',
-            column === 'name' ? '!z-[220]' : '!z-[210]',
+            column === 'name' || column === 'serial' || column === 'drag'
+                ? '!z-20'
+                : '!z-10',
             'shadow-[1px_0_0_0_hsl(var(--border))]',
         );
     };
@@ -1303,7 +1305,9 @@ export default function ManifestDatatable({
     const getStickyBodyClassName = (column: 'drag' | 'serial' | 'name') => {
         return cn(
             'sticky bg-background group-hover:bg-muted',
-            column === 'name' ? 'z-[70]' : 'z-[60]',
+            column === 'name' || column === 'serial' || column === 'drag'
+                ? 'z-[9]'
+                : 'z-[8]',
             'shadow-[1px_0_0_0_hsl(var(--border))]',
         );
     };
@@ -3893,7 +3897,7 @@ export default function ManifestDatatable({
                     </Button>
                 </div>
             )}
-            <div className="max-h-[75vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
+            <div className="always-scrollbars max-h-[75vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -3908,7 +3912,7 @@ export default function ManifestDatatable({
                                 'min-w-[1600px]',
                                 'border-separate border-spacing-0',
                                 '[&_td]:align-top [&_th]:align-middle',
-                                '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-[80] [&_thead_th]:bg-muted',
+                                '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted',
                                 // '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
                                 // '[&_tfoot_td]:p-2',
                             )}
