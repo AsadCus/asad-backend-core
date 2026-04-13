@@ -298,6 +298,72 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildConvertedQuotationPayloadWithInvoiceExtensions(): array
+    {
+        return [
+            'quotation_number' => 'Q-CONV-001',
+            'customer_name' => 'Converted Customer',
+            'customer_address' => 'Converted Address',
+            'subtotal_amount' => 13200,
+            'extension_total_amount' => 344,
+            'total_amount' => 13544,
+            'quotation_date' => now()->format('d F Y'),
+            'payment_plan' => 'full',
+            'payment_plan_label' => 'Full Payment',
+            'extensions' => [],
+            'invoice_extensions' => [
+                [
+                    'name' => 'Invoice Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => -150,
+                    'amount' => -150,
+                ],
+                [
+                    'name' => 'Discount Services',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => -200,
+                    'amount' => -200,
+                ],
+                [
+                    'name' => 'Discount Package',
+                    'type' => 'discount',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => -100,
+                    'amount' => -100,
+                ],
+            ],
+            'invoice_payment_progress' => [],
+            'notes' => [],
+            'items' => [
+                [
+                    'description' => 'Package Item',
+                    'is_header' => false,
+                    'quantity' => 4000,
+                    'rate' => 1,
+                    'taxes' => [
+                        [
+                            'name' => 'Discount Package',
+                            'calculation_mode' => 'percentage',
+                            'calculation_value' => -10,
+                            'quotation_extension_master_id' => 1,
+                        ],
+                        [
+                            'name' => 'GST',
+                            'calculation_mode' => 'percentage',
+                            'calculation_value' => 7,
+                            'quotation_extension_master_id' => 2,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
     public function test_payment_progress_rows_use_paid_or_outstanding_values_and_exclude_refund_rows(): void
     {
         $graph = $this->createMixedPaymentStatusGraph();
@@ -376,5 +442,23 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Discount Package 10%:', $receiptHtml);
+    }
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function test_converted_quotation_report_view_shows_invoice_extensions_in_subtotal_section(): void
+    {
+        $quotationPayload = $this->buildConvertedQuotationPayloadWithInvoiceExtensions();
+
+        $quotationHtml = view('quotations.report-content', [
+            'data' => $quotationPayload,
+            'items' => $quotationPayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $this->assertStringContainsString('Discount Services:', $quotationHtml);
+        $this->assertStringContainsString('Discount Package 10%:', $quotationHtml);
+        $this->assertStringContainsString('Discount Package:', $quotationHtml);
+        $this->assertStringContainsString('GST 7%:', $quotationHtml);
     }
 }

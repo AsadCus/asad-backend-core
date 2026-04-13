@@ -317,7 +317,7 @@
                             $mode = (string) ($tax['calculation_mode'] ?? '');
                             $value = (float) ($tax['calculation_value'] ?? 0);
 
-                            return in_array($mode, ['fixed', 'percentage'], true) && $value > 0;
+                            return in_array($mode, ['fixed', 'percentage'], true) && $value !== 0.0;
                         })
                         ->map(function ($tax) use ($lineAmount) {
                             $mode = (string) ($tax['calculation_mode'] ?? '');
@@ -331,6 +331,8 @@
                                     (string) $value,
                                 ]),
                                 'name' => $tax['name'] ?? 'Tax',
+                                'calculation_mode' => $mode,
+                                'calculation_value' => $value,
                                 'amount' => $mode === 'percentage' ? ($lineAmount * $value) / 100 : $value,
                             ];
                         });
@@ -348,8 +350,14 @@
                 })
                 ->values();
 
+            $quotationSubtotalExtensions = collect($data['extensions'] ?? []);
+
+            if ($quotationSubtotalExtensions->isEmpty()) {
+                $quotationSubtotalExtensions = collect($data['invoice_extensions'] ?? []);
+            }
+
             $allExtensions = $itemTaxExtensions
-                ->concat(collect($data['extensions'] ?? []))
+                ->concat($quotationSubtotalExtensions)
                 ->values();
         @endphp
         <div class="totals-wrapper">
