@@ -22,6 +22,12 @@ return new class extends Migration
             $table->string('stamp_path')->nullable();
             $table->string('signature_path')->nullable();
             $table->string('brand_color', 7)->default('#c05427');
+            $table->string('signature_stamp_layout', 20)->default('default');
+            $table->string('custom_stamp_path')->nullable();
+            $table->string('custom_signature_path')->nullable();
+            $table->json('custom_signature_stamp_layout')->nullable();
+            $table->string('qr_image_path')->nullable();
+            $table->string('qr_alignment', 10)->default('center');
             $table->json('module_templates')->nullable();
             $table->json('registered_modules')->nullable();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();

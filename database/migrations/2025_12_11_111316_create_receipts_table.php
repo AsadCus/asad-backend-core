@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('receipts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('invoice_id')->nullable()->constrained()->nullOnDelete();
             $table->string('receipt_number')->unique()->nullable();
             $table->decimal('amount', 10, 2);
             $table->date('receipt_date');

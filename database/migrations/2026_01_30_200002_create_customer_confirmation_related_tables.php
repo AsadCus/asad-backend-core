@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('manifest_room_id')->constrained()->cascadeOnDelete();
             $table->foreignId('manifest_member_id')->constrained('manifest_members')->cascadeOnDelete();
             $table->unsignedInteger('sort_order')->default(1);
+            $table->boolean('is_assigned')->default(true);
             $table->text('remarks')->nullable();
             $table->timestamps();
         });
@@ -24,8 +25,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('manifest_id')->constrained()->cascadeOnDelete();
             $table->foreignId('customer_confirmation_id')->nullable()->constrained('customer_confirmations')->nullOnDelete();
+            $table->foreignId('source_quotation_id')->nullable()->constrained('quotations')->nullOnDelete();
             $table->unsignedInteger('sort_order')->default(0);
-            $table->string('relation')->nullable();
+            $table->string('group_relationship')->nullable();
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

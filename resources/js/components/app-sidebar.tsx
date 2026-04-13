@@ -64,6 +64,7 @@ export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
+    const scopeMode = String(auth?.scope_mode ?? 'country').toLowerCase();
     const isOperationsOnlyRole =
         roles.includes('operations') && roles.length === 1;
 
@@ -131,11 +132,15 @@ export function AppSidebar() {
                                     href: '/master/country',
                                     icon: Globe,
                                 },
-                                {
-                                    title: 'Branch',
-                                    href: branch.index.url(),
-                                    icon: Map,
-                                },
+                                ...(scopeMode === 'country'
+                                    ? []
+                                    : [
+                                          {
+                                              title: 'Branch',
+                                              href: branch.index.url(),
+                                              icon: Map,
+                                          },
+                                      ]),
                                 {
                                     title: 'Fiscal Year',
                                     href: financialYear.index.url(),

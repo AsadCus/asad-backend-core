@@ -18,9 +18,11 @@ return new class extends Migration
             $table->date('expiry_date')->nullable();
             $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('customer_confirmation_id')->nullable()->constrained('customer_confirmations')->nullOnDelete();
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('sales_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('payment_plan')->nullable();
             $table->text('description')->nullable();
+            $table->json('extensions')->nullable();
             $table->string('status')->default('draft');
             $table->string('reason')->nullable();
             $table->boolean('is_locked')->default(false);

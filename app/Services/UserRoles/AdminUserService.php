@@ -14,9 +14,22 @@ class AdminUserService
     public function getForDataTable()
     {
         $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+        $viewer = auth()->user();
+        $isGhostAdminViewer =
+            $viewer !== null &&
+            $viewer->hasRole('admin') &&
+            $viewer->isGhostUser();
 
         return User::query()
-            ->whereDoesntHave('ghostUser')
+            ->when(
+                ! $isGhostAdminViewer,
+                fn ($query) => $query->whereDoesntHave('ghostUser'),
+                fn ($query) => $query->where(function ($visibilityQuery) use ($viewer) {
+                    $visibilityQuery
+                        ->whereDoesntHave('ghostUser')
+                        ->orWhere('id', (int) ($viewer?->id ?? 0));
+                }),
+            )
             ->role('admin')
             ->with('roles', 'admin.branch.country', 'admin.country')
             ->get()

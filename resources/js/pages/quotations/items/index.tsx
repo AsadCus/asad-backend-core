@@ -484,18 +484,18 @@ export default function MastersQuotationIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Quotation Item Masters" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="flex items-center justify-between">
+                {/* <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">
                         Products & Services
                     </h2>
-                </div>
+                </div> */}
 
                 {/* items */}
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     <div className="mx-auto w-full">
                         <form onSubmit={submit} className="space-y-6 py-2">
                             <h3 className="text-lg font-semibold">
-                                Products & Service Master
+                                Products & Services
                             </h3>
 
                             <QuotationItemTableForm
@@ -707,7 +707,7 @@ export default function MastersQuotationIndex({
                         >
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold">
-                                    Quotation Extension
+                                    Extensions
                                 </h3>
                                 <Button
                                     type="button"
@@ -730,7 +730,7 @@ export default function MastersQuotationIndex({
 
                                     return (
                                         <div key={type} className="space-y-3">
-                                            <h4 className="text-sm font-semibold text-muted-foreground">
+                                            <h4 className="text-base font-semibold text-muted-foreground">
                                                 {extensionTypeLabels[type] ??
                                                     type}
                                             </h4>
@@ -777,6 +777,7 @@ export default function MastersQuotationIndex({
 
                                                                 <FormField label="Type">
                                                                     <ProperInputSelect
+                                                                        mode="classic"
                                                                         disabled={
                                                                             processingExtensions
                                                                         }
@@ -819,6 +820,7 @@ export default function MastersQuotationIndex({
 
                                                                 <FormField label="Calculation">
                                                                     <ProperInputSelect
+                                                                        mode="classic"
                                                                         disabled={
                                                                             processingExtensions
                                                                         }

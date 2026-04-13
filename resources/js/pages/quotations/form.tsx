@@ -1587,7 +1587,7 @@ export function QuotationForm({
         };
     }, [isEdit]);
 
-    console.log(data);
+    // console.log(data);
 
     return (
         <div className="mx-auto w-full">

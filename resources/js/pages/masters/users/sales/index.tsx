@@ -30,42 +30,48 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const actions: ActionType[] = ['add', 'view', 'edit', 'delete'];
 
-const columns: ColumnDef<UserSchema>[] = [
-    createSelectColumn<UserSchema>(),
-    {
-        accessorKey: 'id',
-        header: 'Id',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'name',
-        header: 'Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'email',
-        header: 'Email',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'branch_name',
-        header: 'Branch',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'country_name',
-        header: 'Country',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'role',
-        header: 'Role',
-        meta: { exportable: true },
-        cell: ({ row }) => (
-            <span className="capitalize">{row.getValue('role')}</span>
-        ),
-    },
-];
+function getColumns(scopeMode: 'country' | 'branch'): ColumnDef<UserSchema>[] {
+    return [
+        createSelectColumn<UserSchema>(),
+        {
+            accessorKey: 'id',
+            header: 'Id',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'name',
+            header: 'Name',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'email',
+            header: 'Email',
+            meta: { exportable: true },
+        },
+        ...(scopeMode === 'country'
+            ? []
+            : [
+                  {
+                      accessorKey: 'branch_name',
+                      header: 'Branch',
+                      meta: { exportable: true },
+                  } as ColumnDef<UserSchema>,
+              ]),
+        {
+            accessorKey: 'country_name',
+            header: 'Country',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'role',
+            header: 'Role',
+            meta: { exportable: true },
+            cell: ({ row }) => (
+                <span className="capitalize">{row.getValue('role')}</span>
+            ),
+        },
+    ];
+}
 
 interface SalesProps {
     dataUser: UserSchema[];
@@ -84,6 +90,7 @@ export default function Sales({
     dataSales,
     scopeMode = 'country',
 }: SalesProps) {
+    const columns = getColumns(scopeMode);
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>(

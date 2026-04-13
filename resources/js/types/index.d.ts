@@ -7,6 +7,7 @@ export interface Auth {
     roles: string[];
     permissions: string[];
     notifications: NotificationItem[];
+    scope_mode?: 'country' | 'branch' | string;
 }
 
 export interface BreadcrumbItem {

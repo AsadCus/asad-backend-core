@@ -15,18 +15,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();
             $table->string('invoice_number')->unique()->nullable();
-            $table->enum('type', ['deposit', 'handover', 'installment'])->nullable();
             $table->decimal('amount', 10, 2);
             $table->date('invoice_date');
             $table->date('due_date')->nullable();
-            $table->enum('status', [
-                'draft',
-                'issued',
-                'paid',
-                'overdue',
-                'cancelled',
-            ])->default('draft');
+            $table->string('status', 50)->default('draft');
             $table->string('description')->nullable();
+            $table->string('payment_method')->nullable();
+            $table->json('extensions')->nullable();
             $table->timestamps();
         });
     }

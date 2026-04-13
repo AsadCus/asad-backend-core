@@ -28,10 +28,11 @@ return new class extends Migration
             $table->string('place_of_birth')->nullable();
             $table->boolean('first_time_umrah')->nullable();
             $table->boolean('has_chronic_disease')->default(false);
+            $table->boolean('is_using_wheelchair')->default(false);
             $table->text('chronic_disease_details')->nullable();
             $table->string('passport_path')->nullable();
             $table->string('photo_path')->nullable();
-            $table->foreignId('branch_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('handled_by')->nullable()->constrained('users')->cascadeOnDelete();
             $table->timestamp('last_login')->nullable();
             $table->boolean('is_active')->default(true);

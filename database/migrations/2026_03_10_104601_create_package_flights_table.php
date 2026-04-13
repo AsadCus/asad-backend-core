@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('pnr')->nullable();
             $table->dateTime('departure_datetime')->nullable();
             $table->dateTime('arrival_datetime')->nullable();
+            $table->text('remarks')->nullable();
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
         });

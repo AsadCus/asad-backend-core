@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\UserRoles\AdminUserService;
 use App\Services\UserService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -79,5 +80,41 @@ class GhostUserVisibilityTest extends TestCase
                 ->component('user-logs/index')
                 ->where('canViewChangeSummary', false)
             );
+    }
+
+    public function test_ghost_admin_can_see_own_row_in_admin_datatable(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $ghostAdmin = User::factory()->create();
+        $ghostAdmin->assignRole('admin');
+
+        GhostUser::create([
+            'user_id' => (int) $ghostAdmin->id,
+        ]);
+
+        $normalAdmin = User::factory()->create();
+        $normalAdmin->assignRole('admin');
+
+        $this->actingAs($ghostAdmin);
+
+        $rows = app(AdminUserService::class)->getForDataTable();
+
+        $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $ghostAdmin->id));
+        $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $normalAdmin->id));
+    }
+
+    public function test_non_admin_user_cannot_be_marked_as_ghost(): void
+    {
+        Role::findOrCreate('sales', 'web');
+
+        $salesUser = User::factory()->create();
+        $salesUser->assignRole('sales');
+
+        $this->expectException(ValidationException::class);
+
+        GhostUser::create([
+            'user_id' => (int) $salesUser->id,
+        ]);
     }
 }

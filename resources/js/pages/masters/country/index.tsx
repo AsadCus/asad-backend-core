@@ -34,11 +34,6 @@ const columns: ColumnDef<CountrySchema>[] = [
         header: 'Name',
         meta: { exportable: true },
     },
-    {
-        accessorKey: 'adjective',
-        header: 'Adjective',
-        meta: { exportable: true },
-    },
 ];
 
 interface CountryIndexProps {

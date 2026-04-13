@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('field');
             $table->string('file_name');
             $table->string('file_path');
-            $table->unique(['fileable_type', 'fileable_id', 'field'], 'model_files_unique_file_owner_field');
+            $table->index(['fileable_type', 'fileable_id', 'field'], 'model_files_owner_field_index');
             $table->timestamps();
         });
     }

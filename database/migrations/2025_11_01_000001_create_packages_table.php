@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('package_number')->unique();
             $table->string('name');
             $table->string('status')->default('open'); // open / closed
+            $table->foreignId('country_id')->nullable()->constrained('countries')->nullOnDelete();
 
             // Pricing
             $table->decimal('price_single', 10, 2)->default(0);
@@ -37,9 +38,12 @@ return new class extends Migration
 
             // Vehicle
             $table->string('vehicle_type')->nullable();
+            $table->string('vehicle_driver_name')->nullable();
+            $table->string('vehicle_driver_contact_number')->nullable();
 
             // Train Ticket
             $table->string('ticket_type')->nullable();
+            $table->text('train_description')->nullable();
 
             // Package Inclusions
             $table->text('included')->nullable();
@@ -57,9 +61,11 @@ return new class extends Migration
             $table->foreignId('package_id')->constrained()->cascadeOnDelete();
             $table->string('location'); // e.g. Makkah, Madinah, Taif
             $table->string('hotel_name');
+            $table->string('ic')->nullable();
             $table->string('type_of_meal')->nullable();
             $table->date('check_in')->nullable();
             $table->date('check_out')->nullable();
+            $table->text('remarks')->nullable();
             $table->timestamps();
         });
     }

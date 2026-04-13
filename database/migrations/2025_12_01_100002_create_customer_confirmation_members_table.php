@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
             $table->boolean('is_leader')->default(false);
             $table->string('status')->default('draft');
-            $table->string('role')->nullable();
+            $table->string('relationship')->nullable();
             $table->string('sharing_plan')->nullable();
             $table->timestamps();
         });
