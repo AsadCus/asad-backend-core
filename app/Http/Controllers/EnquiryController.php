@@ -9,6 +9,7 @@ use App\Services\EnquiryService;
 use App\Services\PackageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class EnquiryController extends Controller
@@ -109,6 +110,21 @@ class EnquiryController extends Controller
         $validated = $request->validate($rules);
         $validated['enquiry_id'] = (int) $id;
 
+        $enquiry = $this->enquiryService->getById((int) $id);
+        $resolvedPackageId = isset($validated['package_id'])
+            ? (int) $validated['package_id']
+            : (int) ($enquiry->package_id ?? 0);
+
+        if ($enquiry->type === 'general' && $resolvedPackageId <= 0) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Please select a package before confirming a general enquiry.',
+            ]);
+        }
+
+        if ($resolvedPackageId > 0) {
+            $validated['package_id'] = $resolvedPackageId;
+        }
+
         return DB::transaction(function () use ($validated, $id) {
             // Atomically transition status to confirmed
             $this->enquiryService->confirmEnquiry((int) $id);
@@ -125,7 +141,9 @@ class EnquiryController extends Controller
             // Create the customer confirmation
             $this->customerConfirmationService->createGroup($validated);
 
-            return back()->with('success', 'Customer confirmation created and enquiry confirmed successfully.');
+            return redirect()
+                ->route('confirmed-customer.index')
+                ->with('success', 'Customer confirmation created and enquiry confirmed successfully.');
         });
     }
 

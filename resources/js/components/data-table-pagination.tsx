@@ -38,10 +38,19 @@ export function DataTablePagination<TData>({
     const pageIndex = table.getState().pagination.pageIndex;
     const totalTopRows = topLevelFilteredRows.length;
     const allRowsLength = countTopLevelRows ? totalTopRows : data.length;
+    const normalizedAllRowsLength = Math.max(1, allRowsLength);
+    const isAllRowsSelected =
+        allRowsLength === 0 ? pageSize <= 1 : pageSize >= allRowsLength;
+    const defaultPageSizeOptions = [10, 20, 30, 40, 50];
+    const pageSizeOptions = isAllRowsSelected
+        ? defaultPageSizeOptions
+        : Array.from(new Set([...defaultPageSizeOptions, pageSize])).sort(
+              (left, right) => left - right,
+          );
     const totalPages =
         totalTopRows === 0 && countTopLevelRows
             ? 1
-            : pageSize === allRowsLength
+            : pageSize >= normalizedAllRowsLength
               ? 1
               : Math.ceil(totalTopRows / pageSize);
 
@@ -58,15 +67,12 @@ export function DataTablePagination<TData>({
                 <div className="flex items-center space-x-2 md:hidden">
                     <p className="text-base font-medium">Rows</p>
                     <Select
-                        value={
-                            table.getState().pagination.pageSize ===
-                            allRowsLength
-                                ? 'all'
-                                : `${table.getState().pagination.pageSize}`
-                        }
+                        value={isAllRowsSelected ? 'all' : `${pageSize}`}
                         onValueChange={(value) => {
                             table.setPageSize(
-                                value === 'all' ? allRowsLength : Number(value),
+                                value === 'all'
+                                    ? normalizedAllRowsLength
+                                    : Number(value),
                             );
                         }}
                     >
@@ -74,12 +80,14 @@ export function DataTablePagination<TData>({
                             <SelectValue placeholder="Rows" />
                         </SelectTrigger>
                         <SelectContent side="top">
-                            {[10, 20, 30, 40, 50, 'all'].map((pageSize) => (
-                                <SelectItem
-                                    key={pageSize}
-                                    value={pageSize.toString()}
-                                >
-                                    {pageSize === 'all' ? 'All' : pageSize}
+                            {[
+                                ...pageSizeOptions.map((size) =>
+                                    size.toString(),
+                                ),
+                                'all',
+                            ].map((option) => (
+                                <SelectItem key={option} value={option}>
+                                    {option === 'all' ? 'All' : option}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -91,15 +99,12 @@ export function DataTablePagination<TData>({
                 <div className="hidden items-center space-x-2 md:flex">
                     <p className="text-base font-medium">Rows</p>
                     <Select
-                        value={
-                            table.getState().pagination.pageSize ===
-                            allRowsLength
-                                ? 'all'
-                                : `${table.getState().pagination.pageSize}`
-                        }
+                        value={isAllRowsSelected ? 'all' : `${pageSize}`}
                         onValueChange={(value) => {
                             table.setPageSize(
-                                value === 'all' ? allRowsLength : Number(value),
+                                value === 'all'
+                                    ? normalizedAllRowsLength
+                                    : Number(value),
                             );
                         }}
                     >
@@ -107,12 +112,14 @@ export function DataTablePagination<TData>({
                             <SelectValue placeholder="Rows" />
                         </SelectTrigger>
                         <SelectContent side="top">
-                            {[10, 20, 30, 40, 50, 'all'].map((pageSize) => (
-                                <SelectItem
-                                    key={pageSize}
-                                    value={pageSize.toString()}
-                                >
-                                    {pageSize === 'all' ? 'All' : pageSize}
+                            {[
+                                ...pageSizeOptions.map((size) =>
+                                    size.toString(),
+                                ),
+                                'all',
+                            ].map((option) => (
+                                <SelectItem key={option} value={option}>
+                                    {option === 'all' ? 'All' : option}
                                 </SelectItem>
                             ))}
                         </SelectContent>

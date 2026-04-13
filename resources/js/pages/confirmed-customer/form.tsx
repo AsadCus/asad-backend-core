@@ -766,10 +766,23 @@ export default function CustomerConfirmationForm({
         clearErrors();
         const clientErrors: ClientValidationErrors = {};
         const result = customerConfirmationFormValidationSchema.safeParse(data);
+        const isGeneralEnquiryConfirmation =
+            isCreate &&
+            Boolean(enquiryId ?? initialData?.enquiry_id) &&
+            (
+                effectiveLinkedEnquiry?.type ??
+                enquiryType ??
+                ''
+            ).toLowerCase() === 'general';
 
         if (isPublic && data.terms_accepted !== true) {
             clientErrors.terms_accepted =
                 'You must read and accept the Terms and Conditions before submitting.';
+        }
+
+        if (isGeneralEnquiryConfirmation && !data.package_id) {
+            clientErrors.package_id =
+                'Please select a package before confirming a general enquiry.';
         }
 
         if (!result.success) {

@@ -260,12 +260,19 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-FLOW-001',
+            'name' => 'Workflow Package',
+            'status' => 'open',
+        ]);
+
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::NewLead->value,
             'name' => 'Workflow Test',
             'contact_number' => '012345',
             'email' => 'flow@test.com',
+            'package_id' => $package->id,
             'created_by' => $this->adminUser->id,
         ]);
 
@@ -294,6 +301,12 @@ class EnquiryWorkflowTest extends TestCase
     {
         $this->actingAs($this->adminUser);
 
+        $package = Package::create([
+            'package_number' => 'PKG-CONFIRM-001',
+            'name' => 'Confirm Package',
+            'status' => 'open',
+        ]);
+
         // Create enquiry in contacted state (so it can transition to confirmed)
         $enquiry = Enquiry::create([
             'type' => 'general',
@@ -301,6 +314,7 @@ class EnquiryWorkflowTest extends TestCase
             'name' => 'Group Leader',
             'contact_number' => '012345',
             'email' => 'leader@test.com',
+            'package_id' => $package->id,
             'created_by' => $this->adminUser->id,
         ]);
 
@@ -345,6 +359,82 @@ class EnquiryWorkflowTest extends TestCase
         // Check enquiry status moved to confirmed
         $enquiry->refresh();
         $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
+    }
+
+    public function test_transition_to_confirmed_creates_customer_confirmation_for_general_enquiry(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-TRANSITION-001',
+            'name' => 'Transition Package',
+            'status' => 'open',
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Contacted->value,
+            'name' => 'Transition Confirm Test',
+            'contact_number' => '0123123123',
+            'email' => 'transition-confirm@test.com',
+            'package_id' => $package->id,
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $response = $this->put(route('enquiries.transition-status', $enquiry->id), [
+            'status' => 'confirmed',
+        ]);
+
+        $response->assertRedirect();
+
+        $enquiry->refresh();
+        $this->assertEquals(EnquiryStatus::Confirmed, $enquiry->status);
+
+        $group = CustomerConfirmation::with('members')
+            ->where('enquiry_id', $enquiry->id)
+            ->first();
+
+        $this->assertNotNull($group);
+        $this->assertSame($package->id, (int) $group->package_id);
+        $this->assertCount(1, $group->members);
+    }
+
+    public function test_general_enquiry_confirmation_requires_package_selection(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => EnquiryStatus::Contacted->value,
+            'name' => 'No Package General',
+            'contact_number' => '0120000000',
+            'email' => 'no-package-general@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $response = $this->from(route('general-enquiries.index'))
+            ->post(route('enquiries.confirm', $enquiry->id), [
+                'enquiry_id' => $enquiry->id,
+                'date_of_application' => '2026-01-01',
+                'members' => [
+                    $this->memberPayload([
+                        'name' => 'No Package General',
+                        'email' => 'no-package-general@test.com',
+                        'contact_number' => '0120000000',
+                        'is_leader' => true,
+                    ]),
+                ],
+            ]);
+
+        $response->assertRedirect(route('general-enquiries.index'));
+        $response->assertSessionHasErrors(['package_id']);
+
+        $this->assertDatabaseMissing('customer_confirmations', [
+            'enquiry_id' => $enquiry->id,
+        ]);
+
+        $enquiry->refresh();
+        $this->assertEquals(EnquiryStatus::Contacted, $enquiry->status);
     }
 
     public function test_confirm_endpoint_overwrites_handled_by_with_confirming_user(): void

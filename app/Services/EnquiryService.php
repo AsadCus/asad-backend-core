@@ -7,12 +7,14 @@ use App\Models\Enquiry;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EnquiryService
 {
     public function __construct(
         public GeneralEnquiryService $generalEnquiryService,
         public PrivateEnquiryService $privateEnquiryService,
+        protected CustomerConfirmationService $customerConfirmationService,
     ) {}
 
     /**
@@ -97,7 +99,7 @@ class EnquiryService
 
     /**
      * Transition an enquiry's status.
-     * Note: Transition to 'confirmed' is blocked here — use the confirm endpoint instead.
+     * Transition to 'confirmed' will also ensure a customer confirmation exists.
      */
     public function transitionStatus(int $id, string $newStatus): Enquiry
     {
@@ -105,9 +107,33 @@ class EnquiryService
             $enquiry = Enquiry::findOrFail($id);
             $targetStatus = EnquiryStatus::from($newStatus);
 
-            // Block direct transition to confirmed — must go through confirm endpoint
             if ($targetStatus === EnquiryStatus::Confirmed) {
-                abort(422, 'Cannot transition to confirmed directly. Use the confirm endpoint to submit a customer confirmation form.');
+                if (! $enquiry->status->canTransitionTo($targetStatus)) {
+                    abort(422, "Cannot transition from {$enquiry->status->label()} to {$targetStatus->label()}.");
+                }
+
+                $this->assertGeneralEnquiryHasPackageForConfirmation($enquiry);
+
+                $enquiry->update([
+                    'status' => $targetStatus->value,
+                    'handled_by' => auth()->id(),
+                ]);
+
+                if (! $enquiry->customerConfirmation()->exists()) {
+                    $this->createDefaultCustomerConfirmationForEnquiry($enquiry->fresh());
+                }
+
+                activity()
+                    ->performedOn($enquiry)
+                    ->withProperties([
+                        'subject_type' => 'Enquiry',
+                        'subject_id' => $enquiry->id,
+                        'old_status' => $enquiry->getOriginal('status'),
+                        'new_status' => $targetStatus->value,
+                    ])
+                    ->log("Enquiry #{$enquiry->id} status changed to {$targetStatus->label()}");
+
+                return $enquiry->fresh();
             }
 
             if (! $enquiry->status->canTransitionTo($targetStatus)) {
@@ -131,6 +157,45 @@ class EnquiryService
 
             return $enquiry->fresh();
         });
+    }
+
+    private function assertGeneralEnquiryHasPackageForConfirmation(Enquiry $enquiry): void
+    {
+        if ($enquiry->type !== 'general') {
+            return;
+        }
+
+        if ((int) ($enquiry->package_id ?? 0) > 0) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'package_id' => 'Please select a package before confirming a general enquiry.',
+        ]);
+    }
+
+    private function createDefaultCustomerConfirmationForEnquiry(Enquiry $enquiry): void
+    {
+        $name = trim((string) $enquiry->name);
+        $email = trim((string) $enquiry->email);
+        $contactNumber = trim((string) ($enquiry->contact_number ?? ''));
+
+        $this->customerConfirmationService->createGroup([
+            'enquiry_id' => (int) $enquiry->id,
+            'package_id' => (int) ($enquiry->package_id ?? 0) > 0
+                ? (int) $enquiry->package_id
+                : null,
+            'date_of_application' => now()->toDateString(),
+            'members' => [
+                [
+                    'name' => $name !== '' ? $name : 'Customer',
+                    'email' => $email,
+                    'contact_number' => $contactNumber,
+                    'is_leader' => true,
+                    'status' => 'pending_payment',
+                ],
+            ],
+        ]);
     }
 
     /**
