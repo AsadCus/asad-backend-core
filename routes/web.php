@@ -200,6 +200,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('customer-confirmations/{id}/members/{memberId}/balance-invoice', [CustomerConfirmationController::class, 'createBalanceInvoice'])->name('customer-confirmations.members.balance-invoice.store');
     Route::get('customer-confirmations/{enquiryId}/generate-link', [CustomerConfirmationController::class, 'generatePublicLink'])->name('customer-confirmations.generate-link');
     Route::get('customer-confirmations/{groupId}/generate-edit-link', [CustomerConfirmationController::class, 'generatePublicEditLink'])->name('customer-confirmations.generate-edit-link');
+    Route::get('customer-confirmations/{id}/members/{memberId}/receipts-pdf', [CustomerConfirmationController::class, 'exportMemberReceiptsPdf'])->name('customer-confirmations.members.receipts-pdf');
 
     // Confirmed Customer (Customer Confirmations)
     Route::get('confirmed-customer', [CustomerConfirmationController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');

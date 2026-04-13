@@ -8,10 +8,13 @@ use App\Rules\CustomerConfirmationRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
 use App\Services\ReceiptService;
+use App\Services\Report\ReportTemplateService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +27,7 @@ class CustomerConfirmationController extends Controller
         protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
         protected ReceiptService $receiptService,
+        protected ReportTemplateService $reportTemplateService,
     ) {}
 
     /**
@@ -575,5 +579,48 @@ class CustomerConfirmationController extends Controller
         }
 
         return route('confirmed-customer.index');
+    }
+
+    /**
+     * Export all receipts for a specific confirmation member as a PDF.
+     */
+    public function exportMemberReceiptsPdf(int $id, int $memberId)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            // Build payment method label map: value => label
+            $paymentMethodMap = collect($this->receiptService->getPaymentMethodOptions())
+                ->pluck('label', 'value')
+                ->all();
+
+            $data = $this->customerConfirmationService->getMemberReceiptsForPdf($id, $memberId, $paymentMethodMap);
+
+            $reportData = $this->reportTemplateService->build('customer_receipts', []);
+
+            $html = view('customer-confirmations.member-receipts-report', [
+                'data' => $data,
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            $filename = 'receipts-'.($data['customer_number'] ?? 'member').'.pdf';
+
+            return $pdf->stream($filename);
+        } catch (\Exception $e) {
+            Log::error('Member Receipts PDF generation error: '.$e->getMessage(), [
+                'confirmation_id' => $id,
+                'member_id' => $memberId,
+            ]);
+
+            return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+        }
     }
 }

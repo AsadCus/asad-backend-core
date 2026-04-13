@@ -429,6 +429,7 @@ class ReportTemplateController extends Controller
             'ops_movement_pif' => 'ops-movements.pif-report-content',
             'ops_movement_budget' => 'ops-movements.budget-report-content',
             'payment_summary' => 'reports.dashboard-payment-summary',
+            'customer_receipts' => 'customer-confirmations.member-receipts-report',
         ];
 
         $viewName = $viewMap[$moduleKey] ?? 'quotations.report-content';

@@ -159,6 +159,8 @@
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
             );
         });
+        
+        $budgetCurrency = $opsMovement['budget_currency'] ?? 'SAR';
     @endphp
 
     {{-- Summary Header --}}
@@ -204,7 +206,7 @@
                 <th style="width: 28%;">Items</th>
                 <th style="width: 12%;" class="text-right">Unit Price</th>
                 <th style="width: 10%;" class="text-right">Quantity</th>
-                <th style="width: 18%;" class="text-right">Total (Saudi Riyal)</th>
+                <th style="width: 18%;" class="text-right">Total ({{ $budgetCurrency }})</th>
                 <th style="width: 32%;">Remarks</th>
             </tr>
             @forelse ($items as $item)
@@ -226,8 +228,8 @@
                 </tr>
             @endforelse
             <tr>
-                <th colspan="3" class="text-right">{{ $sectionTitle }} Budget (SAR)</th>
-                <th class="text-right">SAR {{ number_format($sectionTotal, 2) }}</th>
+                <th colspan="3" class="text-right">{{ $sectionTitle }} Budget ({{ $budgetCurrency }})</th>
+                <th class="text-right">{{ $budgetCurrency }} {{ number_format($sectionTotal, 2) }}</th>
                 <th></th>
             </tr>
         </table>
@@ -236,8 +238,8 @@
     {{-- Grand Total --}}
     <table class="section-table">
         <tr>
-            <th colspan="3" class="text-right" style="font-size: 10px;">Grand Total (SAR)</th>
-            <th class="text-right" style="font-size: 10px;">SAR {{ number_format($budgetGrandTotal, 2) }}</th>
+            <th colspan="3" class="text-right" style="font-size: 10px;">Grand Total ({{ $budgetCurrency }})</th>
+            <th class="text-right" style="font-size: 10px;">{{ $budgetCurrency }} {{ number_format($budgetGrandTotal, 2) }}</th>
             <th></th>
         </tr>
     </table>

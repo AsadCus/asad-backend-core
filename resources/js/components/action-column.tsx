@@ -37,7 +37,8 @@ export type ActionType =
     | 'sync-billing'
     | 'cancel-member'
     | 'refund'
-    | 'create-balance-invoice';
+    | 'create-balance-invoice'
+    | 'export-member-receipts-pdf';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

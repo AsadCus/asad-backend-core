@@ -92,6 +92,7 @@ class ReportTemplateService
                 'ops_movement_pif' => $settings->getModuleTemplate('ops_movement_pif'),
                 'ops_movement_budget' => $settings->getModuleTemplate('ops_movement_budget'),
                 'payment_summary' => $settings->getModuleTemplate('payment_summary'),
+                'customer_receipts' => $settings->getModuleTemplate('customer_receipts'),
             ],
         ];
     }
