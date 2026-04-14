@@ -109,7 +109,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     },
     {
         accessorKey: 'total_seats',
-        header: 'Seats',
+        header: 'Available Seats',
         meta: { exportable: true },
         cell: ({ row }) => {
             const total = row.original.total_seats;
@@ -135,11 +135,11 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         header: 'Total Pax',
         meta: { exportable: true },
     },
-    {
-        accessorKey: 'manifests_count',
-        header: 'Manifests',
-        meta: { exportable: true },
-    },
+    // {
+    //     accessorKey: 'manifests_count',
+    //     header: 'Manifests',
+    //     meta: { exportable: true },
+    // },
     {
         id: 'accommodations_summary',
         header: 'Hotels',
@@ -194,6 +194,9 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                             columnVisibility: {
                                 id: false,
                                 return_date: false,
+                                accommodations_summary: false,
+                                visa_type: false,
+                                vehicle_type: false,
                                 ticket_type: false,
                             },
                         }}

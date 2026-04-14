@@ -485,7 +485,7 @@ export default function GeneralEnquiryForm({
 
                         {isCreate && !isView && customerOptions.length > 0 && (
                             <div className="flex flex-col justify-start md:flex-row md:justify-end">
-                                <div className="w-full md:w-auto md:max-w-[300px]">
+                                <div className="w-full md:w-auto md:max-w-[320px]">
                                     <ProperInputSelect
                                         id="existing_customer_id"
                                         options={customerOptions.map(
@@ -538,10 +538,9 @@ export default function GeneralEnquiryForm({
                                             );
                                         }}
                                         placeholder="Search & select customer..."
-                                        maxWidth="300px"
+                                        maxWidth="320px"
                                         responsive={true}
                                         disabled={processing}
-                                        truncate={80}
                                     />
                                 </div>
                             </div>

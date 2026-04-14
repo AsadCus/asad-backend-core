@@ -81,7 +81,7 @@ export function NavActions() {
             </div>
 
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger asChild className="hidden">
                     <Button
                         type="button"
                         variant="ghost"

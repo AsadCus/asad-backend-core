@@ -39,10 +39,9 @@ export default function EnquiryScopeCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-xl">Scope</CardTitle>
+                <CardTitle className="text-xl">Country of Enquiry</CardTitle>
                 <CardDescription>
-                    Assign this enquiry to a {scopeMode} for internal data
-                    scoping.
+                    Assign this enquiry to a {scopeMode}.
                 </CardDescription>
             </CardHeader>
             <CardContent>

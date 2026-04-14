@@ -264,6 +264,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-FLOW-001',
             'name' => 'Workflow Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
@@ -305,6 +307,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-CONFIRM-001',
             'name' => 'Confirm Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         // Create enquiry in contacted state (so it can transition to confirmed)
@@ -369,6 +373,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-TRANSITION-001',
             'name' => 'Transition Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
@@ -445,6 +451,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-HANDLED-CONFIRM-001',
             'name' => 'Handled Confirm Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $previousHandler = User::factory()->create();
@@ -487,6 +495,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-ALREADY-CONFIRMED-001',
             'name' => 'Already Confirmed Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         // Enquiry already in confirmed state
@@ -646,11 +656,13 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-NEW-CUSTOMER-001',
             'name' => 'New Customer Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'New Customer',
             'contact_number' => '012345',
             'email' => 'newcust@test.com',
@@ -692,6 +704,8 @@ class EnquiryWorkflowTest extends TestCase
             'package_number' => 'PKG-REUSE-CUSTOMER-001',
             'name' => 'Reuse Customer Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         // Pre-create a user + customer
@@ -703,7 +717,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Existing Customer',
             'contact_number' => '012345',
             'email' => 'existing@test.com',
@@ -788,7 +802,7 @@ class EnquiryWorkflowTest extends TestCase
 
         $enquiry = Enquiry::create([
             'type' => 'private',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Private Prefill',
             'contact_number' => '0170001111',
             'email' => 'private-prefill@test.com',
@@ -1067,7 +1081,9 @@ class EnquiryWorkflowTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-HOLDING-001',
             'name' => 'Holding Split Package',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $confirmedWithPackage = CustomerConfirmation::create([

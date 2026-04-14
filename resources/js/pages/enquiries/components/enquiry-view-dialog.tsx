@@ -143,9 +143,9 @@ export default function EnquiryViewDialog({
 
                                 {enquiryId && (
                                     <Card>
-                                        <CardHeader>
+                                        <CardHeader className="gap-0">
                                             <CardTitle className="text-xl">
-                                                Enquiry Remarks Timeline
+                                                Enquiry Remarks
                                             </CardTitle>
                                             <CardDescription>
                                                 View the history of remarks for

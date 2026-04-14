@@ -101,7 +101,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'total_seats',
-        header: 'Seats',
+        header: 'Available Seats',
         meta: { exportable: true },
         cell: ({ row }) => {
             const total = row.original.total_seats;

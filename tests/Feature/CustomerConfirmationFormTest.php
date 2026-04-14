@@ -63,7 +63,9 @@ class CustomerConfirmationFormTest extends TestCase
         $this->defaultPackage = Package::create([
             'package_number' => 'PKG-DEFAULT-TEST',
             'name' => 'Default Test Package',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
     }
 
@@ -101,7 +103,9 @@ class CustomerConfirmationFormTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-001',
             'name' => 'Umrah Gold',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
@@ -130,7 +134,9 @@ class CustomerConfirmationFormTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-002',
             'name' => 'Umrah Silver',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
@@ -159,7 +165,7 @@ class CustomerConfirmationFormTest extends TestCase
 
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Group Leader',
             'contact_number' => '012345',
             'email' => 'leader@test.com',
@@ -219,12 +225,14 @@ class CustomerConfirmationFormTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-003',
             'name' => 'Umrah Package',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
             'type' => 'general',
-            'status' => EnquiryStatus::Negotiating->value,
+            'status' => EnquiryStatus::Contacted->value,
             'name' => 'Package Leader',
             'contact_number' => '012345',
             'email' => 'pkgleader@test.com',
@@ -1087,7 +1095,9 @@ class CustomerConfirmationFormTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-PAID-GUARD',
             'name' => 'Paid Guard Package',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 3000,
         ]);
 
@@ -1205,7 +1215,9 @@ class CustomerConfirmationFormTest extends TestCase
         $package = Package::create([
             'package_number' => 'PKG-SHARING-RESET',
             'name' => 'Sharing Reset Package',
-            'status' => 'active',
+            'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 4000,
             'price_double' => 2500,
         ]);
@@ -1316,12 +1328,16 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-PRIVATE-ORIG',
             'name' => 'Private Original',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $replacementPackage = Package::create([
             'package_number' => 'PKG-PRIVATE-NEW',
             'name' => 'Private Replacement',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
         ]);
 
         $enquiry = Enquiry::create([
@@ -1903,6 +1919,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-001',
             'name' => 'Generate Quotation Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 5000,
         ]);
 
@@ -1965,6 +1983,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-PLAN-001',
             'name' => 'Generate Quotation Sharing Plan Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 5000,
         ]);
 
@@ -2042,6 +2062,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-002',
             'name' => 'Generate Quotation Redirect Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 5000,
         ]);
 
@@ -2096,6 +2118,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-UMRAH-001',
             'name' => 'Generate Quotation Header Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 5000,
         ]);
 
@@ -2158,6 +2182,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-CHILD-001',
             'name' => 'Generate Quotation Child Label Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'child_with_bed_price' => 3500,
         ]);
 
@@ -2225,6 +2251,8 @@ class CustomerConfirmationFormTest extends TestCase
             'package_number' => 'PKG-GEN-003',
             'name' => 'Generate Quotation Note Autofill Package',
             'status' => 'open',
+            'total_seats' => 30,
+            'seats_left' => 30,
             'price_single' => 5000,
         ]);
 
