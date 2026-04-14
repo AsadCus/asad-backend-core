@@ -24,6 +24,8 @@ interface ReportTemplateSettings {
     company_email: string;
     brand_color: string;
     qr_alignment: 'left' | 'center' | 'right';
+    qr_width?: number;
+    qr_height?: number;
     custom_signature_stamp_layout: SignatureStampLayoutConfig | null;
     logo_path: string | null;
     qr_image_path: string | null;
@@ -41,6 +43,8 @@ interface ReportTemplateFormData {
     company_email: string;
     brand_color: string;
     qr_alignment: 'left' | 'center' | 'right';
+    qr_width: number;
+    qr_height: number;
     custom_signature_stamp_layout: SignatureStampLayoutConfig;
     _method: 'put';
     logo_file: File | null;
@@ -222,6 +226,8 @@ export default function ReportTemplate({
             company_email: settings.company_email || '',
             brand_color: settings.brand_color || '#c05427',
             qr_alignment: settings.qr_alignment || 'center',
+            qr_width: settings.qr_width ?? 120,
+            qr_height: settings.qr_height ?? 120,
             custom_signature_stamp_layout: resolveCustomLayout(),
             _method: 'put',
             logo_file: null,

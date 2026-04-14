@@ -31,6 +31,8 @@ class ReportTemplateUpdateRequest extends FormRequest
             'brand_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'signature_stamp_layout' => ['nullable', 'string', 'in:default,custom'],
             'qr_alignment' => ['nullable', 'string', 'in:left,center,right'],
+            'qr_width' => ['nullable', 'integer', 'min:50', 'max:500'],
+            'qr_height' => ['nullable', 'integer', 'min:50', 'max:500'],
             'footer_text' => ['nullable', 'string', 'max:2000'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'qr_file' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
