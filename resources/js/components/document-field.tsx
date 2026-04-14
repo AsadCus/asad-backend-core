@@ -397,7 +397,7 @@ export function DocumentField({
             <div
                 role={isView ? undefined : 'button'}
                 tabIndex={isView || disabled ? -1 : 0}
-                className={`relative flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-4 transition-colors ${
+                className={`relative flex min-w-0 flex-col items-center gap-3 rounded-lg border-2 border-dashed p-4 transition-colors ${
                     isView || disabled ? '' : 'cursor-pointer'
                 } ${
                     isDragOver
@@ -427,7 +427,7 @@ export function DocumentField({
                 aria-label={isView ? undefined : `Upload ${label}`}
             >
                 {hasContent ? (
-                    <div className="flex w-full flex-col items-center gap-2">
+                    <div className="flex w-full min-w-0 flex-col items-center gap-2">
                         <div
                             className="relative"
                             {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
@@ -507,16 +507,16 @@ export function DocumentField({
                         </div>
 
                         {displayFilename && (
-                            <span
-                                className="max-w-full text-center text-sm text-muted-foreground"
+                            <div
+                                className="w-full min-w-0 text-center text-sm text-muted-foreground px-1"
                                 title={displayFilename}
                                 onClick={(e) => e.stopPropagation()}
                                 {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
                             >
-                                <span className="truncate">
+                                <div className="truncate w-full block">
                                     {displayFilename}
-                                </span>
-                            </span>
+                                </div>
+                            </div>
                         )}
 
                         {previewSrc && (

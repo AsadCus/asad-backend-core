@@ -47,9 +47,9 @@ export function FormField({
                 </Label>
                 {labelAction}
             </div>
-            <div className="relative">
+            <div className="relative min-w-0">
                 {children}
-                {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+                {error && <p className="mt-1 text-sm text-red-500 truncate">{error}</p>}
             </div>
         </div>
     );

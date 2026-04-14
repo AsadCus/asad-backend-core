@@ -62,6 +62,8 @@ class ReportTemplateService
             'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)
                 ? $settings->qr_alignment
                 : 'center',
+            'qr_width' => $settings->qr_width ?? 120,
+            'qr_height' => $settings->qr_height ?? 120,
             // Relative URL versions (for web/frontend display) - works regardless of APP_URL or port
             'logo_url' => $logo['url'],
             'stamp_url' => $stamp['url'],

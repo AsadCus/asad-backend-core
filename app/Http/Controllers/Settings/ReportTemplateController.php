@@ -119,6 +119,8 @@ class ReportTemplateController extends Controller
                 'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)
                     ? $settings->qr_alignment
                     : 'center',
+                'qr_width' => $settings->qr_width ?? 120,
+                'qr_height' => $settings->qr_height ?? 120,
                 'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
                 'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
                     $settings->custom_signature_stamp_layout,
@@ -157,6 +159,8 @@ class ReportTemplateController extends Controller
             'qr_alignment' => in_array($validated['qr_alignment'] ?? null, ['left', 'center', 'right'], true)
                 ? $validated['qr_alignment']
                 : 'center',
+            'qr_width' => $validated['qr_width'] ?? 120,
+            'qr_height' => $validated['qr_height'] ?? 120,
             'signature_stamp_layout' => $validated['signature_stamp_layout'] ?? 'default',
             'custom_signature_stamp_layout' => $this->normalizeCustomSignatureStampLayout(
                 $validated['custom_signature_stamp_layout'] ?? null,
@@ -485,6 +489,8 @@ class ReportTemplateController extends Controller
             'qr_alignment' => in_array((string) $request->input('qr_alignment', $settings->qr_alignment), ['left', 'center', 'right'], true)
                 ? (string) $request->input('qr_alignment', $settings->qr_alignment)
                 : 'center',
+            'qr_width' => (int) $request->input('qr_width', $settings->qr_width ?? 120),
+            'qr_height' => (int) $request->input('qr_height', $settings->qr_height ?? 120),
             'custom_signature_stamp_layout' => is_array($customLayout) ? $customLayout : ($settings->custom_signature_stamp_layout ?? []),
             'logo_url' => $logo['url'],
             'qr_url' => $qrImage['url'],

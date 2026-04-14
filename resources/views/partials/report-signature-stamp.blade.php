@@ -67,10 +67,10 @@
             <div style="text-align:{{ $qrAlignment }}; margin-bottom:6px;">
                 @if (($is_pdf ?? false) && !empty($qrSourceAbsolute) && file_exists($qrSourceAbsolute))
                     <img src="{{ $qrSourceAbsolute }}" alt="QR Code"
-                        style="height:74px; width:74px; object-fit:contain; display:inline-block;">
+                        style="height:{{ $branding['qr_height'] ?? 120 }}px; width:{{ $branding['qr_width'] ?? 120 }}px; object-fit:contain; display:inline-block;">
                 @elseif(!empty($qrSourceUrl))
                     <img src="{{ $qrSourceUrl }}" alt="QR Code"
-                        style="height:74px; width:74px; object-fit:contain; display:inline-block;">
+                        style="height:{{ $branding['qr_height'] ?? 120 }}px; width:{{ $branding['qr_width'] ?? 120 }}px; object-fit:contain; display:inline-block;">
                 @endif
             </div>
         @endif
