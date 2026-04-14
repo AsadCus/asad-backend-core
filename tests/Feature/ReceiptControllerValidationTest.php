@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Package;
 use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\Receipt;
@@ -239,5 +241,71 @@ class ReceiptControllerValidationTest extends TestCase
         $invoice->refresh();
         $this->assertSame('refund', (string) $invoice->status);
         $this->assertNull($invoice->invoice_number);
+    }
+
+    public function test_receipt_store_blocks_when_linked_package_status_is_not_open(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RCP-BLOCK-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-RCP-BLOCK-001',
+            'name' => 'Full Package',
+            'status' => 'full',
+            'total_seats' => 5,
+            'seats_left' => 0,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $authUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Blocked Package Receipt Validation',
+            'amount' => 900,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $response = $this->postJson(route('receipt.store'), [
+            'invoice_id' => $invoice->id,
+            'amount' => 100,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'cash',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'invoice_id',
+            ]);
+
+        $this->assertDatabaseMissing('receipts', [
+            'invoice_id' => $invoice->id,
+        ]);
     }
 }

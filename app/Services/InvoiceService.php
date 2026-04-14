@@ -32,7 +32,7 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.customerConfirmation.package:id,package_number,name', 'order.quotation.createdBy:id,name'])
+        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.customerConfirmation.package:id,package_number,name,status', 'order.quotation.createdBy:id,name'])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->where('status', '!=', InvoiceStatus::Refund)
@@ -54,6 +54,7 @@ class InvoiceService
                     'customer_name' => $i->order->quotation->customer->user->name ?? '-',
                     'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
                     'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
+                    'package_status' => $i->order->quotation->customerConfirmation?->package?->status ?? null,
                     'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
                     'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
                     'description' => $i->description,

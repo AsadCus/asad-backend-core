@@ -2859,11 +2859,12 @@ class ManifestService
     {
         $normalized = strtolower(trim((string) $status));
 
-        if ($normalized === 'closed') {
-            return 'closed';
-        }
-
-        return 'open';
+        return match ($normalized) {
+            'closed' => 'closed',
+            'full' => 'full',
+            'completed' => 'completed',
+            default => 'open',
+        };
     }
 
     private function normalizeDateForStorage(mixed $value): ?string

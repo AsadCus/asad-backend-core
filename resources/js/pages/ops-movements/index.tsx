@@ -44,6 +44,20 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const statusLabelByValue: Record<string, string> = {
+    open: 'Open',
+    full: 'Full',
+    closed: 'Closed',
+    completed: 'Completed',
+};
+
+const statusClassByValue: Record<string, string> = {
+    open: 'bg-green-100 text-green-800',
+    full: 'bg-amber-100 text-amber-800',
+    closed: 'bg-red-100 text-red-800',
+    completed: 'bg-blue-100 text-blue-800',
+};
+
 const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     {
         accessorKey: 'id',
@@ -64,17 +78,21 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
-        cell: ({ row }) => (
-            <span
-                className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${
-                    row.original.status === 'open'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                }`}
-            >
-                {row.original.status === 'open' ? 'Open' : 'Closed'}
-            </span>
-        ),
+        cell: ({ row }) => {
+            const normalizedStatus = String(row.original.status ?? '')
+                .trim()
+                .toLowerCase();
+
+            return (
+                <span
+                    className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${statusClassByValue[normalizedStatus] ?? 'bg-gray-100 text-gray-800'}`}
+                >
+                    {statusLabelByValue[normalizedStatus] ??
+                        normalizedStatus ??
+                        '-'}
+                </span>
+            );
+        },
     },
     {
         accessorKey: 'departure_date',
@@ -151,8 +169,8 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                         columns={columns}
                         data={opsMovementsForDatatable}
                         actions={actions}
-                            searchFilterMode="outside"
-                            columnFilterMode="outside"
+                        searchFilterMode="outside"
+                        columnFilterMode="outside"
                         url={index().url}
                         onAction={(action, row) => {
                             const movementId = row?.original.id;

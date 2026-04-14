@@ -87,6 +87,9 @@ class PackageService
         $this->applyPackageCountryScope($query);
 
         return $query->get()->map(function ($q) {
+            $isPrivate = $this->packageSeatService->isPrivatePackage($q);
+            $isSelectable = ! $isPrivate && $this->packageSeatService->canSelectForGeneralFlows($q);
+
             return [
                 'value' => $q->id,
                 'label' => $q->name,
@@ -96,7 +99,8 @@ class PackageService
                 'return_date' => $q->return_date_formatted,
                 'total_seats' => $q->total_seats,
                 'seats_left' => $q->seats_left,
-                'is_private' => str_starts_with(strtolower((string) $q->name), 'private -'),
+                'is_private' => $isPrivate,
+                'is_selectable' => $isSelectable,
                 'officials' => $q->officials->map(function ($official) {
                     return [
                         'id' => $official->id,

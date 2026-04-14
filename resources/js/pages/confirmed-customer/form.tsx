@@ -251,6 +251,39 @@ export default function CustomerConfirmationForm({
         initialData?.package_id ?? prefillPackageId,
     );
 
+    const isPackageSelectable = useCallback(
+        (option?: CustomerConfirmationPackageOption | null): boolean => {
+            if (!option) {
+                return false;
+            }
+
+            const isPrivatePackage =
+                Boolean(option.is_private) ||
+                /^private\s*-/i.test((option.label ?? '').trim());
+
+            if (isPrivatePackage) {
+                return false;
+            }
+
+            if (option.is_selectable !== undefined) {
+                return Boolean(option.is_selectable);
+            }
+
+            const status = String(option.status ?? '')
+                .trim()
+                .toLowerCase();
+
+            if (status !== 'open') {
+                return false;
+            }
+
+            const seatsLeft = Number(option.seats_left ?? NaN);
+
+            return Number.isFinite(seatsLeft) && seatsLeft > 0;
+        },
+        [],
+    );
+
     const groupedPackageOptions = useMemo(() => {
         const selectedPackageId = Number(data.package_id ?? 0);
         const visiblePackages = normalizedPackageOptions
@@ -258,16 +291,12 @@ export default function CustomerConfirmationForm({
                 const packageId = Number(option.value ?? 0);
                 const isCurrentSelection =
                     selectedPackageId > 0 && packageId === selectedPackageId;
-                const seatsLeft = Number(option.seats_left ?? 0);
-                const isPrivatePackage =
-                    Boolean(option.is_private) ||
-                    /^private\s*-/i.test((option.label ?? '').trim());
 
                 if (isCurrentSelection) {
                     return true;
                 }
 
-                return seatsLeft > 0 && !isPrivatePackage;
+                return isPackageSelectable(option);
             })
             .sort((left, right) => {
                 const leftDate = parseDisplayDate(left.departure_date);
@@ -313,15 +342,22 @@ export default function CustomerConfirmationForm({
             const seatsLeftLabel = Number.isFinite(seatsLeft)
                 ? ` (${seatsLeft} Seats Left)`
                 : '';
+            const optionId = Number(option.value ?? 0);
+            const isCurrentSelection =
+                selectedPackageId > 0 && optionId === selectedPackageId;
+            const lockedLabel =
+                isCurrentSelection && !isPackageSelectable(option)
+                    ? ' (Locked)'
+                    : '';
 
             options.push({
                 ...option,
-                label: `${option.label}${seatsLeftLabel}`.trim(),
+                label: `${option.label}${seatsLeftLabel}${lockedLabel}`.trim(),
             });
         });
 
         return options;
-    }, [normalizedPackageOptions, data.package_id]);
+    }, [normalizedPackageOptions, data.package_id, isPackageSelectable]);
 
     useEffect(() => {
         const enquiryCreatedAt = effectiveLinkedEnquiry?.created_at;
@@ -1207,6 +1243,30 @@ export default function CustomerConfirmationForm({
                                                 String(nextValue).startsWith(
                                                     '__group__:',
                                                 )
+                                            ) {
+                                                return;
+                                            }
+
+                                            const selectedOption =
+                                                normalizedPackageOptions.find(
+                                                    (option) =>
+                                                        String(option.value) ===
+                                                        String(nextValue),
+                                                ) ?? null;
+                                            const currentPackageId = Number(
+                                                data.package_id ?? 0,
+                                            );
+                                            const nextPackageId = Number(
+                                                nextValue ?? 0,
+                                            );
+
+                                            if (
+                                                selectedOption &&
+                                                !isPackageSelectable(
+                                                    selectedOption,
+                                                ) &&
+                                                nextPackageId !==
+                                                    currentPackageId
                                             ) {
                                                 return;
                                             }

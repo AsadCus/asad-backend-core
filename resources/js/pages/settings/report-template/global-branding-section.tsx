@@ -61,7 +61,11 @@ interface GlobalBrandingSectionProps {
     makeClearHandler: (
         field: 'logo_file' | 'qr_file' | 'stamp_file' | 'signature_file',
         setPreviewFileName: (v: string | null) => void,
-        pathKey: 'logo_path' | 'qr_image_path' | 'stamp_path' | 'signature_path',
+        pathKey:
+            | 'logo_path'
+            | 'qr_image_path'
+            | 'stamp_path'
+            | 'signature_path',
         hasDatabaseFile: boolean,
     ) => () => void;
     logoPreviewFileName: string | null;
@@ -124,7 +128,7 @@ export function GlobalBrandingSection({
 
             <div className="divide-y">
                 <div className="space-y-6 p-8">
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                         <FormField
                             label="Company Name"
                             fieldRequirementsProps={{ required: true }}
@@ -150,14 +154,17 @@ export function GlobalBrandingSection({
                                 id="company_address"
                                 value={data.company_address}
                                 onChange={(e) =>
-                                    onDataChange('company_address', e.target.value)
+                                    onDataChange(
+                                        'company_address',
+                                        e.target.value,
+                                    )
                                 }
                                 rows={3}
                             />
                         </FormField>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                         <FormField
                             label="Phone"
                             htmlFor="company_phone"
@@ -167,7 +174,10 @@ export function GlobalBrandingSection({
                                 id="company_phone"
                                 value={data.company_phone}
                                 onChange={(e) =>
-                                    onDataChange('company_phone', e.target.value)
+                                    onDataChange(
+                                        'company_phone',
+                                        e.target.value,
+                                    )
                                 }
                             />
                         </FormField>
@@ -182,13 +192,16 @@ export function GlobalBrandingSection({
                                 type="email"
                                 value={data.company_email}
                                 onChange={(e) =>
-                                    onDataChange('company_email', e.target.value)
+                                    onDataChange(
+                                        'company_email',
+                                        e.target.value,
+                                    )
                                 }
                             />
                         </FormField>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                         <DocumentField
                             label="Company Logo"
                             hint="Displayed top-left on all PDFs"
@@ -199,7 +212,10 @@ export function GlobalBrandingSection({
                             isView={false}
                             disabled={false}
                             error={errors.logo_file}
-                            onSelect={makeFileHandler('logo_file', setLogoPreviewFileName)}
+                            onSelect={makeFileHandler(
+                                'logo_file',
+                                setLogoPreviewFileName,
+                            )}
                             onClear={makeClearHandler(
                                 'logo_file',
                                 setLogoPreviewFileName,
@@ -229,7 +245,10 @@ export function GlobalBrandingSection({
                                     type="color"
                                     value={data.brand_color || '#c05427'}
                                     onChange={(e) =>
-                                        onDataChange('brand_color', e.target.value)
+                                        onDataChange(
+                                            'brand_color',
+                                            e.target.value,
+                                        )
                                     }
                                     className="h-9 w-10 cursor-pointer rounded border p-0.5"
                                 />
@@ -237,7 +256,10 @@ export function GlobalBrandingSection({
                                     type="text"
                                     value={data.brand_color || '#c05427'}
                                     onChange={(e) =>
-                                        onDataChange('brand_color', e.target.value)
+                                        onDataChange(
+                                            'brand_color',
+                                            e.target.value,
+                                        )
                                     }
                                     placeholder="#c05427"
                                     className="flex-1 font-mono text-sm"
@@ -276,8 +298,9 @@ export function GlobalBrandingSection({
                                             Signature and Stamp Layout
                                         </DialogTitle>
                                         <DialogDescription>
-                                            Adjust the positions, upload files, and draw
-                                            your signature for document reports.
+                                            Adjust the positions, upload files,
+                                            and draw your signature for document
+                                            reports.
                                         </DialogDescription>
                                     </DialogHeader>
 
@@ -286,14 +309,18 @@ export function GlobalBrandingSection({
                                             label="Company Stamp"
                                             hint="Image file for the company stamp"
                                             accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.stamp_file || undefined}
+                                            fileValue={
+                                                data.stamp_file || undefined
+                                            }
                                             existingPath={
                                                 data.stamp_path !== ''
-                                                    ? initialStampDatabasePath || undefined
+                                                    ? initialStampDatabasePath ||
+                                                      undefined
                                                     : undefined
                                             }
                                             existingFileName={
-                                                stampPreviewFileName || undefined
+                                                stampPreviewFileName ||
+                                                undefined
                                             }
                                             isView={false}
                                             disabled={false}
@@ -313,14 +340,18 @@ export function GlobalBrandingSection({
                                             label="Authorised Signature"
                                             hint="Image file for the signature (or draw below)"
                                             accept="image/jpeg,image/png,image/jpg"
-                                            fileValue={data.signature_file || undefined}
+                                            fileValue={
+                                                data.signature_file || undefined
+                                            }
                                             existingPath={
                                                 data.signature_path !== ''
-                                                    ? initialSignatureDatabasePath || undefined
+                                                    ? initialSignatureDatabasePath ||
+                                                      undefined
                                                     : undefined
                                             }
                                             existingFileName={
-                                                signaturePreviewFileName || undefined
+                                                signaturePreviewFileName ||
+                                                undefined
                                             }
                                             isView={false}
                                             disabled={false}
@@ -349,7 +380,9 @@ export function GlobalBrandingSection({
                                             onCustomSignatureDataChange
                                         }
                                         stampPreviewPath={stampPreviewUrl}
-                                        signaturePreviewPath={signaturePreviewUrl}
+                                        signaturePreviewPath={
+                                            signaturePreviewUrl
+                                        }
                                         customSignatureData={
                                             data.custom_signature_data ?? null
                                         }
@@ -365,15 +398,21 @@ export function GlobalBrandingSection({
                             </Dialog>
                         </div>
 
-                        {(initialStampDatabasePath || initialSignatureDatabasePath || data.stamp_file || data.signature_file) && (
+                        {(initialStampDatabasePath ||
+                            initialSignatureDatabasePath ||
+                            data.stamp_file ||
+                            data.signature_file) && (
                             <div className="mt-3 flex flex-wrap gap-2">
-                                {(initialStampDatabasePath || data.stamp_file) && (
+                                {(initialStampDatabasePath ||
+                                    data.stamp_file) && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-green-200">
                                         <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                                         Stamp uploaded
                                     </span>
                                 )}
-                                {(initialSignatureDatabasePath || data.signature_file || data.custom_signature_data) && (
+                                {(initialSignatureDatabasePath ||
+                                    data.signature_file ||
+                                    data.custom_signature_data) && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-green-200">
                                         <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                                         Signature uploaded
@@ -396,7 +435,10 @@ export function GlobalBrandingSection({
                             isView={false}
                             disabled={false}
                             error={errors.qr_file}
-                            onSelect={makeFileHandler('qr_file', setQrPreviewFileName)}
+                            onSelect={makeFileHandler(
+                                'qr_file',
+                                setQrPreviewFileName,
+                            )}
                             onClear={makeClearHandler(
                                 'qr_file',
                                 setQrPreviewFileName,
@@ -421,13 +463,19 @@ export function GlobalBrandingSection({
                                         <SelectValue placeholder="Select alignment" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="left">Left</SelectItem>
-                                        <SelectItem value="center">Center</SelectItem>
-                                        <SelectItem value="right">Right</SelectItem>
+                                        <SelectItem value="left">
+                                            Left
+                                        </SelectItem>
+                                        <SelectItem value="center">
+                                            Center
+                                        </SelectItem>
+                                        <SelectItem value="right">
+                                            Right
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </FormField>
-                            
+
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                     label="Width (px)"
@@ -439,7 +487,10 @@ export function GlobalBrandingSection({
                                         type="number"
                                         value={data.qr_width ?? 120}
                                         onChange={(e) =>
-                                            onDataChange('qr_width', e.target.value)
+                                            onDataChange(
+                                                'qr_width',
+                                                e.target.value,
+                                            )
                                         }
                                         min={50}
                                         max={500}
@@ -455,7 +506,10 @@ export function GlobalBrandingSection({
                                         type="number"
                                         value={data.qr_height ?? 120}
                                         onChange={(e) =>
-                                            onDataChange('qr_height', e.target.value)
+                                            onDataChange(
+                                                'qr_height',
+                                                e.target.value,
+                                            )
                                         }
                                         min={50}
                                         max={500}
@@ -477,8 +531,9 @@ export function GlobalBrandingSection({
                                 Info
                             </p>
                             <p className="text-xs leading-relaxed text-blue-600/90">
-                                Global branding applies to all document types unless
-                                overridden in the Module Template section.
+                                Global branding applies to all document types
+                                unless overridden in the Module Template
+                                section.
                             </p>
                         </div>
                     </div>

@@ -42,7 +42,7 @@ import { receiptsPdf as memberReceiptsPdf } from '@/routes/customer-confirmation
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
@@ -396,6 +396,13 @@ interface ConfirmedCustomerProps {
     indexUrl?: string;
 }
 
+interface PackageSelectOption extends OptionType {
+    status?: string | null;
+    seats_left?: number | null;
+    is_private?: boolean;
+    is_selectable?: boolean;
+}
+
 type RefundMode = 'percentage' | 'fixed';
 type RefundType = 'cancel' | 'overpaid';
 
@@ -508,6 +515,27 @@ export default function ConfirmedCustomerIndex({
         useState(false);
 
     const isMemberView = memberDialogMode === 'view';
+
+    const targetPackageOptions = useMemo(() => {
+        return (packageOptions as PackageSelectOption[]).filter((option) => {
+            if (Boolean(option.is_private)) {
+                return false;
+            }
+
+            if (option.is_selectable !== undefined) {
+                return Boolean(option.is_selectable);
+            }
+
+            const status = String(option.status ?? '')
+                .trim()
+                .toLowerCase();
+            const seatsLeft = Number(option.seats_left ?? NaN);
+
+            return (
+                status === 'open' && Number.isFinite(seatsLeft) && seatsLeft > 0
+            );
+        });
+    }, [packageOptions]);
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -1891,7 +1919,7 @@ export default function ConfirmedCustomerIndex({
                         <div className="space-y-4">
                             <FormField label="Target Package (Optional)">
                                 <ProperInputSelect
-                                    options={packageOptions}
+                                    options={targetPackageOptions}
                                     value={targetPackageId ?? ''}
                                     onValueChange={(value) => {
                                         if (!value) {

@@ -66,10 +66,12 @@ export interface CustomerConfirmationFormProps {
 
 export interface CustomerConfirmationPackageOption extends OptionType {
     package_number?: string;
+    status?: string | null;
     departure_date?: string | null;
     return_date?: string | null;
     seats_left?: number | null;
     is_private?: boolean;
+    is_selectable?: boolean;
 }
 
 export const publicTermsAndConditions = `Terms & Conditions

@@ -78,6 +78,8 @@ export interface PackageOfficialOption {
 export interface PackageForManifestOption extends ValueNumberOptionType {
     package_number?: string;
     status?: 'open' | 'closed' | string;
+    is_private?: boolean;
+    is_selectable?: boolean;
     departure_date?: string;
     return_date?: string;
     accommodations?: PackageAccommodationOption[];

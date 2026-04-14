@@ -10,7 +10,7 @@ class PackageRule
             'package_number' => ['nullable', 'string', 'max:100'],
             'package_number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'name' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', 'in:open,closed'],
+            'status' => ['required', 'string', 'in:open,full,closed,completed'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
 
             // Pricing

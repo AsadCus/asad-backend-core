@@ -895,10 +895,7 @@ export default function PackageForm({
                                     disabled={isView || processing}
                                     value={data.status}
                                     onValueChange={(value) =>
-                                        setData(
-                                            'status',
-                                            value as 'open' | 'closed',
-                                        )
+                                        setData('status', value)
                                     }
                                 >
                                     <SelectTrigger id="status">
@@ -908,8 +905,14 @@ export default function PackageForm({
                                         <SelectItem value="open">
                                             Open
                                         </SelectItem>
+                                        <SelectItem value="full" disabled>
+                                            Full (Auto)
+                                        </SelectItem>
                                         <SelectItem value="closed">
                                             Closed
+                                        </SelectItem>
+                                        <SelectItem value="completed" disabled>
+                                            Completed (Auto)
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>

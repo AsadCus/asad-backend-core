@@ -33,6 +33,7 @@ class CustomerConfirmationService
     public function __construct(
         private NoteService $noteService,
         private NumberingService $numberingService,
+        private PackageSeatService $packageSeatService,
     ) {}
 
     public function isAutoBillingSyncEnabled(): bool
@@ -45,9 +46,19 @@ class CustomerConfirmationService
     {
         return DB::transaction(function () use ($data) {
             $enquiryId = $data['enquiry_id'] ?? null;
+            $enquiry = null;
+            $isPrivateEnquiry = false;
 
             if ($enquiryId) {
                 $enquiry = Enquiry::findOrFail($enquiryId);
+                $isPrivateEnquiry = strtolower((string) ($enquiry->type ?? '')) === 'private';
+            }
+
+            $resolvedPackageId = (int) ($data['package_id'] ?? ($enquiryId ? ($enquiry?->package_id ?? null) : null) ?? 0);
+            $existingEnquiryPackageId = (int) ($enquiry?->package_id ?? 0);
+
+            if ($resolvedPackageId > 0 && $resolvedPackageId !== $existingEnquiryPackageId) {
+                $this->assertPackageSelectionAllowed($resolvedPackageId, $isPrivateEnquiry);
             }
 
             $group = CustomerConfirmation::create([
@@ -59,7 +70,7 @@ class CustomerConfirmationService
                 ),
                 'enquiry_id' => $enquiryId,
                 'created_by' => auth()->id(),
-                'package_id' => $data['package_id'] ?? ($enquiryId ? ($enquiry->package_id ?? null) : null),
+                'package_id' => $resolvedPackageId > 0 ? $resolvedPackageId : null,
                 'package_room_type' => $data['package_room_type'] ?? null,
                 'date_of_application' => $data['date_of_application'] ?? null,
             ]);
@@ -607,7 +618,6 @@ class CustomerConfirmationService
             })
             ->all();
     }
-
 
     /**
      * Get customer info and all receipts for a specific confirmation member — for PDF export.
@@ -1510,6 +1520,31 @@ class CustomerConfirmationService
         });
     }
 
+    private function assertPackageSelectionAllowed(int $packageId, bool $allowPrivatePackage = false): void
+    {
+        $package = Package::query()->findOrFail($packageId);
+
+        if (! $allowPrivatePackage && $this->packageSeatService->isPrivatePackage($package)) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Private packages are not selectable in this workflow.',
+            ]);
+        }
+
+        $normalizedStatus = $this->packageSeatService->normalizeStatus((string) $package->status);
+
+        if ($this->packageSeatService->isBlockedForMemberIntake($normalizedStatus)) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Selected package is '.$normalizedStatus.' and cannot accept new members.',
+            ]);
+        }
+
+        if ($package->total_seats !== null && (int) ($package->seats_left ?? 0) <= 0) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Selected package has no available seats.',
+            ]);
+        }
+    }
+
     private function normalizePaymentStatus(?string $status): string
     {
         $normalized = strtolower(trim((string) ($status ?? '')));
@@ -1650,6 +1685,14 @@ class CustomerConfirmationService
                 && (int) $requestedPackageId !== (int) $group->package_id
             ) {
                 abort(422, 'Private enquiry package is exclusive and cannot be changed once linked.');
+            }
+
+            if (
+                $requestedPackageId !== null
+                && (int) $requestedPackageId > 0
+                && (int) $requestedPackageId !== (int) ($group->package_id ?? 0)
+            ) {
+                $this->assertPackageSelectionAllowed((int) $requestedPackageId, $isPrivateEnquiry);
             }
 
             $group->update([

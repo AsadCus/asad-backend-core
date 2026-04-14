@@ -436,8 +436,8 @@
                                 </tr>
                                 @if (empty($receipt['invoice_payment_progress']) || count($receipt['invoice_payment_progress']) === 0)
                                     <tr>
-                                        <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
-                                        <td class="total-amount" style="color: #c0392b;">
+                                        <td class="total-label">Pending Payment:</td>
+                                        <td class="total-amount">
                                             {{ ccFormatCurrency(0) }} / {{ ccFormatCurrency($receipt['total_amount'] ?? 0) }}
                                         </td>
                                     </tr>

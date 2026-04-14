@@ -46,6 +46,9 @@ interface GeneralEnquiryFormProps {
 interface GeneralEnquiryPackageOption extends OptionType {
     departure_date?: string | null;
     seats_left?: number | null;
+    status?: string | null;
+    is_private?: boolean;
+    is_selectable?: boolean;
 }
 
 export default function GeneralEnquiryForm({
@@ -90,6 +93,35 @@ export default function GeneralEnquiryForm({
 
     const normalizedPackageOptions =
         packageOptions as GeneralEnquiryPackageOption[];
+
+    const isPackageSelectable = useCallback(
+        (option?: GeneralEnquiryPackageOption | null): boolean => {
+            if (!option) {
+                return false;
+            }
+
+            if (Boolean(option.is_private)) {
+                return false;
+            }
+
+            if (option.is_selectable !== undefined) {
+                return Boolean(option.is_selectable);
+            }
+
+            const status = String(option.status ?? '')
+                .trim()
+                .toLowerCase();
+
+            if (status !== 'open') {
+                return false;
+            }
+
+            const seatsLeft = Number(option.seats_left ?? NaN);
+
+            return Number.isFinite(seatsLeft) && seatsLeft > 0;
+        },
+        [],
+    );
     const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
         [],
     );
@@ -97,24 +129,38 @@ export default function GeneralEnquiryForm({
         useState<string>('');
 
     const groupedPackageOptions = useMemo(() => {
-        const options = [...normalizedPackageOptions].sort((left, right) => {
-            const leftDate = parseDisplayDate(left.departure_date);
-            const rightDate = parseDisplayDate(right.departure_date);
+        const selectedPackageId = Number(data.package_id ?? 0);
 
-            if (leftDate && rightDate) {
-                return leftDate.getTime() - rightDate.getTime();
-            }
+        const options = normalizedPackageOptions
+            .filter((option) => {
+                const optionId = Number(option.value ?? 0);
+                const isCurrentSelection =
+                    selectedPackageId > 0 && optionId === selectedPackageId;
 
-            if (leftDate) {
-                return -1;
-            }
+                if (isCurrentSelection) {
+                    return true;
+                }
 
-            if (rightDate) {
-                return 1;
-            }
+                return isPackageSelectable(option);
+            })
+            .sort((left, right) => {
+                const leftDate = parseDisplayDate(left.departure_date);
+                const rightDate = parseDisplayDate(right.departure_date);
 
-            return String(left.label).localeCompare(String(right.label));
-        });
+                if (leftDate && rightDate) {
+                    return leftDate.getTime() - rightDate.getTime();
+                }
+
+                if (leftDate) {
+                    return -1;
+                }
+
+                if (rightDate) {
+                    return 1;
+                }
+
+                return String(left.label).localeCompare(String(right.label));
+            });
 
         const grouped: GeneralEnquiryPackageOption[] = [];
         let previousGroupKey = '';
@@ -140,15 +186,21 @@ export default function GeneralEnquiryForm({
             const seatsLeftLabel = Number.isFinite(seatsLeft)
                 ? ` (${seatsLeft} Seats Left)`
                 : '';
+            const optionId = Number(option.value ?? 0);
+            const isCurrentSelection =
+                selectedPackageId > 0 && optionId === selectedPackageId;
+            const selectable = isPackageSelectable(option);
+            const lockedLabel =
+                isCurrentSelection && !selectable ? ' (Locked)' : '';
 
             grouped.push({
                 ...option,
-                label: `${option.label}${seatsLeftLabel}`.trim(),
+                label: `${option.label}${seatsLeftLabel}${lockedLabel}`.trim(),
             });
         });
 
         return grouped;
-    }, [normalizedPackageOptions]);
+    }, [data.package_id, isPackageSelectable, normalizedPackageOptions]);
 
     const [linkedPackageInfo, setLinkedPackageInfo] = useState<{
         id: number;
@@ -356,6 +408,27 @@ export default function GeneralEnquiryForm({
 
                                         if (
                                             String(v).startsWith('__group__:')
+                                        ) {
+                                            return;
+                                        }
+
+                                        const selectedOption =
+                                            normalizedPackageOptions.find(
+                                                (option) =>
+                                                    String(option.value) ===
+                                                    String(v),
+                                            ) ?? null;
+                                        const currentPackageId = Number(
+                                            data.package_id ?? 0,
+                                        );
+                                        const nextPackageId = Number(v ?? 0);
+
+                                        if (
+                                            selectedOption &&
+                                            !isPackageSelectable(
+                                                selectedOption,
+                                            ) &&
+                                            nextPackageId !== currentPackageId
                                         ) {
                                             return;
                                         }

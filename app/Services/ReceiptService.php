@@ -115,7 +115,7 @@ class ReceiptService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $invoiceQuery = Invoice::query();
+            $invoiceQuery = Invoice::query()->with('order.quotation.customerConfirmation.package');
 
             if (DataScope::shouldScopeSalesOwnership()) {
                 $invoiceQuery->whereHas('order.quotation', function ($quotationQuery) {
@@ -128,6 +128,13 @@ class ReceiptService
             if (InvoiceStatus::isRefund($invoice->status)) {
                 throw ValidationException::withMessages([
                     'invoice_id' => 'Cannot create receipt for refund invoice.',
+                ]);
+            }
+
+            $packageStatus = strtolower(trim((string) ($invoice->order?->quotation?->customerConfirmation?->package?->status ?? '')));
+            if (in_array($packageStatus, ['full', 'closed', 'completed'], true)) {
+                throw ValidationException::withMessages([
+                    'invoice_id' => 'Cannot create receipt because the linked package is '.$packageStatus.'.',
                 ]);
             }
 

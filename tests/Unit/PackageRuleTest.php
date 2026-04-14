@@ -17,4 +17,12 @@ class PackageRuleTest extends TestCase
         $this->assertContains('min:1', $rules['total_seats']);
         $this->assertNotContains('nullable', $rules['total_seats']);
     }
+
+    public function test_status_allows_package_lifecycle_values(): void
+    {
+        $rule = new PackageRule;
+        $rules = $rule->rules();
+
+        $this->assertContains('in:open,full,closed,completed', $rules['status']);
+    }
 }

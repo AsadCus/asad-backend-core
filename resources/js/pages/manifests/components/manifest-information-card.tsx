@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { type ManifestFormData, type PackageForManifestOption } from '../types';
 
-const STATUS_OPTIONS = ['open', 'closed'];
+const STATUS_OPTIONS = ['open', 'full', 'closed', 'completed'];
 
 interface ManifestInformationCardProps {
     isView: boolean;
@@ -33,6 +33,16 @@ export default function ManifestInformationCard({
     const selectedPackage = dataPackage.find(
         (p) => Number(p.value) === Number(data.package_id),
     );
+    const selectedPackageId = Number(data.package_id ?? 0);
+    const packageOptions = dataPackage.filter((item) => {
+        const isCurrentSelection = Number(item.value) === selectedPackageId;
+
+        if (isCurrentSelection) {
+            return true;
+        }
+
+        return !Boolean(item.is_private);
+    });
 
     void errors;
 
@@ -57,7 +67,7 @@ export default function ManifestInformationCard({
                     >
                         <ProperInputSelect
                             mode="classic"
-                            options={dataPackage.map((item) => ({
+                            options={packageOptions.map((item) => ({
                                 label: item.label,
                                 value: String(item.value),
                             }))}
@@ -117,7 +127,6 @@ export default function ManifestInformationCard({
                         />
                         {renderError('status')}
                     </FormField>
-
                 </div>
 
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">

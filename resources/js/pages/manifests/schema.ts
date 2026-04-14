@@ -254,17 +254,23 @@ export type ManifestApiResponseSchema = z.infer<
 
 export const manifestStatusOptions = [
     { label: 'Open', value: 'open' },
+    { label: 'Full', value: 'full' },
     { label: 'Closed', value: 'closed' },
+    { label: 'Completed', value: 'completed' },
 ];
 
 export const manifestStatusColors: Record<string, string> = {
     open: 'bg-green-100 text-green-800',
+    full: 'bg-amber-100 text-amber-800',
     closed: 'bg-red-100 text-red-800',
+    completed: 'bg-blue-100 text-blue-800',
 };
 
 export const manifestStatusLabels: Record<string, string> = {
     open: 'Open',
+    full: 'Full',
     closed: 'Closed',
+    completed: 'Completed',
 };
 
 export const roomStatusOptions = [

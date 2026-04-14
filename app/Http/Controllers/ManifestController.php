@@ -7,9 +7,11 @@ use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\ModelFile;
+use App\Models\Package;
 use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
+use App\Services\PackageSeatService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
 use App\Support\DataScope;
@@ -1758,6 +1760,34 @@ class ManifestController extends Controller
 
         if ($memberIds->isEmpty()) {
             return;
+        }
+
+        $package = Package::query()->find($manifestPackageId);
+        if ($package) {
+            $packageSeatService = app(PackageSeatService::class);
+
+            if ($packageSeatService->isBlockedForMemberIntake((string) $package->status)) {
+                $manifestId = isset($validated['id']) ? (int) $validated['id'] : 0;
+
+                $existingLinkedMemberIds = $manifestId > 0
+                    ? ManifestMember::query()
+                        ->where('manifest_id', $manifestId)
+                        ->whereIn('customer_confirmation_member_id', $memberIds->all())
+                        ->pluck('customer_confirmation_member_id')
+                        ->map(fn (mixed $memberId) => (int) $memberId)
+                        ->filter(fn (int $memberId) => $memberId > 0)
+                        ->unique()
+                        ->values()
+                    : collect();
+
+                $newLinkedMemberIds = $memberIds->diff($existingLinkedMemberIds);
+
+                if ($newLinkedMemberIds->isNotEmpty()) {
+                    throw ValidationException::withMessages([
+                        'members' => 'Selected package is '.strtolower((string) $package->status).' and cannot accept new members.',
+                    ]);
+                }
+            }
         }
 
         $hasMismatch = CustomerConfirmationMember::query()

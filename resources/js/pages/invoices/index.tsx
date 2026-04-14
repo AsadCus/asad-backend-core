@@ -232,12 +232,19 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: false },
         cell: ({ row }) => {
             const invoice = row.original;
+            const packageStatus = String(
+                invoice.package_status ?? '',
+            ).toLowerCase();
+            const isPackageBlocked = ['full', 'closed', 'completed'].includes(
+                packageStatus,
+            );
             const canCreateReceipt =
                 !invoice.is_refund &&
                 invoice.status !== 'refund' &&
                 invoice.status !== 'paid' &&
                 invoice.status !== 'cancelled' &&
                 !invoice.has_receipt &&
+                !isPackageBlocked &&
                 Boolean(invoice.id);
 
             if (!canCreateReceipt) {
@@ -245,7 +252,9 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                     <span className="text-muted-foreground">
                         {invoice.is_refund || invoice.status === 'refund'
                             ? 'Locked (Refund)'
-                            : 'Receipt Created'}
+                            : isPackageBlocked
+                              ? `Locked (${packageStatus || 'package'})`
+                              : 'Receipt Created'}
                     </span>
                 );
             }

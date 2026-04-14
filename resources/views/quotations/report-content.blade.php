@@ -381,8 +381,8 @@
                     </tr>
                     @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
                         <tr>
-                            <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
-                            <td class="total-amount" style="color: #c0392b;">
+                            <td class="total-label">Pending Payment:</td>
+                            <td class="total-amount">
                                 {{ formatCurrency(0) }} / {{ formatCurrency($data['total_amount'] ?? $subtotal) }}
                             </td>
                         </tr>
