@@ -129,7 +129,7 @@
         }
 
         .totals-table td {
-            padding: 1.5px 0;
+            padding: 1px 0;
         }
 
         .total-label {
@@ -143,17 +143,40 @@
             width: 32%;
             text-align: right;
             font-weight: normal;
-            font-size: 12px;
+            font-size: 11px;
             white-space: nowrap;
         }
 
         .totals-table .total-row-grand .total-label {
             font-weight: bold;
+            color: #1a1a1a;
+        }
+
+        .totals-table .total-row-grand .total-amount {
+            font-weight: bold;
+            font-size: 12px;
         }
 
         .totals-table .total-row-grand td {
             border-top: 1px solid #cfcfcf;
             padding-top: 4px;
+        }
+
+        /* ── Payment History section header ── */
+        .payment-history-heading {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #666;
+            text-align: right;
+            padding-top: 8px;
+            padding-bottom: 2px;
+        }
+
+        /* Spacer row between payment history and grand total */
+        .payment-total-spacer td {
+            padding-top: 6px;
         }
 
         .footer-section {
@@ -369,6 +392,15 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {{-- ── PAYMENT HISTORY ── --}}
+        <div class="totals-wrapper">
+            <div class="payment-history-heading">Payment History</div>
+            <table class="totals-table">
+                <tbody>
                     @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
                         <tr>
                             <td class="total-label" style="color: #c0392b;">Pending Payment:</td>
