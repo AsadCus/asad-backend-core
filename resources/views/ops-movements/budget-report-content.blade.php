@@ -85,31 +85,52 @@
         |----------------------------------------------------------------------
         | RESOLVE SECTIONS
         | Match dynamic budget data to the 3 fixed sections by key or title.
-        | Do not inject template rows at report time.
+        | Falls back to default template items when a section has no DB data.
         |----------------------------------------------------------------------
         */
         $budgetData = collect($opsMovement['budget'] ?? []);
 
-        $resolveItems = function (array $slugs) use ($budgetData): array {
+        // Default items per section — mirrors createDefaultBudgetTemplate() in form.tsx
+        $defaultSectionItems = [
+            'manpower' => [
+                ['item_name' => 'Mutawwif',            'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Assisting Mutawwif',  'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Mutawwif Meal',       'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+            'pettycash' => [
+                ['item_name' => 'Hotel Porter',              'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Bus Tipping',               'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Tipping for Airport Porter','unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+            'contingency' => [
+                ['item_name' => 'Contingency Fund',  'unit_price' => 0, 'quantity' => 0, 'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY'],
+                ['item_name' => 'Emergency Reserve', 'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+                ['item_name' => 'Miscellaneous',     'unit_price' => 0, 'quantity' => 0, 'remarks' => ''],
+            ],
+        ];
+
+        $resolveItems = function (array $slugs, string $defaultKey) use ($budgetData, $defaultSectionItems): array {
             $normalize = fn($v) => strtolower(str_replace([' ', '_', '-'], '', $v ?? ''));
             $matched = $budgetData->first(function ($s) use ($slugs, $normalize) {
                 return in_array($normalize($s['key'] ?? ''), $slugs) || in_array($normalize($s['title'] ?? ''), $slugs);
             });
-            return $matched['items'] ?? [];
+            $items = $matched['items'] ?? [];
+            // Fall back to default template items when section has no DB data yet
+            return count($items) > 0 ? $items : ($defaultSectionItems[$defaultKey] ?? []);
         };
 
         $sections = [
             [
                 'title' => 'Manpower Expenses',
-                'items' => $resolveItems(['manpowerexpenses', 'manpower']),
+                'items' => $resolveItems(['manpowerexpenses', 'manpower'], 'manpower'),
             ],
             [
                 'title' => 'Petty Cash',
-                'items' => $resolveItems(['pettycash']),
+                'items' => $resolveItems(['pettycash'], 'pettycash'),
             ],
             [
                 'title' => 'Contingency',
-                'items' => $resolveItems(['contingency']),
+                'items' => $resolveItems(['contingency'], 'contingency'),
             ],
         ];
 
