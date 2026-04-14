@@ -30,6 +30,8 @@ interface GlobalBrandingSectionProps {
         company_email: string;
         brand_color: string;
         qr_alignment?: 'left' | 'center' | 'right';
+        qr_width?: number;
+        qr_height?: number;
         logo_file?: File | null;
         qr_file?: File | null;
         stamp_file?: File | null;
@@ -403,27 +405,64 @@ export function GlobalBrandingSection({
                             )}
                         />
 
-                        <FormField
-                            label="QR Alignment"
-                            htmlFor="qr_alignment"
-                            error={errors.qr_alignment}
-                        >
-                            <Select
-                                value={data.qr_alignment || 'center'}
-                                onValueChange={(value) =>
-                                    onDataChange('qr_alignment', value)
-                                }
+                        <div className="space-y-4">
+                            <FormField
+                                label="QR Alignment"
+                                htmlFor="qr_alignment"
+                                error={errors.qr_alignment}
                             >
-                                <SelectTrigger id="qr_alignment">
-                                    <SelectValue placeholder="Select alignment" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="left">Left</SelectItem>
-                                    <SelectItem value="center">Center</SelectItem>
-                                    <SelectItem value="right">Right</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FormField>
+                                <Select
+                                    value={data.qr_alignment || 'center'}
+                                    onValueChange={(value) =>
+                                        onDataChange('qr_alignment', value)
+                                    }
+                                >
+                                    <SelectTrigger id="qr_alignment">
+                                        <SelectValue placeholder="Select alignment" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="left">Left</SelectItem>
+                                        <SelectItem value="center">Center</SelectItem>
+                                        <SelectItem value="right">Right</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    label="Width (px)"
+                                    htmlFor="qr_width"
+                                    error={errors.qr_width}
+                                >
+                                    <Input
+                                        id="qr_width"
+                                        type="number"
+                                        value={data.qr_width ?? 120}
+                                        onChange={(e) =>
+                                            onDataChange('qr_width', e.target.value)
+                                        }
+                                        min={50}
+                                        max={500}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Height (px)"
+                                    htmlFor="qr_height"
+                                    error={errors.qr_height}
+                                >
+                                    <Input
+                                        id="qr_height"
+                                        type="number"
+                                        value={data.qr_height ?? 120}
+                                        onChange={(e) =>
+                                            onDataChange('qr_height', e.target.value)
+                                        }
+                                        min={50}
+                                        max={500}
+                                    />
+                                </FormField>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

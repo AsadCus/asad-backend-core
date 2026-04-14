@@ -268,6 +268,7 @@ class DashboardController extends Controller
 
         // Build report with branding using Report Template Service
         $report = $this->reportTemplateService->build('payment_summary', $summary);
+        $report['is_pdf'] = true;
 
         $pdf = Pdf::loadView('reports.dashboard-payment-summary', $report)
             ->setPaper('a4', 'portrait')
