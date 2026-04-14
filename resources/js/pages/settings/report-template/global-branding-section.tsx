@@ -207,7 +207,11 @@ export function GlobalBrandingSection({
                             hint="Displayed top-left on all PDFs"
                             accept="image/jpeg,image/png,image/jpg"
                             fileValue={data.logo_file || undefined}
-                            existingPath={initialLogoDatabasePath || undefined}
+                            existingPath={
+                                data.logo_path !== ''
+                                    ? initialLogoDatabasePath || undefined
+                                    : undefined
+                            }
                             existingFileName={logoPreviewFileName || undefined}
                             isView={false}
                             disabled={false}
@@ -428,9 +432,13 @@ export function GlobalBrandingSection({
                         <DocumentField
                             label="QR Image"
                             hint="Displayed near signature and stamp in report footer"
-                            accept="image/jpeg,image/png,image/jpg,image/webp"
+                            accept=".jpeg,.jpg,.png,.webp"
                             fileValue={data.qr_file || undefined}
-                            existingPath={initialQrDatabasePath || undefined}
+                            existingPath={
+                                data.qr_image_path !== ''
+                                    ? initialQrDatabasePath || undefined
+                                    : undefined
+                            }
                             existingFileName={qrPreviewFileName || undefined}
                             isView={false}
                             disabled={false}
