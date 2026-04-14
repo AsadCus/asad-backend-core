@@ -41,7 +41,7 @@ export default function ManifestInformationCard({
             return true;
         }
 
-        return !Boolean(item.is_private);
+        return !item.is_private;
     });
 
     void errors;

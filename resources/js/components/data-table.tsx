@@ -616,7 +616,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
 
             {/* Table */}
             <div className="overflow-hidden rounded-md border">
-                <div className="always-scrollbars max-h-[50vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
+                <div className="always-scrollbars max-h-[80vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
                     <Table
                         className={cn(
                             'min-w-full [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-background',

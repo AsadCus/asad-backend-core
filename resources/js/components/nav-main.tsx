@@ -67,7 +67,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                 className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
                             >
                                 {subItem.href ? (
-                                    <Link href={subItem.href} prefetch>
+                                    <Link href={subItem.href}>
                                         {subItem.icon && <subItem.icon />}
                                         <span className="truncate">
                                             {subItem.title}
@@ -101,7 +101,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         tooltip={{ children: subItem.title }}
                                         className="flex-1 hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
                                     >
-                                        <Link href={subItem.href} prefetch>
+                                        <Link href={subItem.href}>
                                             {subItem.icon && <subItem.icon />}
                                             <span className="truncate">
                                                 {subItem.title}
@@ -169,7 +169,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
                                 >
                                     {item.href ? (
-                                        <Link href={item.href} prefetch>
+                                        <Link href={item.href}>
                                             {item.icon && <item.icon />}
                                             <span className="truncate">
                                                 {item.title}
@@ -210,7 +210,6 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                             <DropdownMenuItem asChild>
                                                 <Link
                                                     href={item.href}
-                                                    prefetch
                                                     className="flex items-center"
                                                 >
                                                     {item.icon && (
@@ -231,7 +230,6 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                                     {subItem.href ? (
                                                         <Link
                                                             href={subItem.href}
-                                                            prefetch
                                                             className="flex items-center"
                                                         >
                                                             {subItem.icon && (
@@ -276,7 +274,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                             tooltip={{ children: item.title }}
                                             className="flex-1 hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
                                         >
-                                            <Link href={item.href} prefetch>
+                                            <Link href={item.href}>
                                                 {item.icon && <item.icon />}
                                                 <span className="truncate">
                                                     {item.title}

@@ -100,7 +100,7 @@ export default function GeneralEnquiryForm({
                 return false;
             }
 
-            if (Boolean(option.is_private)) {
+            if (option.is_private) {
                 return false;
             }
 

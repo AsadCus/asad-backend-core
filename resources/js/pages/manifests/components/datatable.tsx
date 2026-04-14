@@ -3528,7 +3528,7 @@ export default function ManifestDatatable({
             const currentValue = row[field];
             updateFlatRow(index, field, !currentValue);
         };
-        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted/35';
+        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted';
 
         const rowContent = (
             <TableRow key={row._rowId} className={cn('group', rowToneClass)}>
@@ -3675,7 +3675,7 @@ export default function ManifestDatatable({
         row: MemberWithUI & { _rowId: string },
         index: number,
     ) => {
-        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted/40';
+        const rowToneClass = index % 2 === 0 ? 'bg-background' : 'bg-muted';
 
         const rowContent = (
             <TableRow key={row._rowId} className={cn('group', rowToneClass)}>
@@ -3897,7 +3897,7 @@ export default function ManifestDatatable({
                     </Button>
                 </div>
             )}
-            <div className="always-scrollbars max-h-[75vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
+            <div className="always-scrollbars max-h-[80vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}

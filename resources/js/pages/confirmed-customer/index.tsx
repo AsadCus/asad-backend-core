@@ -518,7 +518,7 @@ export default function ConfirmedCustomerIndex({
 
     const targetPackageOptions = useMemo(() => {
         return (packageOptions as PackageSelectOption[]).filter((option) => {
-            if (Boolean(option.is_private)) {
+            if (option.is_private) {
                 return false;
             }
 
