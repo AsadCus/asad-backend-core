@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
+use App\Models\QuotationItem;
 use App\Support\DataScope;
 use App\Support\InvoiceStatus;
 use Illuminate\Support\Collection;
@@ -32,7 +34,14 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        return Invoice::with(['order.quotation.customer.user', 'order.quotation.customer.handledBy', 'order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'order.quotation.customerConfirmation.package:id,package_number,name,status', 'order.quotation.createdBy:id,name'])
+        $invoices = Invoice::with([
+            'order.quotation.customer.user',
+            'order.quotation.customer.handledBy',
+            'order.quotation.customerConfirmation.enquiry.handledBy:id,name',
+            'order.quotation.customerConfirmation.package:id,package_number,name,status',
+            'order.quotation.createdBy:id,name',
+            'quotationItems:id,is_header,customer_confirmation_member_id',
+        ])
             ->with('receipt:id,invoice_id')
             ->withCount('receipt')
             ->where('status', '!=', InvoiceStatus::Refund)
@@ -41,34 +50,99 @@ class InvoiceService
                     $quotationQuery->where('created_by', $value);
                 });
             })
-            ->orderBy('invoice_number', 'desc')->get()->map(function ($i) {
-                return [
-                    'id' => $i->id,
-                    'invoice_number' => $i->invoice_number ?? '-',
-                    'quotation_id' => $i->order->quotation->id ?? '-',
-                    'quotation_number' => $i->order->quotation->quotation_number ?? '-',
-                    'order_id' => $i->order_id ?? '-',
-                    'order_number' => $i->order->order_number ?? '-',
-                    'customer_id' => $i->order->quotation->customer->id ?? '-',
-                    'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
-                    'customer_name' => $i->order->quotation->customer->user->name ?? '-',
-                    'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
-                    'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
-                    'package_status' => $i->order->quotation->customerConfirmation?->package?->status ?? null,
-                    'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
-                    'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
-                    'description' => $i->description,
-                    'amount' => $this->formatService->cleanDecimal($i->amount),
-                    'invoice_date' => $i->invoice_date_formatted,
-                    'due_date' => $i->due_date_formatted,
-                    'status' => $i->status,
-                    'is_refund' => InvoiceStatus::isRefund($i->status),
-                    'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
-                    'receipt_id' => $i->receipt->first()?->id,
-                    'created_at' => $i->created_at?->translatedFormat('d F Y'),
-                    'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
-                ];
+            ->orderBy('invoice_number', 'desc')
+            ->get();
+
+        $linkedMemberIdsByInvoice = $invoices->mapWithKeys(function (Invoice $invoice): array {
+            $memberIds = $invoice->quotationItems
+                ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($memberId): int => (int) $memberId)
+                ->filter(fn (int $memberId): bool => $memberId > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            return [(int) $invoice->id => $memberIds];
+        });
+
+        $allLinkedMemberIds = $linkedMemberIdsByInvoice
+            ->values()
+            ->flatten()
+            ->map(fn ($memberId): int => (int) $memberId)
+            ->filter(fn (int $memberId): bool => $memberId > 0)
+            ->unique()
+            ->values();
+
+        $memberStatuses = $allLinkedMemberIds->isEmpty()
+            ? collect()
+            : CustomerConfirmationMember::query()
+                ->whereIn('id', $allLinkedMemberIds->all())
+                ->pluck('status', 'id')
+                ->mapWithKeys(fn ($status, $memberId): array => [(int) $memberId => strtolower(trim((string) $status))]);
+
+        $memberIdsWithPaidReceiptHistory = $allLinkedMemberIds->isEmpty()
+            ? collect()
+            : QuotationItem::query()
+                ->whereIn('customer_confirmation_member_id', $allLinkedMemberIds->all())
+                ->whereHas('invoices.receipt', function ($query): void {
+                    $query->where('amount', '>', 0);
+                })
+                ->pluck('customer_confirmation_member_id')
+                ->map(fn ($memberId): int => (int) $memberId)
+                ->filter(fn (int $memberId): bool => $memberId > 0)
+                ->unique()
+                ->values()
+                ->flip();
+
+        return $invoices->map(function ($i) use ($linkedMemberIdsByInvoice, $memberStatuses, $memberIdsWithPaidReceiptHistory) {
+            $packageStatus = strtolower(trim((string) ($i->order->quotation->customerConfirmation?->package?->status ?? '')));
+            $isPackageStatusBlocked = in_array($packageStatus, ['full', 'closed', 'completed'], true);
+            $linkedMemberIds = $linkedMemberIdsByInvoice->get((int) $i->id, []);
+
+            $hasLinkedMemberWithPaidHistory = collect($linkedMemberIds)->contains(function ($memberId) use ($memberStatuses, $memberIdsWithPaidReceiptHistory): bool {
+                $normalizedStatus = strtolower(trim((string) ($memberStatuses->get((int) $memberId) ?? '')));
+
+                if (in_array($normalizedStatus, ['partially_paid', 'fully_paid', 'overpaid'], true)) {
+                    return true;
+                }
+
+                return $memberIdsWithPaidReceiptHistory->has((int) $memberId);
             });
+
+            $isPackageReceiptLocked = $isPackageStatusBlocked
+                && ! empty($linkedMemberIds)
+                && ! $hasLinkedMemberWithPaidHistory;
+
+            return [
+                'id' => $i->id,
+                'invoice_number' => $i->invoice_number ?? '-',
+                'quotation_id' => $i->order->quotation->id ?? '-',
+                'quotation_number' => $i->order->quotation->quotation_number ?? '-',
+                'order_id' => $i->order_id ?? '-',
+                'order_number' => $i->order->order_number ?? '-',
+                'customer_id' => $i->order->quotation->customer->id ?? '-',
+                'customer_number' => $i->order->quotation->customer->customer_number ?? '-',
+                'customer_name' => $i->order->quotation->customer->user->name ?? '-',
+                'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
+                'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
+                'package_status' => $i->order->quotation->customerConfirmation?->package?->status ?? null,
+                'is_package_receipt_locked' => $isPackageReceiptLocked,
+                'has_linked_member_paid_history_for_receipt' => $hasLinkedMemberWithPaidHistory,
+                'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
+                'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
+                'description' => $i->description,
+                'amount' => $this->formatService->cleanDecimal($i->amount),
+                'invoice_date' => $i->invoice_date_formatted,
+                'due_date' => $i->due_date_formatted,
+                'status' => $i->status,
+                'is_refund' => InvoiceStatus::isRefund($i->status),
+                'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
+                'receipt_id' => $i->receipt->first()?->id,
+                'created_at' => $i->created_at?->translatedFormat('d F Y'),
+                'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
+            ];
+        });
     }
 
     public function getForFilter(array $filters = [])
@@ -528,6 +602,38 @@ class InvoiceService
         $invoice = Invoice::query()->find($invoiceId);
 
         return $invoice ? InvoiceStatus::isRefund($invoice->status) : false;
+    }
+
+    public function recreateReceipt(int $invoiceId): void
+    {
+        DB::transaction(function () use ($invoiceId): void {
+            $invoiceQuery = Invoice::query()
+                ->with('receipt');
+
+            if (DataScope::shouldScopeSalesOwnership()) {
+                $invoiceQuery->whereHas('order.quotation', function ($quotationQuery): void {
+                    $quotationQuery->where('created_by', auth()->user()?->id);
+                });
+            }
+
+            $invoice = $invoiceQuery->findOrFail($invoiceId);
+
+            if (InvoiceStatus::isRefund($invoice->status)) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'Refund invoice receipt cannot be recreated.',
+                ]);
+            }
+
+            if ($invoice->receipt->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'No receipt found for this invoice.',
+                ]);
+            }
+
+            foreach ($invoice->receipt as $receipt) {
+                $receipt->delete();
+            }
+        });
     }
 
     /**

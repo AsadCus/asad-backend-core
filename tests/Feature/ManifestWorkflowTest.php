@@ -3823,16 +3823,13 @@ class ManifestWorkflowTest extends TestCase
             ->firstWhere('customer_confirmation_member_id', $member->id);
 
         $this->assertNotNull($memberRow);
-        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(4000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
             \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
-        $this->assertSame(-1000.0, (float) ($memberRow['second_payment'] ?? 0));
-        $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-15')->translatedFormat('d F Y'),
-            (string) ($memberRow['date_of_second_payment'] ?? ''),
-        );
+        $this->assertNull($memberRow['second_payment']);
+        $this->assertNull($memberRow['date_of_second_payment']);
         $this->assertNull($memberRow['third_payment']);
         $this->assertNull($memberRow['date_of_third_payment']);
         $this->assertSame(1000.0, (float) ($memberRow['balance_due'] ?? 0));

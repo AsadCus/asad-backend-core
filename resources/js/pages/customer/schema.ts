@@ -143,6 +143,8 @@ export interface CustomerConfirmationMemberDatatableSchema {
     id: number;
     group_id: number;
     customer_id: number;
+    order_id?: number | null;
+    order_number?: string | null;
     is_leader: boolean;
     status?: string;
     sharing_plan?: string | null;

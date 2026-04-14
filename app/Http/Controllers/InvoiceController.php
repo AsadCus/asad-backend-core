@@ -188,6 +188,19 @@ class InvoiceController extends Controller
             ->with('success', 'Invoice deleted successfully.');
     }
 
+    /**
+     * Delete existing receipt(s) for an invoice so receipt can be recreated.
+     */
+    public function recreateReceipt(Request $request, string $id)
+    {
+        $this->invoiceService->recreateReceipt((int) $id);
+
+        return back()->with(
+            'success',
+            'Receipt deleted successfully. Invoice status has been synchronized.',
+        );
+    }
+
     public function preview($id)
     {
         $invoice = $this->invoiceService->getForEditShow($id);

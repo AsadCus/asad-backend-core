@@ -620,15 +620,15 @@ function memberIdentityKey(member: MemberWithUI, index: number): string {
         return `confirmation_member-${member.customer_confirmation_member_id}`;
     }
 
-    if (member.customer_id !== undefined && member.customer_id !== null) {
-        return `customer-${member.customer_id}`;
-    }
-
     if (
         member.package_official_id !== undefined &&
         member.package_official_id !== null
     ) {
         return `package_official-${member.package_official_id}`;
+    }
+
+    if (member.customer_id !== undefined && member.customer_id !== null) {
+        return `customer-${member.customer_id}`;
     }
 
     if (member.id !== undefined && member.id !== null) {
@@ -1863,11 +1863,11 @@ export default function ManifestForm({
     >(() => {
         return buildRoomListsFromCanonicalRooms(
             defaults.manifest_rooms,
-            ((defaults.manifest_members ?? []) as MemberWithUI[]) ?? [],
+            (defaults.manifest_members as MemberWithUI[]) ?? [],
         );
     });
     const [airlineRowsState, setAirlineRowsState] = useState<MemberWithUI[]>(
-        () => ((defaults.manifest_members ?? []) as MemberWithUI[]) ?? [],
+        () => (defaults.manifest_members as MemberWithUI[]) ?? [],
     );
     const [isMemberDetailDialogOpen, setIsMemberDetailDialogOpen] =
         useState(false);
@@ -1888,7 +1888,7 @@ export default function ManifestForm({
     }, [roomListsState, setFormData]);
 
     useEffect(() => {
-        const members = ((data.manifest_members ?? []) as MemberWithUI[]) ?? [];
+        const members = (data.manifest_members as MemberWithUI[]) ?? [];
         const currentDocuments =
             data.documents ?? buildEmptyManifestDocuments();
 
@@ -2199,9 +2199,9 @@ export default function ManifestForm({
 
         const membershipChanged = roomTabs.some((tab) => {
             const currentRows =
-                ((currentRoomLists[tab.key] ?? []) as MemberWithUI[]) ?? [];
+                (currentRoomLists[tab.key] as MemberWithUI[]) ?? [];
             const syncedRows =
-                ((syncedRoomLists[tab.key] ?? []) as MemberWithUI[]) ?? [];
+                (syncedRoomLists[tab.key] as MemberWithUI[]) ?? [];
 
             if (currentRows.length !== syncedRows.length) {
                 return true;
@@ -2256,7 +2256,7 @@ export default function ManifestForm({
         (nextMembers: MemberWithUI[]) => {
             const groupedMembers = syncMemberSharingGroups(
                 nextMembers,
-                ((data.manifest_members ?? []) as MemberWithUI[]) ?? [],
+                (data.manifest_members as MemberWithUI[]) ?? [],
             );
 
             const orderedMembers = normalizeMainTabOrdering(groupedMembers);

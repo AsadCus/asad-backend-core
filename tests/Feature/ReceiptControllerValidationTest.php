@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
+use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -291,6 +293,26 @@ class ReceiptControllerValidationTest extends TestCase
             'status' => 'issued',
         ]);
 
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Linked member item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 900,
+            'sort_order' => 1,
+        ]);
+
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
         $response = $this->postJson(route('receipt.store'), [
             'invoice_id' => $invoice->id,
             'amount' => 100,
@@ -306,6 +328,89 @@ class ReceiptControllerValidationTest extends TestCase
 
         $this->assertDatabaseMissing('receipts', [
             'invoice_id' => $invoice->id,
+        ]);
+    }
+
+    public function test_receipt_store_allows_full_package_when_linked_member_has_paid_history_status(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RCP-ALLOW-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-RCP-ALLOW-001',
+            'name' => 'Full Package Allowed By History',
+            'status' => 'full',
+            'total_seats' => 5,
+            'seats_left' => 0,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'created_by' => $authUser->id,
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice For Allowed Full Package Receipt Validation',
+            'amount' => 900,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Linked paid-history member item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 900,
+            'sort_order' => 1,
+        ]);
+
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        $response = $this->post(route('receipt.store'), [
+            'invoice_id' => $invoice->id,
+            'amount' => 900,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertRedirect(route('invoice.index'));
+
+        $this->assertDatabaseHas('receipts', [
+            'invoice_id' => $invoice->id,
+            'amount' => '900.00',
         ]);
     }
 }

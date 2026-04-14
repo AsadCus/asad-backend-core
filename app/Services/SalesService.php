@@ -180,7 +180,9 @@ class SalesService
                 $query->whereBetween('receipt_date', [$fiscalYearStart, $fiscalYearToDateEnd]);
             });
 
-        $count = (clone $paidAndRefundConvertedInvoices)->count();
+        $count = (clone $paidAndRefundConvertedInvoices)
+            ->where('status', InvoiceStatus::Paid)
+            ->count();
         $amount = (clone $paidAndRefundConvertedInvoices)->sum('amount');
 
         return [

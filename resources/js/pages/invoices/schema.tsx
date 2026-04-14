@@ -57,6 +57,8 @@ export const invoiceSchema = z.object({
     package_name: z.string().nullable().optional(),
     package_number: z.string().nullable().optional(),
     package_status: z.string().nullable().optional(),
+    is_package_receipt_locked: z.boolean().optional(),
+    has_linked_member_paid_history_for_receipt: z.boolean().optional(),
     customer_email: z.email().nullable().optional(),
     customer_contact: z.string().nullable().optional(),
     customer_address: z.string().nullable().optional(),

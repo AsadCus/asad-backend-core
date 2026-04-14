@@ -48,6 +48,7 @@ import { ActionColumn, ActionType } from './action-column';
 import { ActionMenuItems } from './action-menu-items';
 import { DataTablePagination } from './data-table-pagination';
 import { DataTableToolbar } from './data-table-toolbar';
+import { Button } from './ui/button';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -68,7 +69,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
         columnVisibility?: VisibilityState;
         pagination?: {
             pageIndex?: number;
-            pageSize?: number;
+            pageSize?: number | 'all';
         };
     };
     exportFilename?: string;
@@ -128,6 +129,7 @@ interface DataTablePersistedState {
     expanded: ExpandedState;
     pagination: PaginationState;
     searchQuery: string;
+    pageSizeMode?: 'fixed' | 'all';
 }
 
 const DATATABLE_STORAGE_PREFIX = 'datatable-settings';
@@ -177,7 +179,10 @@ function readPersistedState(key: string): DataTablePersistedState | undefined {
             return undefined;
         }
 
-        return parsed;
+        return {
+            ...parsed,
+            pageSizeMode: parsed.pageSizeMode === 'all' ? 'all' : 'fixed',
+        };
     } catch {
         return undefined;
     }
@@ -264,13 +269,20 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         [storageKey],
     );
 
+    const initialPageSizeSetting = initialState?.pagination?.pageSize;
+    const initialPageSizeMode: 'fixed' | 'all' =
+        initialPageSizeSetting === 'all' ? 'all' : 'fixed';
+    const initialResolvedPageSize =
+        initialPageSizeSetting === 'all' ? 1 : (initialPageSizeSetting ?? 10);
+
     const initialDefaultsRef = useRef({
         columnFilters: initialState?.columnFilters ?? [],
         columnVisibility: initialState?.columnVisibility ?? {},
         pagination: {
             pageIndex: initialState?.pagination?.pageIndex ?? 0,
-            pageSize: initialState?.pagination?.pageSize ?? 10,
+            pageSize: initialResolvedPageSize,
         },
+        pageSizeMode: initialPageSizeMode,
     });
 
     const [searchQuery, setSearchQuery] = useState<string>(
@@ -304,6 +316,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
             pageSize: initialDefaultsRef.current.pagination.pageSize,
         },
     );
+    const [pageSizeMode, setPageSizeMode] = useState<'fixed' | 'all'>(
+        persistedState?.pageSizeMode ?? initialDefaultsRef.current.pageSizeMode,
+    );
 
     const resetToDefaultState = useCallback(() => {
         setSearchQuery('');
@@ -315,6 +330,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         setDensity('flexible');
         setExpanded({});
         setPagination(initialDefaultsRef.current.pagination);
+        setPageSizeMode(initialDefaultsRef.current.pageSizeMode);
     }, []);
 
     useEffect(() => {
@@ -473,6 +489,14 @@ export function DataTable<TData extends RowData, TValue = unknown>({
             : []),
     ];
 
+    const tableInitialState = {
+        ...initialState,
+        pagination: {
+            pageIndex: initialState?.pagination?.pageIndex ?? 0,
+            pageSize: initialResolvedPageSize,
+        },
+    };
+
     const table = useReactTable<TData>({
         data,
         columns: finalColumns,
@@ -480,13 +504,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
             includesValue,
             dateRangeFilter,
         },
-        initialState: {
-            pagination: {
-                pageIndex: 0,
-                pageSize: 10,
-            },
-            ...initialState,
-        },
+        initialState: tableInitialState,
         state: {
             sorting,
             columnFilters,
@@ -515,6 +533,39 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     });
 
     useEffect(() => {
+        if (pageSizeMode !== 'all') {
+            return;
+        }
+
+        const filteredRows = table.getFilteredRowModel().rows;
+        const visibleRowCount = renderSubComponent
+            ? filteredRows.filter((row) => row.depth === 0).length
+            : filteredRows.length;
+        const nextPageSize = Math.max(1, visibleRowCount);
+
+        setPagination((prev) => {
+            if (prev.pageSize === nextPageSize && prev.pageIndex === 0) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                pageIndex: 0,
+                pageSize: nextPageSize,
+            };
+        });
+    }, [
+        table,
+        pagination.pageSize,
+        pagination.pageIndex,
+        pageSizeMode,
+        renderSubComponent,
+        data,
+        globalFilter,
+        columnFilters,
+    ]);
+
+    useEffect(() => {
         writePersistedState(storageKey, {
             version: 1,
             sorting,
@@ -525,6 +576,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
             expanded,
             pagination,
             searchQuery,
+            pageSizeMode,
         });
     }, [
         storageKey,
@@ -536,9 +588,22 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         expanded,
         pagination,
         searchQuery,
+        pageSizeMode,
     ]);
 
     const displayRows = table.getRowModel().rows;
+    const shouldShowExpandControls = Boolean(
+        enableExpand && renderSubComponent,
+    );
+    const canExpandAnyRows = shouldShowExpandControls
+        ? displayRows.some((row) => row.getCanExpand())
+        : false;
+    const canExpandAllRows = shouldShowExpandControls
+        ? displayRows.some((row) => row.getCanExpand() && !row.getIsExpanded())
+        : false;
+    const canCollapseAllRows = shouldShowExpandControls
+        ? displayRows.some((row) => row.getCanExpand() && row.getIsExpanded())
+        : false;
 
     const rowToneClassById = useMemo(() => {
         const classByRowId = new Map<string, string>();
@@ -616,6 +681,28 @@ export function DataTable<TData extends RowData, TValue = unknown>({
 
             {/* Table */}
             <div className="overflow-hidden rounded-md border">
+                {shouldShowExpandControls && canExpandAnyRows && (
+                    <div className="flex items-center justify-end gap-2 border-b bg-muted/20 px-3 py-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => table.toggleAllRowsExpanded(true)}
+                            disabled={!canExpandAllRows}
+                        >
+                            Expand All
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => table.toggleAllRowsExpanded(false)}
+                            disabled={!canCollapseAllRows}
+                        >
+                            Collapse All
+                        </Button>
+                    </div>
+                )}
                 <div className="always-scrollbars max-h-[80vh] overflow-auto [&_[data-slot=table-container]]:overflow-visible">
                     <Table
                         className={cn(
@@ -889,7 +976,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
 
             <DataTablePagination
                 table={table}
-                data={data}
+                pageSizeMode={pageSizeMode}
+                onPageSizeModeChange={setPageSizeMode}
                 countTopLevelRows={!!renderSubComponent}
             />
         </div>

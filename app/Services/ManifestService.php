@@ -2100,9 +2100,21 @@ class ManifestService
             $thirdDiscountAmount,
         );
 
-        $depositPayment = $depositPaymentAmountRaw !== 0.0 ? $depositPaymentAmount : null;
-        $secondPayment = $secondPaymentAmountRaw !== 0.0 ? $secondPaymentAmount : null;
-        $thirdPayment = $thirdPaymentAmountRaw !== 0.0 ? $thirdPaymentAmount : null;
+        [$depositPaymentFinal, $secondPaymentFinal, $thirdPaymentFinal] = $this->allocateNetPaidAcrossStages(
+            round(
+                max($depositPaymentAmount + $secondPaymentAmount + $thirdPaymentAmount, 0),
+                2,
+            ),
+            [
+                $depositPaymentAmount,
+                $secondPaymentAmount,
+                $thirdPaymentAmount,
+            ],
+        );
+
+        $depositPayment = $depositPaymentAmount > 0 ? $depositPaymentFinal : null;
+        $secondPayment = $secondPaymentAmount > 0 ? $secondPaymentFinal : null;
+        $thirdPayment = $thirdPaymentAmount > 0 ? $thirdPaymentFinal : null;
 
         $adjustedPaidAmount = round(
             (float) ($depositPayment ?? 0)
@@ -2118,13 +2130,47 @@ class ManifestService
 
         return [
             'discount' => round($discount, 2),
-            'date_of_deposit_payment' => $this->formatDateForUi($firstInvoiceReceiptDate),
+            'date_of_deposit_payment' => $depositPayment !== null
+                ? $this->formatDateForUi($firstInvoiceReceiptDate)
+                : null,
             'deposit_payment' => $depositPayment,
-            'date_of_second_payment' => $this->formatDateForUi($secondInvoiceReceiptDate),
+            'date_of_second_payment' => $secondPayment !== null
+                ? $this->formatDateForUi($secondInvoiceReceiptDate)
+                : null,
             'second_payment' => $secondPayment,
-            'date_of_third_payment' => $this->formatDateForUi($thirdInvoiceReceiptDate),
+            'date_of_third_payment' => $thirdPayment !== null
+                ? $this->formatDateForUi($thirdInvoiceReceiptDate)
+                : null,
             'third_payment' => $thirdPayment,
             'balance_due' => $balanceDue,
+        ];
+    }
+
+    /**
+     * @param  array<int, float>  $stageAmounts
+     * @return array{0: float, 1: float, 2: float}
+     */
+    private function allocateNetPaidAcrossStages(float $netPaidAmount, array $stageAmounts): array
+    {
+        $remainingPaidAmount = round(max($netPaidAmount, 0), 2);
+        $allocatedStageAmounts = [0.0, 0.0, 0.0];
+
+        for ($index = 0; $index < 3; $index++) {
+            $stageCapacity = round(max((float) ($stageAmounts[$index] ?? 0), 0), 2);
+
+            if ($stageCapacity <= 0 || $remainingPaidAmount <= 0) {
+                continue;
+            }
+
+            $allocatedAmount = round(min($stageCapacity, $remainingPaidAmount), 2);
+            $allocatedStageAmounts[$index] = $allocatedAmount;
+            $remainingPaidAmount = round(max($remainingPaidAmount - $allocatedAmount, 0), 2);
+        }
+
+        return [
+            (float) $allocatedStageAmounts[0],
+            (float) $allocatedStageAmounts[1],
+            (float) $allocatedStageAmounts[2],
         ];
     }
 

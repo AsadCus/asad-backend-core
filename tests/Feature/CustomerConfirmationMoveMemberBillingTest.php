@@ -6,10 +6,13 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
+use App\Models\Manifest;
+use App\Models\ManifestMember;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
@@ -19,6 +22,99 @@ use Tests\TestCase;
 class CustomerConfirmationMoveMemberBillingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_move_members_route_only_removes_selected_member_from_manifest(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MOVE-MAN-001',
+            'name' => 'Move Manifest Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'created_by' => $user->id,
+            'is_holding' => false,
+        ]);
+
+        $memberOneUser = User::factory()->create();
+        $memberOneCustomer = Customer::create([
+            'user_id' => $memberOneUser->id,
+            'customer_number' => 'CUST-MOVE-MAN-001',
+        ]);
+
+        $memberTwoUser = User::factory()->create();
+        $memberTwoCustomer = Customer::create([
+            'user_id' => $memberTwoUser->id,
+            'customer_number' => 'CUST-MOVE-MAN-002',
+        ]);
+
+        $movedMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $memberOneCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $remainingMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $memberTwoCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MOVE-MAN-001',
+        ]);
+
+        $manifestMemberToMove = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $movedMember->id,
+            'name' => $memberOneUser->name,
+            'sort_order' => 1,
+        ]);
+
+        $manifestMemberToKeep = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $remainingMember->id,
+            'name' => $memberTwoUser->name,
+            'sort_order' => 2,
+        ]);
+
+        $response = $this->post(route('customer-confirmations.move-members', [
+            'id' => $sourceConfirmation->id,
+        ]), [
+            'member_ids' => [$movedMember->id],
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseMissing('manifest_members', [
+            'id' => $manifestMemberToMove->id,
+        ]);
+
+        $this->assertDatabaseHas('manifest_members', [
+            'id' => $manifestMemberToKeep->id,
+            'customer_confirmation_member_id' => $remainingMember->id,
+        ]);
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $movedMember->id,
+            'status' => 'cancelled',
+        ]);
+
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $remainingMember->id,
+            'status' => 'pending_payment',
+        ]);
+    }
 
     public function test_moving_member_splits_quotation_and_transfers_paid_receipt_then_creates_topup_after_group_update(): void
     {
@@ -37,6 +133,13 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             'name' => 'Move Target Package',
             'status' => 'open',
             'price_single' => 11000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $targetManifest = Manifest::create([
+            'package_id' => $targetPackage->id,
+            'manifest_number' => 'MNF-MOVE-TGT-001',
         ]);
 
         $sourceConfirmation = CustomerConfirmation::create([
@@ -151,6 +254,10 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             ->first();
 
         $this->assertNotNull($newMember);
+        $this->assertDatabaseHas('manifest_members', [
+            'manifest_id' => $targetManifest->id,
+            'customer_confirmation_member_id' => $newMember?->id,
+        ]);
 
         $newQuotation = Quotation::query()
             ->where('customer_confirmation_id', $newGroup->id)
@@ -230,6 +337,121 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
 
         $this->assertNull(collect($holdingRowsAfterPackageSelect)->firstWhere('id', $newGroup->id));
         $this->assertNotNull(collect($confirmedRowsAfterPackageSelect)->firstWhere('id', $newGroup->id));
+    }
+
+    public function test_selecting_package_on_existing_confirmation_auto_links_member_with_paid_amount_to_open_manifest(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $selectedPackage = Package::create([
+            'package_number' => 'PKG-SELECT-MAN-001',
+            'name' => 'Select Package Manifest Target',
+            'status' => 'open',
+            'price_single' => 10000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $targetManifest = Manifest::create([
+            'package_id' => $selectedPackage->id,
+            'manifest_number' => 'MNF-SELECT-MAN-001',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => null,
+            'created_by' => $user->id,
+            'is_holding' => true,
+        ]);
+
+        $memberUser = User::factory()->create([
+            'name' => 'Select Package Member',
+            'email' => 'select-package-member@example.com',
+        ]);
+
+        $memberCustomer = Customer::create([
+            'user_id' => $memberUser->id,
+            'customer_number' => 'CUST-SELECT-MAN-001',
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $memberCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $memberCustomer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+            'description' => 'No package paid quotation before package select',
+        ]);
+
+        $quotationItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Paid member item before package select',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 10000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Paid member invoice before package select',
+            'amount' => 10000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $invoice->quotationItems()->sync([$quotationItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 10000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+            'description' => 'Paid before package selected',
+        ]);
+
+        app(CustomerConfirmationService::class)->updateGroup($confirmation->id, [
+            'package_id' => $selectedPackage->id,
+            'date_of_application' => now()->format('Y-m-d'),
+            'members' => [
+                [
+                    'member_id' => $member->id,
+                    'customer_id' => $member->customer_id,
+                    'name' => $memberUser->name,
+                    'email' => $memberUser->email,
+                    'contact_number' => $memberUser->contact ?? '00000000',
+                    'nric_number' => '',
+                    'address' => '',
+                    'is_leader' => true,
+                    'status' => 'pending_payment',
+                    'sharing_plan' => 'single',
+                    'relationship' => null,
+                ],
+            ],
+        ]);
+
+        $member->refresh();
+
+        $this->assertSame('fully_paid', (string) $member->status);
+        $this->assertDatabaseHas('manifest_members', [
+            'manifest_id' => $targetManifest->id,
+            'customer_confirmation_member_id' => $member->id,
+        ]);
     }
 
     public function test_refund_creation_marks_member_as_cancelled(): void
@@ -422,6 +644,254 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
             'id' => $sourceMember->id,
             'status' => 'partially_paid',
         ]);
+    }
+
+    public function test_moving_member_preserves_original_header_and_splits_extensions_with_paid_invoice_consistency(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $sourcePackage = Package::create([
+            'package_number' => 'PKG-MOVE-EXT-001',
+            'name' => 'Move Extension Source',
+            'status' => 'open',
+            'price_single' => 10000,
+        ]);
+
+        $targetPackage = Package::create([
+            'package_number' => 'PKG-MOVE-EXT-002',
+            'name' => 'Move Extension Target',
+            'status' => 'open',
+            'price_single' => 10000,
+        ]);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => $sourcePackage->id,
+            'created_by' => $user->id,
+        ]);
+
+        $movedUser = User::factory()->create();
+        $movedCustomer = Customer::create([
+            'user_id' => $movedUser->id,
+            'customer_number' => 'CUST-MOVE-EXT-001',
+        ]);
+
+        $remainingUser = User::factory()->create();
+        $remainingCustomer = Customer::create([
+            'user_id' => $remainingUser->id,
+            'customer_number' => 'CUST-MOVE-EXT-002',
+        ]);
+
+        $movedMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $movedCustomer->id,
+            'is_leader' => true,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $remainingMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $remainingCustomer->id,
+            'is_leader' => false,
+            'status' => 'fully_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $sourceQuotation = Quotation::create([
+            'customer_id' => $movedCustomer->id,
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'payment_method' => 'transfer',
+            'status' => 'converted',
+            'description' => 'Split extensions quotation',
+        ]);
+
+        $header = QuotationItem::create([
+            'quotation_id' => $sourceQuotation->id,
+            'customer_confirmation_member_id' => null,
+            'parent_id' => null,
+            'description' => 'Hotel Package',
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $movedItem = QuotationItem::create([
+            'quotation_id' => $sourceQuotation->id,
+            'customer_confirmation_member_id' => $movedMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Moved member hotel item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 10000,
+            'sort_order' => 2,
+        ]);
+
+        $remainingItem = QuotationItem::create([
+            'quotation_id' => $sourceQuotation->id,
+            'customer_confirmation_member_id' => $remainingMember->id,
+            'parent_id' => $header->id,
+            'description' => 'Remaining member hotel item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 10000,
+            'sort_order' => 3,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $movedItem->id,
+            'name' => 'Fixed Tax',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => 200,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $movedItem->id,
+            'name' => 'Percentage Discount',
+            'calculation_mode' => 'percentage',
+            'calculation_value' => -10,
+            'sort_order' => 2,
+        ]);
+
+        $sourceOrder = Order::create([
+            'quotation_id' => $sourceQuotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $sourceInvoice = Invoice::create([
+            'order_id' => $sourceOrder->id,
+            'description' => 'Shared paid invoice with mixed extensions',
+            'amount' => 17500,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+            'extensions' => [
+                [
+                    'id' => null,
+                    'name' => 'Fixed Service Fee',
+                    'type' => 'other',
+                    'calculation_mode' => 'fixed',
+                    'calculation_value' => 300,
+                    'amount' => 300,
+                    'sort_order' => 1,
+                ],
+                [
+                    'id' => null,
+                    'name' => 'Promo Discount',
+                    'type' => 'discount',
+                    'calculation_mode' => 'percentage',
+                    'calculation_value' => -10,
+                    'amount' => -2000,
+                    'sort_order' => 2,
+                ],
+            ],
+        ]);
+
+        $sourceInvoice->quotationItems()->sync([$movedItem->id, $remainingItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $sourceInvoice->id,
+            'amount' => 17500,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+            'description' => 'Paid split source',
+        ]);
+
+        $newGroup = app(CustomerConfirmationService::class)->moveMembersToHolding(
+            $sourceConfirmation->id,
+            [$movedMember->id],
+            $targetPackage->id,
+        );
+
+        $newMember = CustomerConfirmationMember::query()
+            ->where('customer_confirmation_id', $newGroup->id)
+            ->where('customer_id', $movedCustomer->id)
+            ->first();
+
+        $this->assertNotNull($newMember);
+
+        $newQuotation = Quotation::query()
+            ->where('customer_confirmation_id', $newGroup->id)
+            ->first();
+
+        $this->assertNotNull($newQuotation);
+
+        $newHeader = QuotationItem::query()
+            ->where('quotation_id', $newQuotation->id)
+            ->where('is_header', true)
+            ->where('description', 'Hotel Package')
+            ->first();
+
+        $this->assertNotNull($newHeader);
+
+        $newMovedItem = QuotationItem::query()
+            ->where('quotation_id', $newQuotation->id)
+            ->where('customer_confirmation_member_id', $newMember->id)
+            ->where('is_header', false)
+            ->first();
+
+        $this->assertNotNull($newMovedItem);
+        $this->assertSame((int) $newHeader->id, (int) ($newMovedItem->parent_id ?? 0));
+
+        $newMovedTaxes = QuotationItemTax::query()
+            ->where('quotation_item_id', $newMovedItem->id)
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertCount(2, $newMovedTaxes);
+        $this->assertSame('fixed', (string) ($newMovedTaxes[0]->calculation_mode ?? ''));
+        $this->assertSame(200.0, (float) ($newMovedTaxes[0]->calculation_value ?? 0));
+        $this->assertSame('percentage', (string) ($newMovedTaxes[1]->calculation_mode ?? ''));
+        $this->assertSame(-10.0, (float) ($newMovedTaxes[1]->calculation_value ?? 0));
+
+        $newOrder = $newQuotation->order;
+        $this->assertNotNull($newOrder);
+
+        $newInvoice = Invoice::query()
+            ->where('order_id', $newOrder->id)
+            ->first();
+
+        $this->assertNotNull($newInvoice);
+
+        $newExtensions = collect(is_array($newInvoice->extensions) ? $newInvoice->extensions : []);
+        $this->assertCount(1, $newExtensions);
+        $this->assertSame('percentage', strtolower((string) ($newExtensions->first()['calculation_mode'] ?? '')));
+        $this->assertSame(-1000.0, (float) ($newExtensions->first()['amount'] ?? 0));
+
+        $sourceInvoice->refresh();
+        $sourceExtensions = collect(is_array($sourceInvoice->extensions) ? $sourceInvoice->extensions : []);
+        $this->assertCount(2, $sourceExtensions);
+
+        $sourceFixedExtension = $sourceExtensions->firstWhere('calculation_mode', 'fixed');
+        $this->assertNotNull($sourceFixedExtension);
+        $this->assertSame(300.0, (float) ($sourceFixedExtension['amount'] ?? 0));
+
+        $sourcePercentageExtension = $sourceExtensions->firstWhere('calculation_mode', 'percentage');
+        $this->assertNotNull($sourcePercentageExtension);
+        $this->assertSame(-1000.0, (float) ($sourcePercentageExtension['amount'] ?? 0));
+
+        $this->assertSame(8200.0, (float) ($newInvoice->amount ?? 0));
+        $this->assertSame(9300.0, (float) ($sourceInvoice->amount ?? 0));
+
+        $newInvoiceReceiptTotal = (float) Receipt::query()
+            ->where('invoice_id', $newInvoice->id)
+            ->sum('amount');
+
+        $sourceInvoiceReceiptTotal = (float) Receipt::query()
+            ->where('invoice_id', $sourceInvoice->id)
+            ->sum('amount');
+
+        $this->assertSame(8200.0, round($newInvoiceReceiptTotal, 2));
+        $this->assertSame(9300.0, round($sourceInvoiceReceiptTotal, 2));
+
+        $newInvoice->refresh();
+        $sourceInvoice->refresh();
+
+        $this->assertSame('paid', (string) ($newInvoice->status ?? ''));
+        $this->assertSame('paid', (string) ($sourceInvoice->status ?? ''));
     }
 
     public function test_overpayment_refund_creates_refund_receipt_for_overpaid_amount_only(): void

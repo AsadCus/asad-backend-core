@@ -402,7 +402,7 @@ class DashboardTest extends TestCase
 
             $refundInvoice = Invoice::create([
                 'order_id' => $convertedOrder->id,
-                'description' => 'Refund invoice should be included in FYTD',
+                'description' => 'Refund invoice should affect FYTD amount only',
                 'amount' => -50,
                 'invoice_date' => '2026-03-22',
                 'due_date' => '2026-03-22',
@@ -458,7 +458,7 @@ class DashboardTest extends TestCase
             ]));
 
             $response->assertOk();
-            $response->assertJsonPath('count', 4);
+            $response->assertJsonPath('count', 3);
             $this->assertSame(800.0, (float) $response->json('amount'));
         } finally {
             Carbon::setTestNow();

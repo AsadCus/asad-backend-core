@@ -73,6 +73,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('recreate-receipt') && (
+                <Item onClick={() => onAction?.('recreate-receipt', row)}>
+                    Recreate Receipt
+                </Item>
+            )}
+
             {actions.includes('receipt-preview') && (
                 <Item onClick={() => onAction?.('receipt-preview', row)}>
                     Receipt Preview
@@ -292,7 +298,11 @@ export function ActionMenuItems<TData>({
             )}
 
             {actions.includes('export-member-receipts-pdf') && (
-                <Item onClick={() => onAction?.('export-member-receipts-pdf', row)}>
+                <Item
+                    onClick={() =>
+                        onAction?.('export-member-receipts-pdf', row)
+                    }
+                >
                     Export All Receipts PDF
                 </Item>
             )}

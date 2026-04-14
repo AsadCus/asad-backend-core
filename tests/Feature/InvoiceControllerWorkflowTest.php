@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -83,5 +84,54 @@ class InvoiceControllerWorkflowTest extends TestCase
             ->where('data.order.id', $graph['order']->id)
             ->where('data.order.quotation_id', $graph['quotation']->id)
         );
+    }
+
+    public function test_recreate_receipt_deletes_existing_receipt_and_redirects_back(): void
+    {
+        $graph = $this->createInvoiceGraph();
+
+        $graph['invoice']->update([
+            'status' => 'paid',
+        ]);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $graph['invoice']->id,
+            'amount' => 1200,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->post(route('invoice.recreate-receipt', ['id' => $graph['invoice']->id]));
+
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('receipts', [
+            'id' => $receipt->id,
+        ]);
+
+        $graph['invoice']->refresh();
+        $this->assertNotSame('paid', (string) $graph['invoice']->status);
+    }
+
+    public function test_recreate_receipt_rejects_refund_invoice(): void
+    {
+        $graph = $this->createInvoiceGraph();
+
+        $graph['invoice']->update([
+            'status' => 'refund',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $graph['invoice']->id,
+            'amount' => -1200,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->post(route('invoice.recreate-receipt', ['id' => $graph['invoice']->id]));
+
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors();
     }
 }

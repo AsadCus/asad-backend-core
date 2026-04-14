@@ -14,6 +14,7 @@ import {
     edit as editInvoice,
     getForShow as getInvoiceForShow,
     index as invoiceIndex,
+    recreateReceipt as recreateInvoiceReceipt,
     show as showInvoice,
 } from '@/routes/invoice';
 import {
@@ -93,6 +94,56 @@ const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
     return window.confirm(
         'This invoice has a negative amount. Creating this receipt will update the invoice status to Refund. Continue?',
     );
+};
+
+const canCreateReceipt = (invoice: InvoiceSchema): boolean => {
+    return (
+        Boolean(invoice.id) &&
+        !invoice.is_refund &&
+        invoice.status !== 'refund' &&
+        invoice.status !== 'paid' &&
+        invoice.status !== 'cancelled' &&
+        !invoice.has_receipt &&
+        !invoice.is_package_receipt_locked
+    );
+};
+
+const canRecreateReceipt = (invoice: InvoiceSchema): boolean => {
+    return (
+        Boolean(invoice.id) &&
+        !invoice.is_refund &&
+        invoice.status !== 'refund' &&
+        invoice.status !== 'cancelled' &&
+        Boolean(invoice.has_receipt)
+    );
+};
+
+const getCreateReceiptStatusLabel = (invoice: InvoiceSchema): string => {
+    if (invoice.is_refund || invoice.status === 'refund') {
+        return 'Locked (Refund)';
+    }
+
+    if (invoice.status === 'cancelled') {
+        return 'Locked (Cancelled)';
+    }
+
+    if (invoice.has_receipt) {
+        return 'Receipt Created';
+    }
+
+    if (invoice.status === 'paid') {
+        return 'Locked (Paid)';
+    }
+
+    if (invoice.is_package_receipt_locked) {
+        const packageStatus = String(
+            invoice.package_status ?? '',
+        ).toLowerCase();
+
+        return `Locked (${packageStatus || 'package'}: no paid history)`;
+    }
+
+    return 'Not Available';
 };
 
 export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
@@ -232,29 +283,11 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: false },
         cell: ({ row }) => {
             const invoice = row.original;
-            const packageStatus = String(
-                invoice.package_status ?? '',
-            ).toLowerCase();
-            const isPackageBlocked = ['full', 'closed', 'completed'].includes(
-                packageStatus,
-            );
-            const canCreateReceipt =
-                !invoice.is_refund &&
-                invoice.status !== 'refund' &&
-                invoice.status !== 'paid' &&
-                invoice.status !== 'cancelled' &&
-                !invoice.has_receipt &&
-                !isPackageBlocked &&
-                Boolean(invoice.id);
 
-            if (!canCreateReceipt) {
+            if (!canCreateReceipt(invoice)) {
                 return (
                     <span className="text-muted-foreground">
-                        {invoice.is_refund || invoice.status === 'refund'
-                            ? 'Locked (Refund)'
-                            : isPackageBlocked
-                              ? `Locked (${packageStatus || 'package'})`
-                              : 'Receipt Created'}
+                        {getCreateReceiptStatusLabel(invoice)}
                     </span>
                 );
             }
@@ -412,14 +445,12 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
             rowActions.push('receipt-preview');
         }
 
-        if (
-            !invoice.is_refund &&
-            invoice.status !== 'refund' &&
-            invoice.status !== 'paid' &&
-            invoice.status !== 'cancelled' &&
-            !invoice.has_receipt
-        ) {
+        if (canCreateReceipt(invoice)) {
             rowActions.push('create-receipt');
+        }
+
+        if (canRecreateReceipt(invoice)) {
+            rowActions.push('recreate-receipt');
         }
 
         return rowActions;
@@ -465,6 +496,10 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                 } else if (action === 'preview') {
                                     handlePreview(invoice);
                                 } else if (action === 'create-receipt') {
+                                    if (!canCreateReceipt(invoice)) {
+                                        return;
+                                    }
+
                                     if (
                                         !shouldProceedWithNegativeReceipt(
                                             invoice,
@@ -475,6 +510,26 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
 
                                     router.get(createReceipt.url(), {
                                         invoice_id: invoice.id,
+                                    });
+                                } else if (action === 'recreate-receipt') {
+                                    if (!canRecreateReceipt(invoice)) {
+                                        return;
+                                    }
+
+                                    confirm({
+                                        title: 'Recreate Receipt',
+                                        message:
+                                            'This will remove the current receipt, roll back related financial records, and recalculate payment status. You can create a new receipt after this. Continue?',
+                                        confirmText: 'Recreate Receipt',
+                                        cancelText: 'Cancel',
+                                        variant: 'warning',
+                                        onConfirm: () => {
+                                            router.post(
+                                                recreateInvoiceReceipt(
+                                                    invoiceId,
+                                                ).url,
+                                            );
+                                        },
                                     });
                                 } else if (action === 'receipt-preview') {
                                     handleReceiptPreview(invoice);

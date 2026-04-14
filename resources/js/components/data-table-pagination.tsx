@@ -16,13 +16,15 @@ import {
 
 interface DataTablePaginationProps<TData> {
     table: Table<TData>;
-    data: TData[];
+    pageSizeMode: 'fixed' | 'all';
+    onPageSizeModeChange: (mode: 'fixed' | 'all') => void;
     countTopLevelRows?: boolean;
 }
 
 export function DataTablePagination<TData>({
     table,
-    data,
+    pageSizeMode,
+    onPageSizeModeChange,
     countTopLevelRows = false,
 }: DataTablePaginationProps<TData>) {
     const filteredRows = table.getFilteredRowModel().rows;
@@ -37,22 +39,34 @@ export function DataTablePagination<TData>({
     const pageSize = table.getState().pagination.pageSize;
     const pageIndex = table.getState().pagination.pageIndex;
     const totalTopRows = topLevelFilteredRows.length;
-    const allRowsLength = countTopLevelRows ? totalTopRows : data.length;
-    const normalizedAllRowsLength = Math.max(1, allRowsLength);
-    const isAllRowsSelected =
-        allRowsLength === 0 ? pageSize <= 1 : pageSize >= allRowsLength;
+    const normalizedAllRowsLength = Math.max(1, totalTopRows);
+    const isAllRowsSelected = pageSizeMode === 'all';
     const defaultPageSizeOptions = [10, 20, 30, 40, 50];
     const pageSizeOptions = isAllRowsSelected
         ? defaultPageSizeOptions
         : Array.from(new Set([...defaultPageSizeOptions, pageSize])).sort(
               (left, right) => left - right,
           );
-    const totalPages =
-        totalTopRows === 0 && countTopLevelRows
+    const totalPages = isAllRowsSelected
+        ? 1
+        : totalTopRows === 0 && countTopLevelRows
+          ? 1
+          : pageSize >= totalTopRows
             ? 1
-            : pageSize >= normalizedAllRowsLength
-              ? 1
-              : Math.ceil(totalTopRows / pageSize);
+            : Math.ceil(totalTopRows / pageSize);
+
+    const applyPageSize = (value: string): void => {
+        if (value === 'all') {
+            onPageSizeModeChange('all');
+            table.setPageSize(normalizedAllRowsLength);
+            table.setPageIndex(0);
+
+            return;
+        }
+
+        onPageSizeModeChange('fixed');
+        table.setPageSize(Number(value));
+    };
 
     const canPrev = pageIndex > 0;
     const canNext = pageIndex < totalPages - 1;
@@ -68,13 +82,7 @@ export function DataTablePagination<TData>({
                     <p className="text-base font-medium">Rows</p>
                     <Select
                         value={isAllRowsSelected ? 'all' : `${pageSize}`}
-                        onValueChange={(value) => {
-                            table.setPageSize(
-                                value === 'all'
-                                    ? normalizedAllRowsLength
-                                    : Number(value),
-                            );
-                        }}
+                        onValueChange={applyPageSize}
                     >
                         <SelectTrigger className="h-8 w-[80px]">
                             <SelectValue placeholder="Rows" />
@@ -100,13 +108,7 @@ export function DataTablePagination<TData>({
                     <p className="text-base font-medium">Rows</p>
                     <Select
                         value={isAllRowsSelected ? 'all' : `${pageSize}`}
-                        onValueChange={(value) => {
-                            table.setPageSize(
-                                value === 'all'
-                                    ? normalizedAllRowsLength
-                                    : Number(value),
-                            );
-                        }}
+                        onValueChange={applyPageSize}
                     >
                         <SelectTrigger className="h-8 w-[80px]">
                             <SelectValue placeholder="Rows" />

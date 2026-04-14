@@ -24,6 +24,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import {
     focusFirstDialogFormField,
@@ -39,6 +44,7 @@ import {
     show as showGroup,
 } from '@/routes/customer-confirmations';
 import { receiptsPdf as memberReceiptsPdf } from '@/routes/customer-confirmations/members';
+import { edit as editOrder } from '@/routes/order';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef, Row } from '@tanstack/react-table';
@@ -77,6 +83,76 @@ const formatCurrency = (value: number): string => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(value || 0);
+};
+
+const PAYMENT_ISSUE_STATUS_PRIORITY = [
+    'pending_payment',
+    'partially_paid',
+    'overpaid',
+];
+
+const formatPaymentStatusLabel = (status: string): string => {
+    return (
+        confirmationMemberStatusLabels[status] ??
+        status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    );
+};
+
+const resolvePaymentIssueBreakdown = (
+    members: CustomerConfirmationMemberDatatableSchema[],
+): {
+    total: number;
+    entries: Array<{ status: string; label: string; count: number }>;
+} => {
+    const statusCounts = new Map<string, number>();
+
+    members.forEach((member) => {
+        const normalizedStatus = String(
+            member.status ?? 'pending_payment',
+        ).toLowerCase();
+
+        if (
+            normalizedStatus === 'cancelled' ||
+            normalizedStatus === 'fully_paid'
+        ) {
+            return;
+        }
+
+        statusCounts.set(
+            normalizedStatus,
+            (statusCounts.get(normalizedStatus) ?? 0) + 1,
+        );
+    });
+
+    const entries = Array.from(statusCounts.entries())
+        .sort(([leftStatus], [rightStatus]) => {
+            const leftIndex = PAYMENT_ISSUE_STATUS_PRIORITY.indexOf(leftStatus);
+            const rightIndex =
+                PAYMENT_ISSUE_STATUS_PRIORITY.indexOf(rightStatus);
+
+            if (leftIndex === -1 && rightIndex === -1) {
+                return leftStatus.localeCompare(rightStatus);
+            }
+
+            if (leftIndex === -1) {
+                return 1;
+            }
+
+            if (rightIndex === -1) {
+                return -1;
+            }
+
+            return leftIndex - rightIndex;
+        })
+        .map(([status, count]) => ({
+            status,
+            label: formatPaymentStatusLabel(status),
+            count,
+        }));
+
+    const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+
+    return { total, entries };
 };
 
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
@@ -121,6 +197,47 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                 </Badge>
             </div>
         ),
+    },
+    {
+        id: 'payment_issues',
+        header: 'Payment Issues',
+        meta: { exportable: false },
+        cell: ({ row }) => {
+            const breakdown = resolvePaymentIssueBreakdown(
+                row.original.members ?? [],
+            );
+
+            if (breakdown.total === 0) {
+                return (
+                    <Badge
+                        variant="secondary"
+                        className="rounded-full px-3 py-1 text-base"
+                    >
+                        No Issues
+                    </Badge>
+                );
+            }
+
+            return (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Badge className="rounded-full bg-amber-100 px-3 py-1 text-base text-amber-800">
+                            {breakdown.total} Issue
+                            {breakdown.total > 1 ? 's' : ''}
+                        </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                        <div className="space-y-1">
+                            {breakdown.entries.map((entry) => (
+                                <p key={entry.status}>
+                                    {entry.label}: {entry.count}
+                                </p>
+                            ))}
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
+            );
+        },
     },
     {
         accessorKey: 'package_name',
@@ -365,6 +482,32 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
+        accessorKey: 'order_number',
+        header: 'Order No.',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const orderId = row.original.order_id;
+            const orderNumber = row.original.order_number;
+
+            if (!orderId || !orderNumber) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return (
+                <button
+                    type="button"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        router.get(editOrder(orderId).url);
+                    }}
+                >
+                    {orderNumber}
+                </button>
+            );
+        },
+    },
+    {
         accessorKey: 'discount',
         header: 'Discount',
         meta: { exportable: true },
@@ -442,8 +585,11 @@ export default function ConfirmedCustomerIndex({
     const userPermissions = auth.permissions || [];
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const isHoldingIndex = indexUrl.includes('/customer-holding');
+    const isCompletedIndex = indexUrl.includes('/completed-customer');
     const canCreateCustomerConfirmation =
-        !isHoldingIndex && userPermissions.includes('customer create');
+        !isHoldingIndex &&
+        !isCompletedIndex &&
+        userPermissions.includes('customer create');
 
     const actions: ActionType[] = [];
     if (canCreateCustomerConfirmation) actions.push('add');
@@ -1451,6 +1597,10 @@ export default function ConfirmedCustomerIndex({
                 actions={['view']}
                 showSettings={false}
                 getRowActions={(member) => {
+                    if (isCompletedIndex) {
+                        return [];
+                    }
+
                     const rowActions: ActionType[] = [];
                     const memberPaidAmount = Number(member.paid_amount ?? 0);
 
@@ -1496,6 +1646,10 @@ export default function ConfirmedCustomerIndex({
                 addButtonText=""
                 onAction={(action, payload) => {
                     if (!payload) {
+                        return;
+                    }
+
+                    if (isCompletedIndex && action !== 'view') {
                         return;
                     }
 
@@ -1549,6 +1703,12 @@ export default function ConfirmedCustomerIndex({
                     }
                 }}
                 onRowDoubleClick={(member) => {
+                    if (isCompletedIndex) {
+                        openMemberDialog(member.group_id, member.id, 'view');
+
+                        return;
+                    }
+
                     if (member.status !== 'cancelled') {
                         openMemberDialog(member.group_id, member.id, 'edit');
 
@@ -1568,7 +1728,7 @@ export default function ConfirmedCustomerIndex({
                     },
                     pagination: {
                         pageIndex: 0,
-                        pageSize: data.length,
+                        pageSize: 'all',
                     },
                 }}
             />
@@ -1600,6 +1760,10 @@ export default function ConfirmedCustomerIndex({
                             }
                             enableExpand
                             getRowActions={(group) => {
+                                if (isCompletedIndex) {
+                                    return [];
+                                }
+
                                 const rowActions: ActionType[] = [];
                                 const hasActiveMembers = group.members.some(
                                     (member) => member.status !== 'cancelled',
@@ -1743,6 +1907,12 @@ export default function ConfirmedCustomerIndex({
                                     return;
                                 }
 
+                                if (isCompletedIndex) {
+                                    handleOpenGroupDialog(row.id, 'view');
+
+                                    return;
+                                }
+
                                 const hasActiveMembers = row.members.some(
                                     (member) => member.status !== 'cancelled',
                                 );
@@ -1772,7 +1942,7 @@ export default function ConfirmedCustomerIndex({
                                 },
                                 pagination: {
                                     pageIndex: 0,
-                                    pageSize: dataGroups.length,
+                                    pageSize: 'all',
                                 },
                             }}
                             renderFilter={(table) => (

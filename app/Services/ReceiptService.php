@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\PaymentMethodMaster;
+use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Support\DataScope;
 use App\Support\InvoiceStatus;
@@ -115,7 +117,10 @@ class ReceiptService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $invoiceQuery = Invoice::query()->with('order.quotation.customerConfirmation.package');
+            $invoiceQuery = Invoice::query()->with([
+                'order.quotation.customerConfirmation.package',
+                'quotationItems:id,is_header,customer_confirmation_member_id',
+            ]);
 
             if (DataScope::shouldScopeSalesOwnership()) {
                 $invoiceQuery->whereHas('order.quotation', function ($quotationQuery) {
@@ -132,9 +137,9 @@ class ReceiptService
             }
 
             $packageStatus = strtolower(trim((string) ($invoice->order?->quotation?->customerConfirmation?->package?->status ?? '')));
-            if (in_array($packageStatus, ['full', 'closed', 'completed'], true)) {
+            if ($this->shouldBlockReceiptCreationForPackageStatus($invoice, $packageStatus)) {
                 throw ValidationException::withMessages([
-                    'invoice_id' => 'Cannot create receipt because the linked package is '.$packageStatus.'.',
+                    'invoice_id' => 'Cannot create receipt because the linked package is '.$packageStatus.' and linked invoice members have no payment history.',
                 ]);
             }
 
@@ -565,5 +570,53 @@ class ReceiptService
     private function resolveNormalizedReceiptAmount(Invoice $invoice): float
     {
         return (float) ($this->formatService->cleanDecimal($invoice->amount ?? 0) ?? 0);
+    }
+
+    private function shouldBlockReceiptCreationForPackageStatus(
+        Invoice $invoice,
+        string $packageStatus,
+    ): bool {
+        if (! in_array($packageStatus, ['full', 'closed', 'completed'], true)) {
+            return false;
+        }
+
+        $linkedMemberIds = $invoice->quotationItems
+            ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($memberId): int => (int) $memberId)
+            ->filter(fn (int $memberId): bool => $memberId > 0)
+            ->unique()
+            ->values();
+
+        if ($linkedMemberIds->isEmpty()) {
+            return false;
+        }
+
+        $memberStatuses = CustomerConfirmationMember::query()
+            ->whereIn('id', $linkedMemberIds->all())
+            ->pluck('status', 'id')
+            ->mapWithKeys(fn ($status, $memberId): array => [(int) $memberId => strtolower(trim((string) $status))]);
+
+        $hasPaidStatusHistory = $linkedMemberIds->contains(function (int $memberId) use ($memberStatuses): bool {
+            $normalizedStatus = (string) ($memberStatuses->get($memberId) ?? '');
+
+            return in_array($normalizedStatus, ['partially_paid', 'fully_paid', 'overpaid'], true);
+        });
+
+        if ($hasPaidStatusHistory) {
+            return false;
+        }
+
+        $memberIdsWithPaidReceiptHistory = QuotationItem::query()
+            ->whereIn('customer_confirmation_member_id', $linkedMemberIds->all())
+            ->whereHas('invoices.receipt', function ($query): void {
+                $query->where('amount', '>', 0);
+            })
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($memberId): int => (int) $memberId)
+            ->filter(fn (int $memberId): bool => $memberId > 0)
+            ->unique();
+
+        return $memberIdsWithPaidReceiptHistory->isEmpty();
     }
 }

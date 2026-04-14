@@ -1,8 +1,16 @@
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/private-enquiries';
 import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
+import EnquiryRemarksTimeline from '../enquiries/components/enquiry-remarks-timeline';
 import PrivateEnquiryForm, { PrivateEnquiryFormSchema } from './form';
 
 interface EditPrivateEnquiryProps {
@@ -29,6 +37,8 @@ export default function EditPrivateEnquiry({
         window.history.back();
     }, []);
 
+    const enquiryId = data.enquiry_id ?? undefined;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Edit Private Enquiry" />
@@ -48,6 +58,25 @@ export default function EditPrivateEnquiry({
                         scopeMode={scopeMode}
                     />
                 </div>
+
+                {enquiryId && (
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <CardTitle className="text-xl">
+                                Enquiry Remarks
+                            </CardTitle>
+                            <CardDescription>
+                                View and manage remarks for this enquiry.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <EnquiryRemarksTimeline
+                                isOpen={true}
+                                enquiryId={enquiryId}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

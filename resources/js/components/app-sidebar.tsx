@@ -11,6 +11,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import completedCustomer from '@/routes/completed-customer';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
 import customerHolding from '@/routes/customer-holding';
@@ -275,6 +276,11 @@ export function AppSidebar() {
                         {
                             title: 'Customer Holding Area',
                             href: customerHolding.index.url(),
+                            icon: UserCheck,
+                        },
+                        {
+                            title: 'Completed Customer',
+                            href: completedCustomer.index.url(),
                             icon: UserCheck,
                         },
                     ]

@@ -12,6 +12,7 @@ export type ActionType =
     | 'add'
     | 'preview'
     | 'create-receipt'
+    | 'recreate-receipt'
     | 'receipt-preview'
     | 'view'
     | 'edit'
