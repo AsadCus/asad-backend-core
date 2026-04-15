@@ -141,6 +141,26 @@
             font-weight: bold;
         }
 
+        .payment-history-heading {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #666;
+            text-align: right;
+            padding-top: 2px;
+            padding-bottom: 1px;
+        }
+
+        .payment-history-wrapper {
+            margin-top: 14px;
+            padding-top: 8px;
+        }
+
+        .payment-history-table td {
+            padding: 0;
+        }
+
         /* ── Footer ── */
         .footer-section {
             padding: 12px 0 0;
@@ -174,43 +194,49 @@
         $childCounters = [];
         $subtotal = 0;
 
-        function alphabetIndex($i)
-        {
-            $alphabet = 'abcdefghijklmnopqrstuvwxyz';
-            return $i < 26 ? $alphabet[$i] : $alphabet[intdiv($i, 26) - 1] . $alphabet[$i % 26];
+        if (! function_exists('alphabetIndex')) {
+            function alphabetIndex($i)
+            {
+                $alphabet = 'abcdefghijklmnopqrstuvwxyz';
+                return $i < 26 ? $alphabet[$i] : $alphabet[intdiv($i, 26) - 1] . $alphabet[$i % 26];
+            }
         }
 
-        function formatCurrency($value)
-        {
-            return \App\Helpers\FormatService::formatCurrency($value);
+        if (! function_exists('formatCurrency')) {
+            function formatCurrency($value)
+            {
+                return \App\Helpers\FormatService::formatCurrency($value);
+            }
         }
 
-        function formatExtensionLabel($extension)
-        {
-            $name = trim((string) ($extension['name'] ?? 'Extension'));
-            $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
-            $value = abs((float) ($extension['calculation_value'] ?? 0));
+        if (! function_exists('formatExtensionLabel')) {
+            function formatExtensionLabel($extension)
+            {
+                $name = trim((string) ($extension['name'] ?? 'Extension'));
+                $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                $value = abs((float) ($extension['calculation_value'] ?? 0));
 
-            $nameContainsPercent = preg_match('/-?\d+(?:\.\d+)?\s*%$/', $name) === 1;
-            $isPercentage = $mode === 'percentage' || $nameContainsPercent;
+                $nameContainsPercent = preg_match('/-?\d+(?:\.\d+)?\s*%$/', $name) === 1;
+                $isPercentage = $mode === 'percentage' || $nameContainsPercent;
 
-            if ($isPercentage) {
-                if ($value <= 0 && $nameContainsPercent) {
-                    preg_match('/(-?\d+(?:\.\d+)?)\s*%$/', $name, $matches);
-                    $value = abs((float) ($matches[1] ?? 0));
+                if ($isPercentage) {
+                    if ($value <= 0 && $nameContainsPercent) {
+                        preg_match('/(-?\d+(?:\.\d+)?)\s*%$/', $name, $matches);
+                        $value = abs((float) ($matches[1] ?? 0));
+                    }
+
+                    $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
+                    $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
+                    $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
+                    $normalizedValue = str_contains($formattedValue, '.')
+                        ? rtrim(rtrim($formattedValue, '0'), '.')
+                        : $formattedValue;
+
+                    return ($baseName !== '' ? $baseName : $name) . ' ' . $normalizedValue . '%';
                 }
 
-                $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
-                $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
-                $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
-                $normalizedValue = str_contains($formattedValue, '.')
-                    ? rtrim(rtrim($formattedValue, '0'), '.')
-                    : $formattedValue;
-
-                return ($baseName !== '' ? $baseName : $name) . ' ' . $normalizedValue . '%';
+                return $name;
             }
-
-            return $name;
         }
     @endphp
 
@@ -379,6 +405,15 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {{-- ── PAYMENT HISTORY ── --}}
+        <div class="totals-wrapper payment-history-wrapper">
+            <div class="payment-history-heading">Payment History</div>
+            <table class="totals-table payment-history-table">
+                <tbody>
                     @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
                         <tr>
                             <td class="total-label" style="color: #c0392b;">Pending Payment:</td>

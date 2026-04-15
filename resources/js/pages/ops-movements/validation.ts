@@ -146,6 +146,55 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
                     });
                 }
             });
+
+            (section.extensions ?? []).forEach((extension, extensionIndex) => {
+                if ((extension.name ?? '').length > 255) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [
+                            'budget',
+                            sectionIndex,
+                            'extensions',
+                            extensionIndex,
+                            'name',
+                        ],
+                        message: 'Extension name cannot exceed 255 characters.',
+                    });
+                }
+
+                const mode = String(extension.calculation_mode ?? 'fixed');
+                if (!['fixed', 'percentage'].includes(mode)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [
+                            'budget',
+                            sectionIndex,
+                            'extensions',
+                            extensionIndex,
+                            'calculation_mode',
+                        ],
+                        message: 'Calculation mode must be Fixed Amount or Percentage.',
+                    });
+                }
+
+                const calculationValue = Number(
+                    extension.calculation_value ?? 0,
+                );
+
+                if (!Number.isFinite(calculationValue)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [
+                            'budget',
+                            sectionIndex,
+                            'extensions',
+                            extensionIndex,
+                            'calculation_value',
+                        ],
+                        message: 'Value must be a valid number.',
+                    });
+                }
+            });
         });
     },
 );

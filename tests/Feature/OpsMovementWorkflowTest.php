@@ -379,6 +379,13 @@ class OpsMovementWorkflowTest extends TestCase
                             'remarks' => 'Airport to hotel',
                         ],
                     ],
+                    'extensions' => [
+                        [
+                            'name' => 'Markup',
+                            'calculation_mode' => 'percentage',
+                            'calculation_value' => -5,
+                        ],
+                    ],
                 ],
                 [
                     'title' => 'Logistics',
@@ -458,6 +465,9 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
         $this->assertSame(500.5, data_get($manifest->ops_movement_extension, 'budget.0.items.0.unit_price'));
+        $this->assertSame('Markup', data_get($manifest->ops_movement_extension, 'budget.0.extensions.0.name'));
+        $this->assertSame('percentage', data_get($manifest->ops_movement_extension, 'budget.0.extensions.0.calculation_mode'));
+        $this->assertEquals(-5.0, data_get($manifest->ops_movement_extension, 'budget.0.extensions.0.calculation_value'));
         $this->assertSame('TL Saudi', data_get($manifest->ops_movement_extension, 'pif.tour_leaders.0.name'));
         $this->assertSame('+6591000002', data_get($manifest->ops_movement_extension, 'pif.tour_leaders.1.contact_number'));
 
@@ -479,6 +489,7 @@ class OpsMovementWorkflowTest extends TestCase
 
         $this->assertSame(1, data_get($opsMovement, 'passengers.wheelchair_non_official_total'));
         $this->assertSame('Official Hotel A', data_get($opsMovement, 'officials.0.hotel'));
+        $this->assertSame('mutawif', data_get($opsMovement, 'officials.0.type'));
         $this->assertSame('Makkah', data_get($opsMovement, 'officials.0.hotels_by_location.0.location'));
         $this->assertSame('Official Hotel A', data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
         $this->assertSame('IC-HOTEL-01', data_get($opsMovement, 'accommodations.0.ic'));
@@ -706,20 +717,91 @@ class OpsMovementWorkflowTest extends TestCase
             ->all();
 
         $this->assertSame(
-            ['Manpower Expenses', 'Petty Cash', 'Contingency'],
+            ['Manpower Expense', 'Petty Cash', 'Contingency'],
             $budgetTitles,
         );
 
         $this->assertSame('Mutawwif', data_get($opsMovement, 'budget.0.items.0.item_name'));
-        $this->assertSame('Assisting Mutawwif', data_get($opsMovement, 'budget.0.items.1.item_name'));
+        $this->assertSame('Mutawwif Speedtrain', data_get($opsMovement, 'budget.0.items.1.item_name'));
         $this->assertSame('Mutawwif Meal', data_get($opsMovement, 'budget.0.items.2.item_name'));
+        $this->assertSame('Assisting Mutawwif', data_get($opsMovement, 'budget.0.items.3.item_name'));
+        $this->assertSame('Assisting Mutawwifa', data_get($opsMovement, 'budget.0.items.4.item_name'));
+        $this->assertSame('Mutawifa', data_get($opsMovement, 'budget.0.items.5.item_name'));
+        $this->assertSame('Check-in', data_get($opsMovement, 'budget.0.items.6.item_name'));
         $this->assertSame('Hotel Porter', data_get($opsMovement, 'budget.1.items.0.item_name'));
         $this->assertSame('Bus Tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
         $this->assertSame('Tipping for Airport Porter', data_get($opsMovement, 'budget.1.items.2.item_name'));
+        $this->assertSame('Lunch (2nd Umrah)', data_get($opsMovement, 'budget.1.items.3.item_name'));
+        $this->assertSame('Lunch Official', data_get($opsMovement, 'budget.1.items.4.item_name'));
+        $this->assertSame('Customized Sejadah', data_get($opsMovement, 'budget.1.items.5.item_name'));
+        $this->assertSame('Customized Onta', data_get($opsMovement, 'budget.1.items.6.item_name'));
+        $this->assertSame('Zamzam Water', data_get($opsMovement, 'budget.1.items.7.item_name'));
         $this->assertSame('Contingency Fund', data_get($opsMovement, 'budget.2.items.0.item_name'));
         $this->assertSame(
             'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
             data_get($opsMovement, 'budget.2.items.0.remarks'),
         );
+    }
+
+    public function test_ops_movement_budget_report_accumulates_extensions_into_section_and_grand_totals(): void
+    {
+        $html = view('ops-movements.budget-report-content', [
+            'branding' => [
+                'title_color' => '#c05427',
+                'footer_text' => 'Footer text',
+            ],
+            'opsMovement' => [
+                'package_number' => 'PKG-ACC-001',
+                'manifest_number' => 'MAN-ACC-001',
+                'departure_return_range' => '15 April 2026 - 30 April 2026',
+                'budget_currency' => 'SAR',
+                'passengers' => [
+                    'adult_total' => 1,
+                    'child_total' => 0,
+                    'infant_total' => 0,
+                    'official_total' => 1,
+                    'grand_total' => 2,
+                ],
+                'officials' => [
+                    [
+                        'type' => 'mutawwif',
+                        'name' => 'Mutawwif A',
+                    ],
+                ],
+                'budget' => [
+                    [
+                        'title' => 'Manpower Expense',
+                        'items' => [
+                            [
+                                'item_name' => 'Mutawwif',
+                                'unit_price' => 100,
+                                'quantity' => 1,
+                                'remarks' => '',
+                            ],
+                        ],
+                        'extensions' => [
+                            [
+                                'name' => 'Markup',
+                                'calculation_mode' => 'fixed',
+                                'calculation_value' => 20,
+                            ],
+                            [
+                                'name' => 'Service Fee',
+                                'calculation_mode' => 'percentage',
+                                'calculation_value' => 10,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('Sub Total (SAR)', $html);
+        $this->assertStringContainsString('Total (SAR)', $html);
+        $this->assertStringContainsString('SAR 100.00', $html);
+        $this->assertStringContainsString('SAR 20.00', $html);
+        $this->assertStringContainsString('SAR 10.00', $html);
+        $this->assertStringContainsString('SAR 130.00', $html);
+        $this->assertStringNotContainsString('Display only (not accumulated)', $html);
     }
 }

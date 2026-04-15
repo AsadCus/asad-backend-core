@@ -548,6 +548,18 @@ class ReportTemplateController extends Controller
             'total_amount' => 1500.00,
             'extension_total_amount' => 0,
             'extensions' => [],
+            'invoice_payment_progress' => [
+                [
+                    'label' => '1st Payment',
+                    'amount_paid' => 500.00,
+                    'total_amount' => 1500.00,
+                ],
+                [
+                    'label' => '2nd Payment',
+                    'amount_paid' => 1000.00,
+                    'total_amount' => 1500.00,
+                ],
+            ],
             'notes' => [],
         ];
 

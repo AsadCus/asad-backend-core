@@ -300,6 +300,7 @@ class OpsMovementService
 
                 return [
                     'id' => $official->id,
+                    'type' => $official->type,
                     'name' => $official->name,
                     'hotel' => $primaryHotel,
                     'hotels_by_location' => $hotelsByLocation->toArray(),
@@ -736,6 +737,7 @@ class OpsMovementService
                     ? (int) $section['sort_order']
                     : ($sectionIndex + 1),
                 'items' => $items,
+                'extensions' => $this->normalizeBudgetExtensions($section['extensions'] ?? []),
             ];
         }
 
@@ -751,7 +753,7 @@ class OpsMovementService
     {
         return [
             [
-                'title' => 'Manpower Expenses',
+                'title' => 'Manpower Expense',
                 'sort_order' => 1,
                 'items' => [
                     [
@@ -762,7 +764,7 @@ class OpsMovementService
                         'sort_order' => 1,
                     ],
                     [
-                        'item_name' => 'Assisting Mutawwif',
+                        'item_name' => 'Mutawwif Speedtrain',
                         'unit_price' => 0.0,
                         'quantity' => 0.0,
                         'remarks' => null,
@@ -775,7 +777,36 @@ class OpsMovementService
                         'remarks' => null,
                         'sort_order' => 3,
                     ],
+                    [
+                        'item_name' => 'Assisting Mutawwif',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 4,
+                    ],
+                    [
+                        'item_name' => 'Assisting Mutawwifa',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 5,
+                    ],
+                    [
+                        'item_name' => 'Mutawifa',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 6,
+                    ],
+                    [
+                        'item_name' => 'Check-in',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 7,
+                    ],
                 ],
+                'extensions' => [],
             ],
             [
                 'title' => 'Petty Cash',
@@ -802,7 +833,43 @@ class OpsMovementService
                         'remarks' => null,
                         'sort_order' => 3,
                     ],
+                    [
+                        'item_name' => 'Lunch (2nd Umrah)',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 4,
+                    ],
+                    [
+                        'item_name' => 'Lunch Official',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 5,
+                    ],
+                    [
+                        'item_name' => 'Customized Sejadah',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 6,
+                    ],
+                    [
+                        'item_name' => 'Customized Onta',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 7,
+                    ],
+                    [
+                        'item_name' => 'Zamzam Water',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 8,
+                    ],
                 ],
+                'extensions' => [],
             ],
             [
                 'title' => 'Contingency',
@@ -815,23 +882,43 @@ class OpsMovementService
                         'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
                         'sort_order' => 1,
                     ],
-                    [
-                        'item_name' => 'Emergency Reserve',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 2,
-                    ],
-                    [
-                        'item_name' => 'Miscellaneous',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 3,
-                    ],
                 ],
+                'extensions' => [],
             ],
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeBudgetExtensions(mixed $extensions): array
+    {
+        if (! is_array($extensions)) {
+            return [];
+        }
+
+        $extensionList = array_is_list($extensions) ? $extensions : [];
+        $normalized = [];
+
+        foreach ($extensionList as $extensionIndex => $extension) {
+            if (! is_array($extension)) {
+                continue;
+            }
+
+            $mode = $this->normalizeNullableString($extension['calculation_mode'] ?? null);
+            $normalized[] = [
+                'name' => $this->normalizeNullableString($extension['name'] ?? null),
+                'calculation_mode' => in_array($mode, ['fixed', 'percentage'], true) ? $mode : 'fixed',
+                'calculation_value' => is_numeric($extension['calculation_value'] ?? null)
+                    ? (float) $extension['calculation_value']
+                    : 0.0,
+                'sort_order' => isset($extension['sort_order']) && is_numeric($extension['sort_order'])
+                    ? (int) $extension['sort_order']
+                    : ($extensionIndex + 1),
+            ];
+        }
+
+        return $normalized;
     }
 
     private function storeDocumentFile(mixed $file, string $field): ?string

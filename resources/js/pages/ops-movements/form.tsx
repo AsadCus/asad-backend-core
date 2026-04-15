@@ -5,13 +5,21 @@ import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     type OpsAccommodationSchema,
+    type OpsBudgetExtensionSchema,
     type OpsBudgetItemSchema,
     type OpsBudgetTitleSchema,
     type OpsDocumentItemSchema,
@@ -26,6 +34,12 @@ interface OpsMovementFormProps {
     initialData: OpsMovementSchema;
     onCancel: () => void;
     canEdit?: boolean;
+}
+
+interface BudgetExtensionEditorState {
+    titleIndex: number;
+    extensionIndex: number | null;
+    draft: OpsBudgetExtensionSchema;
 }
 
 type OpsDocumentTabKey = 'itinerary' | 'booklet';
@@ -164,22 +178,43 @@ function createEmptyBudgetItem(): OpsBudgetItemSchema {
     };
 }
 
+function createEmptyBudgetExtension(): OpsBudgetExtensionSchema {
+    return {
+        name: '',
+        calculation_mode: 'fixed',
+        calculation_value: 0,
+    };
+}
+
 function createEmptyBudgetTitle(index: number): OpsBudgetTitleSchema {
     return {
         title: `Title ${index + 1}`,
         sort_order: index + 1,
         items: [createEmptyBudgetItem()],
+        extensions: [],
     };
 }
 
 function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
     return [
         {
-            title: 'Manpower Expenses',
+            title: 'Manpower Expense',
             sort_order: 1,
             items: [
                 {
                     item_name: 'Mutawwif',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Mutawwif Speedtrain',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Mutawwif Meal',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
@@ -191,12 +226,25 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Mutawwif Meal',
+                    item_name: 'Assisting Mutawwifa',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Mutawifa',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Check-in',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
                 },
             ],
+            extensions: [],
         },
         {
             title: 'Petty Cash',
@@ -220,7 +268,38 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     quantity: 0,
                     remarks: '',
                 },
+                {
+                    item_name: 'Lunch (2nd Umrah)',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Lunch Official',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Customized Sejadah',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Customized Onta',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Zamzam Water',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
             ],
+            extensions: [],
         },
         {
             title: 'Contingency',
@@ -232,21 +311,133 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     quantity: 0,
                     remarks: 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
                 },
-                {
-                    item_name: 'Emergency Reserve',
-                    unit_price: 0,
-                    quantity: 0,
-                    remarks: '',
-                },
-                {
-                    item_name: 'Miscellaneous',
-                    unit_price: 0,
-                    quantity: 0,
-                    remarks: '',
-                },
             ],
+            extensions: [],
         },
     ];
+}
+
+function normalizeBudgetSectionKey(value: unknown): string {
+    const normalized = String(value ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
+    if (
+        normalized === 'manpower' ||
+        normalized === 'manpowerexpense' ||
+        normalized === 'manpowerexpenses'
+    ) {
+        return 'manpowerexpense';
+    }
+
+    if (normalized === 'pettycash') {
+        return 'pettycash';
+    }
+
+    if (normalized === 'contingency' || normalized === 'contigency') {
+        return 'contingency';
+    }
+
+    return normalized;
+}
+
+function normalizeBudgetTemplateForForm(
+    budget: OpsMovementSchema['budget'],
+): OpsBudgetTitleSchema[] {
+    const defaults = createDefaultBudgetTemplate();
+
+    if (!Array.isArray(budget) || budget.length === 0) {
+        return defaults;
+    }
+
+    const defaultByKey = new Map(
+        defaults.map((section) => [
+            normalizeBudgetSectionKey(section.title),
+            section,
+        ]),
+    );
+
+    const incomingByDefaultKey = new Map<string, OpsBudgetTitleSchema>();
+    const extraSections: OpsBudgetTitleSchema[] = [];
+
+    (budget ?? []).forEach((section, sectionIndex) => {
+        const key = normalizeBudgetSectionKey(section.title);
+        const matchedDefault = defaultByKey.get(key);
+
+        if (matchedDefault) {
+            incomingByDefaultKey.set(key, section);
+            return;
+        }
+
+        const incomingItems = Array.isArray(section.items) ? section.items : [];
+        const normalizedItems =
+            incomingItems.length > 0
+                ? incomingItems
+                : [createEmptyBudgetItem()];
+
+        extraSections.push({
+            ...section,
+            title:
+                typeof section.title === 'string' && section.title.trim() !== ''
+                    ? section.title
+                    : `Title ${sectionIndex + 1}`,
+            sort_order:
+                typeof section.sort_order === 'number'
+                    ? section.sort_order
+                    : sectionIndex + 1,
+            items: normalizedItems,
+            extensions: Array.isArray(section.extensions)
+                ? section.extensions
+                : [],
+        });
+    });
+
+    const mergedDefaults = defaults.map((defaultSection, sectionIndex) => {
+        const key = normalizeBudgetSectionKey(defaultSection.title);
+        const incomingSection = incomingByDefaultKey.get(key);
+
+        if (!incomingSection) {
+            return defaultSection;
+        }
+
+        const incomingItems = Array.isArray(incomingSection.items)
+            ? incomingSection.items
+            : [];
+        const resolvedItems =
+            incomingItems.length > 0
+                ? incomingItems.map((item, itemIndex) => {
+                      const fallbackItem = defaultSection.items?.[itemIndex];
+                      const normalizedName = String(item.item_name ?? '').trim();
+
+                      return {
+                          ...item,
+                          item_name:
+                              normalizedName !== ''
+                                  ? item.item_name
+                                  : (fallbackItem?.item_name ?? ''),
+                      };
+                  })
+                : (defaultSection.items ?? []);
+
+        return {
+            ...incomingSection,
+            title:
+                typeof incomingSection.title === 'string' &&
+                incomingSection.title.trim() !== ''
+                    ? incomingSection.title
+                    : defaultSection.title,
+            sort_order:
+                typeof incomingSection.sort_order === 'number'
+                    ? incomingSection.sort_order
+                    : (defaultSection.sort_order ?? sectionIndex + 1),
+            items: resolvedItems,
+            extensions: Array.isArray(incomingSection.extensions)
+                ? incomingSection.extensions
+                : [],
+        };
+    });
+
+    return [...mergedDefaults, ...extraSections];
 }
 
 function createEmptyTourLeader(): OpsTourLeaderSchema {
@@ -282,6 +473,36 @@ function toDecimal(value: unknown): number {
     return parsed;
 }
 
+function normalizeBudgetExtensionMode(value: unknown): 'fixed' | 'percentage' {
+    return String(value ?? 'fixed') === 'percentage' ? 'percentage' : 'fixed';
+}
+
+function calculateBudgetExtensionAmount(
+    sectionTotal: number,
+    calculationMode: unknown,
+    calculationValue: unknown,
+): number {
+    const normalizedValue = toDecimal(calculationValue);
+
+    if (normalizeBudgetExtensionMode(calculationMode) === 'percentage') {
+        return (sectionTotal * normalizedValue) / 100;
+    }
+
+    return normalizedValue;
+}
+
+function formatBudgetExtensionLabel(extension: OpsBudgetExtensionSchema): string {
+    const name = String(extension.name ?? '').trim() || 'Extension';
+    const mode = normalizeBudgetExtensionMode(extension.calculation_mode);
+    const rawValue = toDecimal(extension.calculation_value);
+
+    if (mode === 'percentage') {
+        return `${name} (${rawValue}%)`;
+    }
+
+    return name;
+}
+
 function formatSar(value: number): string {
     return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
@@ -300,6 +521,8 @@ export default function OpsMovementForm({
     canEdit = true,
 }: OpsMovementFormProps) {
     const [activeTab, setActiveTab] = useState('ops-movement');
+    const [budgetExtensionEditor, setBudgetExtensionEditor] =
+        useState<BudgetExtensionEditorState | null>(null);
 
     const form = useForm<OpsMovementSchema>({
         ...initialData,
@@ -316,9 +539,7 @@ export default function OpsMovementForm({
                     : [createEmptyDocumentEntry()],
         },
         budget:
-            Array.isArray(initialData.budget) && initialData.budget.length > 0
-                ? initialData.budget
-                : createDefaultBudgetTemplate(),
+            normalizeBudgetTemplateForForm(initialData.budget),
         budget_currency:
             typeof initialData.budget_currency === 'string' &&
             initialData.budget_currency.trim().length > 0
@@ -417,6 +638,18 @@ export default function OpsMovementForm({
                     remarks: item.remarks ?? null,
                     sort_order: itemIndex + 1,
                 })),
+                extensions: (section.extensions ?? []).map(
+                    (extension, extensionIndex) => ({
+                        name: extension.name ?? null,
+                        calculation_mode: normalizeBudgetExtensionMode(
+                            extension.calculation_mode,
+                        ),
+                        calculation_value: toDecimal(
+                            extension.calculation_value,
+                        ),
+                        sort_order: extensionIndex + 1,
+                    }),
+                ),
             })),
             budget_currency: data.budget_currency ?? 'SAR',
             rawdah_tasreehs: (data.rawdah_tasreehs ?? []).map((row) => ({
@@ -703,6 +936,160 @@ export default function OpsMovementForm({
         setFormData('budget', current);
     };
 
+    const duplicateBudgetItem = (titleIndex: number, itemIndex: number) => {
+        const current = [...(data.budget ?? [])];
+        const title = current[titleIndex];
+
+        if (!title) {
+            return;
+        }
+
+        const nextItems = [...(title.items ?? [])];
+        const target = nextItems[itemIndex];
+
+        if (!target) {
+            return;
+        }
+
+        nextItems.splice(itemIndex + 1, 0, {
+            ...target,
+        });
+
+        current[titleIndex] = {
+            ...title,
+            items: nextItems,
+        };
+
+        setFormData('budget', current);
+    };
+
+    const updateBudgetExtension = (
+        titleIndex: number,
+        extensionIndex: number,
+        patch: Partial<OpsBudgetExtensionSchema>,
+    ) => {
+        const current = [...(data.budget ?? [])];
+        const title = current[titleIndex];
+
+        if (!title) {
+            return;
+        }
+
+        const nextExtensions = [...(title.extensions ?? [])];
+        const target = nextExtensions[extensionIndex];
+
+        if (!target) {
+            return;
+        }
+
+        nextExtensions[extensionIndex] = {
+            ...target,
+            ...patch,
+        };
+
+        current[titleIndex] = {
+            ...title,
+            extensions: nextExtensions,
+        };
+
+        setFormData('budget', current);
+    };
+
+    const addBudgetExtension = (
+        titleIndex: number,
+        extension: OpsBudgetExtensionSchema = createEmptyBudgetExtension(),
+    ) => {
+        const current = [...(data.budget ?? [])];
+        const title = current[titleIndex];
+
+        if (!title) {
+            return;
+        }
+
+        current[titleIndex] = {
+            ...title,
+            extensions: [...(title.extensions ?? []), extension],
+        };
+
+        setFormData('budget', current);
+    };
+
+    const removeBudgetExtension = (titleIndex: number, extensionIndex: number) => {
+        const current = [...(data.budget ?? [])];
+        const title = current[titleIndex];
+
+        if (!title) {
+            return;
+        }
+
+        const nextExtensions = [...(title.extensions ?? [])];
+        nextExtensions.splice(extensionIndex, 1);
+
+        current[titleIndex] = {
+            ...title,
+            extensions: nextExtensions,
+        };
+
+        setFormData('budget', current);
+    };
+
+    const openCreateBudgetExtension = (titleIndex: number) => {
+        setBudgetExtensionEditor({
+            titleIndex,
+            extensionIndex: null,
+            draft: createEmptyBudgetExtension(),
+        });
+    };
+
+    const openEditBudgetExtension = (
+        titleIndex: number,
+        extensionIndex: number,
+    ) => {
+        const extension =
+            data.budget?.[titleIndex]?.extensions?.[extensionIndex] ??
+            createEmptyBudgetExtension();
+
+        setBudgetExtensionEditor({
+            titleIndex,
+            extensionIndex,
+            draft: {
+                name: extension.name ?? '',
+                calculation_mode: normalizeBudgetExtensionMode(
+                    extension.calculation_mode,
+                ),
+                calculation_value: toDecimal(extension.calculation_value),
+            },
+        });
+    };
+
+    const saveBudgetExtensionEditor = () => {
+        if (!budgetExtensionEditor) {
+            return;
+        }
+
+        const normalizedDraft: OpsBudgetExtensionSchema = {
+            name: String(budgetExtensionEditor.draft.name ?? '').trim(),
+            calculation_mode: normalizeBudgetExtensionMode(
+                budgetExtensionEditor.draft.calculation_mode,
+            ),
+            calculation_value: toDecimal(
+                budgetExtensionEditor.draft.calculation_value,
+            ),
+        };
+
+        if (budgetExtensionEditor.extensionIndex === null) {
+            addBudgetExtension(budgetExtensionEditor.titleIndex, normalizedDraft);
+        } else {
+            updateBudgetExtension(
+                budgetExtensionEditor.titleIndex,
+                budgetExtensionEditor.extensionIndex,
+                normalizedDraft,
+            );
+        }
+
+        setBudgetExtensionEditor(null);
+    };
+
     const removeBudgetItem = (titleIndex: number, itemIndex: number) => {
         const current = [...(data.budget ?? [])];
         const title = current[titleIndex];
@@ -773,15 +1160,32 @@ export default function OpsMovementForm({
 
     const budgetTotals = useMemo(() => {
         const sections = (data.budget ?? []).map((section) => {
-            const sectionTotal = (section.items ?? []).reduce((sum, item) => {
+            const subtotal = (section.items ?? []).reduce((sum, item) => {
                 return (
                     sum + toDecimal(item.unit_price) * toDecimal(item.quantity)
                 );
             }, 0);
 
+            const extensions = (section.extensions ?? []).map((extension) => ({
+                extension,
+                amount: calculateBudgetExtensionAmount(
+                    subtotal,
+                    extension.calculation_mode,
+                    extension.calculation_value,
+                ),
+            }));
+
+            const extensionTotal = extensions.reduce(
+                (sum, extension) => sum + extension.amount,
+                0,
+            );
+
             return {
                 section,
-                total: sectionTotal,
+                subtotal,
+                extensionTotal,
+                total: subtotal + extensionTotal,
+                extensions,
             };
         });
 
@@ -1864,6 +2268,23 @@ export default function OpsMovementForm({
                                                             size="sm"
                                                             disabled={
                                                                 processing ||
+                                                                !canEdit
+                                                            }
+                                                            onClick={() =>
+                                                                duplicateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={
+                                                                processing ||
                                                                 (section.items
                                                                     ?.length ??
                                                                     0) <= 1
@@ -1896,17 +2317,233 @@ export default function OpsMovementForm({
                                             <Plus className="h-4 w-4" />
                                             Add Item
                                         </Button>
-                                        <p className="text-lg font-semibold">
-                                            {`${section.title ?? 'Section'} (${data.budget_currency ?? 'SAR'}):`}{' '}
-                                            <span className="text-primary">
-                                                {formatSar(sectionRow.total)}
-                                            </span>
-                                        </p>
+                                        <table className="w-full max-w-sm table-fixed text-base">
+                                            <tbody className="[&>tr>td]:py-1.5">
+                                                {(section.extensions ?? []).map(
+                                                    (
+                                                        extension,
+                                                        extensionIndex,
+                                                    ) => {
+                                                        const amount =
+                                                            sectionRow
+                                                                .extensions[
+                                                                extensionIndex
+                                                            ]?.amount ?? 0;
+
+                                                        return (
+                                                            <tr
+                                                                key={`budget-extension-${titleIndex}-${extensionIndex}`}
+                                                            >
+                                                                <td className="w-3/4 text-right">
+                                                                    <div className="inline-flex items-center gap-1">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="cursor-pointer font-medium underline"
+                                                                            disabled={
+                                                                                processing ||
+                                                                                !canEdit
+                                                                            }
+                                                                            onClick={() =>
+                                                                                openEditBudgetExtension(
+                                                                                    titleIndex,
+                                                                                    extensionIndex,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            {formatBudgetExtensionLabel(
+                                                                                extension,
+                                                                            )}
+                                                                        </button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            disabled={
+                                                                                processing ||
+                                                                                !canEdit
+                                                                            }
+                                                                            onClick={() =>
+                                                                                removeBudgetExtension(
+                                                                                    titleIndex,
+                                                                                    extensionIndex,
+                                                                                )
+                                                                            }
+                                                                            className="h-auto p-0 text-destructive"
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="w-1/4 text-right font-medium">
+                                                                    {formatSar(
+                                                                        amount,
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    },
+                                                )}
+                                                <tr>
+                                                    <td className="w-3/4 text-right text-lg font-semibold">
+                                                        {`Total (${data.budget_currency ?? 'SAR'}):`}
+                                                    </td>
+                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                        {formatSar(sectionRow.total)}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="text-right">
+                                                        <button
+                                                            type="button"
+                                                            className="cursor-pointer font-medium text-primary underline"
+                                                            disabled={
+                                                                processing ||
+                                                                !canEdit
+                                                            }
+                                                            onClick={() =>
+                                                                openCreateBudgetExtension(
+                                                                    titleIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            Add Extension
+                                                        </button>
+                                                    </td>
+                                                    <td className="text-right"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </CardContent>
                             </Card>
                         );
                     })}
+
+                    <Dialog
+                        open={budgetExtensionEditor !== null}
+                        onOpenChange={(isOpen) => {
+                            if (!isOpen) {
+                                setBudgetExtensionEditor(null);
+                            }
+                        }}
+                    >
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {budgetExtensionEditor?.extensionIndex ===
+                                    null
+                                        ? 'Add Extension'
+                                        : 'Edit Extension'}
+                                </DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-3">
+                                <FormField label="Extension Name">
+                                    <ProperInput
+                                        value={
+                                            budgetExtensionEditor?.draft.name ??
+                                            ''
+                                        }
+                                        onCommit={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    name: value,
+                                                },
+                                            });
+                                        }}
+                                        placeholder="Markup"
+                                    />
+                                </FormField>
+
+                                <FormField label="Calculation">
+                                    <ProperInputSelect
+                                        value={normalizeBudgetExtensionMode(
+                                            budgetExtensionEditor?.draft
+                                                .calculation_mode,
+                                        )}
+                                        onValueChange={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    calculation_mode:
+                                                        normalizeBudgetExtensionMode(
+                                                            value,
+                                                        ),
+                                                },
+                                            });
+                                        }}
+                                        options={[
+                                            {
+                                                label: 'Fixed Amount',
+                                                value: 'fixed',
+                                            },
+                                            {
+                                                label: 'Percentage',
+                                                value: 'percentage',
+                                            },
+                                        ]}
+                                    />
+                                </FormField>
+
+                                <FormField label="Value">
+                                    <ProperInput
+                                        value={String(
+                                            budgetExtensionEditor?.draft
+                                                .calculation_value ?? 0,
+                                        )}
+                                        type="number"
+                                        inputProps={{
+                                            step: 'any',
+                                        }}
+                                        onCommit={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    calculation_value:
+                                                        toDecimal(value),
+                                                },
+                                            });
+                                        }}
+                                        placeholder="0"
+                                    />
+                                </FormField>
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setBudgetExtensionEditor(null)
+                                    }
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={saveBudgetExtensionEditor}
+                                >
+                                    Save
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Card>
                         <CardContent>

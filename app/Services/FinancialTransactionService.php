@@ -421,11 +421,14 @@ class FinancialTransactionService
             })
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
+            ->orderBy('receipt_date')
+            ->orderBy('id')
             ->get();
 
         $categoryTotals = [];
         $bucketTotals = [];
         $reportRows = [];
+        $rowSequence = 0;
         $paymentMethodKeys = [];
         $totalAmount = 0.0;
 
@@ -464,6 +467,8 @@ class FinancialTransactionService
                     'package_item' => '-',
                     'ref_no' => '',
                     'payment_method' => $paymentMethodKey,
+                    '__bucket_key' => $bucketKey,
+                    '__row_sequence' => ++$rowSequence,
                     'amount' => round($receiptAmount, 2),
                     'total_sale' => round($receiptAmount, 2),
                     'maker' => '',
@@ -487,6 +492,8 @@ class FinancialTransactionService
                     'package_item' => '-',
                     'ref_no' => '',
                     'payment_method' => $paymentMethodKey,
+                    '__bucket_key' => $bucketKey,
+                    '__row_sequence' => ++$rowSequence,
                     'amount' => round($receiptAmount, 2),
                     'total_sale' => round($receiptAmount, 2),
                     'maker' => (string) ($quotation?->createdBy?->name ?? ''),
@@ -577,6 +584,8 @@ class FinancialTransactionService
                     'package_item' => $packageItem,
                     'ref_no' => $referenceNumber,
                     'payment_method' => $paymentMethodKey,
+                    '__bucket_key' => $bucketKey,
+                    '__row_sequence' => ++$rowSequence,
                     'amount' => round($allocatedAmount, 2),
                     'total_sale' => round($allocatedAmount, 2),
                     'maker' => $maker,
@@ -595,23 +604,30 @@ class FinancialTransactionService
 
         $paymentMethods = array_values(array_unique(array_merge($defaultPaymentMethods, $extraPaymentMethods)));
 
-        $reportRows = array_map(function (array $row) use ($paymentMethods): array {
-            $resolvedRow = $row;
-            $resolvedAmount = (float) ($resolvedRow['amount'] ?? 0);
-            $resolvedMethod = (string) ($resolvedRow['payment_method'] ?? 'others');
+        $reportRows = collect($reportRows)
+            ->sortBy([
+                ['__bucket_key', 'asc'],
+                ['__row_sequence', 'asc'],
+            ])
+            ->values()
+            ->map(function (array $row) use ($paymentMethods): array {
+                $resolvedRow = $row;
+                $resolvedAmount = (float) ($resolvedRow['amount'] ?? 0);
+                $resolvedMethod = (string) ($resolvedRow['payment_method'] ?? 'others');
 
-            foreach ($paymentMethods as $method) {
-                $resolvedRow[$method] = 0.0;
-            }
+                foreach ($paymentMethods as $method) {
+                    $resolvedRow[$method] = 0.0;
+                }
 
-            if (array_key_exists($resolvedMethod, $resolvedRow)) {
-                $resolvedRow[$resolvedMethod] = round($resolvedAmount, 2);
-            }
+                if (array_key_exists($resolvedMethod, $resolvedRow)) {
+                    $resolvedRow[$resolvedMethod] = round($resolvedAmount, 2);
+                }
 
-            unset($resolvedRow['payment_method']);
+                unset($resolvedRow['payment_method'], $resolvedRow['__bucket_key'], $resolvedRow['__row_sequence']);
 
-            return $resolvedRow;
-        }, $reportRows);
+                return $resolvedRow;
+            })
+            ->all();
 
         $categories = collect($categoryTotals)
             ->map(function (array $row) {

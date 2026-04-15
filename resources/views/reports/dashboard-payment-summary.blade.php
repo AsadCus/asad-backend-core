@@ -467,7 +467,10 @@
                     'rowspan' => max(count($catRows), 1) + 1,
                 ];
             }
-            return $blocks;
+
+            return array_values(array_filter($blocks, function (array $block): bool {
+                return count($block['rows'] ?? []) > 0;
+            }));
         };
 
         /* ── Helper: ensure sub_periods has every required label ─── */
@@ -672,11 +675,15 @@
                 @foreach ($grp['cats'] as $cat)
                     @php $catFirst = true; @endphp
 
-                    @if (count($cat['rows']) === 0)
-                        {{-- Empty category: one placeholder row --}}
+                    @foreach ($cat['rows'] as $row)
                         <tr>
                             <td class="td-date" style="{{ $dateFirst ? $bBottom : $bBoth }}">
-                                {{ $dateFirst ? $grp['label'] : '' }}
+                                @if ($dateFirst)
+                                    {{ $grp['label'] }}
+                                    @if (!empty($grp['day_name']))
+                                        <br><span class="day-name">{{ $grp['day_name'] }}</span>
+                                    @endif
+                                @endif
                             </td>
                             @php $dateFirst = false; @endphp
 
@@ -685,42 +692,15 @@
                             </td>
                             @php $catFirst = false; @endphp
 
-                            <td>-</td>
-                            <td>-</td>
+                            <td>{{ $row['package_item'] ?? '-' }}</td>
+                            <td>{{ $row['ref_no'] ?? '-' }}</td>
                             @foreach ($fields as $f)
-                                <td class="text-right">{{ $fmt(0) }}</td>
+                                <td class="text-right">{{ $fmt($row[$f] ?? 0) }}</td>
                             @endforeach
-                            <td>-</td>
-                            <td>-</td>
+                            <td>{{ $row['maker'] ?? '-' }}</td>
+                            <td>{{ $row['remarks'] ?? '-' }}</td>
                         </tr>
-                    @else
-                        @foreach ($cat['rows'] as $row)
-                            <tr>
-                                <td class="td-date" style="{{ $dateFirst ? $bBottom : $bBoth }}">
-                                    @if ($dateFirst)
-                                        {{ $grp['label'] }}
-                                        @if (!empty($grp['day_name']))
-                                            <br><span class="day-name">{{ $grp['day_name'] }}</span>
-                                        @endif
-                                    @endif
-                                </td>
-                                @php $dateFirst = false; @endphp
-                                
-                                <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
-                                    {{ $catFirst ? $cat['label'] : '' }}
-                                </td>
-                                @php $catFirst = false; @endphp
-                                
-                                <td>{{ $row['package_item'] ?? '-' }}</td>
-                                <td>{{ $row['ref_no'] ?? '-' }}</td>
-                                @foreach ($fields as $f)
-                                    <td class="text-right">{{ $fmt($row[$f] ?? 0) }}</td>
-                                @endforeach
-                                <td>{{ $row['maker'] ?? '-' }}</td>
-                                <td>{{ $row['remarks'] ?? '-' }}</td>
-                            </tr>
-                        @endforeach
-                    @endif
+                    @endforeach
 
                     {{-- Category subtotal --}}
                     <tr class="row-subtotal">
@@ -756,60 +736,32 @@
                     @foreach ($sub['cats'] as $cat)
                         @php $catFirst = true; @endphp
 
-                        @if (count($cat['rows']) === 0)
-                            {{-- Empty category: one placeholder row --}}
+                        @foreach ($cat['rows'] as $row)
                             <tr>
                                 <td class="td-l1" style="{{ $l1First ? $bBottom : $bBoth }}">
                                     {{ $l1First ? $grp['label'] : '' }}
                                 </td>
                                 @php $l1First = false; @endphp
-                                
+
                                 <td class="td-l2" style="{{ $l2First ? $bBottom : $bBoth }}">
                                     {{ $l2First ? $sub['label'] : '' }}
                                 </td>
                                 @php $l2First = false; @endphp
-                                
+
                                 <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
                                     {{ $catFirst ? $cat['label'] : '' }}
                                 </td>
                                 @php $catFirst = false; @endphp
-                                
-                                <td>-</td>
-                                <td>-</td>
+
+                                <td>{{ $row['package_item'] ?? '-' }}</td>
+                                <td>{{ $row['ref_no'] ?? '-' }}</td>
                                 @foreach ($fields as $f)
-                                    <td class="text-right">{{ $fmt(0) }}</td>
+                                    <td class="text-right">{{ $fmt($row[$f] ?? 0) }}</td>
                                 @endforeach
-                                <td>-</td>
-                                <td>-</td>
+                                <td>{{ $row['maker'] ?? '-' }}</td>
+                                <td>{{ $row['remarks'] ?? '-' }}</td>
                             </tr>
-                        @else
-                            @foreach ($cat['rows'] as $row)
-                                <tr>
-                                    <td class="td-l1" style="{{ $l1First ? $bBottom : $bBoth }}">
-                                        {{ $l1First ? $grp['label'] : '' }}
-                                    </td>
-                                    @php $l1First = false; @endphp
-                                    
-                                    <td class="td-l2" style="{{ $l2First ? $bBottom : $bBoth }}">
-                                        {{ $l2First ? $sub['label'] : '' }}
-                                    </td>
-                                    @php $l2First = false; @endphp
-                                    
-                                    <td class="td-category" style="{{ $catFirst ? $bBottom : $bBoth }}">
-                                        {{ $catFirst ? $cat['label'] : '' }}
-                                    </td>
-                                    @php $catFirst = false; @endphp
-                                    
-                                    <td>{{ $row['package_item'] ?? '-' }}</td>
-                                    <td>{{ $row['ref_no'] ?? '-' }}</td>
-                                    @foreach ($fields as $f)
-                                        <td class="text-right">{{ $fmt($row[$f] ?? 0) }}</td>
-                                    @endforeach
-                                    <td>{{ $row['maker'] ?? '-' }}</td>
-                                    <td>{{ $row['remarks'] ?? '-' }}</td>
-                                </tr>
-                            @endforeach
-                        @endif
+                        @endforeach
 
                         {{-- Category subtotal --}}
                         <tr class="row-subtotal">

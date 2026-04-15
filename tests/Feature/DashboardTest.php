@@ -854,6 +854,58 @@ class DashboardTest extends TestCase
         $response->assertJsonPath('total_amount', 100);
     }
 
+    public function test_dashboard_payment_summary_rows_are_sorted_ascending_for_daily_date_range(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Receipt::withoutEvents(function (): void {
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 100,
+                'receipt_date' => '2026-04-28',
+                'payment_method' => 'cash',
+                'description' => 'Late date inserted first',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 200,
+                'receipt_date' => '2026-04-26',
+                'payment_method' => 'transfer',
+                'description' => 'Early date inserted second',
+            ]);
+
+            Receipt::create([
+                'invoice_id' => null,
+                'amount' => 300,
+                'receipt_date' => '2026-04-27',
+                'payment_method' => 'visa',
+                'description' => 'Middle date inserted third',
+            ]);
+        });
+
+        $response = $this->getJson(route('dashboard.payment-summary-by-period', [
+            'period' => 'daily',
+            'timezone' => 'Asia/Singapore',
+            'range_start_utc' => '2026-04-25T16:00:00Z',
+            'range_end_utc' => '2026-04-30T15:59:59Z',
+        ]));
+
+        $response->assertOk();
+
+        $dates = collect($response->json('rows'))
+            ->pluck('date')
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->assertSame([
+            '26 April 2026',
+            '27 April 2026',
+            '28 April 2026',
+        ], $dates);
+    }
+
     public function test_dashboard_payment_summary_report_blade_hides_period_and_date_range_in_daily_mode(): void
     {
         $this->actingAs(User::factory()->create());
@@ -889,6 +941,69 @@ class DashboardTest extends TestCase
         $this->assertStringContainsString('Umrah Packages', $html);
         $this->assertStringContainsString('$1,200.00', $html);
         $this->assertStringContainsString('2 receipt rows', $html);
+    }
+
+    public function test_dashboard_payment_summary_report_blade_hides_empty_categories_per_day(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $html = view('reports.dashboard-payment-summary', [
+            'branding' => [
+                'title_color' => '#c05427',
+            ],
+            'body' => [
+                'mode' => 'daily',
+                'groups' => [
+                    [
+                        'label' => '15 April 2026',
+                        'day_name' => 'Wednesday',
+                        'rows' => [
+                            [
+                                'category' => 'umrah_packages',
+                                'package_item' => 'Package A',
+                                'ref_no' => 'A-001',
+                                'amount' => 100,
+                                'cash' => 100,
+                                'nets' => 0,
+                                'visa' => 0,
+                                'master' => 0,
+                                'paynow' => 0,
+                                'total_sale' => 100,
+                                'maker' => 'Maker A',
+                                'remarks' => '-',
+                            ],
+                        ],
+                    ],
+                    [
+                        'label' => '16 April 2026',
+                        'day_name' => 'Thursday',
+                        'rows' => [
+                            [
+                                'category' => 'others',
+                                'package_item' => 'Package B',
+                                'ref_no' => 'B-001',
+                                'amount' => 200,
+                                'cash' => 0,
+                                'nets' => 200,
+                                'visa' => 0,
+                                'master' => 0,
+                                'paynow' => 0,
+                                'total_sale' => 200,
+                                'maker' => 'Maker B',
+                                'remarks' => '-',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('Umrah Packages', $html);
+        $this->assertStringContainsString('Others', $html);
+        $this->assertStringContainsString('15 April 2026', $html);
+        $this->assertStringContainsString('16 April 2026', $html);
+        $this->assertStringNotContainsString('Wakaf Jemaah', $html);
+        $this->assertStringNotContainsString('Friday Blessings / Badal', $html);
     }
 
     public function test_admin_dashboard_falls_back_when_default_financial_year_has_null_dates(): void
