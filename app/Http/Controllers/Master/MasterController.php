@@ -21,6 +21,7 @@ class MasterController extends Controller
             'branches' => Branch::count(),
             'fiscalYears' => FinancialYear::count(),
             'productsAndServices' => QuotationItemMaster::count() + QuotationExtensionMaster::count(),
+            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ];
 
         return Inertia::render('masters/index', [

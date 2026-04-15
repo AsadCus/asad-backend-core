@@ -1,5 +1,4 @@
 import { ActionType } from '@/components/action-column';
-import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
@@ -16,7 +15,7 @@ import {
     index,
     show,
 } from '@/routes/customer';
-import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
+import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { UserSchema } from '../masters/users/schema';
@@ -75,28 +74,6 @@ const columns: ColumnDef<UserSchema>[] = [
         },
     },
     {
-        accessorKey: 'branch_id',
-        header: 'Branch Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    // {
-    //     accessorKey: 'branch_name',
-    //     header: 'Branch',
-    //     meta: { exportable: true },
-    // },
-    {
-        accessorKey: 'handled_by',
-        header: 'Handled By (ID)',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    // {
-    //     accessorKey: 'handler_name',
-    //     header: 'Handled By (Sales)',
-    //     meta: { exportable: true },
-    // },
-    {
         accessorKey: 'last_login',
         header: 'Last Login',
         meta: { exportable: true },
@@ -133,15 +110,9 @@ const columns: ColumnDef<UserSchema>[] = [
 
 interface CustomerProps {
     data: UserSchema[];
-    dataBranch: OptionType[];
-    dataSales: OptionType[];
 }
 
-export default function Customer({
-    data,
-    dataBranch,
-    dataSales,
-}: CustomerProps) {
+export default function Customer({ data }: CustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const actions: ActionType[] = [];
@@ -242,28 +213,8 @@ export default function Customer({
                                     nric_number: false,
                                     contact: false,
                                     address: false,
-                                    branch_id: false,
-                                    handled_by: false,
                                 },
                             }}
-                            renderFilter={(table) => (
-                                <>
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="branch_id"
-                                        title="Branch"
-                                        options={dataBranch}
-                                    />
-                                    {!auth.roles.includes('sales') && (
-                                        <ColumnFilter
-                                            table={table}
-                                            columnId="handled_by"
-                                            title="Sales"
-                                            options={dataSales}
-                                        />
-                                    )}
-                                </>
-                            )}
                         />
                     </div>
                 </div>

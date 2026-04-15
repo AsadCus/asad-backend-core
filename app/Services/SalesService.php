@@ -31,6 +31,8 @@ class SalesService
                 'contact' => $q->contact,
                 'branch_id' => $q->sales->branch_id,
                 'branch_name' => $q->sales->branch->name,
+                'country_id' => $q->sales->country_id,
+                'country_name' => $q->sales->country->name,
                 'registration_number' => $q->sales->registration_number,
             ];
         });

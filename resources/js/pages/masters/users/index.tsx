@@ -57,25 +57,26 @@ export default function MasterUser({
     // data,
     // dataRole,
     roleStats,
-    countryStats,
+    // countryStats,
 }: MasterUserProps) {
-    const countrySummary = (
-        entries: Array<{ country: string; count: number }>,
-    ): string => {
-        if (!entries.length) {
-            return 'No country assignment yet';
-        }
+    // const countrySummary = (
+    //     entries: Array<{ country: string; count: number }>,
+    // ): string => {
+    //     if (!entries.length) {
+    //         return 'No country assignment yet';
+    //     }
 
-        return entries
-            .slice(0, 2)
-            .map((entry) => `${entry.country} (${entry.count})`)
-            .join(', ');
-    };
+    //     return entries
+    //         .slice(0, 2)
+    //         .map((entry) => `${entry.country} (${entry.count})`)
+    //         .join(', ');
+    // };
 
     const roleMenus = [
         {
             title: 'Administrator',
-            description: `Assigned countries: ${countryStats.admin.totalCountries} (${countrySummary(countryStats.admin.breakdown)})`,
+            // description: `Assigned countries: ${countryStats.admin.totalCountries} (${countrySummary(countryStats.admin.breakdown)})`,
+            description: 'Admin accounts',
             icon: Shield,
             count: roleStats.admin,
             href: masterAdmin.index.url(),
@@ -84,7 +85,8 @@ export default function MasterUser({
         },
         {
             title: 'Sales',
-            description: `Assigned countries: ${countryStats.sales.totalCountries} (${countrySummary(countryStats.sales.breakdown)})`,
+            // description: `Assigned countries: ${countryStats.sales.totalCountries} (${countrySummary(countryStats.sales.breakdown)})`,
+            description: 'Sales accounts',
             icon: TrendingUp,
             count: roleStats.sales,
             href: masterSales.index.url(),
@@ -102,7 +104,8 @@ export default function MasterUser({
         },
         {
             title: 'Operations',
-            description: `Assigned countries: ${countryStats.operations.totalCountries} (${countrySummary(countryStats.operations.breakdown)})`,
+            // description: `Assigned countries: ${countryStats.operations.totalCountries} (${countrySummary(countryStats.operations.breakdown)})`,
+            description: 'Operations accounts',
             icon: Route,
             count: roleStats.operations,
             href: masterOperations.index.url(),

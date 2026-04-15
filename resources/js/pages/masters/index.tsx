@@ -37,10 +37,13 @@ interface MasterProps {
         branches: number;
         fiscalYears: number;
         productsAndServices: number;
+        scopeMode: string;
     };
 }
 
 export default function Master({ stats }: MasterProps) {
+    const scopeMode = String(stats.scopeMode ?? 'country').toLowerCase();
+
     const menuItems = [
         {
             title: 'User Management',
@@ -59,6 +62,7 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: true,
             onAdd: () => router.get('/master/country/create'),
             onClick: () => router.get('/master/country'),
+            visible: scopeMode === 'country',
         },
         {
             title: 'Branch',
@@ -68,6 +72,7 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: true,
             onAdd: () => router.get(branch.create().url),
             onClick: () => router.get(branch.index.url()),
+            visible: scopeMode === 'branch',
         },
         {
             title: 'Fiscal Year',
@@ -77,6 +82,7 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: true,
             onAdd: () => router.get(financialYear.create().url),
             onClick: () => router.get(financialYear.index.url()),
+            visible: true,
         },
         {
             title: 'Products & Services',
@@ -86,6 +92,7 @@ export default function Master({ stats }: MasterProps) {
             hasAddButton: false,
             onAdd: () => undefined,
             onClick: () => router.get(quotationItem.index.url()),
+            visible: true,
         },
     ];
 
@@ -97,45 +104,47 @@ export default function Master({ stats }: MasterProps) {
                     <h2 className="text-lg font-semibold">Master</h2>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {menuItems.map((item) => {
-                        const IconComponent = item.icon;
-                        return (
-                            <Card
-                                key={item.title}
-                                className="cursor-pointer transition-shadow hover:shadow-md"
-                                onClick={item.onClick}
-                            >
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <div className="flex items-center space-x-2">
-                                        <IconComponent className="h-5 w-5" />
-                                        <CardTitle className="text-base font-medium">
-                                            {item.title}
-                                        </CardTitle>
-                                    </div>
-                                    {item.hasAddButton && (
-                                        <Button
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                item.onAdd();
-                                            }}
-                                            className="h-8 px-2"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        {item.count}
-                                    </div>
-                                    <CardDescription className="text-sm text-muted-foreground">
-                                        {item.description}
-                                    </CardDescription>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
+                    {menuItems
+                        .filter((item) => item.visible !== false)
+                        .map((item) => {
+                            const IconComponent = item.icon;
+                            return (
+                                <Card
+                                    key={item.title}
+                                    className="cursor-pointer transition-shadow hover:shadow-md"
+                                    onClick={item.onClick}
+                                >
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <div className="flex items-center space-x-2">
+                                            <IconComponent className="h-5 w-5" />
+                                            <CardTitle className="text-base font-medium">
+                                                {item.title}
+                                            </CardTitle>
+                                        </div>
+                                        {item.hasAddButton && (
+                                            <Button
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    item.onAdd();
+                                                }}
+                                                className="h-8 px-2"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">
+                                            {item.count}
+                                        </div>
+                                        <CardDescription className="text-sm text-muted-foreground">
+                                            {item.description}
+                                        </CardDescription>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                 </div>
             </div>
         </AppLayout>

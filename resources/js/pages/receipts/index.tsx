@@ -108,11 +108,6 @@ const getColumns = (
         meta: { exportable: true },
     },
     {
-        accessorKey: 'invoice_description',
-        header: 'Invoice Description',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'invoice_status',
         header: 'Invoice Status',
         meta: { exportable: true },
@@ -152,6 +147,11 @@ const getColumns = (
         header: 'Amount',
         meta: { exportable: true },
         cell: ({ row }) => formatReceiptAmount(row.original),
+    },
+    {
+        accessorKey: 'invoice_description',
+        header: 'Description',
+        meta: { exportable: true },
     },
     {
         accessorKey: 'payment_method',

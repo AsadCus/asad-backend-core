@@ -5,7 +5,7 @@ import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { create, destroy, edit, index, show } from '@/routes/sales';
-import { SharedData, type BreadcrumbItem } from '@/types';
+import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { UserSchema } from '../masters/users/schema';
@@ -17,48 +17,68 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<UserSchema>[] = [
-    createSelectColumn<UserSchema>(),
-    {
-        accessorKey: 'id',
-        header: 'Id',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'name',
-        header: 'Name',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'email',
-        header: 'Email',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'contact',
-        header: 'Contact',
-        meta: { exportable: true },
-    },
-    {
-        accessorKey: 'branch_id',
-        header: 'Branch Id',
-        meta: { exportable: true },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'branch_name',
-        header: 'Branch',
-        meta: { exportable: true },
-    },
-];
+function getColumns(scopeMode: 'country' | 'branch'): ColumnDef<UserSchema>[] {
+    return [
+        createSelectColumn<UserSchema>(),
+        {
+            accessorKey: 'id',
+            header: 'Id',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'name',
+            header: 'Name',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'email',
+            header: 'Email',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'contact',
+            header: 'Contact',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'scope_ids',
+            header: 'Scope Ids',
+            meta: { exportable: true },
+            filterFn: 'includesValue',
+        },
+        ...(scopeMode === 'branch'
+            ? [
+                  {
+                      accessorKey: 'branch_name',
+                      header: 'Branch',
+                      meta: { exportable: true },
+                  } as ColumnDef<UserSchema>,
+              ]
+            : [
+                  {
+                      accessorKey: 'country_name',
+                      header: 'Country',
+                      meta: { exportable: true },
+                  } as ColumnDef<UserSchema>,
+              ]),
+    ];
+}
 
 interface SalesProps {
     data: UserSchema[];
-    dataBranch: [];
+    dataBranch: OptionType[];
+    dataCountry: OptionType[];
+    dataScopeMode: 'country' | 'branch';
 }
 
-export default function Sales({ data, dataBranch }: SalesProps) {
+export default function Sales({
+    data,
+    dataBranch,
+    dataCountry,
+    dataScopeMode,
+}: SalesProps) {
     const { auth } = usePage<SharedData>().props;
+    const columns = getColumns(dataScopeMode);
 
     const userPermissions = auth.permissions || [];
 
@@ -118,16 +138,28 @@ export default function Sales({ data, dataBranch }: SalesProps) {
                                 columnVisibility: {
                                     id: false,
                                     contact: false,
-                                    branch_id: false,
+                                    scope_ids: false,
                                 },
                             }}
                             renderFilter={(table) => (
-                                <ColumnFilter
-                                    table={table}
-                                    columnId="branch_id"
-                                    title="Branch"
-                                    options={dataBranch}
-                                />
+                                <>
+                                    {dataScopeMode === 'branch' && (
+                                        <ColumnFilter
+                                            table={table}
+                                            columnId="scope_ids"
+                                            title="Branch"
+                                            options={dataBranch}
+                                        />
+                                    )}
+                                    {dataScopeMode === 'country' && (
+                                        <ColumnFilter
+                                            table={table}
+                                            columnId="scope_ids"
+                                            title="Country"
+                                            options={dataCountry}
+                                        />
+                                    )}
+                                </>
                             )}
                         />
                     </div>

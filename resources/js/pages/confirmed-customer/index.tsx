@@ -200,7 +200,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     },
     {
         id: 'payment_issues',
-        header: 'Payment Issues',
+        header: 'Payment Updates',
         meta: { exportable: false },
         cell: ({ row }) => {
             const breakdown = resolvePaymentIssueBreakdown(
@@ -213,7 +213,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                         variant="secondary"
                         className="rounded-full px-3 py-1 text-base"
                     >
-                        No Issues
+                        Fully Paid
                     </Badge>
                 );
             }

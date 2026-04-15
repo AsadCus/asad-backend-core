@@ -48,20 +48,24 @@ function getColumns(scopeMode: 'country' | 'branch'): ColumnDef<UserSchema>[] {
             header: 'Email',
             meta: { exportable: true },
         },
-        ...(scopeMode === 'country'
-            ? []
-            : [
+        ...(scopeMode === 'branch'
+            ? [
                   {
                       accessorKey: 'branch_name',
                       header: 'Branch',
                       meta: { exportable: true },
                   } as ColumnDef<UserSchema>,
-              ]),
-        {
-            accessorKey: 'country_name',
-            header: 'Country',
-            meta: { exportable: true },
-        },
+              ]
+            : []),
+        ...(scopeMode === 'country'
+            ? [
+                  {
+                      accessorKey: 'country_name',
+                      header: 'Country',
+                      meta: { exportable: true },
+                  } as ColumnDef<UserSchema>,
+              ]
+            : []),
         {
             accessorKey: 'role',
             header: 'Role',

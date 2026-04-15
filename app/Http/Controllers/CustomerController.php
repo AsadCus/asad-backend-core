@@ -111,9 +111,9 @@ class CustomerController extends Controller
         }
 
         activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'Customer', 'subject_id' => $user->id ?? null])
-                ->log('Customer created successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'Customer', 'subject_id' => $user->id ?? null])
+            ->log('Customer created successfully #'.($user->id ?? null));
 
         return redirect()->intended(route('customer.index'))->with('success', 'Customer created successfully.');
     }
@@ -174,9 +174,9 @@ class CustomerController extends Controller
         }
 
         activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'Customer', 'subject_id' => $user->id ?? null])
-                ->log('Customer updated successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'Customer', 'subject_id' => $user->id ?? null])
+            ->log('Customer updated successfully #'.($user->id ?? null));
 
         return redirect()->intended(route('customer.index'))->with('success', 'Customer updated successfully.');
     }

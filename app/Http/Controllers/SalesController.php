@@ -63,12 +63,16 @@ class SalesController extends Controller
      */
     public function index()
     {
-        $data = $this->salesService->getForDataTable();
+        $data = $this->salesUserService->getForDataTable();
         $dataBranch = $this->branchService->getForFilter();
+        $dataCountry = $this->countryService->getForFilter();
+        $dataScopeMode = strtolower((string) config('data_scope.mode', 'country'));
 
         return Inertia::render('sales/index', [
             'data' => $data,
             'dataBranch' => $dataBranch,
+            'dataCountry' => $dataCountry,
+            'dataScopeMode' => $dataScopeMode,
         ]);
     }
 
