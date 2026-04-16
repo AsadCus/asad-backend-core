@@ -66,7 +66,6 @@ class ReportTemplateRenderingTest extends TestCase
         $this->assertStringContainsString('Total Amount:', $html);
         $this->assertStringNotContainsString('Pending Payment:', $html);
         $this->assertStringNotContainsString('1st Payment:', $html);
-        $this->assertStringContainsString('min-width: 78px;', $html);
     }
 
     public function test_pif_report_passenger_details_company_name_uses_branding_setting(): void

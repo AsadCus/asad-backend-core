@@ -54,27 +54,22 @@
             border-left: 3px solid {{ $branding['title_color'] ?? '#c05427' }};
             padding: 4px 8px;
             margin-bottom: 6px;
-            font-size: 11px;
         }
 
         .receipt-block-header table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
         }
 
         .receipt-block-header td {
             font-size: 11px;
-            padding: 1px 4px 1px 0;
-            width: 25%;
+            padding: 2px 0;
             vertical-align: top;
         }
 
         .receipt-block-header .lbl-rh {
             font-weight: bold;
             white-space: nowrap;
-            display: inline-block;
-            min-width: 78px;
         }
 
         /* ── Items Section ── */
@@ -379,21 +374,51 @@
                     <div class="receipt-block-header">
                         <table>
                             <tr>
-                                <td><span class="lbl-rh">Receipt No.:</span> {{ $receipt['receipt_number'] ?? '-' }}</td>
-                                <td><span class="lbl-rh">Date:</span> {{ $receipt['receipt_date'] ?? '-' }}</td>
-                                <td><span class="lbl-rh">Invoice No.:</span> {{ $receipt['invoice_number'] ?? '-' }}</td>
-                                <td><span class="lbl-rh">Method:</span> {{ $receipt['payment_method_label'] ?? '-' }}</td>
+                                <td width="55%">
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <tr>
+                                            <td class="lbl">Receipt No.</td>
+                                            <td class="sep">:</td>
+                                            <td>{{ $receipt['receipt_number'] ?? '-' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="lbl">Invoice No.</td>
+                                            <td class="sep">:</td>
+                                            <td>{{ $receipt['invoice_number'] ?? '-' }}</td>
+                                        </tr>
+                                        @if (!empty($receipt['order_number']) && $receipt['order_number'] !== '-')
+                                            <tr>
+                                                <td class="lbl">Order No.</td>
+                                                <td class="sep">:</td>
+                                                <td>{{ $receipt['order_number'] }}</td>
+                                            </tr>
+                                        @endif
+                                    </table>
+                                </td>
+                                <td width="45%">
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <tr>
+                                            <td class="lbl-r">Date</td>
+                                            <td class="sep">:</td>
+                                            <td>{{ $receipt['receipt_date'] ?? '-' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="lbl-r">Method</td>
+                                            <td class="sep">:</td>
+                                            <td>{{ $receipt['payment_method_label'] ?? '-' }}</td>
+                                        </tr>
+                                        @if (!empty($receipt['order_number']) && $receipt['order_number'] !== '-')
+                                            @if (!empty($receipt['reference']))
+                                                <tr>
+                                                    <td class="lbl-r">Reference</td>
+                                                    <td class="sep">:</td>
+                                                    <td>{{ $receipt['reference'] }}</td>
+                                                </tr>
+                                            @endif
+                                        @endif
+                                    </table>
+                                </td>
                             </tr>
-                            @if (!empty($receipt['order_number']) && $receipt['order_number'] !== '-')
-                                <tr>
-                                    <td colspan="2"><span class="lbl-rh">Order No.:</span> {{ $receipt['order_number'] }}</td>
-                                    @if (!empty($receipt['reference']))
-                                        <td colspan="2"><span class="lbl-rh">Reference:</span> {{ $receipt['reference'] }}</td>
-                                    @else
-                                        <td colspan="2"></td>
-                                    @endif
-                                </tr>
-                            @endif
                         </table>
                     </div>
 
