@@ -547,7 +547,6 @@ export default function MastersQuotationIndex({
                                 </h3>
                                 <Button
                                     type="button"
-                                    variant="outline"
                                     onClick={addPaymentMethodMaster}
                                     disabled={processingPaymentMethods}
                                 >
@@ -711,7 +710,6 @@ export default function MastersQuotationIndex({
                                 </h3>
                                 <Button
                                     type="button"
-                                    variant="outline"
                                     onClick={addExtensionMaster}
                                     disabled={processingExtensions}
                                 >

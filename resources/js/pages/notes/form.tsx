@@ -136,13 +136,12 @@ export default function NoteForm({
                     <div className="flex gap-2">
                         <Button
                             type="button"
-                            size="sm"
                             variant={enableDnd ? 'default' : 'outline'}
                             onClick={() => setEnableDnd(!enableDnd)}
                         >
                             {enableDnd ? 'Edit' : 'Preview'}
                         </Button>
-                        <Button type="button" size="sm" onClick={addNote}>
+                        <Button type="button" onClick={addNote}>
                             <Plus size={14} />
                             Add Note
                         </Button>
