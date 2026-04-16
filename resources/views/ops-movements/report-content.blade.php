@@ -244,7 +244,8 @@
     <div class="footer-section">
         @if (!empty($opsMovement['notes']))
             <div class="footer-note">{!! nl2br(e((string) $opsMovement['notes'])) !!}</div>
-        @elseif (!empty($branding['footer_text']))
+        @endif
+        @if (!empty($branding['footer_text']))
             <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
 

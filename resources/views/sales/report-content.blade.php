@@ -192,8 +192,9 @@
             @include('partials.report-notes')
 
             {{-- Module footer text from Report Template Settings --}}
-            @if (! empty($branding['footer_text']))
-                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+                @if (! empty($branding['footer_text']))
+                    <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+                @endif
 
             @include('partials.report-signature-stamp')
         </div>
