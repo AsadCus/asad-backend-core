@@ -60,16 +60,21 @@
         .receipt-block-header table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
         .receipt-block-header td {
             font-size: 11px;
             padding: 1px 4px 1px 0;
+            width: 25%;
+            vertical-align: top;
         }
 
         .receipt-block-header .lbl-rh {
             font-weight: bold;
             white-space: nowrap;
+            display: inline-block;
+            min-width: 78px;
         }
 
         /* ── Items Section ── */
@@ -434,24 +439,6 @@
                                     <td class="total-label">Total Amount:</td>
                                     <td class="total-amount">{{ ccFormatCurrency($receipt['total_amount'] ?? 0) }}</td>
                                 </tr>
-                                @if (empty($receipt['invoice_payment_progress']) || count($receipt['invoice_payment_progress']) === 0)
-                                    <tr>
-                                        <td class="total-label">Pending Payment:</td>
-                                        <td class="total-amount">
-                                            {{ ccFormatCurrency(0) }} / {{ ccFormatCurrency($receipt['total_amount'] ?? 0) }}
-                                        </td>
-                                    </tr>
-                                @else
-                                    @foreach (($receipt['invoice_payment_progress'] ?? []) as $paymentProgress)
-                                        <tr>
-                                            <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
-                                            <td class="total-amount">
-                                                {{ ccFormatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
-                                                {{ ccFormatCurrency($paymentProgress['total_amount'] ?? ($receipt['total_amount'] ?? 0)) }}
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                @endif
                             </tbody>
                         </table>
                     </div>
