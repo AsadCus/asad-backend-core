@@ -454,9 +454,6 @@
         {{-- When no notes: always show footer_text (centered) or fallback message (centered) --}}
         @if (!empty($branding['footer_text']))
             <div class="footer-note" style="text-align:{{ $activeNotes->isEmpty() ? 'center' : 'right' }}">{!! nl2br(e($branding['footer_text'])) !!}</div>
-        @elseif ($activeNotes->isEmpty())
-            <div class="footer-note" style="text-align:center">Thank you for your business!</div>
-        @endif
 
         @include('partials.report-signature-stamp')
     </div>

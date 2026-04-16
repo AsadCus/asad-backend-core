@@ -499,9 +499,6 @@
 
         @if (!empty($branding['footer_text']))
             <div class="footer-note" style="text-align:center">{!! nl2br(e($branding['footer_text'])) !!}</div>
-        @else
-            <div class="footer-note" style="text-align:center">Thank you for your business!</div>
-        @endif
 
         @include('partials.report-signature-stamp')
     </div>
