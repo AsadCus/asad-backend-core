@@ -69,17 +69,19 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original.status;
+            const normalizedStatus = String(row.original.status ?? '')
+                .trim()
+                .toLowerCase();
 
-            if (!status) {
+            if (!normalizedStatus) {
                 return <span className="text-muted-foreground">-</span>;
             }
 
             return (
                 <Badge
-                    className={`${packageStatusColors[status] ?? ''} rounded-full px-3 py-1 text-base`}
+                    className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
                 >
-                    {packageStatusLabels[status]}
+                    {packageStatusLabels[normalizedStatus] ?? normalizedStatus}
                 </Badge>
             );
         },

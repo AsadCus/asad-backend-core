@@ -20,7 +20,7 @@ class SyncPackageLifecycleStatusCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Recalculate package seats_left and lifecycle status (open/full/closed/completed).';
+    protected $description = 'Recalculate package seats_left and lifecycle status (open/full/closed/ongoing/completed).';
 
     public function __construct(private PackageSeatService $packageSeatService)
     {

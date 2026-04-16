@@ -23,6 +23,53 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_move_from_holding_marks_source_group_as_non_holding_when_all_members_are_cancelled(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $targetPackage = Package::create([
+            'package_number' => 'PKG-HOLD-MOVE-001',
+            'name' => 'Target Move Package',
+            'status' => 'open',
+            'price_single' => 6000,
+        ]);
+
+        $sourceHolding = CustomerConfirmation::create([
+            'created_by' => $user->id,
+            'is_holding' => true,
+        ]);
+
+        $memberUser = User::factory()->create();
+        $memberCustomer = Customer::create([
+            'user_id' => $memberUser->id,
+            'customer_number' => 'CUST-HOLD-MOVE-001',
+        ]);
+
+        $movedMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceHolding->id,
+            'customer_id' => $memberCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $newGroup = app(CustomerConfirmationService::class)->moveMembersToHolding(
+            $sourceHolding->id,
+            [$movedMember->id],
+            $targetPackage->id,
+        );
+
+        $sourceHolding->refresh();
+
+        $this->assertFalse((bool) $sourceHolding->is_holding);
+        $this->assertFalse((bool) $newGroup->is_holding);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $movedMember->id,
+            'status' => 'cancelled',
+        ]);
+    }
+
     public function test_move_members_route_only_removes_selected_member_from_manifest(): void
     {
         $user = User::factory()->create();

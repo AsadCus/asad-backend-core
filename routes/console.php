@@ -10,4 +10,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::job(new FinancialYearRolloverJob)->daily();
-Schedule::command('packages:sync-lifecycle-status')->daily();
+Schedule::command('packages:sync-lifecycle-status')
+    ->hourly()
+    ->withoutOverlapping();

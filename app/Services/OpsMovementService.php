@@ -302,6 +302,7 @@ class OpsMovementService
                     'id' => $official->id,
                     'type' => $official->type,
                     'name' => $official->name,
+                    'contact_number' => $official->contact_number,
                     'hotel' => $primaryHotel,
                     'hotels_by_location' => $hotelsByLocation->toArray(),
                 ];
@@ -1096,9 +1097,6 @@ class OpsMovementService
             return $officialFallback;
         }
 
-        return [
-            ['type' => 'Saudi', 'name' => null, 'contact_number' => null],
-            ['type' => 'Singapore', 'name' => null, 'contact_number' => null],
-        ];
+        return [];
     }
 }

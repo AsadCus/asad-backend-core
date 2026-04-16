@@ -22,7 +22,7 @@ class PackageSeatService
      *
      * @var string[]
      */
-    private const BLOCKED_MEMBER_INTAKE_STATUSES = ['full', 'closed', 'completed'];
+    private const BLOCKED_MEMBER_INTAKE_STATUSES = ['full', 'closed', 'ongoing', 'completed'];
 
     public function occupiedSeatsCount(int $packageId): int
     {
@@ -112,6 +112,7 @@ class PackageSeatService
         return match ($normalized) {
             'closed' => 'closed',
             'full' => 'full',
+            'ongoing' => 'ongoing',
             'completed' => 'completed',
             default => 'open',
         };
@@ -126,9 +127,16 @@ class PackageSeatService
             return 'closed';
         }
 
-        $departureDate = $this->normalizeDepartureDate($package->departure_date);
-        if ($departureDate !== null && $departureDate->lte(now()->startOfDay())) {
+        $today = now()->startOfDay();
+
+        $returnDate = $this->normalizeDate($package->return_date);
+        if ($returnDate !== null && $today->gte($returnDate)) {
             return 'completed';
+        }
+
+        $departureDate = $this->normalizeDate($package->departure_date);
+        if ($departureDate !== null && $today->gte($departureDate)) {
+            return 'ongoing';
         }
 
         if ($package->total_seats !== null && $seatsLeft !== null && $seatsLeft <= 0) {
@@ -138,7 +146,7 @@ class PackageSeatService
         return 'open';
     }
 
-    private function normalizeDepartureDate(mixed $value): ?CarbonInterface
+    private function normalizeDate(mixed $value): ?CarbonInterface
     {
         if ($value instanceof CarbonInterface) {
             return $value->copy()->startOfDay();

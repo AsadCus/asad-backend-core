@@ -1,11 +1,13 @@
 import { ActionType } from '@/components/action-column';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { index, show } from '@/routes/ops-movements';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { packageStatusColors, packageStatusLabels } from '../packages/schema';
 
 interface OpsMovementDataTableSchema {
     id: number;
@@ -44,20 +46,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const statusLabelByValue: Record<string, string> = {
-    open: 'Open',
-    full: 'Full',
-    closed: 'Closed',
-    completed: 'Completed',
-};
-
-const statusClassByValue: Record<string, string> = {
-    open: 'bg-green-100 text-green-800',
-    full: 'bg-amber-100 text-amber-800',
-    closed: 'bg-red-100 text-red-800',
-    completed: 'bg-blue-100 text-blue-800',
-};
-
 const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     {
         accessorKey: 'id',
@@ -83,14 +71,16 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
                 .trim()
                 .toLowerCase();
 
+            if (!normalizedStatus) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
             return (
-                <span
-                    className={`inline-flex rounded-full px-2 py-1 text-sm font-semibold ${statusClassByValue[normalizedStatus] ?? 'bg-gray-100 text-gray-800'}`}
+                <Badge
+                    className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
                 >
-                    {statusLabelByValue[normalizedStatus] ??
-                        normalizedStatus ??
-                        '-'}
-                </span>
+                    {packageStatusLabels[normalizedStatus] ?? normalizedStatus}
+                </Badge>
             );
         },
     },

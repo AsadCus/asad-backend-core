@@ -1,5 +1,6 @@
 import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
+import { ProperInput } from '@/components/proper-input';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -484,7 +485,7 @@ export function GlobalBrandingSection({
                                 </Select>
                             </FormField>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 items-start gap-4">
                                 <FormField
                                     label="Width (px)"
                                     htmlFor="qr_width"
@@ -504,17 +505,19 @@ export function GlobalBrandingSection({
                                         max={500}
                                     />
                                 </FormField>
-                                <div className="flex flex-col justify-end gap-1">
-                                    <p className="text-sm font-medium">
-                                        Height
-                                    </p>
-                                    <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                                        Auto{' '}
-                                        <span className="text-xs">
-                                            (follows width proportionally)
-                                        </span>
-                                    </p>
-                                </div>
+                                <FormField
+                                    label="Height (px)"
+                                    htmlFor="qr_height"
+                                    error={errors.qr_height}
+                                >
+                                    <ProperInput
+                                        id="qr_height"
+                                        type="text"
+                                        value="Auto"
+                                        onCommit={() => {}}
+                                        disabled
+                                    />
+                                </FormField>
                             </div>
                         </div>
                     </div>

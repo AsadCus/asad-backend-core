@@ -203,17 +203,43 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         header: 'Payment Updates',
         meta: { exportable: false },
         cell: ({ row }) => {
-            const breakdown = resolvePaymentIssueBreakdown(
-                row.original.members ?? [],
-            );
+            const members = row.original.members ?? [];
+            const isHoldingPage =
+                typeof window !== 'undefined' &&
+                window.location.pathname.includes('/customer-holding');
+            const isHoldingGroup =
+                isHoldingPage ||
+                Boolean((row.original as { is_holding?: boolean }).is_holding);
+            const breakdown = resolvePaymentIssueBreakdown(members);
+            const hasOnlyCancelledMembers =
+                members.length > 0 &&
+                members.every(
+                    (member) =>
+                        String(member.status ?? '')
+                            .trim()
+                            .toLowerCase() === 'cancelled',
+                );
 
-            if (breakdown.total === 0) {
+            if (isHoldingGroup) {
                 return (
                     <Badge
                         variant="secondary"
                         className="rounded-full px-3 py-1 text-base"
                     >
-                        Fully Paid
+                        Holding
+                    </Badge>
+                );
+            }
+
+            if (breakdown.total === 0) {
+                return (
+                    <Badge
+                        variant="secondary"
+                        className={`rounded-full px-3 py-1 text-base ${hasOnlyCancelledMembers ? 'bg-red-100 text-red-800' : ''}`}
+                    >
+                        {hasOnlyCancelledMembers
+                            ? 'Trip Cancelled'
+                            : 'Fully Paid'}
                     </Badge>
                 );
             }
@@ -1609,7 +1635,9 @@ export default function ConfirmedCustomerIndex({
                     }
 
                     if (member.status !== 'cancelled') {
-                        rowActions.push('move-members');
+                        rowActions.push(
+                            isHoldingIndex ? 'move' : 'move-members',
+                        );
                     }
 
                     if (
@@ -1667,7 +1695,7 @@ export default function ConfirmedCustomerIndex({
                         return;
                     }
 
-                    if (action === 'move-members') {
+                    if (action === 'move-members' || action === 'move') {
                         openMoveDialog(row.original, [member.id]);
                         return;
                     }
@@ -1772,7 +1800,9 @@ export default function ConfirmedCustomerIndex({
                                 if (hasActiveMembers) {
                                     rowActions.push(
                                         'copy-customer-confirmation-public-edit-link',
-                                        'move-members',
+                                        isHoldingIndex
+                                            ? 'move'
+                                            : 'move-members',
                                     );
 
                                     if (!autoBillingSyncEnabled) {
@@ -1847,7 +1877,8 @@ export default function ConfirmedCustomerIndex({
                                             );
                                         }
                                     } else if (
-                                        action === 'move-members' &&
+                                        (action === 'move-members' ||
+                                            action === 'move') &&
                                         row
                                     ) {
                                         openMoveDialog(row.original);

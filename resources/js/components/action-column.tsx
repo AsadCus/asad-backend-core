@@ -34,6 +34,7 @@ export type ActionType =
     | 'enquiry-status-confirmed'
     | 'add-remark'
     | 'copy-customer-confirmation-public-edit-link'
+    | 'move'
     | 'move-members'
     | 'sync-billing'
     | 'cancel-member'

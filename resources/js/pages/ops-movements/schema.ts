@@ -28,6 +28,7 @@ export const opsOfficialSchema = z.object({
     type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
     hotel: z.string().nullable().optional(),
+    contact_number: z.string().nullable().optional(),
     hotels_by_location: z
         .array(
             z.object({

@@ -99,14 +99,12 @@
 
             return $sectionSubtotal + $sectionExtensionTotal;
         });
-        
-        $mutawwifTypes = ['mutawwif', 'mutawif', 'mutawwifah', 'mutawifah'];
         $mutawwifNames = collect($opsMovement['officials'] ?? [])
-            ->filter(function ($official) use ($mutawwifTypes) {
+            ->filter(function ($official) {
                 $rawType = strtolower(trim((string) ($official['type'] ?? '')));
-                $normalized = str_replace([' ', '-', '_'], '', $rawType);
+                $normalized = preg_replace('/[^a-z]/', '', $rawType) ?? '';
 
-                return in_array($normalized, $mutawwifTypes, true);
+                return str_starts_with($normalized, 'mutawif') || str_starts_with($normalized, 'mutawwif');
             })
             ->map(fn($official) => trim((string) ($official['name'] ?? '')))
             ->filter(fn($name) => $name !== '')
@@ -134,13 +132,19 @@
                         <td>{{ $opsMovement['departure_return_range'] ?? '-' }}</td>
                     </tr>
                     <tr>
-                        <th>No. of Jemaah</th>
-                        <td>{{ $adultTotal > 0 ? $adultTotal . ' adults' : $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
+                        <td colspan="2" style="font-size: 7.5px; font-weight: 400; color: #777; font-style: italic;">
+                            Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
+                        </td>
                     </tr>
+                    
                 </table>
             </td>
             <td style="width: 50%; vertical-align: top;">
                 <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                    <tr>
+                        <th>No. of Jemaah</th>
+                        <td>{{ $adultTotal > 0 ? $adultTotal : $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
+                    </tr>
                     <tr>
                         <th style="width: 38%;">No. of Officials</th>
                         <td>{{ $officialTotal ?: $opsMovement['passengers']['official_total'] ?? '-' }}</td>
@@ -149,14 +153,13 @@
                         <th>Mutawwif/Mutawwifah</th>
                         <td>{{ count($mutawwifNames) > 0 ? implode(', ', $mutawwifNames) : '-' }}</td>
                     </tr>
+                    {{-- <tr>
+                        <th>No. of Mutawwif/Mutawwifah</th>
+                        <td>{{ count($mutawwifNames) > 0 ? count($mutawwifNames) : '-' }}</td>
+                    </tr> --}}
                     <tr>
                         <th>Total Pax</th>
                         <td>{{ $grandPaxTotal ?: '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="font-size: 7.5px; font-weight: 400; color: #777; font-style: italic;">
-                            Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
-                        </td>
                     </tr>
                 </table>
             </td>
@@ -224,12 +227,12 @@
                         : $extensionValue;
                     $extensionName = trim((string) ($extension['name'] ?? 'Extension'));
                     $extensionLabel = $extensionMode === 'percentage'
-                        ? sprintf('%s (%s%%)', $extensionName, number_format($extensionValue, 2))
+                        ? sprintf('%s %s%%', $extensionName, number_format($extensionValue, 2))
                         : $extensionName;
                 @endphp
                 <tr>
-                    <td colspan="3" class="text-right" style="font-style: italic;">{{ $extensionLabel }}</td>
-                    <td class="text-right" style="font-style: italic;">{{ $budgetCurrency }} {{ number_format($extensionAmount, 2) }}</td>
+                    <td colspan="3" class="text-right">{{ $extensionLabel }}</td>
+                    <td class="text-right">{{ $budgetCurrency }} {{ number_format($extensionAmount, 2) }}</td>
                     <td></td>
                 </tr>
             @endforeach

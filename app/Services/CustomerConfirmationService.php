@@ -690,17 +690,7 @@ class CustomerConfirmationService
 
         $isPackageCompleted = strtolower(trim((string) ($group['package_status'] ?? ''))) === 'completed';
 
-        if (! $isPackageCompleted) {
-            return false;
-        }
-
-        return $activeMembers->every(function ($member): bool {
-            if (! is_array($member)) {
-                return false;
-            }
-
-            return $this->normalizePaymentStatus((string) ($member['status'] ?? null)) === 'fully_paid';
-        });
+        return $isPackageCompleted;
     }
 
     /**
@@ -2496,6 +2486,18 @@ class CustomerConfirmationService
             CustomerConfirmationMember::query()
                 ->whereIn('id', $selectedMemberIds)
                 ->update(['status' => 'cancelled']);
+
+            $sourceGroup->load('members');
+
+            $hasActiveSourceMembers = $sourceGroup->members->contains(function (CustomerConfirmationMember $member): bool {
+                return $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled';
+            });
+
+            if ((bool) $sourceGroup->is_holding && ! $hasActiveSourceMembers) {
+                $sourceGroup->update([
+                    'is_holding' => false,
+                ]);
+            }
 
             $manifestMemberIdsToDelete = ManifestMember::query()
                 ->whereIn('customer_confirmation_member_id', $selectedMemberIds)

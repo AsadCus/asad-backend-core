@@ -47,13 +47,33 @@ class PackageLifecycleStatusTest extends TestCase
         $this->assertSame(0, (int) $package->seats_left);
     }
 
-    public function test_recalculate_promotes_full_package_to_completed_after_departure_date(): void
+    public function test_recalculate_promotes_full_package_to_ongoing_after_departure_date_before_return_date(): void
     {
         $package = Package::create([
             'package_number' => 'PKG-LIFE-002',
-            'name' => 'Lifecycle Completed Package',
+            'name' => 'Lifecycle Ongoing Package',
             'status' => 'full',
             'departure_date' => now()->subDay()->format('Y-m-d'),
+            'return_date' => now()->addDay()->format('Y-m-d'),
+            'total_seats' => 1,
+            'seats_left' => 0,
+        ]);
+
+        app(PackageSeatService::class)->recalculateForPackageId((int) $package->id);
+
+        $package->refresh();
+
+        $this->assertSame('ongoing', (string) $package->status);
+    }
+
+    public function test_recalculate_promotes_ongoing_package_to_completed_on_or_after_return_date(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-LIFE-005',
+            'name' => 'Lifecycle Return Completed Package',
+            'status' => 'ongoing',
+            'departure_date' => now()->subDays(10)->format('Y-m-d'),
+            'return_date' => now()->subDay()->format('Y-m-d'),
             'total_seats' => 1,
             'seats_left' => 0,
         ]);

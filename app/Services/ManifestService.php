@@ -2908,6 +2908,7 @@ class ManifestService
         return match ($normalized) {
             'closed' => 'closed',
             'full' => 'full',
+            'ongoing' => 'ongoing',
             'completed' => 'completed',
             default => 'open',
         };

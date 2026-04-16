@@ -4,7 +4,13 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -16,7 +22,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     type OpsAccommodationSchema,
     type OpsBudgetExtensionSchema,
@@ -407,7 +413,9 @@ function normalizeBudgetTemplateForForm(
             incomingItems.length > 0
                 ? incomingItems.map((item, itemIndex) => {
                       const fallbackItem = defaultSection.items?.[itemIndex];
-                      const normalizedName = String(item.item_name ?? '').trim();
+                      const normalizedName = String(
+                          item.item_name ?? '',
+                      ).trim();
 
                       return {
                           ...item,
@@ -448,19 +456,47 @@ function createEmptyTourLeader(): OpsTourLeaderSchema {
     };
 }
 
-function createDefaultTourLeaders(): OpsTourLeaderSchema[] {
-    return [
-        {
-            type: 'Saudi',
-            name: '',
-            contact_number: '',
-        },
-        {
-            type: 'Singapore',
-            name: '',
-            contact_number: '',
-        },
-    ];
+function normalizeTourLeaderText(value: unknown): string {
+    return String(value ?? '').trim();
+}
+
+function deriveTourLeadersFromPackageOfficials(
+    officials: OpsOfficialSchema[] | undefined,
+): OpsTourLeaderSchema[] {
+    return (officials ?? [])
+        .map((official) => {
+            const name = normalizeTourLeaderText(official.name);
+            const contactNumber = normalizeTourLeaderText(
+                official.contact_number,
+            );
+
+            return {
+                type: '',
+                name,
+                contact_number: contactNumber,
+            };
+        })
+        .filter((tourLeader) => {
+            return (
+                normalizeTourLeaderText(tourLeader.name).length > 0 ||
+                normalizeTourLeaderText(tourLeader.contact_number).length > 0
+            );
+        });
+}
+
+function buildPackageOfficialsSyncSignature(
+    officials: OpsOfficialSchema[] | undefined,
+): string {
+    return JSON.stringify(
+        (officials ?? []).map((official) => ({
+            id: official.id ?? null,
+            name: normalizeTourLeaderText(official.name),
+            contact_number: normalizeTourLeaderText(official.contact_number),
+            locations: (official.hotels_by_location ?? [])
+                .map((hotelRow) => normalizeTourLeaderText(hotelRow.location))
+                .filter((location) => location.length > 0),
+        })),
+    );
 }
 
 function toDecimal(value: unknown): number {
@@ -491,19 +527,21 @@ function calculateBudgetExtensionAmount(
     return normalizedValue;
 }
 
-function formatBudgetExtensionLabel(extension: OpsBudgetExtensionSchema): string {
+function formatBudgetExtensionLabel(
+    extension: OpsBudgetExtensionSchema,
+): string {
     const name = String(extension.name ?? '').trim() || 'Extension';
     const mode = normalizeBudgetExtensionMode(extension.calculation_mode);
     const rawValue = toDecimal(extension.calculation_value);
 
     if (mode === 'percentage') {
-        return `${name} (${rawValue}%)`;
+        return `${name} ${rawValue}%`;
     }
 
     return name;
 }
 
-function formatSar(value: number): string {
+function formatWithInputtedBudgetCurrency(value: number): string {
     return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -538,19 +576,18 @@ export default function OpsMovementForm({
                     ? initialData.documents.booklet
                     : [createEmptyDocumentEntry()],
         },
-        budget:
-            normalizeBudgetTemplateForForm(initialData.budget),
+        budget: normalizeBudgetTemplateForForm(initialData.budget),
         budget_currency:
             typeof initialData.budget_currency === 'string' &&
             initialData.budget_currency.trim().length > 0
                 ? initialData.budget_currency.trim()
-                : 'SAR',
+                : 'SGD',
         pif: {
             tour_leaders:
                 Array.isArray(initialData.pif?.tour_leaders) &&
                 initialData.pif.tour_leaders.length > 0
                     ? initialData.pif.tour_leaders
-                    : createDefaultTourLeaders(),
+                    : [],
         },
     });
     const { data, setData, processing, post, transform } = form;
@@ -579,6 +616,38 @@ export default function OpsMovementForm({
             value,
         );
     };
+
+    const packageOfficialsSyncSignatureRef = useRef<string>('');
+
+    useEffect(() => {
+        const packageOfficials = Array.isArray(initialData.officials)
+            ? initialData.officials
+            : [];
+        const nextSignature =
+            buildPackageOfficialsSyncSignature(packageOfficials);
+
+        if (nextSignature === packageOfficialsSyncSignatureRef.current) {
+            return;
+        }
+
+        packageOfficialsSyncSignatureRef.current = nextSignature;
+
+        const nextTourLeaders =
+            deriveTourLeadersFromPackageOfficials(packageOfficials);
+
+        (
+            setData as unknown as (
+                callback: (currentData: OpsMovementSchema) => OpsMovementSchema,
+            ) => void
+        )((currentData) => ({
+            ...currentData,
+            officials: packageOfficials,
+            pif: {
+                ...(currentData.pif ?? {}),
+                tour_leaders: nextTourLeaders,
+            },
+        }));
+    }, [initialData.officials, setData]);
 
     const editablePayload = useMemo(() => {
         return {
@@ -651,7 +720,7 @@ export default function OpsMovementForm({
                     }),
                 ),
             })),
-            budget_currency: data.budget_currency ?? 'SAR',
+            budget_currency: data.budget_currency,
             rawdah_tasreehs: (data.rawdah_tasreehs ?? []).map((row) => ({
                 id: row.id,
                 remarks: row.remarks ?? null,
@@ -1014,7 +1083,10 @@ export default function OpsMovementForm({
         setFormData('budget', current);
     };
 
-    const removeBudgetExtension = (titleIndex: number, extensionIndex: number) => {
+    const removeBudgetExtension = (
+        titleIndex: number,
+        extensionIndex: number,
+    ) => {
         const current = [...(data.budget ?? [])];
         const title = current[titleIndex];
 
@@ -1078,7 +1150,10 @@ export default function OpsMovementForm({
         };
 
         if (budgetExtensionEditor.extensionIndex === null) {
-            addBudgetExtension(budgetExtensionEditor.titleIndex, normalizedDraft);
+            addBudgetExtension(
+                budgetExtensionEditor.titleIndex,
+                normalizedDraft,
+            );
         } else {
             updateBudgetExtension(
                 budgetExtensionEditor.titleIndex,
@@ -1136,7 +1211,7 @@ export default function OpsMovementForm({
         setFormData('pif', {
             ...(data.pif ?? {}),
             tour_leaders: [
-                ...(data.pif?.tour_leaders ?? createDefaultTourLeaders()),
+                ...(data.pif?.tour_leaders ?? []),
                 createEmptyTourLeader(),
             ],
         });
@@ -1153,8 +1228,7 @@ export default function OpsMovementForm({
 
         setFormData('pif', {
             ...(data.pif ?? {}),
-            tour_leaders:
-                nextRows.length > 0 ? nextRows : createDefaultTourLeaders(),
+            tour_leaders: nextRows.length > 0 ? nextRows : [],
         });
     };
 
@@ -1276,10 +1350,10 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Ops Movement Info
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Core operational details derived from package
                                 and manifest, with editable ops references.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField
@@ -1368,22 +1442,22 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Pax / Passengers
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Passenger totals split by adult, child,
                                 official, and wheelchair counts.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField label="Adult">
                                 <ProperInput
-                                    value={`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} male / ${data.passengers?.adult_female ?? 0} female)`}
+                                    value={`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} Male / ${data.passengers?.adult_female ?? 0} Female)`}
                                     disabled={true}
                                     onCommit={() => undefined}
                                 />
                             </FormField>
                             <FormField label="Child">
                                 <ProperInput
-                                    value={`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} boy / ${data.passengers?.child_girl ?? 0} girl)`}
+                                    value={`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} Boy / ${data.passengers?.child_girl ?? 0} Girl)`}
                                     disabled={true}
                                     onCommit={() => undefined}
                                 />
@@ -1423,10 +1497,10 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Hotels</CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Accommodation list from package with editable IC
                                 notes per hotel location.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.accommodations ?? []).map(
@@ -1490,11 +1564,11 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Officials</CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Official names come from package; hotel field is
                                 a remark for whether they stay in a dedicated
                                 hotel or with jemaah.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.officials ?? []).map((official, index) => (
@@ -1547,11 +1621,11 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Flight Info
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Flight details are package-sourced, with
                                 editable operational info for location, Doa, and
                                 IC.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3">
@@ -1682,10 +1756,10 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Bus / Vehicle
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Ground transport details for the movement,
                                 including driver assignment info.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField
@@ -1741,10 +1815,10 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Train</CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Train movement narrative and package train
                                 ticket references.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <FormField
@@ -1790,9 +1864,9 @@ export default function OpsMovementForm({
                     <Card>
                         <CardHeader className="gap-0">
                             <CardTitle className="text-xl">Visa</CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Visa processing checklist for this movement.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <FormField
@@ -2042,17 +2116,17 @@ export default function OpsMovementForm({
                             label="Budget Currency"
                             fieldRequirementsProps={{
                                 hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
-                                example: 'SAR',
+                                example: 'SGD',
                             }}
                         >
                             <ProperInput
-                                value={data.budget_currency ?? 'SAR'}
+                                value={data.budget_currency ?? ''}
                                 disabled={processing}
-                                placeholder="e.g. SAR"
+                                placeholder="e.g. SGD"
                                 onCommit={(value) =>
                                     setFormData(
                                         'budget_currency',
-                                        value.trim().toUpperCase() || 'SAR',
+                                        value.trim().toUpperCase(),
                                     )
                                 }
                             />
@@ -2132,7 +2206,7 @@ export default function OpsMovementForm({
                                             return (
                                                 <div
                                                     key={`budget-item-${titleIndex}-${itemIndex}`}
-                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
+                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
                                                 >
                                                     <FormField label="Item Name">
                                                         <ProperInput
@@ -2233,7 +2307,6 @@ export default function OpsMovementForm({
                                                         />
                                                     </FormField>
                                                     <FormField label="Amount">
-                                                        {/* <FormField label="Total (Saudi Riyal)"> */}
                                                         <CopyableText
                                                             value={lineTotal}
                                                         />
@@ -2319,6 +2392,16 @@ export default function OpsMovementForm({
                                         </Button>
                                         <table className="w-full max-w-sm table-fixed text-base">
                                             <tbody className="[&>tr>td]:py-1.5">
+                                                <tr>
+                                                    <td className="w-3/4 text-right text-lg font-medium">
+                                                        {`Sub Total (${data.budget_currency}):`}
+                                                    </td>
+                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                        {formatWithInputtedBudgetCurrency(
+                                                            sectionRow.subtotal,
+                                                        )}
+                                                    </td>
+                                                </tr>
                                                 {(section.extensions ?? []).map(
                                                     (
                                                         extension,
@@ -2335,7 +2418,7 @@ export default function OpsMovementForm({
                                                                 key={`budget-extension-${titleIndex}-${extensionIndex}`}
                                                             >
                                                                 <td className="w-3/4 text-right">
-                                                                    <div className="inline-flex items-center gap-1">
+                                                                    <div className="inline-flex items-center gap-2">
                                                                         <button
                                                                             type="button"
                                                                             className="cursor-pointer font-medium underline"
@@ -2354,10 +2437,9 @@ export default function OpsMovementForm({
                                                                                 extension,
                                                                             )}
                                                                         </button>
-                                                                        <Button
+                                                                        <button
                                                                             type="button"
-                                                                            variant="ghost"
-                                                                            size="sm"
+                                                                            className="cursor-pointer font-medium text-destructive"
                                                                             disabled={
                                                                                 processing ||
                                                                                 !canEdit
@@ -2368,14 +2450,13 @@ export default function OpsMovementForm({
                                                                                     extensionIndex,
                                                                                 )
                                                                             }
-                                                                            className="h-auto p-0 text-destructive"
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
-                                                                        </Button>
+                                                                        </button>
                                                                     </div>
                                                                 </td>
                                                                 <td className="w-1/4 text-right font-medium">
-                                                                    {formatSar(
+                                                                    {formatWithInputtedBudgetCurrency(
                                                                         amount,
                                                                     )}
                                                                 </td>
@@ -2383,14 +2464,6 @@ export default function OpsMovementForm({
                                                         );
                                                     },
                                                 )}
-                                                <tr>
-                                                    <td className="w-3/4 text-right text-lg font-semibold">
-                                                        {`Total (${data.budget_currency ?? 'SAR'}):`}
-                                                    </td>
-                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
-                                                        {formatSar(sectionRow.total)}
-                                                    </td>
-                                                </tr>
                                                 <tr>
                                                     <td className="text-right">
                                                         <button
@@ -2410,6 +2483,16 @@ export default function OpsMovementForm({
                                                         </button>
                                                     </td>
                                                     <td className="text-right"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-3/4 text-right text-lg font-semibold">
+                                                        {`Total (${data.budget_currency}):`}
+                                                    </td>
+                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                        {formatWithInputtedBudgetCurrency(
+                                                            sectionRow.total,
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -2457,7 +2540,7 @@ export default function OpsMovementForm({
                                                 },
                                             });
                                         }}
-                                        placeholder="Markup"
+                                        placeholder="Enter Extension Name"
                                     />
                                 </FormField>
 
@@ -2549,9 +2632,11 @@ export default function OpsMovementForm({
                         <CardContent>
                             <div className="flex items-center justify-end">
                                 <p className="text-lg font-semibold">
-                                    {`Grand Total (${data.budget_currency ?? 'SAR'}):`}{' '}
+                                    {`Grand Total (${data.budget_currency}):`}{' '}
                                     <span className="text-primary">
-                                        {formatSar(budgetTotals.grandTotal)}
+                                        {formatWithInputtedBudgetCurrency(
+                                            budgetTotals.grandTotal,
+                                        )}
                                     </span>
                                 </p>
                             </div>
@@ -2567,10 +2652,10 @@ export default function OpsMovementForm({
                                     <CardTitle className="text-xl">
                                         Passenger Details & Tour Leader
                                     </CardTitle>
-                                    <p className="text-sm text-muted-foreground">
+                                    <CardDescription>
                                         Passenger breakdown and assigned tour
                                         leader details for the linked manifest.
-                                    </p>
+                                    </CardDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -2642,10 +2727,10 @@ export default function OpsMovementForm({
                                         className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
                                     >
                                         <FormField
-                                            label="Office Type"
+                                            label="Official Location"
                                             fieldRequirementsProps={{
-                                                hint: 'Type of official, e.g. Saudi or Singapore.',
-                                                example: 'Saudi / Singapore',
+                                                hint: 'Official location label synced from package official locations.',
+                                                example: 'Makkah / Madinah',
                                             }}
                                             error={getError(
                                                 `pif.tour_leaders.${index}.type`,
@@ -2663,7 +2748,7 @@ export default function OpsMovementForm({
                                                         value,
                                                     )
                                                 }
-                                                placeholder="Saudi / Singapore"
+                                                placeholder="Makkah / Madinah"
                                             />
                                         </FormField>
                                         <FormField
@@ -2746,11 +2831,11 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Flight Schedule
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Departure and return flights for this movement,
                                 pulled from the package flight details. Add
                                 remarks for each flight as needed.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.flights ?? []).map((flight, index) => (
@@ -2850,12 +2935,12 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Accommodation
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Hotel stays per city for this movement. Room
                                 counts and member category counts are derived
                                 from manifest room allocations. Add remarks per
                                 accommodation as needed.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.accommodations ?? []).map(
@@ -3034,12 +3119,12 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Rawdah Tasreeh
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Rawdah visit permit details for women and men
                                 passengers. Dates and pax counts are sourced
                                 from the package. Add remarks for any scheduling
                                 notes.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.rawdah_tasreehs ?? []).map((row, index) => (
@@ -3162,12 +3247,12 @@ export default function OpsMovementForm({
                             <CardTitle className="text-xl">
                                 Transportation Plan
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Ground transport itinerary for the movement,
                                 covering airport transfers, city tours, and
                                 inter-city travel. Add remarks for special
                                 instructions per leg.
-                            </p>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(data.transportation_plans ?? []).map(

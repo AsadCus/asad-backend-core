@@ -23,6 +23,6 @@ class PackageRuleTest extends TestCase
         $rule = new PackageRule;
         $rules = $rule->rules();
 
-        $this->assertContains('in:open,full,closed,completed', $rules['status']);
+        $this->assertContains('in:open,full,closed,ongoing,completed', $rules['status']);
     }
 }

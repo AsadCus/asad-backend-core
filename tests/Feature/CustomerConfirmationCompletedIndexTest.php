@@ -35,6 +35,7 @@ class CustomerConfirmationCompletedIndexTest extends TestCase
             'status' => 'completed',
             'price_single' => 5000,
             'departure_date' => now()->subDay()->toDateString(),
+            'return_date' => now()->subDay()->toDateString(),
         ]);
 
         $openPackage = Package::create([
@@ -159,13 +160,13 @@ class CustomerConfirmationCompletedIndexTest extends TestCase
         $this->assertContains($completedByCancellation->id, $completedIds);
         $this->assertNotContains($holdingActive->id, $completedIds);
         $this->assertNotContains($confirmedActive->id, $completedIds);
-        $this->assertNotContains($completedPackageButPartial->id, $completedIds);
+        $this->assertContains($completedPackageButPartial->id, $completedIds);
 
         $this->assertNotContains($completedByPayment->id, $confirmedIds);
         $this->assertNotContains($completedByCancellation->id, $confirmedIds);
         $this->assertNotContains($holdingActive->id, $confirmedIds);
         $this->assertContains($confirmedActive->id, $confirmedIds);
-        $this->assertContains($completedPackageButPartial->id, $confirmedIds);
+        $this->assertNotContains($completedPackageButPartial->id, $confirmedIds);
 
         $this->assertNotContains($completedByPayment->id, $holdingIds);
         $this->assertNotContains($completedByCancellation->id, $holdingIds);

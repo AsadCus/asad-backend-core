@@ -9,11 +9,8 @@ import { destroy, edit, index, show } from '@/routes/manifests';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import {
-    ManifestSchema,
-    manifestStatusColors,
-    manifestStatusLabels,
-} from './schema';
+import { packageStatusColors, packageStatusLabels } from '../packages/schema';
+import { ManifestSchema } from './schema';
 
 interface ManifestsProps {
     data: {
@@ -82,17 +79,19 @@ const columns: ColumnDef<ManifestSchema>[] = [
         header: 'Status',
         meta: { exportable: true },
         cell: ({ row }) => {
-            const status = row.original.status;
+            const normalizedStatus = String(row.original.status ?? '')
+                .trim()
+                .toLowerCase();
 
-            if (!status) {
+            if (!normalizedStatus) {
                 return <span className="text-muted-foreground">-</span>;
             }
 
             return (
                 <Badge
-                    className={`${manifestStatusColors[status] ?? ''} rounded-full px-3 py-1 text-base`}
+                    className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
                 >
-                    {manifestStatusLabels[status]}
+                    {packageStatusLabels[normalizedStatus] ?? normalizedStatus}
                 </Badge>
             );
         },
