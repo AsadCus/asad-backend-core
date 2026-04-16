@@ -32,7 +32,9 @@ class FinancialYearController extends Controller
 
     public function create()
     {
-        return Inertia::render('masters/financial-year/create');
+        return Inertia::render('masters/financial-year/create', [
+            'useFinancialTransactionsForFytdTotalSales' => (bool) config('dashboard.use_financial_transactions_for_fytd_total_sales', false),
+        ]);
     }
 
     public function store(Request $request)
@@ -50,6 +52,7 @@ class FinancialYearController extends Controller
 
         return Inertia::render('masters/financial-year/view', [
             'data' => $data,
+            'useFinancialTransactionsForFytdTotalSales' => (bool) config('dashboard.use_financial_transactions_for_fytd_total_sales', false),
         ]);
     }
 
@@ -59,6 +62,7 @@ class FinancialYearController extends Controller
 
         return Inertia::render('masters/financial-year/edit', [
             'data' => $data,
+            'useFinancialTransactionsForFytdTotalSales' => (bool) config('dashboard.use_financial_transactions_for_fytd_total_sales', false),
         ]);
     }
 

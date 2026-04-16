@@ -17,7 +17,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateFinancialYear() {
+interface CreateFinancialYearProps {
+    useFinancialTransactionsForFytdTotalSales?: boolean;
+}
+
+export default function CreateFinancialYear({
+    useFinancialTransactionsForFytdTotalSales,
+}: CreateFinancialYearProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -32,7 +38,13 @@ export default function CreateFinancialYear() {
                     </h2>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
-                    <FinancialYearForm mode="create" onCancel={handleCancel} />
+                    <FinancialYearForm
+                        mode="create"
+                        useFinancialTransactionsForFytdTotalSales={
+                            useFinancialTransactionsForFytdTotalSales
+                        }
+                        onCancel={handleCancel}
+                    />
                 </div>
             </div>
         </AppLayout>

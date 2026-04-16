@@ -20,9 +20,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface EditFinancialYearProps {
     data: FinancialYearFormSchema;
+    useFinancialTransactionsForFytdTotalSales?: boolean;
 }
 
-export default function EditFinancialYear({ data }: EditFinancialYearProps) {
+export default function EditFinancialYear({
+    data,
+    useFinancialTransactionsForFytdTotalSales,
+}: EditFinancialYearProps) {
     const handleCancel = useCallback(() => {
         window.history.back();
     }, []);
@@ -40,6 +44,9 @@ export default function EditFinancialYear({ data }: EditFinancialYearProps) {
                     <FinancialYearForm
                         mode="edit"
                         initialData={data}
+                        useFinancialTransactionsForFytdTotalSales={
+                            useFinancialTransactionsForFytdTotalSales
+                        }
                         onCancel={handleCancel}
                     />
                 </div>

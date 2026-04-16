@@ -1,46 +1,21 @@
+import { DatePickerField } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useForm } from '@inertiajs/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { financialYearFormSchema, FinancialYearFormSchema } from './schema';
 
 interface FinancialYearFormProps {
     mode: 'create' | 'edit' | 'view';
     initialData?: FinancialYearFormSchema;
+    useFinancialTransactionsForFytdTotalSales?: boolean;
     onCancel?: () => void;
 }
-
-const dayOptions = Array.from({ length: 31 }, (_, index) => ({
-    value: String(index + 1),
-    label: String(index + 1),
-}));
-
-const monthOptions = [
-    { value: '1', label: 'January' },
-    { value: '2', label: 'February' },
-    { value: '3', label: 'March' },
-    { value: '4', label: 'April' },
-    { value: '5', label: 'May' },
-    { value: '6', label: 'June' },
-    { value: '7', label: 'July' },
-    { value: '8', label: 'August' },
-    { value: '9', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' },
-];
 
 export function FinancialYearForm({
     mode,
     initialData,
+    useFinancialTransactionsForFytdTotalSales = false,
     onCancel,
 }: FinancialYearFormProps) {
     const isView = mode === 'view';
@@ -49,11 +24,8 @@ export function FinancialYearForm({
 
     const initialFormState: FinancialYearFormSchema = {
         id: 0,
-        year: String(new Date().getFullYear()),
-        start_day: '1',
-        start_month: '1',
-        end_day: '31',
-        end_month: '12',
+        start_date: '',
+        end_date: '',
         default: true,
     };
 
@@ -74,65 +46,37 @@ export function FinancialYearForm({
         clearErrors,
     } = useForm<FinancialYearFormSchema>(defaultData);
 
-    const baseYear = useMemo(() => {
-        const rawInitialYear = Number(initialData?.year ?? 0);
-
-        if (Number.isFinite(rawInitialYear) && rawInitialYear > 0) {
-            return rawInitialYear;
-        }
-
-        if (initialData?.start_date) {
-            const startDate = new Date(initialData.start_date);
-
-            if (!Number.isNaN(startDate.getTime())) {
-                return startDate.getFullYear();
-            }
-        }
-
-        return new Date().getFullYear();
-    }, [initialData?.start_date, initialData?.year]);
-
     useEffect(() => {
-        const startMonth = Number(data.start_month);
-        const startDay = Number(data.start_day);
-        const endMonth = Number(data.end_month);
-        const endDay = Number(data.end_day);
+        const startDate = data.start_date ? new Date(data.start_date) : null;
+        const endDate = data.end_date ? new Date(data.end_date) : null;
 
         if (
-            !Number.isFinite(startMonth) ||
-            !Number.isFinite(startDay) ||
-            !Number.isFinite(endMonth) ||
-            !Number.isFinite(endDay)
+            !startDate ||
+            !endDate ||
+            Number.isNaN(startDate.getTime()) ||
+            Number.isNaN(endDate.getTime())
         ) {
             setData('year', '');
 
             return;
         }
 
-        const resolvedEndYear =
-            endMonth < startMonth ||
-            (endMonth === startMonth && endDay < startDay)
-                ? baseYear + 1
-                : baseYear;
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
 
-        const monthsInStartYear = 12 - startMonth + 1;
-        const monthsInEndYear = endMonth;
+        if (startYear === endYear) {
+            setData('year', String(startYear));
+
+            return;
+        }
+
+        const monthsInStartYear = 12 - startDate.getMonth();
+        const monthsInEndYear = endDate.getMonth() + 1;
         const dominantYear =
-            baseYear === resolvedEndYear
-                ? baseYear
-                : monthsInStartYear >= monthsInEndYear
-                  ? baseYear
-                  : resolvedEndYear;
+            monthsInStartYear >= monthsInEndYear ? startYear : endYear;
 
         setData('year', String(dominantYear));
-    }, [
-        baseYear,
-        data.end_day,
-        data.end_month,
-        data.start_day,
-        data.start_month,
-        setData,
-    ]);
+    }, [data.end_date, data.start_date, setData]);
 
     function validateClientSide() {
         const result = financialYearFormSchema.safeParse(data);
@@ -194,138 +138,81 @@ export function FinancialYearForm({
             <form onSubmit={submit} className="space-y-4">
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                     <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="start_day">
-                            Start Day <span className="text-red-500">*</span>
+                        <Label htmlFor="start_date">
+                            Start Date <span className="text-red-500">*</span>
                         </Label>
                         <div className="relative">
-                            <Select
-                                value={data.start_day}
+                            <DatePickerField
+                                id="start_date"
+                                value={data.start_date ?? ''}
+                                fromYear={new Date().getFullYear()}
+                                toYear={new Date().getFullYear()}
+                                displayFormat="day-month"
+                                valueFormat="iso"
                                 disabled={isView}
-                                onValueChange={(value) =>
-                                    setData('start_day', value)
+                                disabledDates={(date) => {
+                                    if (!data.end_date) {
+                                        return false;
+                                    }
+
+                                    const endDate = new Date(data.end_date);
+
+                                    if (Number.isNaN(endDate.getTime())) {
+                                        return false;
+                                    }
+
+                                    return date >= endDate;
+                                }}
+                                onChange={(value) =>
+                                    setData('start_date', value)
                                 }
-                            >
-                                <SelectTrigger id="start_day">
-                                    <SelectValue placeholder="Select day" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dayOptions.map((option) => (
-                                        <SelectItem
-                                            key={`start-day-${option.value}`}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('start_day')}
+                            />
+                            {renderError('start_date')}
                         </div>
                     </div>
 
                     <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="start_month">
-                            Start Month <span className="text-red-500">*</span>
+                        <Label htmlFor="end_date">
+                            End Date <span className="text-red-500">*</span>
                         </Label>
                         <div className="relative">
-                            <Select
-                                value={data.start_month}
+                            <DatePickerField
+                                id="end_date"
+                                value={data.end_date ?? ''}
+                                fromYear={new Date().getFullYear()}
+                                toYear={new Date().getFullYear()}
+                                displayFormat="day-month"
+                                valueFormat="iso"
                                 disabled={isView}
-                                onValueChange={(value) =>
-                                    setData('start_month', value)
-                                }
-                            >
-                                <SelectTrigger id="start_month">
-                                    <SelectValue placeholder="Select month" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {monthOptions.map((option) => (
-                                        <SelectItem
-                                            key={`start-month-${option.value}`}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('start_month')}
+                                disabledDates={(date) => {
+                                    if (!data.start_date) {
+                                        return false;
+                                    }
+
+                                    const startDate = new Date(data.start_date);
+
+                                    if (Number.isNaN(startDate.getTime())) {
+                                        return false;
+                                    }
+
+                                    return date <= startDate;
+                                }}
+                                onChange={(value) => setData('end_date', value)}
+                            />
+                            {renderError('end_date')}
                         </div>
                     </div>
-                </div>
-
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                    <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="end_day">
-                            End Day <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                            <Select
-                                value={data.end_day}
-                                disabled={isView}
-                                onValueChange={(value) =>
-                                    setData('end_day', value)
-                                }
-                            >
-                                <SelectTrigger id="end_day">
-                                    <SelectValue placeholder="Select day" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dayOptions.map((option) => (
-                                        <SelectItem
-                                            key={`end-day-${option.value}`}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('end_day')}
-                        </div>
-                    </div>
-
-                    <div className="grid w-full items-center gap-3">
-                        <Label htmlFor="end_month">
-                            End Month <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                            <Select
-                                value={data.end_month}
-                                disabled={isView}
-                                onValueChange={(value) =>
-                                    setData('end_month', value)
-                                }
-                            >
-                                <SelectTrigger id="end_month">
-                                    <SelectValue placeholder="Select month" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {monthOptions.map((option) => (
-                                        <SelectItem
-                                            key={`end-month-${option.value}`}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {renderError('end_month')}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid w-full items-center gap-3">
-                    <Label htmlFor="year">Fiscal Year Label (Auto)</Label>
-                    <Input id="year" value={data.year ?? ''} disabled />
                 </div>
 
                 <div className="rounded-md bg-blue-50 p-4 dark:bg-blue-950">
                     <p className="text-base text-blue-800 dark:text-blue-200">
-                        <strong>Note:</strong> Fiscal year label is generated
-                        automatically. Existing financial transactions keep
-                        their original fiscal year assignment after edits.
+                        <strong>Note:</strong>
+                        {/* {' '}Dashboard FYTD source toggle{' '}<strong>DASHBOARD_USE_FINANCIAL_TRANSACTIONS_FOR_FYTD_TOTAL_SALES</strong>{' '}is currently set to{' '}<strong>{useFinancialTransactionsForFytdTotalSales ? 'true' : 'false'}</strong>. */}{' '}
+                        {useFinancialTransactionsForFytdTotalSales
+                            ? 'Fiscal Year Total Sales is currently using Financial Transactions (receipt-based ledger entries).'
+                            : 'Fiscal Year Total Sales is currently using converted quotation invoices filtered by receipt date.'}{' '}
+                        Existing financial transactions keep their original
+                        fiscal year assignment after edits.
                     </p>
                 </div>
 

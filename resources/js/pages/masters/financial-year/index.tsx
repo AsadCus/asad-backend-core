@@ -37,11 +37,6 @@ const columns: ColumnDef<FinancialYearDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'year',
-        header: 'Year',
-        meta: { exportable: true },
-    },
-    {
         accessorKey: 'start_date',
         header: 'Start Date',
         meta: { exportable: true },

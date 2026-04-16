@@ -38,6 +38,39 @@ function parseTimeFromValue(value?: string): {
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
 
+type DatePickerDisplayFormat = 'day-month-year' | 'day-month';
+type DatePickerValueFormat = 'display' | 'iso';
+
+function toIsoDateString(date?: Date): string {
+    if (!date) {
+        return '';
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateByDisplayMode(
+    date?: Date,
+    displayFormat: DatePickerDisplayFormat = 'day-month-year',
+): string {
+    if (!date) {
+        return '';
+    }
+
+    if (displayFormat === 'day-month') {
+        return date.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+        });
+    }
+
+    return formatDateForDisplay(date);
+}
+
 export function DatePickerField({
     id,
     value,
@@ -47,6 +80,8 @@ export function DatePickerField({
     disabledDates,
     quickDate = false,
     useTime = false,
+    displayFormat = 'day-month-year',
+    valueFormat = 'display',
     onChange,
 }: {
     id: string;
@@ -57,6 +92,8 @@ export function DatePickerField({
     disabledDates?: (date: Date) => boolean;
     quickDate?: boolean;
     useTime?: boolean;
+    displayFormat?: DatePickerDisplayFormat;
+    valueFormat?: DatePickerValueFormat;
     onChange: (value: string) => void;
 }) {
     const initialTime = parseTimeFromValue(value);
@@ -68,8 +105,17 @@ export function DatePickerField({
     const [month, setMonth] = useState<Date | undefined>(selectedDate);
     const [hours, setHours] = useState(initialTime.hours);
     const [minutes, setMinutes] = useState(initialTime.minutes);
+    const parsedInputDateValue = useTime ? initialTime.datePart : value;
+    const parsedInputDate = parseDisplayDate(parsedInputDateValue);
+    const resolvedDisplayValue =
+        valueFormat === 'iso'
+            ? formatDateByDisplayMode(parsedInputDate, displayFormat)
+            : (value ?? '');
     const resolvedReadOnlyValue =
-        disabled && (!value || value.trim().length === 0) ? '-' : (value ?? '');
+        disabled &&
+        (!resolvedDisplayValue || resolvedDisplayValue.trim().length === 0)
+            ? '-'
+            : resolvedDisplayValue;
 
     useEffect(() => {
         const parsedTime = parseTimeFromValue(value);
@@ -87,8 +133,21 @@ export function DatePickerField({
     }, [value, useTime]);
 
     function emitDateTime(date: Date | undefined, h: number, m: number) {
-        const dateStr = formatDateForDisplay(date);
+        const dateStr =
+            valueFormat === 'iso'
+                ? toIsoDateString(date)
+                : formatDateForDisplay(date);
         onChange(dateStr ? formatWithTime(dateStr, h, m) : '');
+    }
+
+    function emitDateValue(date: Date | undefined): void {
+        if (valueFormat === 'iso') {
+            onChange(toIsoDateString(date));
+
+            return;
+        }
+
+        onChange(formatDateForDisplay(date));
     }
 
     function getQuickDate(type: string) {
@@ -125,12 +184,33 @@ export function DatePickerField({
                 value={resolvedReadOnlyValue}
                 placeholder={
                     useTime
-                        ? `${formatDateForDisplay(new Date())} 00:00`
-                        : formatDateForDisplay(new Date())
+                        ? `${formatDateByDisplayMode(new Date(), displayFormat)} 00:00`
+                        : formatDateByDisplayMode(new Date(), displayFormat)
                 }
                 className={`pr-10 ${disabled ? 'bg-muted/40' : ''}`}
                 readOnly={disabled}
                 onChange={(e) => {
+                    if (valueFormat === 'iso') {
+                        const parsed = parseDisplayDate(e.target.value);
+                        onChange(toIsoDateString(parsed));
+
+                        if (useTime) {
+                            const parsedTime = parseTimeFromValue(
+                                e.target.value,
+                            );
+                            const d = parseDisplayDate(parsedTime.datePart);
+                            setSelectedDate(d);
+                            setMonth(d);
+                            setHours(parsedTime.hours);
+                            setMinutes(parsedTime.minutes);
+                        } else {
+                            setSelectedDate(parsed);
+                            setMonth(parsed);
+                        }
+
+                        return;
+                    }
+
                     onChange(e.target.value);
                     if (useTime) {
                         const parsed = parseTimeFromValue(e.target.value);
@@ -195,11 +275,7 @@ export function DatePickerField({
                                                 minutes,
                                             );
                                         } else {
-                                            onChange(
-                                                formatDateForDisplay(
-                                                    date ?? undefined,
-                                                ),
-                                            );
+                                            emitDateValue(date ?? undefined);
                                             setOpen(false);
                                         }
                                     }}
@@ -310,9 +386,7 @@ export function DatePickerField({
                                                 );
                                                 setSelectedDate(date);
                                                 setMonth(date);
-                                                onChange(
-                                                    formatDateForDisplay(date),
-                                                );
+                                                emitDateValue(date);
                                             }}
                                         >
                                             {item.label}

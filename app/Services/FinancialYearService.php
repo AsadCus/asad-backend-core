@@ -38,6 +38,10 @@ class FinancialYearService
                     'year' => $q->year,
                     'start_date' => $q->start_date?->toDateString(),
                     'end_date' => $q->end_date?->toDateString(),
+                    'start_date_formatted' => $q->start_date?->translatedFormat('d F Y'),
+                    'end_date_formatted' => $q->end_date?->translatedFormat('d F Y'),
+                    'start_date_day_month' => $q->start_date?->translatedFormat('j F'),
+                    'end_date_day_month' => $q->end_date?->translatedFormat('j F'),
                     'default' => $q->default,
                 ];
             });
@@ -73,7 +77,7 @@ class FinancialYearService
 
             if ($hasActiveYear) {
                 throw ValidationException::withMessages([
-                    'start_day' => 'Fiscal year already exists. Please edit the current fiscal year instead.',
+                    'start_date' => 'Fiscal year already exists. Please edit the current fiscal year instead.',
                 ]);
             }
 
@@ -114,6 +118,10 @@ class FinancialYearService
             'year' => $financialYear->year,
             'start_date' => $financialYear->start_date?->toDateString(),
             'end_date' => $financialYear->end_date?->toDateString(),
+            'start_date_formatted' => $financialYear->start_date?->translatedFormat('d F Y'),
+            'end_date_formatted' => $financialYear->end_date?->translatedFormat('d F Y'),
+            'start_date_day_month' => $financialYear->start_date?->translatedFormat('j F'),
+            'end_date_day_month' => $financialYear->end_date?->translatedFormat('j F'),
             'start_day' => $startDate ? (string) $startDate->day : '',
             'start_month' => $startDate ? (string) $startDate->month : '',
             'end_day' => $endDate ? (string) $endDate->day : '',
@@ -264,6 +272,41 @@ class FinancialYearService
      */
     private function resolvePeriodData(array $data, int $baseYear): array
     {
+        $startDateValue = isset($data['start_date']) ? trim((string) $data['start_date']) : '';
+        $endDateValue = isset($data['end_date']) ? trim((string) $data['end_date']) : '';
+
+        if ($startDateValue !== '' && $endDateValue !== '') {
+            try {
+                $startDate = Carbon::parse($startDateValue)->startOfDay();
+            } catch (\Throwable $exception) {
+                throw ValidationException::withMessages([
+                    'start_date' => 'Start date is not valid.',
+                ]);
+            }
+
+            try {
+                $endDate = Carbon::parse($endDateValue)->endOfDay();
+            } catch (\Throwable $exception) {
+                throw ValidationException::withMessages([
+                    'end_date' => 'End date is not valid.',
+                ]);
+            }
+
+            if ($endDate->lte($startDate)) {
+                throw ValidationException::withMessages([
+                    'end_date' => 'End date must be after start date.',
+                ]);
+            }
+
+            $yearLabel = FinancialYear::calculateDominantYear($startDate->copy(), $endDate->copy());
+
+            return [
+                'year' => $yearLabel,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ];
+        }
+
         $startDay = (int) ($data['start_day'] ?? 0);
         $startMonth = (int) ($data['start_month'] ?? 0);
         $endDay = (int) ($data['end_day'] ?? 0);
