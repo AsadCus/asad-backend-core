@@ -157,7 +157,7 @@ class CustomerConfirmationCompletedIndexTest extends TestCase
         $this->assertSame('ORD-COMPLETED-001', $completedMemberRow['order_number']);
 
         $this->assertContains($completedByPayment->id, $completedIds);
-        $this->assertContains($completedByCancellation->id, $completedIds);
+        $this->assertNotContains($completedByCancellation->id, $completedIds);
         $this->assertNotContains($holdingActive->id, $completedIds);
         $this->assertNotContains($confirmedActive->id, $completedIds);
         $this->assertContains($completedPackageButPartial->id, $completedIds);
@@ -169,7 +169,7 @@ class CustomerConfirmationCompletedIndexTest extends TestCase
         $this->assertNotContains($completedPackageButPartial->id, $confirmedIds);
 
         $this->assertNotContains($completedByPayment->id, $holdingIds);
-        $this->assertNotContains($completedByCancellation->id, $holdingIds);
+        $this->assertContains($completedByCancellation->id, $holdingIds);
         $this->assertContains($holdingActive->id, $holdingIds);
         $this->assertNotContains($confirmedActive->id, $holdingIds);
         $this->assertNotContains($completedPackageButPartial->id, $holdingIds);

@@ -77,7 +77,20 @@ class FinancialTransactionService
      */
     private function getFinancialYearForDate(Carbon $date): ?FinancialYear
     {
-        return FinancialYear::getOrCreateForDate($date);
+        FinancialYear::progressFinancialYear();
+
+        $resolvedYear = FinancialYear::resolveForTransactionDate($date);
+
+        if ($resolvedYear) {
+            return $resolvedYear;
+        }
+
+        return FinancialYear::getCurrentYear();
+    }
+
+    public function resolveFinancialYearForDate(Carbon $date): ?FinancialYear
+    {
+        return $this->getFinancialYearForDate($date);
     }
 
     /**

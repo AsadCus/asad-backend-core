@@ -9,7 +9,6 @@ import {
     destroy,
     edit,
     index,
-    setDefault,
     show,
 } from '@/routes/master/financial-year';
 import { index as masterIndex } from '@/routes/master/user';
@@ -17,7 +16,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Check, X } from 'lucide-react';
-import { FinancialYearSchema } from './schema';
+import { FinancialYearDatatableSchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -30,16 +29,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const actions: ActionType[] = [
-    'add',
-    'view',
-    'edit',
-    'set-default-year',
-    'delete',
-];
-
-const columns: ColumnDef<FinancialYearSchema>[] = [
-    createSelectColumn<FinancialYearSchema>(),
+const columns: ColumnDef<FinancialYearDatatableSchema>[] = [
+    createSelectColumn<FinancialYearDatatableSchema>(),
     {
         accessorKey: 'id',
         header: 'Id',
@@ -103,12 +94,20 @@ const columns: ColumnDef<FinancialYearSchema>[] = [
 
 interface FinancialYearProps {
     data: {
-        financialYears: FinancialYearSchema[];
+        financialYears: FinancialYearDatatableSchema[];
+        hasActiveFinancialYear?: boolean;
     };
 }
 
 export default function FinancialYear({ data }: FinancialYearProps) {
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const canCreate = !data.hasActiveFinancialYear;
+    const actions: ActionType[] = [
+        ...(canCreate ? (['add'] as ActionType[]) : []),
+        'view',
+        'edit',
+        'delete',
+    ];
 
     return (
         <>
@@ -139,20 +138,6 @@ export default function FinancialYear({ data }: FinancialYearProps) {
                                         router.get(show(financialYearId).url);
                                     } else if (action === 'edit') {
                                         router.get(edit(financialYearId).url);
-                                    } else if (action === 'set-default-year') {
-                                        confirm({
-                                            title: 'Set Financial Year',
-                                            message: `Are you sure you want to set "${row?.original.year} as default year"?`,
-                                            variant: 'primary',
-                                            confirmText: 'Set',
-                                            cancelText: 'Cancel',
-                                            onConfirm: () => {
-                                                router.put(
-                                                    setDefault(financialYearId)
-                                                        .url,
-                                                );
-                                            },
-                                        });
                                     } else if (action === 'delete') {
                                         confirm({
                                             title: 'Delete Financial Year',

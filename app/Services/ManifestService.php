@@ -1729,10 +1729,6 @@ class ManifestService
             $memberUpdates['relationship'] = $memberPayload['relationship'] ?? $memberPayload['role'] ?? null;
         }
 
-        if (array_key_exists('status', $memberPayload)) {
-            $memberUpdates['status'] = $memberPayload['status'] ?: $member->status;
-        }
-
         if ($memberUpdates !== []) {
             $member->update($memberUpdates);
         }
@@ -2115,6 +2111,13 @@ class ManifestService
         $depositPayment = $depositPaymentAmount > 0 ? $depositPaymentFinal : null;
         $secondPayment = $secondPaymentAmount > 0 ? $secondPaymentFinal : null;
         $thirdPayment = $thirdPaymentAmount > 0 ? $thirdPaymentFinal : null;
+
+        if ($secondPayment === null && $thirdPayment !== null) {
+            $secondPayment = $thirdPayment;
+            $secondInvoiceReceiptDate = $thirdInvoiceReceiptDate;
+            $thirdPayment = null;
+            $thirdInvoiceReceiptDate = null;
+        }
 
         $adjustedPaidAmount = round(
             (float) ($depositPayment ?? 0)

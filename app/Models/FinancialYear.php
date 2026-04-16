@@ -44,7 +44,11 @@ class FinancialYear extends Model
 
     public static function getCurrentYear(): ?self
     {
-        return self::where('default', true)->where('is_active', true)->first();
+        return self::query()
+            ->where('default', true)
+            ->where('is_active', true)
+            ->orderByDesc('start_date')
+            ->first();
     }
 
     public static function getNextYearPeriod(): array
@@ -96,34 +100,57 @@ class FinancialYear extends Model
      */
     public static function getOrCreateForDate(Carbon $date): ?self
     {
-        // First, try to find an existing financial year that contains this date
-        $existingYear = self::where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
-            ->first();
+        $existingYear = self::resolveForTransactionDate($date);
 
         if ($existingYear) {
             return $existingYear;
         }
 
-        // Default to calendar year (Jan 1 - Dec 31)
-        $startDate = Carbon::create($date->year, 1, 1);
-        $endDate = Carbon::create($date->year, 12, 31);
-        $yearLabel = $date->year;
+        $defaultYear = self::getCurrentYear();
 
-        // Check if a year with this range already exists
-        $existingByRange = self::where('start_date', $startDate->format('Y-m-d'))->where('end_date', $endDate->format('Y-m-d'))->first();
-
-        if ($existingByRange) {
-            return $existingByRange;
+        if ($defaultYear) {
+            return $defaultYear;
         }
+
+        $startDate = Carbon::create($date->year, 1, 1)->startOfDay();
+        $endDate = Carbon::create($date->year, 12, 31)->endOfDay();
+        $yearLabel = self::calculateDominantYear($startDate->copy(), $endDate->copy());
+
+        self::query()->where('default', true)->update(['default' => false]);
 
         return self::create([
             'year' => (string) $yearLabel,
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'default' => false,
+            'default' => true,
             'is_active' => true,
         ]);
+    }
+
+    public static function resolveForTransactionDate(Carbon $date): ?self
+    {
+        $defaultYear = self::getCurrentYear();
+
+        $matchingYears = self::query()
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->where('start_date', '<=', $date->toDateString())
+            ->where('end_date', '>=', $date->toDateString())
+            ->orderByDesc('default')
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->get();
+
+        if ($matchingYears->isNotEmpty()) {
+            if ($defaultYear && $matchingYears->contains('id', $defaultYear->id)) {
+                return $defaultYear;
+            }
+
+            return $matchingYears->first();
+        }
+
+        return $defaultYear;
     }
 
     /**
@@ -131,16 +158,85 @@ class FinancialYear extends Model
      * Creates the year if it doesn't exist, then activates it
      * Sets previous years to inactive and non-default
      */
-    public static function progressFinancialYear(): void
+    public static function progressFinancialYear(?Carbon $today = null): ?self
     {
-        $today = Carbon::today();
+        $todayDate = ($today ?? Carbon::today())->copy()->startOfDay();
 
-        $currentPeriodYear = self::getOrCreateForDate($today);
+        $defaultYear = self::getCurrentYear();
 
-        if ($currentPeriodYear) {
-            self::where('id', '!=', $currentPeriodYear->id)->update(['default' => false]);
+        if (! $defaultYear) {
+            $initialStart = Carbon::create($todayDate->year, 1, 1)->startOfDay();
+            $initialEnd = Carbon::create($todayDate->year, 12, 31)->endOfDay();
 
-            $currentPeriodYear->update(['default' => true, 'is_active' => true]);
+            $created = self::create([
+                'year' => (string) self::calculateDominantYear($initialStart->copy(), $initialEnd->copy()),
+                'start_date' => $initialStart,
+                'end_date' => $initialEnd,
+                'default' => true,
+                'is_active' => true,
+            ]);
+
+            return $created;
         }
+
+        if ($defaultYear->start_date && $defaultYear->end_date && $defaultYear->containsDate($todayDate)) {
+            if (! $defaultYear->default) {
+                self::query()->where('id', '!=', $defaultYear->id)->update(['default' => false]);
+                $defaultYear->update(['default' => true, 'is_active' => true]);
+            }
+
+            return $defaultYear;
+        }
+
+        $coveringYear = self::query()
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereNotNull('end_date')
+            ->where('start_date', '<=', $todayDate->toDateString())
+            ->where('end_date', '>=', $todayDate->toDateString())
+            ->orderByDesc('default')
+            ->orderByDesc('start_date')
+            ->first();
+
+        if ($coveringYear) {
+            self::query()->where('id', '!=', $coveringYear->id)->update(['default' => false]);
+            $coveringYear->update(['default' => true, 'is_active' => true]);
+
+            return $coveringYear;
+        }
+
+        $currentYear = $defaultYear;
+
+        while ($currentYear->end_date && $todayDate->gt(Carbon::parse($currentYear->end_date)->endOfDay())) {
+            $currentStart = Carbon::parse($currentYear->start_date)->startOfDay();
+            $currentEnd = Carbon::parse($currentYear->end_date)->endOfDay();
+            $periodDays = $currentStart->diffInDays($currentEnd) + 1;
+
+            $nextStart = $currentEnd->copy()->addDay()->startOfDay();
+            $nextEnd = $nextStart->copy()->addDays($periodDays - 1)->endOfDay();
+            $nextYearLabel = self::calculateDominantYear($nextStart->copy(), $nextEnd->copy());
+
+            $existingNext = self::query()
+                ->whereDate('start_date', $nextStart->toDateString())
+                ->whereDate('end_date', $nextEnd->toDateString())
+                ->first();
+
+            if (! $existingNext) {
+                $existingNext = self::create([
+                    'year' => (string) $nextYearLabel,
+                    'start_date' => $nextStart,
+                    'end_date' => $nextEnd,
+                    'default' => false,
+                    'is_active' => true,
+                ]);
+            }
+
+            self::query()->where('id', '!=', $existingNext->id)->update(['default' => false]);
+            $existingNext->update(['default' => true, 'is_active' => true]);
+
+            $currentYear = $existingNext;
+        }
+
+        return $currentYear;
     }
 }

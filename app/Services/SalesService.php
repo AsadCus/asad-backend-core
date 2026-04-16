@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Helpers\FormatService;
 use App\Models\Customer;
+use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\Receipt;
 use App\Models\User;
-use App\Support\InvoiceStatus;
 use Carbon\Carbon;
 
 class SalesService
@@ -162,30 +163,65 @@ class SalesService
             ];
         }
 
-        $fiscalYearStart = Carbon::parse($currentFiscalYear->start_date);
-        $today = Carbon::now();
-        $fiscalYearToDateEnd = $today;
+        if ((bool) config('dashboard.use_financial_transactions_for_fytd_total_sales', false)) {
+            return $this->getFiscalYearTotalSalesFromFinancialTransactions($currentFiscalYear);
+        }
 
-        if ($fiscalYearToDateEnd->lessThan($fiscalYearStart)) {
+        return $this->getFiscalYearTotalSalesFromReceipts($currentFiscalYear);
+    }
+
+    private function getFiscalYearTotalSalesFromFinancialTransactions(FinancialYear $currentFiscalYear): array
+    {
+        $today = Carbon::now()->toDateString();
+
+        $transactions = FinancialTransaction::query()
+            ->where('financial_year_id', $currentFiscalYear->id)
+            ->where('type', 'revenue')
+            ->whereNull('deleted_at')
+            ->whereDate('transaction_date', '<=', $today)
+            ->where('reference_type', Receipt::class);
+
+        $count = (clone $transactions)
+            ->where('amount', '>', 0)
+            ->count();
+        $amount = (clone $transactions)->sum('amount');
+
+        return [
+            'count' => $count,
+            'amount' => $this->formatService->cleanDecimal($amount),
+        ];
+    }
+
+    private function getFiscalYearTotalSalesFromReceipts(FinancialYear $currentFiscalYear): array
+    {
+        $today = Carbon::now()->toDateString();
+        $fiscalYearStart = Carbon::parse($currentFiscalYear->start_date)->toDateString();
+        $fiscalYearEnd = Carbon::parse($currentFiscalYear->end_date)->toDateString();
+        $windowEnd = $today < $fiscalYearEnd ? $today : $fiscalYearEnd;
+
+        if ($windowEnd < $fiscalYearStart) {
             return [
                 'count' => 0,
                 'amount' => 0,
             ];
         }
 
-        $paidAndRefundConvertedInvoices = Invoice::query()
-            ->whereIn('status', [InvoiceStatus::Paid, InvoiceStatus::Refund])
-            ->whereHas('order.quotation', function ($query) {
-                $query->where('status', 'converted');
+        $invoices = Invoice::query()
+            ->whereHas('order.quotation', function ($query): void {
+                $query
+                    ->whereNull('deleted_at')
+                    ->where('status', 'converted');
             })
-            ->whereHas('receipt', function ($query) use ($fiscalYearStart, $fiscalYearToDateEnd) {
-                $query->whereBetween('receipt_date', [$fiscalYearStart, $fiscalYearToDateEnd]);
+            ->whereHas('receipt', function ($query) use ($fiscalYearStart, $windowEnd): void {
+                $query
+                    ->whereDate('receipt_date', '>=', $fiscalYearStart)
+                    ->whereDate('receipt_date', '<=', $windowEnd);
             });
 
-        $count = (clone $paidAndRefundConvertedInvoices)
-            ->where('status', InvoiceStatus::Paid)
+        $count = (clone $invoices)
+            ->where('amount', '>', 0)
             ->count();
-        $amount = (clone $paidAndRefundConvertedInvoices)->sum('amount');
+        $amount = (clone $invoices)->sum('amount');
 
         return [
             'count' => $count,

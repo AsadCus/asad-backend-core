@@ -5,7 +5,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { FinancialYearForm } from './form';
-import { FinancialYearSchema } from './schema';
+import { FinancialYearFormSchema } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -19,7 +19,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface EditFinancialYearProps {
-    data: FinancialYearSchema;
+    data: FinancialYearFormSchema;
 }
 
 export default function EditFinancialYear({ data }: EditFinancialYearProps) {

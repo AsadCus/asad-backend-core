@@ -3835,6 +3835,151 @@ class ManifestWorkflowTest extends TestCase
         $this->assertSame(1000.0, (float) ($memberRow['balance_due'] ?? 0));
     }
 
+    public function test_get_for_edit_show_remaps_third_payment_to_second_when_second_bucket_is_refund_only(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-FIN-006-R2',
+            'name' => 'Manifest Financial Refund Remap Bucket',
+            'status' => 'open',
+            'price_double' => 10000,
+            'total_seats' => 20,
+            'seats_left' => 20,
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-FIN-006-R2',
+        ]);
+
+        $member = $this->createMemberForPackage($package->id, 'Financial Member Refund Remap', $actingUser->id);
+        $member->update(['sharing_plan' => 'double']);
+
+        ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'double',
+            'sort_order' => 1,
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $member->customer_id,
+            'customer_confirmation_id' => $member->customer_confirmation_id,
+            'quotation_date' => '2026-03-01',
+            'expiry_date' => '2026-03-31',
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $depositItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Deposit payment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $refundItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Refund adjustment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => -2000,
+            'sort_order' => 2,
+        ]);
+
+        $balanceItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Balance payment',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 3,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        $depositInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit invoice',
+            'amount' => 5000,
+            'invoice_date' => '2026-03-01',
+            'due_date' => '2026-03-01',
+            'status' => 'paid',
+        ]);
+        $depositInvoice->quotationItems()->sync([$depositItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $depositInvoice->id,
+            'amount' => 5000,
+            'receipt_date' => '2026-03-01',
+            'payment_method' => 'transfer',
+        ]);
+
+        $refundInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Refund invoice',
+            'amount' => -2000,
+            'invoice_date' => '2026-03-10',
+            'due_date' => '2026-03-10',
+            'status' => 'refund',
+        ]);
+        $refundInvoice->quotationItems()->sync([$refundItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $refundInvoice->id,
+            'amount' => -2000,
+            'receipt_date' => '2026-03-10',
+            'payment_method' => 'transfer',
+        ]);
+
+        $balanceInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Balance invoice',
+            'amount' => 5000,
+            'invoice_date' => '2026-03-20',
+            'due_date' => '2026-03-20',
+            'status' => 'paid',
+        ]);
+        $balanceInvoice->quotationItems()->sync([$balanceItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $balanceInvoice->id,
+            'amount' => 5000,
+            'receipt_date' => '2026-03-20',
+            'payment_method' => 'transfer',
+        ]);
+
+        $rehydrated = app(ManifestService::class)->getForEditShow($manifest->id);
+
+        $memberRow = collect($rehydrated['members'])
+            ->firstWhere('customer_confirmation_member_id', $member->id);
+
+        $this->assertNotNull($memberRow);
+        $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_deposit_payment'] ?? ''),
+        );
+        $this->assertSame(3000.0, (float) ($memberRow['second_payment'] ?? 0));
+        $this->assertSame(
+            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            (string) ($memberRow['date_of_second_payment'] ?? ''),
+        );
+        $this->assertNull($memberRow['third_payment']);
+        $this->assertNull($memberRow['date_of_third_payment']);
+        $this->assertSame(2000.0, (float) ($memberRow['balance_due'] ?? 0));
+    }
+
     public function test_get_for_edit_show_orders_payment_buckets_by_invoice_id_not_receipt_date(): void
     {
         $actingUser = User::factory()->create();
@@ -4657,6 +4802,52 @@ class ManifestWorkflowTest extends TestCase
             'passport_number' => 'PATCH-SHARE-001',
             'relationship' => 'husband',
         ]);
+    }
+
+    public function test_patch_manifest_sharing_groups_section_does_not_overwrite_confirmation_member_payment_status(): void
+    {
+        $actingUser = User::factory()->create();
+        $this->actingAs($actingUser);
+
+        ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
+
+        $member->update([
+            'status' => 'fully_paid',
+            'relationship' => 'member',
+        ]);
+
+        $this->patchJson(route('manifests.sections.sharing-groups.update', [
+            'manifestId' => $manifest->id,
+        ]), [
+            'manifest_sharing_groups' => [
+                [
+                    'id' => null,
+                    'customer_confirmation_id' => $member->customer_confirmation_id,
+                    'sort_order' => 1,
+                    'group_relationship' => 'Family',
+                    'remarks' => 'Status guard regression',
+                    'members' => [
+                        [
+                            'id' => $manifestMember->id,
+                            'customer_confirmation_member_id' => $member->id,
+                            'relationship' => 'wife',
+                            'sharing_plan' => 'double',
+                            'status' => 'pending_payment',
+                            'sort_order' => 1,
+                            'patch' => [
+                                'name_as_per_passport' => 'Status Guard Member',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Manifest sharing-groups section updated successfully.');
+
+        $member->refresh();
+
+        $this->assertSame('fully_paid', (string) $member->status);
+        $this->assertSame('wife', (string) $member->relationship);
     }
 
     public function test_patch_manifest_rooms_section_updates_room_and_members(): void

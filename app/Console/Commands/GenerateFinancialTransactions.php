@@ -43,115 +43,23 @@ class GenerateFinancialTransactions extends Command
 
         $this->cleanupOrphanedTransactions();
 
-        $this->ensureFinancialYearsExist();
+        FinancialYear::progressFinancialYear();
 
-        $yearId = $this->option('year');
-        $processAll = $this->option('all');
+        $yearIdOption = $this->option('year');
+        $targetYearId = $yearIdOption !== null ? (int) $yearIdOption : null;
+        $processAll = (bool) $this->option('all') || ! $targetYearId;
 
-        if (! $yearId && ! $processAll) {
-            $this->error('Please specify either --year=ID or --all option');
-
-            return 1;
-        }
-
-        $financialYears = $processAll
-            ? FinancialYear::where('is_active', true)->get()
-            : FinancialYear::where('id', $yearId)->get();
-
-        if ($financialYears->isEmpty()) {
-            $this->error('No financial years found');
+        if ($targetYearId !== null && ! FinancialYear::query()->whereKey($targetYearId)->exists()) {
+            $this->error('Target financial year not found.');
 
             return 1;
         }
 
-        foreach ($financialYears as $year) {
-            $this->info("\nProcessing Financial Year: {$year->year}");
-            $this->generateTransactionsForYear($year);
-        }
+        $this->generateTransactions($targetYearId, $processAll);
 
         $this->info("\n✓ Financial transaction generation completed!");
 
         return 0;
-    }
-
-    /**
-     * Ensure financial years exist for receipts.
-     */
-    protected function ensureFinancialYearsExist(): void
-    {
-        $this->info('Checking for missing financial years...');
-
-        $receiptDates = Receipt::selectRaw('MIN(receipt_date) as min_date, MAX(receipt_date) as max_date')->first();
-
-        $dates = collect([
-            $receiptDates->min_date ? Carbon::parse($receiptDates->min_date) : null,
-            $receiptDates->max_date ? Carbon::parse($receiptDates->max_date) : null,
-        ])->filter();
-
-        if ($dates->isEmpty()) {
-            $this->info('  ✓ No data found, skipping financial year creation');
-
-            return;
-        }
-
-        $minDate = $dates->min();
-        $maxDate = $dates->max();
-
-        $createdCount = 0;
-        $currentDate = $minDate->copy();
-
-        while ($currentDate->lte($maxDate)) {
-            $fyYear = $this->getFiscalYear($currentDate);
-            $created = $this->createFinancialYearIfNotExists($fyYear);
-            if ($created) {
-                $createdCount++;
-            }
-            $currentDate = Carbon::create($fyYear, 10, 28);
-        }
-
-        if ($createdCount > 0) {
-            $this->info("  ✓ Created {$createdCount} missing financial year(s)");
-        } else {
-            $this->info('  ✓ All required financial years exist');
-        }
-    }
-
-    /**
-     * Get fiscal year for a given date
-     * Uses calendar year (Jan 1 - Dec 31) as default
-     */
-    protected function getFiscalYear(Carbon $date): int
-    {
-        return $date->year;
-    }
-
-    /**
-     * Create a financial year if it doesn't exist
-     * Uses calendar year (Jan 1 - Dec 31) as default
-     */
-    protected function createFinancialYearIfNotExists(int $fyYear): bool
-    {
-        $existing = FinancialYear::where('year', (string) $fyYear)->first();
-
-        if ($existing) {
-            return false;
-        }
-
-        // Default to calendar year (Jan 1 - Dec 31)
-        $startDate = Carbon::create($fyYear, 1, 1);
-        $endDate = Carbon::create($fyYear, 12, 31);
-
-        FinancialYear::create([
-            'year' => (string) $fyYear,
-            'start_date' => $startDate->format('Y-m-d'),
-            'end_date' => $endDate->format('Y-m-d'),
-            'default' => false,
-            'is_active' => true,
-        ]);
-
-        $this->line("  Created FY {$fyYear}: {$startDate->format('Y-m-d')} to {$endDate->format('Y-m-d')}");
-
-        return true;
     }
 
     /**
@@ -222,69 +130,116 @@ class GenerateFinancialTransactions extends Command
         }
     }
 
-    protected function generateTransactionsForYear(FinancialYear $year)
+    protected function generateTransactions(?int $targetYearId, bool $processAll): void
     {
-        $startDate = Carbon::parse($year->start_date);
-        $endDate = Carbon::parse($year->end_date);
+        $this->info($processAll
+            ? 'Processing all receipts...'
+            : "Processing receipts for financial year ID {$targetYearId}...");
 
-        $this->info('Processing receipts...');
-
-        $receipts = Receipt::whereBetween('receipt_date', [$startDate, $endDate])
-            ->whereHas('invoice', function ($query) {
-                $query->where('status', 'paid');
-            })
+        $receipts = Receipt::query()
             ->with(['invoice.order.quotation'])
             ->get();
 
-        $receiptCount = 0;
-        $receiptSkipped = 0;
-        $receiptUpdated = 0;
+        $createdCount = 0;
+        $updatedCount = 0;
+        $skippedCount = 0;
         $receiptBar = $this->output->createProgressBar($receipts->count());
 
         foreach ($receipts as $receipt) {
-            $existingTransaction = FinancialTransaction::withTrashed()->where('reference_type', 'App\Models\Receipt')->where('reference_id', $receipt->id)->first();
+            $invoice = $receipt->invoice;
 
-            $quotation = $receipt->invoice->order->quotation;
+            if (! $invoice) {
+                $skippedCount++;
+                $receiptBar->advance();
+
+                continue;
+            }
+
+            $quotation = $invoice->order?->quotation;
             $shouldBeSoftDeleted = $quotation &&
-                ($quotation->status === \App\Enums\QuotationStatus::Cancelled || $quotation->deleted_at !== null);
+                (in_array((string) $quotation->status, ['cancelled', 'rejected', 'expired'], true)
+                    || $quotation->deleted_at !== null);
+
+            $resolvedYear = $this->financialTransactionService->resolveFinancialYearForDate(
+                Carbon::parse($receipt->receipt_date),
+            );
+
+            $existingTransaction = FinancialTransaction::withTrashed()
+                ->where('reference_type', Receipt::class)
+                ->where('reference_id', $receipt->id)
+                ->first();
+
+            $belongsToTarget = $processAll || (
+                ($resolvedYear && (int) $resolvedYear->id === $targetYearId)
+                || ($existingTransaction && (int) $existingTransaction->financial_year_id === $targetYearId)
+            );
+
+            if (! $belongsToTarget) {
+                $skippedCount++;
+                $receiptBar->advance();
+
+                continue;
+            }
+
+            if (! $resolvedYear && ! $existingTransaction) {
+                $skippedCount++;
+                $receiptBar->advance();
+
+                continue;
+            }
+
+            $metadata = [
+                'receipt_number' => $receipt->receipt_number,
+                'invoice_number' => $invoice->invoice_number,
+                'payment_method' => $receipt->payment_method,
+                'reference' => $receipt->reference,
+            ];
 
             if (! $existingTransaction) {
                 try {
                     $transaction = $this->financialTransactionService->recordRevenue(
                         (float) $receipt->amount,
-                        "Payment received: {$receipt->invoice->invoice_number}",
+                        "Payment received: {$invoice->invoice_number}",
                         Carbon::parse($receipt->receipt_date),
-                        'App\Models\Receipt',
+                        Receipt::class,
                         $receipt->id,
-                        [
-                            'receipt_number' => $receipt->receipt_number,
-                            'invoice_number' => $receipt->invoice->invoice_number,
-                            'payment_method' => $receipt->payment_method,
-                            'reference' => $receipt->reference,
-                        ]
+                        $metadata
                     );
 
                     if ($shouldBeSoftDeleted) {
                         $transaction->delete();
                     }
 
-                    $receiptCount++;
+                    $createdCount++;
                 } catch (\Exception $e) {
                     $this->error("\nError processing receipt {$receipt->id}: {$e->getMessage()}");
+                    $skippedCount++;
                 }
             } else {
+                $existingTransaction->update([
+                    'financial_year_id' => $resolvedYear
+                        ? (int) $resolvedYear->id
+                        : (int) $existingTransaction->financial_year_id,
+                    'type' => 'revenue',
+                    'amount' => (float) $receipt->amount,
+                    'description' => "Payment received: {$invoice->invoice_number}",
+                    'transaction_date' => Carbon::parse($receipt->receipt_date)->toDateString(),
+                    'metadata' => $metadata,
+                ]);
+
                 if ($shouldBeSoftDeleted && $existingTransaction->deleted_at === null) {
                     $existingTransaction->delete();
-                    $receiptUpdated++;
                 } elseif (! $shouldBeSoftDeleted && $existingTransaction->deleted_at !== null) {
                     $existingTransaction->restore();
-                    $receiptUpdated++;
                 }
-                $receiptSkipped++;
+
+                $updatedCount++;
             }
+
             $receiptBar->advance();
         }
+
         $receiptBar->finish();
-        $this->info("\n  ✓ Created {$receiptCount} revenue transactions (skipped {$receiptSkipped} existing, updated {$receiptUpdated})");
+        $this->info("\n  ✓ Created {$createdCount}, updated {$updatedCount}, skipped {$skippedCount} receipt transactions");
     }
 }

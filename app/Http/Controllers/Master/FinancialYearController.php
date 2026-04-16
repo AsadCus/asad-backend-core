@@ -23,6 +23,7 @@ class FinancialYearController extends Controller
     public function index()
     {
         $data['financialYears'] = $this->financialYearService->getForDataTable();
+        $data['hasActiveFinancialYear'] = $this->financialYearService->hasActiveFinancialYear();
 
         return Inertia::render('masters/financial-year/index', [
             'data' => $data,

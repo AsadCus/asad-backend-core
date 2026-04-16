@@ -674,19 +674,19 @@ class CustomerConfirmationService
             return false;
         }
 
-        $activeMembers = $members
-            ->filter(function ($member): bool {
-                if (! is_array($member)) {
-                    return false;
-                }
+        // $activeMembers = $members
+        //     ->filter(function ($member): bool {
+        //         if (! is_array($member)) {
+        //             return false;
+        //         }
 
-                return $this->normalizePaymentStatus((string) ($member['status'] ?? null)) !== 'cancelled';
-            })
-            ->values();
+        //         return $this->normalizePaymentStatus((string) ($member['status'] ?? null)) !== 'cancelled';
+        //     })
+        //     ->values();
 
-        if ($activeMembers->isEmpty()) {
-            return true;
-        }
+        // if ($activeMembers->isEmpty()) {
+        //     return true;
+        // }
 
         $isPackageCompleted = strtolower(trim((string) ($group['package_status'] ?? ''))) === 'completed';
 

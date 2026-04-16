@@ -7,6 +7,7 @@ use App\Models\FinancialYear;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class FinancialYearService
 {
@@ -26,27 +27,41 @@ class FinancialYearService
 
     public function getForDataTable()
     {
-        $data = FinancialYear::where('default', true)->orderBy('year', 'desc')->get()->map(function ($q) {
-            return [
-                'id' => $q->id,
-                'year' => $q->year,
-                'start_date' => $q->start_date_formatted,
-                'end_date' => $q->end_date_formatted,
-                'default' => $q->default,
-            ];
-        });
+        $data = FinancialYear::query()
+            ->where('default', true)
+            ->where('is_active', true)
+            ->orderByDesc('start_date')
+            ->get()
+            ->map(function ($q) {
+                return [
+                    'id' => $q->id,
+                    'year' => $q->year,
+                    'start_date' => $q->start_date?->toDateString(),
+                    'end_date' => $q->end_date?->toDateString(),
+                    'default' => $q->default,
+                ];
+            });
 
         return $data;
     }
 
+    public function hasActiveFinancialYear(): bool
+    {
+        return FinancialYear::query()->where('is_active', true)->exists();
+    }
+
     public function getForFilter()
     {
-        $data = FinancialYear::get()->map(function ($q) {
-            return [
-                'value' => $q->id,
-                'label' => $q->year,
-            ];
-        });
+        $data = FinancialYear::query()
+            ->where('is_active', true)
+            ->orderByDesc('start_date')
+            ->get()
+            ->map(function ($q) {
+                return [
+                    'value' => $q->id,
+                    'label' => $q->year,
+                ];
+            });
 
         return $data;
     }
@@ -54,11 +69,24 @@ class FinancialYearService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $hasActiveYear = FinancialYear::query()->where('is_active', true)->exists();
+
+            if ($hasActiveYear) {
+                throw ValidationException::withMessages([
+                    'start_day' => 'Fiscal year already exists. Please edit the current fiscal year instead.',
+                ]);
+            }
+
+            $resolvedPeriod = $this->resolvePeriodData($data, Carbon::now()->year);
+
+            FinancialYear::query()->where('default', true)->update(['default' => false]);
+
             $financialYear = FinancialYear::create([
-                'year' => $data['year'],
-                'start_date' => $data['start_date'],
-                'end_date' => $data['end_date'],
-                'default' => $data['default'],
+                'year' => (string) $resolvedPeriod['year'],
+                'start_date' => $resolvedPeriod['start_date']->toDateString(),
+                'end_date' => $resolvedPeriod['end_date']->toDateString(),
+                'default' => true,
+                'is_active' => true,
             ]);
 
             activity()
@@ -74,11 +102,22 @@ class FinancialYearService
     {
         $financialYear = FinancialYear::findOrFail($id);
 
+        $startDate = $financialYear->start_date
+            ? Carbon::parse($financialYear->start_date)
+            : null;
+        $endDate = $financialYear->end_date
+            ? Carbon::parse($financialYear->end_date)
+            : null;
+
         $data = [
             'id' => $financialYear->id,
             'year' => $financialYear->year,
-            'start_date' => $financialYear->start_date_formatted,
-            'end_date' => $financialYear->end_date_formatted,
+            'start_date' => $financialYear->start_date?->toDateString(),
+            'end_date' => $financialYear->end_date?->toDateString(),
+            'start_day' => $startDate ? (string) $startDate->day : '',
+            'start_month' => $startDate ? (string) $startDate->month : '',
+            'end_day' => $endDate ? (string) $endDate->day : '',
+            'end_month' => $endDate ? (string) $endDate->month : '',
             'default' => $financialYear->default,
         ];
 
@@ -90,26 +129,18 @@ class FinancialYearService
         return DB::transaction(function () use ($data, $id) {
             $financialYear = FinancialYear::findOrFail($id);
 
-            $oldStartDate = $financialYear->start_date;
-            $oldEndDate = $financialYear->end_date;
+            $baseYear = $this->resolveBaseYear($financialYear);
+            $resolvedPeriod = $this->resolvePeriodData($data, $baseYear);
 
-            if (! empty($data['default']) && $data['default'] === true) {
-                FinancialYear::where('id', '!=', $id)->where('default', true)->update(['default' => false]);
-            }
+            FinancialYear::query()->where('id', '!=', $id)->where('default', true)->update(['default' => false]);
 
             $financialYear->update([
-                'year' => $data['year'],
-                'start_date' => $data['start_date'],
-                'end_date' => $data['end_date'],
-                'default' => $data['default'],
+                'year' => (string) $resolvedPeriod['year'],
+                'start_date' => $resolvedPeriod['start_date']->toDateString(),
+                'end_date' => $resolvedPeriod['end_date']->toDateString(),
+                'default' => true,
+                'is_active' => true,
             ]);
-
-            $newStartDate = $financialYear->start_date;
-            $newEndDate = $financialYear->end_date;
-
-            if ($oldStartDate != $newStartDate || $oldEndDate != $newEndDate) {
-                $this->reassignFinancialTransactions();
-            }
 
             activity()
                 ->performedOn($financialYear)
@@ -225,5 +256,59 @@ class FinancialYearService
         return FinancialYear::where('is_active', true)->orderBy('start_date', 'desc')->get()->map(function ($year) {
             return ['value' => $year->id, 'label' => $year->year];
         })->toArray();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{year:int,start_date:Carbon,end_date:Carbon}
+     */
+    private function resolvePeriodData(array $data, int $baseYear): array
+    {
+        $startDay = (int) ($data['start_day'] ?? 0);
+        $startMonth = (int) ($data['start_month'] ?? 0);
+        $endDay = (int) ($data['end_day'] ?? 0);
+        $endMonth = (int) ($data['end_month'] ?? 0);
+
+        if (! checkdate($startMonth, $startDay, $baseYear)) {
+            throw ValidationException::withMessages([
+                'start_day' => 'Start date is not valid for the selected day and month.',
+            ]);
+        }
+
+        $endYear = ($endMonth < $startMonth || ($endMonth === $startMonth && $endDay < $startDay))
+            ? $baseYear + 1
+            : $baseYear;
+
+        if (! checkdate($endMonth, $endDay, $endYear)) {
+            throw ValidationException::withMessages([
+                'end_day' => 'End date is not valid for the selected day and month.',
+            ]);
+        }
+
+        $startDate = Carbon::create($baseYear, $startMonth, $startDay)->startOfDay();
+        $endDate = Carbon::create($endYear, $endMonth, $endDay)->endOfDay();
+
+        $yearLabel = FinancialYear::calculateDominantYear($startDate->copy(), $endDate->copy());
+
+        return [
+            'year' => $yearLabel,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+    }
+
+    private function resolveBaseYear(FinancialYear $financialYear): int
+    {
+        $numericYear = (int) ($financialYear->year ?? 0);
+
+        if ($numericYear > 0) {
+            return $numericYear;
+        }
+
+        if ($financialYear->start_date) {
+            return Carbon::parse($financialYear->start_date)->year;
+        }
+
+        return Carbon::now()->year;
     }
 }

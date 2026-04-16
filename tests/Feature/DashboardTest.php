@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
+use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -462,6 +463,86 @@ class DashboardTest extends TestCase
             $this->assertSame(800.0, (float) $response->json('amount'));
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    public function test_fiscal_year_total_sales_uses_financial_transactions_when_toggle_is_enabled(): void
+    {
+        Carbon::setTestNow('2026-03-31 10:00:00');
+
+        try {
+            config(['dashboard.use_financial_transactions_for_fytd_total_sales' => true]);
+
+            $this->actingAs(User::factory()->create());
+
+            $fiscalYear = FinancialYear::create([
+                'year' => '2026',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-12-31',
+                'default' => true,
+                'is_active' => true,
+            ]);
+
+            FinancialTransaction::create([
+                'financial_year_id' => $fiscalYear->id,
+                'type' => 'revenue',
+                'amount' => 120,
+                'description' => 'FYTD receipt one',
+                'reference_type' => Receipt::class,
+                'reference_id' => 101,
+                'transaction_date' => '2026-01-10',
+            ]);
+
+            FinancialTransaction::create([
+                'financial_year_id' => $fiscalYear->id,
+                'type' => 'revenue',
+                'amount' => 330,
+                'description' => 'FYTD receipt two',
+                'reference_type' => Receipt::class,
+                'reference_id' => 102,
+                'transaction_date' => '2026-03-20',
+            ]);
+
+            FinancialTransaction::create([
+                'financial_year_id' => $fiscalYear->id,
+                'type' => 'revenue',
+                'amount' => -50,
+                'description' => 'FYTD refund',
+                'reference_type' => Receipt::class,
+                'reference_id' => 103,
+                'transaction_date' => '2026-03-25',
+            ]);
+
+            FinancialTransaction::create([
+                'financial_year_id' => $fiscalYear->id,
+                'type' => 'revenue',
+                'amount' => 999,
+                'description' => 'Future receipt should be excluded',
+                'reference_type' => Receipt::class,
+                'reference_id' => 104,
+                'transaction_date' => '2026-04-01',
+            ]);
+
+            FinancialTransaction::create([
+                'financial_year_id' => $fiscalYear->id,
+                'type' => 'expense',
+                'amount' => 77,
+                'description' => 'Expense should be excluded',
+                'reference_type' => Receipt::class,
+                'reference_id' => 105,
+                'transaction_date' => '2026-03-21',
+            ]);
+
+            $response = $this->getJson(route('dashboard.fiscal-year-total-sales', [
+                'financial_year_id' => $fiscalYear->id,
+            ]));
+
+            $response->assertOk();
+            $response->assertJsonPath('count', 2);
+            $this->assertSame(400.0, (float) $response->json('amount'));
+        } finally {
+            Carbon::setTestNow();
+            config(['dashboard.use_financial_transactions_for_fytd_total_sales' => false]);
         }
     }
 
