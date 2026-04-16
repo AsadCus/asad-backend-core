@@ -68,6 +68,11 @@ class OpsMovementRule
             'budget.*.items.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'budget.*.items.*.remarks' => ['nullable', 'string'],
             'budget.*.items.*.sort_order' => ['nullable', 'integer', 'min:1'],
+            'budget.*.extensions' => ['nullable', 'array'],
+            'budget.*.extensions.*.name' => ['nullable', 'string', 'max:255'],
+            'budget.*.extensions.*.calculation_mode' => ['nullable', 'in:fixed,percentage'],
+            'budget.*.extensions.*.calculation_value' => ['nullable', 'numeric'],
+            'budget.*.extensions.*.sort_order' => ['nullable', 'integer', 'min:1'],
 
             'pif' => ['nullable', 'array'],
             'pif.tour_leaders' => ['nullable', 'array'],

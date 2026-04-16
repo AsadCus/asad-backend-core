@@ -504,25 +504,17 @@ export function GlobalBrandingSection({
                                         max={500}
                                     />
                                 </FormField>
-                                <FormField
-                                    label="Height (px)"
-                                    htmlFor="qr_height"
-                                    error={errors.qr_height}
-                                >
-                                    <Input
-                                        id="qr_height"
-                                        type="number"
-                                        value={data.qr_height ?? 120}
-                                        onChange={(e) =>
-                                            onDataChange(
-                                                'qr_height',
-                                                e.target.value,
-                                            )
-                                        }
-                                        min={50}
-                                        max={500}
-                                    />
-                                </FormField>
+                                <div className="flex flex-col justify-end gap-1">
+                                    <p className="text-sm font-medium">
+                                        Height
+                                    </p>
+                                    <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                        Auto{' '}
+                                        <span className="text-xs">
+                                            (follows width proportionally)
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -3,7 +3,7 @@
 @section('document-title', 'Ops Movement Budget - ' . ($opsMovement['package_number'] ?? 'Ops Movement'))
 
 @section('title-bar')
-    OPS MOVEMENT - BUDGET
+    BUDGET PLAN
 @endsection
 
 @push('styles')
@@ -81,83 +81,85 @@
                 (int) data_get($opsMovement, 'passengers.infant_total', 0) +
                 $officialTotal;
 
-        /*
-        |----------------------------------------------------------------------
-        | RESOLVE SECTIONS
-        | Match dynamic budget data to the 3 fixed sections by key or title.
-        | Do not inject template rows at report time.
-        |----------------------------------------------------------------------
-        */
-        $budgetData = collect($opsMovement['budget'] ?? []);
-
-        $resolveItems = function (array $slugs) use ($budgetData): array {
-            $normalize = fn($v) => strtolower(str_replace([' ', '_', '-'], '', $v ?? ''));
-            $matched = $budgetData->first(function ($s) use ($slugs, $normalize) {
-                return in_array($normalize($s['key'] ?? ''), $slugs) || in_array($normalize($s['title'] ?? ''), $slugs);
-            });
-            return $matched['items'] ?? [];
-        };
-
-        $sections = [
-            [
-                'title' => 'Manpower Expenses',
-                'items' => $resolveItems(['manpowerexpenses', 'manpower']),
-            ],
-            [
-                'title' => 'Petty Cash',
-                'items' => $resolveItems(['pettycash']),
-            ],
-            [
-                'title' => 'Contingency',
-                'items' => $resolveItems(['contingency']),
-            ],
-        ];
-
-        // Append any extra sections from data that are not one of the 3 defaults
-        $reservedSlugs = ['manpowerexpenses', 'manpower', 'pettycash', 'contingency'];
-        $normalize = fn($v) => strtolower(str_replace([' ', '_', '-'], '', $v ?? ''));
-        $extraSections = $budgetData
-            ->filter(function ($s) use ($reservedSlugs, $normalize) {
-                return !in_array($normalize($s['key'] ?? ($s['title'] ?? '')), $reservedSlugs);
-            })
-            ->values()
-            ->toArray();
-
-        $allSections = array_merge($sections, $extraSections);
+        $allSections = collect($opsMovement['budget'] ?? [])->values()->all();
 
         $budgetGrandTotal = collect($allSections)->sum(function ($section) {
-            return collect($section['items'] ?? [])->sum(
+            $sectionSubtotal = collect($section['items'] ?? [])->sum(
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
             );
+
+            $sectionExtensionTotal = collect($section['extensions'] ?? [])->sum(function ($extension) use ($sectionSubtotal) {
+                $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
+                $extensionValue = (float) ($extension['calculation_value'] ?? 0);
+
+                return $extensionMode === 'percentage'
+                    ? ($sectionSubtotal * $extensionValue) / 100
+                    : $extensionValue;
+            });
+
+            return $sectionSubtotal + $sectionExtensionTotal;
         });
         
+        $mutawwifTypes = ['mutawwif', 'mutawif', 'mutawwifah', 'mutawifah'];
+        $mutawwifNames = collect($opsMovement['officials'] ?? [])
+            ->filter(function ($official) use ($mutawwifTypes) {
+                $rawType = strtolower(trim((string) ($official['type'] ?? '')));
+                $normalized = str_replace([' ', '-', '_'], '', $rawType);
+
+                return in_array($normalized, $mutawwifTypes, true);
+            })
+            ->map(fn($official) => trim((string) ($official['name'] ?? '')))
+            ->filter(fn($name) => $name !== '')
+            ->values()
+            ->all();
+
         $budgetCurrency = $opsMovement['budget_currency'] ?? 'SAR';
     @endphp
 
     {{-- Summary Header --}}
     <table class="summary-grid">
         <tr>
-            <th style="width: 12%;">Package Number</th>
-            <td style="width: 21%;">{{ $opsMovement['package_number'] ?? '-' }}</td>
-            <th style="width: 12%;">Manifest Number</th>
-            <td style="width: 21%;">{{ $opsMovement['manifest_number'] ?? '-' }}</td>
-            <th style="width: 12%;">Date Range</th>
-            <td style="width: 22%;">{{ $opsMovement['departure_return_range'] ?? '-' }}</td>
-        </tr>
-        <tr>
-            <th>No. of Jemaah</th>
-            <td>{{ $adultTotal > 0 ? $adultTotal . ' adults' : $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
-            <th>No. of Officials</th>
-            <td>{{ $officialTotal ?: $opsMovement['passengers']['official_total'] ?? '-' }}</td>
-            <th>Mutawwif</th>
-            <td>{{ $opsMovement['mutawwif_name'] ?? '-' }}</td>
-        </tr>
-        <tr>
-            <th>Total Pax</th>
-            <td>{{ $grandPaxTotal ?: '-' }}</td>
-            <th colspan="4" style="font-size: 7.5px; font-weight: 400; color: #777; font-style: italic;">
-                Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
-            </th>
+            <td style="width: 50%; vertical-align: top;">
+                <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                    <tr>
+                        <th style="width: 34%;">Package Number</th>
+                        <td>{{ $opsMovement['package_number'] ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Manifest Number</th>
+                        <td>{{ $opsMovement['manifest_number'] ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Date Range</th>
+                        <td>{{ $opsMovement['departure_return_range'] ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>No. of Jemaah</th>
+                        <td>{{ $adultTotal > 0 ? $adultTotal . ' adults' : $opsMovement['passengers']['grand_total'] ?? '-' }}</td>
+                    </tr>
+                </table>
+            </td>
+            <td style="width: 50%; vertical-align: top;">
+                <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                    <tr>
+                        <th style="width: 38%;">No. of Officials</th>
+                        <td>{{ $officialTotal ?: $opsMovement['passengers']['official_total'] ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Mutawwif/Mutawwifah</th>
+                        <td>{{ count($mutawwifNames) > 0 ? implode(', ', $mutawwifNames) : '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Total Pax</th>
+                        <td>{{ $grandPaxTotal ?: '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="font-size: 7.5px; font-weight: 400; color: #777; font-style: italic;">
+                            Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
+                        </td>
+                    </tr>
+                </table>
+            </td>
         </tr>
     </table>
 
@@ -165,9 +167,19 @@
     @foreach ($allSections as $section)
         @php
             $items = collect($section['items'] ?? []);
-            $sectionTotal = $items->sum(
+            $extensions = collect($section['extensions'] ?? []);
+            $sectionSubtotal = $items->sum(
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
             );
+            $sectionExtensionTotal = $extensions->sum(function ($extension) use ($sectionSubtotal) {
+                $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
+                $extensionValue = (float) ($extension['calculation_value'] ?? 0);
+
+                return $extensionMode === 'percentage'
+                    ? ($sectionSubtotal * $extensionValue) / 100
+                    : $extensionValue;
+            });
+            $sectionTotal = $sectionSubtotal + $sectionExtensionTotal;
             $sectionTitle = $section['title'] ?? 'Budget Section';
         @endphp
 
@@ -199,7 +211,30 @@
                 </tr>
             @endforelse
             <tr>
-                <th colspan="3" class="text-right">{{ $sectionTitle }} Budget ({{ $budgetCurrency }})</th>
+                <th colspan="3" class="text-right">Sub Total ({{ $budgetCurrency }})</th>
+                <th class="text-right">{{ $budgetCurrency }} {{ number_format($sectionSubtotal, 2) }}</th>
+                <th></th>
+            </tr>
+            @foreach ($extensions as $extension)
+                @php
+                    $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
+                    $extensionValue = (float) ($extension['calculation_value'] ?? 0);
+                    $extensionAmount = $extensionMode === 'percentage'
+                        ? ($sectionSubtotal * $extensionValue) / 100
+                        : $extensionValue;
+                    $extensionName = trim((string) ($extension['name'] ?? 'Extension'));
+                    $extensionLabel = $extensionMode === 'percentage'
+                        ? sprintf('%s (%s%%)', $extensionName, number_format($extensionValue, 2))
+                        : $extensionName;
+                @endphp
+                <tr>
+                    <td colspan="3" class="text-right" style="font-style: italic;">{{ $extensionLabel }}</td>
+                    <td class="text-right" style="font-style: italic;">{{ $budgetCurrency }} {{ number_format($extensionAmount, 2) }}</td>
+                    <td></td>
+                </tr>
+            @endforeach
+            <tr>
+                <th colspan="3" class="text-right">Total ({{ $budgetCurrency }})</th>
                 <th class="text-right">{{ $budgetCurrency }} {{ number_format($sectionTotal, 2) }}</th>
                 <th></th>
             </tr>
@@ -209,9 +244,9 @@
     {{-- Grand Total --}}
     <table class="section-table">
         <tr>
-            <th colspan="3" class="text-right" style="font-size: 10px;">Grand Total ({{ $budgetCurrency }})</th>
-            <th class="text-right" style="font-size: 10px;">{{ $budgetCurrency }} {{ number_format($budgetGrandTotal, 2) }}</th>
-            <th></th>
+            <th colspan="3" class="text-right" style="width: 50%; font-size: 10px;">Grand Total ({{ $budgetCurrency }})</th>
+            <th class="text-right" style="width: 18%; font-size: 10px;">{{ $budgetCurrency }} {{ number_format($budgetGrandTotal, 2) }}</th>
+            <th style="width: 32%;"></th>
         </tr>
     </table>
 

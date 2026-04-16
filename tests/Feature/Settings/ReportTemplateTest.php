@@ -40,6 +40,21 @@ class ReportTemplateTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_report_template_preview_shows_payment_history_for_quotation(): void
+    {
+        $this->assertPaymentHistoryPreviewForModule('quotation');
+    }
+
+    public function test_report_template_preview_shows_payment_history_for_invoice(): void
+    {
+        $this->assertPaymentHistoryPreviewForModule('invoice');
+    }
+
+    public function test_report_template_preview_shows_payment_history_for_receipt(): void
+    {
+        $this->assertPaymentHistoryPreviewForModule('receipt');
+    }
+
     public function test_report_template_settings_can_be_updated(): void
     {
         $user = $this->createAdminUser();
@@ -79,6 +94,22 @@ class ReportTemplateTest extends TestCase
             ]);
 
         $response->assertSessionHasErrors('company_name');
+    }
+
+    private function assertPaymentHistoryPreviewForModule(string $moduleKey): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this->actingAs($user)->postJson(route('report-template.preview'), [
+            'module_key' => $moduleKey,
+        ]);
+
+        $response->assertOk();
+
+        $html = (string) $response->json('html');
+
+        $this->assertStringContainsString('Payment History', $html, "Preview for {$moduleKey} should show Payment History.");
+        $this->assertStringContainsString('1st Payment', $html, "Preview for {$moduleKey} should show payment rows.");
     }
 
     public function test_logo_file_can_be_uploaded(): void

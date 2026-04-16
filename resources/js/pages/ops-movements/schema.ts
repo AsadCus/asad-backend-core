@@ -25,6 +25,7 @@ export const opsAccommodationSchema = z.object({
 
 export const opsOfficialSchema = z.object({
     id: z.number(),
+    type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
     hotel: z.string().nullable().optional(),
     hotels_by_location: z
@@ -103,10 +104,18 @@ export const opsBudgetItemSchema = z.object({
     sort_order: z.coerce.number().nullable().optional(),
 });
 
+export const opsBudgetExtensionSchema = z.object({
+    name: z.string().nullable().optional(),
+    calculation_mode: z.string().nullable().optional(),
+    calculation_value: z.coerce.number().nullable().optional(),
+    sort_order: z.coerce.number().nullable().optional(),
+});
+
 export const opsBudgetTitleSchema = z.object({
     title: z.string().nullable().optional(),
     sort_order: z.coerce.number().nullable().optional(),
     items: z.array(opsBudgetItemSchema).optional(),
+    extensions: z.array(opsBudgetExtensionSchema).optional(),
 });
 
 export const opsPassengerSummarySchema = z.object({
@@ -179,4 +188,5 @@ export type OpsTourLeaderSchema = z.infer<typeof opsTourLeaderSchema>;
 export type OpsPifSchema = z.infer<typeof opsPifSchema>;
 export type OpsDocumentItemSchema = z.infer<typeof opsDocumentItemSchema>;
 export type OpsBudgetItemSchema = z.infer<typeof opsBudgetItemSchema>;
+export type OpsBudgetExtensionSchema = z.infer<typeof opsBudgetExtensionSchema>;
 export type OpsBudgetTitleSchema = z.infer<typeof opsBudgetTitleSchema>;

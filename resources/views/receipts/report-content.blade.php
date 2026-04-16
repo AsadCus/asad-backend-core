@@ -129,7 +129,7 @@
         }
 
         .totals-table td {
-            padding: 1.5px 0;
+            padding: 1px 0;
         }
 
         .total-label {
@@ -143,17 +143,45 @@
             width: 32%;
             text-align: right;
             font-weight: normal;
-            font-size: 12px;
+            font-size: 11px;
             white-space: nowrap;
         }
 
         .totals-table .total-row-grand .total-label {
             font-weight: bold;
+            color: #1a1a1a;
+        }
+
+        .totals-table .total-row-grand .total-amount {
+            font-weight: bold;
+            font-size: 12px;
         }
 
         .totals-table .total-row-grand td {
             border-top: 1px solid #cfcfcf;
             padding-top: 4px;
+            padding-bottom: 6px;
+        }
+
+        /* ── Payment History section header ── */
+        .payment-history-heading {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #666;
+            text-align: right;
+            padding-top: 2px;
+            padding-bottom: 1px;
+        }
+
+        .payment-history-wrapper {
+            margin-top: 16px;
+            padding-top: 10px;
+        }
+
+        .payment-history-table td {
+            padding: 0;
         }
 
         .footer-section {
@@ -222,106 +250,114 @@
         </table>
 
         @php
-            function formatCurrency($value)
-            {
-                return \App\Helpers\FormatService::formatCurrency($value);
+            if (! function_exists('formatCurrency')) {
+                function formatCurrency($value)
+                {
+                    return \App\Helpers\FormatService::formatCurrency($value);
+                }
             }
 
-            function formatExtensionLabel($extension)
-            {
-                $name = trim((string) ($extension['name'] ?? 'Extension'));
-                $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
-                $value = abs((float) ($extension['calculation_value'] ?? 0));
+            if (! function_exists('formatExtensionLabel')) {
+                function formatExtensionLabel($extension)
+                {
+                    $name = trim((string) ($extension['name'] ?? 'Extension'));
+                    $mode = strtolower(trim((string) ($extension['calculation_mode'] ?? 'fixed')));
+                    $value = abs((float) ($extension['calculation_value'] ?? 0));
 
-                $nameContainsPercent = preg_match('/-?\d+(?:\.\d+)?\s*%$/', $name) === 1;
-                $isPercentage = $mode === 'percentage' || $nameContainsPercent;
+                    $nameContainsPercent = preg_match('/-?\d+(?:\.\d+)?\s*%$/', $name) === 1;
+                    $isPercentage = $mode === 'percentage' || $nameContainsPercent;
 
-                if ($isPercentage) {
-                    if ($value <= 0 && $nameContainsPercent) {
-                        preg_match('/(-?\d+(?:\.\d+)?)\s*%$/', $name, $matches);
-                        $value = abs((float) ($matches[1] ?? 0));
+                    if ($isPercentage) {
+                        if ($value <= 0 && $nameContainsPercent) {
+                            preg_match('/(-?\d+(?:\.\d+)?)\s*%$/', $name, $matches);
+                            $value = abs((float) ($matches[1] ?? 0));
+                        }
+
+                        $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
+                        $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
+                        $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
+                        $normalizedValue = str_contains($formattedValue, '.')
+                            ? rtrim(rtrim($formattedValue, '0'), '.')
+                            : $formattedValue;
+
+                        return ($baseName !== '' ? $baseName : $name) . ' ' . $normalizedValue . '%';
                     }
 
-                    $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
-                    $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
-                    $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
-                    $normalizedValue = str_contains($formattedValue, '.')
-                        ? rtrim(rtrim($formattedValue, '0'), '.')
-                        : $formattedValue;
-
-                    return ($baseName !== '' ? $baseName : $name) . ' ' . $normalizedValue . '%';
+                    return $name;
                 }
-
-                return $name;
             }
 
-            function toAlphabet($num)
-            {
-                $alphabet = 'abcdefghijklmnopqrstuvwxyz';
-                if ($num - 1 < 26) {
-                    return $alphabet[$num - 1];
+            if (! function_exists('toAlphabet')) {
+                function toAlphabet($num)
+                {
+                    $alphabet = 'abcdefghijklmnopqrstuvwxyz';
+                    if ($num - 1 < 26) {
+                        return $alphabet[$num - 1];
+                    }
+                    $firstLetter = $alphabet[floor(($num - 1) / 26) - 1];
+                    $secondLetter = $alphabet[($num - 1) % 26];
+                    return $firstLetter . $secondLetter;
                 }
-                $firstLetter = $alphabet[floor(($num - 1) / 26) - 1];
-                $secondLetter = $alphabet[($num - 1) % 26];
-                return $firstLetter . $secondLetter;
             }
 
-            function renderItem($item, $allItems, $level = 0, &$counter, &$subtotal, $subCounter = 0)
-            {
-                $itemNumber = '';
-                $isRoot = false;
-                
-                if ($level === 0) {
-                    $counter++;
-                    $itemNumber = $counter . '.';
-                    $isRoot = true;
-                } elseif ($level === 1) {
-                    $itemNumber = toAlphabet($subCounter) . '.';
-                }
+            if (! function_exists('renderItem')) {
+                function renderItem($item, $allItems, $level = 0, &$counter, &$subtotal, $subCounter = 0)
+                {
+                    $itemNumber = '';
+                    $isRoot = false;
 
-                $indentClass = $level > 0 ? 'sub-item' : '';
-                $rootClass = $isRoot ? 'root' : '';
-                
-                $rate = floatval($item['rate'] ?? 0);
-                $qty = floatval($item['quantity'] ?? 1);
-                $itemTotal = $rate * $qty;
+                    if ($level === 0) {
+                        $counter++;
+                        $itemNumber = $counter . '.';
+                        $isRoot = true;
+                    } elseif ($level === 1) {
+                        $itemNumber = toAlphabet($subCounter) . '.';
+                    }
 
-                if (!$item['is_header']) {
-                    $subtotal += $itemTotal;
-                }
+                    $indentClass = $level > 0 ? 'sub-item' : '';
+                    $rootClass = $isRoot ? 'root' : '';
 
-                $descriptionText = e($item['description'] ?? '');
-                $children = collect($allItems)
-                    ->filter(function ($child) use ($item) {
-                        $parentIdMatch = !empty($child['parent_id']) && $child['parent_id'] == $item['id'];
-                        $parentKeyMatch =
-                            !empty($child['parent_key']) &&
-                            !empty($item['_key']) &&
-                            $child['parent_key'] == $item['_key'];
-                        return $parentIdMatch || $parentKeyMatch;
-                    })
-                    ->sortBy('sort_order');
+                    $rate = floatval($item['rate'] ?? 0);
+                    $qty = floatval($item['quantity'] ?? 1);
+                    $itemTotal = $rate * $qty;
 
-                $rateDisplay = !$item['is_header'] && $rate ? formatCurrency($rate) : '';
-                $totalDisplay = !$item['is_header'] && $itemTotal ? formatCurrency($itemTotal) : '';
+                    if (!$item['is_header']) {
+                        $subtotal += $itemTotal;
+                    }
 
-                // Render header row or regular item row
-                if (!empty($item['is_header'])) {
-                    echo '<tr class="header-row">';
-                    echo '<td colspan="3">' . $itemNumber . ' ' . $descriptionText . '</td>';
-                    echo '</tr>';
-                } else {
-                    echo '<tr class="item-row ' . $rootClass . ' ' . $indentClass . '">';
-                    echo '<td class="col-desc">' . $itemNumber . ' ' . $descriptionText . '</td>';
-                    echo '<td class="col-rate">' . $rateDisplay . '</td>';
-                    echo '<td class="col-total">' . $totalDisplay . '</td>';
-                    echo '</tr>';
-                }
+                    $descriptionText = e($item['description'] ?? '');
+                    $children = collect($allItems)
+                        ->filter(function ($child) use ($item) {
+                            $parentIdMatch = !empty($child['parent_id']) && $child['parent_id'] == $item['id'];
+                            $parentKeyMatch =
+                                !empty($child['parent_key']) &&
+                                !empty($item['_key']) &&
+                                $child['parent_key'] == $item['_key'];
+                            return $parentIdMatch || $parentKeyMatch;
+                        })
+                        ->sortBy('sort_order');
 
-                $childSubCounter = 0;
-                foreach ($children as $child) {
-                    $childSubCounter++;
-                    renderItem($child, $allItems, $level + 1, $counter, $subtotal, $childSubCounter);
+                    $rateDisplay = !$item['is_header'] && $rate ? formatCurrency($rate) : '';
+                    $totalDisplay = !$item['is_header'] && $itemTotal ? formatCurrency($itemTotal) : '';
+
+                    // Render header row or regular item row
+                    if (!empty($item['is_header'])) {
+                        echo '<tr class="header-row">';
+                        echo '<td colspan="3">' . $itemNumber . ' ' . $descriptionText . '</td>';
+                        echo '</tr>';
+                    } else {
+                        echo '<tr class="item-row ' . $rootClass . ' ' . $indentClass . '">';
+                        echo '<td class="col-desc">' . $itemNumber . ' ' . $descriptionText . '</td>';
+                        echo '<td class="col-rate">' . $rateDisplay . '</td>';
+                        echo '<td class="col-total">' . $totalDisplay . '</td>';
+                        echo '</tr>';
+                    }
+
+                    $childSubCounter = 0;
+                    foreach ($children as $child) {
+                        $childSubCounter++;
+                        renderItem($child, $allItems, $level + 1, $counter, $subtotal, $childSubCounter);
+                    }
                 }
             }
 
@@ -369,6 +405,15 @@
                         <td class="total-label">Total Amount:</td>
                         <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {{-- ── PAYMENT HISTORY ── --}}
+        <div class="totals-wrapper payment-history-wrapper">
+            <div class="payment-history-heading">Payment History</div>
+            <table class="totals-table payment-history-table">
+                <tbody>
                     @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
                         <tr>
                             <td class="total-label">Pending Payment:</td>
