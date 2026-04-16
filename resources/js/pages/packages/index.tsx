@@ -5,16 +5,9 @@ import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import {
-    create,
-    destroy,
-    download,
-    edit,
-    index,
-    show,
-} from '@/routes/packages';
+import { download, index } from '@/routes/packages';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { packageStatusColors, packageStatusLabels } from './schema';
 
@@ -134,9 +127,9 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
 ];
 
 export default function PackagesIndex({ data }: PackagesProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
+    const actions: ActionType[] = ['download'];
     const { packagesForDatatable } = data;
-    const { confirm, ConfirmDialog } = useConfirmDialog();
+    const { ConfirmDialog } = useConfirmDialog();
 
     return (
         <>
@@ -157,40 +150,13 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             addButtonText="Create New Package"
                             url={index().url}
                             onAction={(action, row) => {
-                                if (action === 'add') {
-                                    router.get(create().url);
-                                }
-
                                 const packageId = row?.original.id;
 
-                                if (packageId !== undefined) {
-                                    if (action === 'view') {
-                                        router.get(show(packageId).url);
-                                    } else if (action === 'edit') {
-                                        router.get(edit(packageId).url);
-                                    } else if (action === 'download') {
-                                        window.open(
-                                            download(packageId).url,
-                                            '_blank',
-                                        );
-                                    } else if (action === 'delete') {
-                                        confirm({
-                                            title: 'Delete Package',
-                                            message: `Are you sure you want to delete package "${row?.original.name}"?`,
-                                            confirmText: 'Delete',
-                                            cancelText: 'Cancel',
-                                            onConfirm: () => {
-                                                router.delete(
-                                                    destroy(packageId).url,
-                                                );
-                                            },
-                                        });
-                                    }
-                                }
-                            }}
-                            onRowDoubleClick={(row) => {
-                                if (row.id) {
-                                    router.get(edit(row.id).url);
+                                if (
+                                    packageId !== undefined &&
+                                    action === 'download'
+                                ) {
+                                    window.open(download(packageId).url, '_blank');
                                 }
                             }}
                             initialState={{

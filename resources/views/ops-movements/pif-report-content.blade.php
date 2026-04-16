@@ -40,12 +40,15 @@
         }
 
         .section-title {
-            margin: 7px 0 4px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.25px;
-            color: #243644;
+            font-size: 11px;
+            font-weight: bold;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 14px 0 6px;
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
+            color: #222;
         }
 
         .text-center {
@@ -128,7 +131,7 @@
             <th class="text-center" style="width: 8%;">Total</th>
         </tr>
         <tr>
-            <td>{{ $opsMovement['company_name'] ?? data_get($opsMovement, 'branding.company_name', '-') }}</td>
+            <td>{{ data_get($branding, 'company_name', '-') }}</td>
             <td class="text-center">{{ $officialTotal }}</td>
             <td class="text-center">{{ $adultTotal }}</td>
             <td class="text-center">{{ $childTotal }}</td>
@@ -202,40 +205,32 @@
             <th style="width: 5%;" class="text-right">DBL</th>
             <th style="width: 5%;" class="text-right">TRP</th>
             <th style="width: 5%;" class="text-right">Quad</th>
-            <th style="width: 6%;" class="text-right">CWB</th>
-            <th style="width: 6%;" class="text-right">CNB</th>
             <th style="width: 5%;" class="text-right">Inf</th>
             <th>Remarks</th>
         </tr>
-        <tr>
-            <th colspan="5" style="font-size:8px;">Passenger Category Count</th>
-            <td colspan="4" class="text-center" style="font-size:8px; background:#f4f8fb;">
-                Child With Bed: {{ $childWithBed }} &nbsp;|&nbsp; Child No Bed: {{ $childNoBed }} &nbsp;|&nbsp; Infant:
-                {{ $infantTotal }}
-            </td>
-            <td colspan="4" class="legend-text text-center">
-                CWB=Child w/ Bed<br>CNB=Child No Bed
-            </td>
-        </tr>
         @forelse ($accommodations as $accommodation)
+            @php
+                $singleRoomCount =
+                    (int) data_get($accommodation, 'room_counts.single', 0)
+                    + (int) data_get($accommodation, 'room_counts.child_with_bed', 0)
+                    + (int) data_get($accommodation, 'room_counts.child_no_bed', 0);
+            @endphp
             <tr>
                 <td>{{ $accommodation['location'] ?? '-' }}</td>
                 <td>{{ $accommodation['hotel_name'] ?? '-' }}</td>
                 <td class="text-center">{{ $accommodation['check_in'] ?? '-' }}</td>
                 <td class="text-center">{{ $accommodation['check_out'] ?? '-' }}</td>
                 <td class="text-right">{{ (int) ($accommodation['nights'] ?? 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.single', 0) }}</td>
+                <td class="text-right">{{ $singleRoomCount }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.double', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.triple', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.quad', 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.child_with_bed', 0) }}</td>
-                <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.child_no_bed', 0) }}</td>
                 <td class="text-right">{{ (int) data_get($accommodation, 'room_counts.infant', 0) }}</td>
                 <td>{{ $accommodation['remarks'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="13" class="text-center">No accommodation data.</td>
+                <td colspan="11" class="text-center">No accommodation data.</td>
             </tr>
         @endforelse
     </table>

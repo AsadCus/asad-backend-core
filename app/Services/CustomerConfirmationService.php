@@ -771,40 +771,6 @@ class CustomerConfirmationService
             $paymentMethodValue = (string) ($receipt->payment_method ?? '');
             $paymentMethodLabel = $paymentMethodMap[$paymentMethodValue] ?? ucfirst($paymentMethodValue);
 
-            $allOrderInvoices = collect($invoice->order?->invoices ?? []);
-
-            $activeNonCancelledInvoices = $allOrderInvoices
-                ->filter(fn ($inv) => strtolower(trim((string) ($inv->status ?? ''))) !== 'cancelled')
-                ->sortBy(fn ($inv) => (int) ($inv->invoice_date?->timestamp ?? $inv->id ?? 0))
-                ->values();
-
-            $milestoneInvoices = $activeNonCancelledInvoices
-                ->filter(fn ($inv) => strtolower(trim((string) ($inv->status ?? ''))) === 'paid'
-                    || \App\Support\InvoiceStatus::isRefund($inv->status))
-                ->values();
-
-            $normalizedTotalAmount = $activeNonCancelledInvoices->isNotEmpty()
-                ? (float) $activeNonCancelledInvoices->sum(fn ($inv) => (float) ($inv->amount ?? 0))
-                : $totalAmount;
-
-            if ($milestoneInvoices->isEmpty()) {
-                $invoicePaymentProgress = [[
-                    'label' => 'Pending Payment',
-                    'amount_paid' => 0.0,
-                    'total_amount' => $normalizedTotalAmount,
-                ]];
-            } else {
-                $invoicePaymentProgress = $milestoneInvoices->map(function ($inv, int $index) use ($normalizedTotalAmount): array {
-                    $labelSuffix = \App\Support\InvoiceStatus::isRefund($inv->status) ? 'Refund' : 'Payment';
-
-                    return [
-                        'label' => $this->toOrdinalForPdf($index + 1).' '.$labelSuffix,
-                        'amount_paid' => (float) ($inv->amount ?? 0),
-                        'total_amount' => $normalizedTotalAmount,
-                    ];
-                })->values()->all();
-            }
-
             $receiptNotes = $receipt->receiptNotes ?? collect();
 
             $receipts[] = [
@@ -822,7 +788,6 @@ class CustomerConfirmationService
                 'total_amount' => round($totalAmount, 2),
                 'extensions' => [],
                 'notes' => $receiptNotes->sortBy('sort_order')->values()->toArray(),
-                'invoice_payment_progress' => $invoicePaymentProgress,
                 'items' => $invoiceItems->map(fn ($item) => [
                     'id' => $item->id,
                     'parent_id' => $item->parent_id,
@@ -861,24 +826,6 @@ class CustomerConfirmationService
             'is_leader' => (bool) $member->is_leader,
             'receipts' => $receipts,
         ];
-    }
-
-    /** @internal Used by getMemberReceiptsForPdf only */
-    private function toOrdinalForPdf(int $number): string
-    {
-
-        $mod100 = $number % 100;
-
-        if ($mod100 >= 11 && $mod100 <= 13) {
-            return $number.'th';
-        }
-
-        return match ($number % 10) {
-            1 => $number.'st',
-            2 => $number.'nd',
-            3 => $number.'rd',
-            default => $number.'th',
-        };
     }
 
     private function resolveMemberPaidAmount(CustomerConfirmationMember $member): float

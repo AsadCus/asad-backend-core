@@ -362,6 +362,12 @@
         {{-- ── FOOTER ── --}}
         <div class="footer-section">
             {{-- Notes: always shown above footer if description is filled --}}
+            @php
+                $activeNotes = collect($data['notes'] ?? [])
+                    ->filter(fn($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
+                    ->sortBy('sort_order')
+                    ->values();
+            @endphp
             @include('partials.report-notes')
 
             {{-- Module footer text from Report Template Settings --}}

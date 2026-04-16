@@ -40,12 +40,15 @@
         }
 
         .section-title {
-            margin: 8px 0 4px;
             font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            color: #22313f;
+            font-weight: bold;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 14px 0 6px;
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
+            color: #222;
         }
 
         .text-center {
