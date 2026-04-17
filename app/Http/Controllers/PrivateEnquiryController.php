@@ -28,6 +28,7 @@ class PrivateEnquiryController extends Controller
     {
         $data['enquiriesForDatatable'] = $this->privateEnquiryService->getForDataTable();
         $data['packageOptions'] = $this->packageService->getForFilter();
+        $data['countryOptions'] = $this->countryService->getForFilter();
 
         return Inertia::render('private-enquiries/index', [
             'data' => $data,

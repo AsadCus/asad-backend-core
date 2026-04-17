@@ -172,6 +172,7 @@ class EnquiryWorkflowTest extends TestCase
     public function test_all_enquiries_index_page_loads(): void
     {
         $this->actingAs($this->adminUser);
+        Country::factory()->create();
 
         $response = $this->get(route('enquiries.index'));
 
@@ -181,6 +182,23 @@ class EnquiryWorkflowTest extends TestCase
                 ->component('enquiries/index')
                 ->has('data.enquiriesForDatatable')
                 ->has('data.statusOptions')
+                ->has('data.countryOptions', 1)
+        );
+    }
+
+    public function test_private_enquiries_index_page_includes_country_options(): void
+    {
+        $this->actingAs($this->adminUser);
+        Country::factory()->create();
+
+        $response = $this->get(route('private-enquiries.index'));
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('private-enquiries/index')
+                ->has('data.enquiriesForDatatable')
+                ->has('data.countryOptions', 1)
         );
     }
 

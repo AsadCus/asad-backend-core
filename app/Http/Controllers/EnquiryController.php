@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Rules\CustomerConfirmationRule;
 use App\Rules\PackageRule;
+use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
 use App\Services\PackageService;
@@ -19,6 +20,7 @@ class EnquiryController extends Controller
         protected CustomerConfirmationService $customerConfirmationService,
         protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
+        protected CountryService $countryService,
     ) {}
 
     /**
@@ -29,6 +31,7 @@ class EnquiryController extends Controller
         $data['enquiriesForDatatable'] = $this->enquiryService->getForDataTable();
         $data['statusOptions'] = $this->enquiryService->getStatusOptions();
         $data['packageOptions'] = $this->packageService->getForFilter();
+        $data['countryOptions'] = $this->countryService->getForFilter();
 
         return Inertia::render('enquiries/index', [
             'data' => $data,

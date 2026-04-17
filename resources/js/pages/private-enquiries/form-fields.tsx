@@ -233,6 +233,8 @@ export default function PrivateEnquiryFormFields({
                                 value={data.passport_expiry_date}
                                 disabled={disabled}
                                 disabledDates={isBeforeToday}
+                                fromYear={new Date().getFullYear() - 10}
+                                toYear={new Date().getFullYear() + 10}
                                 onChange={(v) =>
                                     setData('passport_expiry_date', v)
                                 }

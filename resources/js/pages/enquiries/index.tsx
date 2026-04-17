@@ -54,6 +54,7 @@ export interface EnquiriesProps {
         enquiriesForDatatable: EnquirySchema[];
         statusOptions: OptionType[];
         packageOptions: OptionType[];
+        countryOptions: OptionType[];
     };
 }
 
@@ -146,7 +147,7 @@ const columns: ColumnDef<EnquirySchema>[] = [
 ];
 
 export default function EnquiriesIndex({ data }: EnquiriesProps) {
-    const { enquiriesForDatatable, packageOptions } = data;
+    const { enquiriesForDatatable, packageOptions, countryOptions } = data;
 
     const actions: ActionType[] = ['view', 'edit'];
 
@@ -613,6 +614,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                             <PackageForm
                                 mode="create"
                                 prefillData={privateFlowPkgPrefill}
+                                countries={countryOptions}
                                 onCancel={cancelPrivateFlow}
                                 onSuccess={handlePrivatePackageComplete}
                             />

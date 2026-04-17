@@ -58,6 +58,7 @@ export interface PrivateEnquiriesProps {
     data: {
         enquiriesForDatatable: PrivateEnquiryDatatableSchema[];
         packageOptions: OptionType[];
+        countryOptions: OptionType[];
     };
 }
 
@@ -267,7 +268,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
         actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('private-enquiry edit');
-    const { enquiriesForDatatable, packageOptions } = data;
+    const { enquiriesForDatatable, packageOptions, countryOptions } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -614,6 +615,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                             <PackageForm
                                 mode="create"
                                 prefillData={privateFlowPkgPrefill}
+                                countries={countryOptions}
                                 onCancel={cancelPrivateFlow}
                                 onSuccess={handlePrivatePackageComplete}
                             />
