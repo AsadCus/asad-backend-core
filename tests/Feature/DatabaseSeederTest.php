@@ -32,13 +32,13 @@ class DatabaseSeederTest extends TestCase
         $this->assertGreaterThan(0, Country::count());
         $this->assertGreaterThan(0, FinancialYear::count());
 
-        $this->assertSame(2, User::role('admin')->count());
+        $this->assertSame(3, User::role('admin')->count());
         $this->assertSame(2, User::role('sales')->count());
         $this->assertSame(1, User::role('operations')->count());
-        $this->assertSame(2, Admin::count());
+        $this->assertSame(3, Admin::count());
         $this->assertSame(2, Sales::count());
         $this->assertSame(1, Operation::count());
-        $this->assertSame(1, GhostUser::count());
+        $this->assertSame(2, GhostUser::count());
         $this->assertDatabaseHas('ghost_users', [
             'user_id' => (int) User::query()->where('email', 'asad@example.com')->value('id'),
         ]);
