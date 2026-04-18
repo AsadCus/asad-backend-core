@@ -340,7 +340,7 @@ export function AppSidebar() {
         // },
         {
             title: 'Documentation',
-            href: '#',
+            href: '/documentations',
             icon: BookOpen,
         },
     ];

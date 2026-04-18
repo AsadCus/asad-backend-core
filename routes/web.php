@@ -4,6 +4,7 @@ use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\EnquiryRemarkController;
 use App\Http\Controllers\GeneralEnquiryController;
@@ -71,6 +72,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::put('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
+    // Documentation
+    Route::get('documentations', [DocumentationController::class, 'index'])->name('documentations.index');
 
     // Masters
     Route::prefix('master')->name('master.')->middleware(['role:admin'])->group(function () {
