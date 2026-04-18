@@ -22,6 +22,10 @@ router.on('invalid', (event) => {
     }
 });
 
+const cleanApp = () => {
+    document.getElementById('app')?.removeAttribute('data-page');
+};
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) =>
@@ -37,8 +41,7 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
-});
+}).then(cleanApp);
 
-// This will set light / dark mode on load...
 initializeTheme();
 initializeColorTheme();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Models\GhostUser;
 use App\Models\ReportSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,17 +22,18 @@ class ReportTemplateTest extends TestCase
         Role::findOrCreate('admin', 'web');
     }
 
-    private function createAdminUser(): User
+    private function createGhostAdminUser(): User
     {
         $user = User::factory()->create();
         $user->assignRole('admin');
+        GhostUser::create(['user_id' => (int) $user->id]);
 
         return $user;
     }
 
     public function test_report_template_page_is_displayed(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -57,7 +59,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_report_template_settings_can_be_updated(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -85,7 +87,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_company_name_is_required(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -98,7 +100,7 @@ class ReportTemplateTest extends TestCase
 
     private function assertPaymentHistoryPreviewForModule(string $moduleKey): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         $response = $this->actingAs($user)->postJson(route('report-template.preview'), [
             'module_key' => $moduleKey,
@@ -114,7 +116,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_logo_file_can_be_uploaded(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
         $file = UploadedFile::fake()->image('logo.png', 200, 200);
 
         $response = $this
@@ -133,7 +135,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_stamp_and_signature_files_can_be_uploaded(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
         $stamp = UploadedFile::fake()->image('stamp.png');
         $signature = UploadedFile::fake()->image('signature.png');
 
@@ -156,7 +158,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_qr_image_can_be_uploaded_and_alignment_persisted(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
         $qrImage = UploadedFile::fake()->image('qr-image.png', 300, 300);
 
         $response = $this
@@ -177,7 +179,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_module_show_qr_setting_can_be_updated(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         $response = $this
             ->actingAs($user)
@@ -262,7 +264,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_invalid_file_type_is_rejected(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
         $file = UploadedFile::fake()->create('document.pdf', 1000);
 
         $response = $this
@@ -277,7 +279,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_file_size_limit_is_enforced(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
         $file = UploadedFile::fake()->image('logo.png')->size(3000); // 3MB
 
         $response = $this
@@ -292,7 +294,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_updating_one_file_does_not_delete_other_files(): void
     {
-        $user = $this->createAdminUser();
+        $user = $this->createGhostAdminUser();
 
         // Upload all three files initially
         $logo = UploadedFile::fake()->image('logo.png');

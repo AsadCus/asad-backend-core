@@ -56,6 +56,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user?->load(['roles.permissions', 'sales', 'admin', 'operation']),
                 'roles' => $user?->getRoleNames(),
                 'permissions' => $user?->getAllPermissions()->pluck('name'),
+                'is_ghost_user' => $user?->isGhostUser() ?? false,
                 'notifications' => $user
                     ? $this->notificationService->getUserNotifications($user->id)
                     : [],

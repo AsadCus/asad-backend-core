@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Models\GhostUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -12,7 +13,22 @@ class ModelNumberFormatSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_open_model_number_format_settings_page(): void
+    public function test_ghost_admin_can_open_model_number_format_settings_page(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        GhostUser::create(['user_id' => (int) $admin->id]);
+
+        $this->actingAs($admin)
+            ->get(route('model-number-formats.edit'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('settings/model-number-formats')
+            );
+    }
+
+    public function test_non_ghost_admin_cannot_open_model_number_format_settings_page(): void
     {
         Role::findOrCreate('admin', 'web');
 
@@ -21,9 +37,7 @@ class ModelNumberFormatSettingsTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('model-number-formats.edit'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/model-number-formats')
-            );
+            ->assertForbidden();
     }
 
     public function test_non_admin_cannot_open_model_number_format_settings_page(): void

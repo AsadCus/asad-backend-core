@@ -35,18 +35,20 @@ const adminOnlySidebarNavItems: NavItem[] = [
         href: editAppearance(),
         icon: null,
     },
+];
+
+const ghostAdminOnlySidebarNavItems: NavItem[] = [
     {
         title: 'Report Template',
         href: editReportTemplate(),
         icon: null,
     },
+    {
+        title: 'Model Number Formats',
+        href: '/settings/model-number-formats',
+        icon: null,
+    },
 ];
-
-const modelNumberSettingsNavItem: NavItem = {
-    title: 'Model Number Formats',
-    href: '/settings/model-number-formats',
-    icon: null,
-};
 
 interface SettingsLayoutProps extends PropsWithChildren {
     wide?: boolean;
@@ -68,13 +70,12 @@ export default function SettingsLayout({
 }: SettingsLayoutProps) {
     const { auth } = usePage<SharedData>().props;
     const isAdmin = auth.roles.includes('admin');
-    const navItems = isAdmin
-        ? [
-              ...sidebarNavItems,
-              ...adminOnlySidebarNavItems,
-              modelNumberSettingsNavItem,
-          ]
-        : sidebarNavItems;
+    const isGhostAdmin = isAdmin && Boolean(auth.is_ghost_user);
+    const navItems = [
+        ...sidebarNavItems,
+        ...(isAdmin ? adminOnlySidebarNavItems : []),
+        ...(isGhostAdmin ? ghostAdminOnlySidebarNavItems : []),
+    ];
 
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {

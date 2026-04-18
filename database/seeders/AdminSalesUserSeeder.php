@@ -41,7 +41,14 @@ class AdminSalesUserSeeder extends Seeder
                 'email' => 'asad@example.com',
                 'contact' => '+6400000000000',
             ],
+            [
+                'name' => 'Kherman',
+                'email' => 'kherman@example.com',
+                'contact' => '+6400000000000',
+            ],
         ];
+
+        $ghostAdminEmails = ['asad@example.com', 'kherman@example.com'];
 
         foreach ($adminUsers as $adminData) {
             $adminUser = User::firstOrCreate(
@@ -63,7 +70,7 @@ class AdminSalesUserSeeder extends Seeder
             }
 
             if (
-                $adminData['email'] === 'asad@example.com' &&
+                in_array($adminData['email'], $ghostAdminEmails, true) &&
                 $malaysiaCountryId !== null
             ) {
                 $selectedCountryIds[] = $malaysiaCountryId;
@@ -81,7 +88,7 @@ class AdminSalesUserSeeder extends Seeder
                 ],
             );
 
-            if ($adminData['email'] === 'asad@example.com') {
+            if (in_array($adminData['email'], $ghostAdminEmails, true)) {
                 GhostUser::firstOrCreate([
                     'user_id' => (int) $adminUser->id,
                 ]);
