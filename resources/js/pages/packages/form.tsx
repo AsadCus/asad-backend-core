@@ -137,6 +137,7 @@ interface PackageFormProps {
     initialData?: PackageSchema;
     prefillData?: Partial<PackageSchema>;
     countries?: OptionType[];
+    lockCountrySelection?: boolean;
     onCancel?: () => void;
     onSuccess?: (data: PackageSchema) => void;
 }
@@ -146,6 +147,7 @@ export default function PackageForm({
     initialData,
     prefillData,
     countries = [],
+    lockCountrySelection = false,
     onCancel,
     onSuccess,
 }: PackageFormProps) {
@@ -211,6 +213,7 @@ export default function PackageForm({
 
     const lastAppliedPrefillRef = useRef<string | null>(null);
     const previousDepartureDateRef = useRef<string>('');
+    const hasInitializedDepartureDateSyncRef = useRef<boolean>(false);
     const errorBannerRef = useRef<HTMLDivElement | null>(null);
 
     const getInputIdFromPath = useCallback((path: string): string => {
@@ -390,6 +393,13 @@ export default function PackageForm({
     useEffect(() => {
         const departureDate = String(data.departure_date ?? '').trim();
         const previousDepartureDate = previousDepartureDateRef.current;
+
+        if (!hasInitializedDepartureDateSyncRef.current) {
+            previousDepartureDateRef.current = departureDate;
+            hasInitializedDepartureDateSyncRef.current = true;
+
+            return;
+        }
 
         if (
             departureDate.length === 0 ||
@@ -929,6 +939,7 @@ export default function PackageForm({
                                     disabled={
                                         isView ||
                                         processing ||
+                                        lockCountrySelection ||
                                         (isEdit && hasPersistedPackageLocation)
                                     }
                                     options={countries}

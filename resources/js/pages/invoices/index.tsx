@@ -296,7 +296,7 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                 <Button
                     type="button"
                     size="sm"
-                    variant="outline"
+                    variant="default"
                     onClick={(event) => {
                         event.stopPropagation();
 

@@ -59,6 +59,11 @@ class OpsMovementController extends Controller
     public function update(Request $request, string $id): RedirectResponse
     {
         $validated = $request->validate($this->opsMovementRule->rules());
+
+        if (! $request->user()?->hasRole('admin')) {
+            unset($validated['budget'], $validated['budget_currency']);
+        }
+
         $this->opsMovementService->update((int) $id, $validated);
 
         return redirect()->route('ops-movements.show', $id)

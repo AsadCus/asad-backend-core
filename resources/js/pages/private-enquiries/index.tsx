@@ -616,6 +616,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                                 mode="create"
                                 prefillData={privateFlowPkgPrefill}
                                 countries={countryOptions}
+                                lockCountrySelection={true}
                                 onCancel={cancelPrivateFlow}
                                 onSuccess={handlePrivatePackageComplete}
                             />

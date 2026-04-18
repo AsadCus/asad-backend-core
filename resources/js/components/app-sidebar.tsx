@@ -11,6 +11,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import cancelledCustomer from '@/routes/cancelled-customer';
 import completedCustomer from '@/routes/completed-customer';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
@@ -39,6 +40,7 @@ import userLogs from '@/routes/user-logs';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BookOpen,
     ClipboardList,
     FileText,
     FileUser,
@@ -66,6 +68,7 @@ export function AppSidebar() {
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
     const scopeMode = String(auth?.scope_mode ?? 'country').toLowerCase();
+    const isSalesOnlyRole = roles.includes('sales') && !roles.includes('admin');
     const isOperationsOnlyRole =
         roles.includes('operations') && roles.length === 1;
 
@@ -82,7 +85,7 @@ export function AppSidebar() {
                   : []),
           ]
         : [
-              ...(permissions.includes('dashboard view')
+              ...(permissions.includes('dashboard view') && !isSalesOnlyRole
                   ? [
                         {
                             title: 'Dashboard',
@@ -283,6 +286,11 @@ export function AppSidebar() {
                             href: completedCustomer.index.url(),
                             icon: UserCheck,
                         },
+                        {
+                            title: 'Cancelled Customer',
+                            href: cancelledCustomer.index.url(),
+                            icon: UserCheck,
+                        },
                     ]
                   : []),
               ...(permissions.includes('package view')
@@ -330,11 +338,11 @@ export function AppSidebar() {
         //     href: '#',
         //     icon: Folder,
         // },
-        // {
-        //     title: 'Documentation',
-        //     href: '#',
-        //     icon: BookOpen,
-        // },
+        {
+            title: 'Documentation',
+            href: '#',
+            icon: BookOpen,
+        },
     ];
 
     return (
@@ -347,7 +355,9 @@ export function AppSidebar() {
                                 href={
                                     isOperationsOnlyRole
                                         ? opsMovements.index.url()
-                                        : dashboard()
+                                        : isSalesOnlyRole
+                                          ? enquiries.index.url()
+                                          : dashboard()
                                 }
                                 prefetch
                             >

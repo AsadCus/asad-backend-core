@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Enquiry;
 use App\Rules\CustomerConfirmationRule;
 use App\Rules\PackageRule;
 use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
 use App\Services\PackageService;
+use App\Support\DataScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -128,12 +130,13 @@ class EnquiryController extends Controller
             $validated['package_id'] = $resolvedPackageId;
         }
 
-        return DB::transaction(function () use ($validated, $id) {
+        return DB::transaction(function () use ($validated, $id, $enquiry) {
             // Atomically transition status to confirmed
             $this->enquiryService->confirmEnquiry((int) $id);
 
             // If package_data was supplied (private enquiry flow), create the package first
             if (! empty($validated['package_data'])) {
+                $validated['package_data']['country_id'] = $this->resolveScopedPackageCountryId($enquiry);
                 $package = $this->packageService->store($validated['package_data']);
                 $validated['package_id'] = $package->id;
 
@@ -205,9 +208,28 @@ class EnquiryController extends Controller
             return response()->json([], 200);
         }
 
-        return response()->json(
-            $this->packageService->privateEnquiryToPackagePayload($enquiry->privateEnquiry)
-        );
+        $payload = $this->packageService->privateEnquiryToPackagePayload($enquiry->privateEnquiry);
+        $resolvedCountryId = $this->resolveScopedPackageCountryId($enquiry);
+        $payload['country_id'] = $resolvedCountryId !== null ? (string) $resolvedCountryId : '';
+
+        return response()->json($payload);
+    }
+
+    private function resolveScopedPackageCountryId(Enquiry $enquiry): ?int
+    {
+        $scopeMode = DataScope::mode();
+
+        if ($scopeMode === 'branch') {
+            $branchCountryId = (int) ($enquiry->branch?->country_id ?? 0);
+
+            if ($branchCountryId > 0) {
+                return $branchCountryId;
+            }
+        }
+
+        $enquiryCountryId = (int) ($enquiry->country_id ?? 0);
+
+        return $enquiryCountryId > 0 ? $enquiryCountryId : null;
     }
 
     /**

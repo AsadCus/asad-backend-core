@@ -662,6 +662,20 @@ class CustomerConfirmationService
             ->all();
     }
 
+    public function getForCancelledIndex(): array
+    {
+        return collect($this->getForGroupedIndex())
+            ->filter(fn (array $group) => ! (bool) ($group['is_holding'] ?? false))
+            ->filter(fn (array $group) => $this->isCancelledGroupRowForIndex($group))
+            ->map(function (array $group): array {
+                unset($group['package_status']);
+
+                return $group;
+            })
+            ->values()
+            ->all();
+    }
+
     /**
      * @param  array<string, mixed>  $group
      */
@@ -691,6 +705,26 @@ class CustomerConfirmationService
         $isPackageCompleted = strtolower(trim((string) ($group['package_status'] ?? ''))) === 'completed';
 
         return $isPackageCompleted;
+    }
+
+    /**
+     * @param  array<string, mixed>  $group
+     */
+    private function isCancelledGroupRowForIndex(array $group): bool
+    {
+        $members = collect($group['members'] ?? []);
+
+        if ($members->isEmpty()) {
+            return false;
+        }
+
+        return $members->every(function ($member): bool {
+            if (! is_array($member)) {
+                return false;
+            }
+
+            return $this->normalizePaymentStatus((string) ($member['status'] ?? null)) === 'cancelled';
+        });
     }
 
     /**

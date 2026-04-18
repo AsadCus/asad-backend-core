@@ -469,7 +469,11 @@ class OpsMovementService
             $extension['doa_datetime'] = $payload['doa_datetime'] ?? null;
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
-            $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null) ?? 'SAR';
+
+            if (array_key_exists('budget_currency', $payload)) {
+                $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null) ?? 'SAR';
+            }
+
             if (array_key_exists('officials', $payload) && is_array($payload['officials'])) {
                 $extension['officials'] = $officialExtensionRows;
             }
@@ -524,7 +528,10 @@ class OpsMovementService
                     'remarks' => $transportPayload['remarks'] ?? null,
                 ]);
             }
-            $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
+            if (array_key_exists('budget', $payload)) {
+                $extension['budget'] = $this->normalizeBudgetPayload($payload['budget'] ?? []);
+            }
+
             $extension['pif'] = [
                 'tour_leaders' => $this->normalizePifTourLeaders(
                     data_get($payload, 'pif.tour_leaders', []),

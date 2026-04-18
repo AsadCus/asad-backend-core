@@ -181,6 +181,8 @@ class OpsMovementWorkflowTest extends TestCase
         $customerUser = User::factory()->create([
             'name' => 'Wheelchair Traveler',
         ]);
+        Role::findOrCreate('admin', 'web');
+        $actingUser->assignRole('admin');
         Permission::findOrCreate('ops-movement view', 'web');
         Permission::findOrCreate('ops-movement edit', 'web');
         $actingUser->givePermissionTo(['ops-movement view', 'ops-movement edit']);
@@ -502,6 +504,78 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame(1, data_get($opsMovement, 'passengers.child_with_bed_total'));
         $this->assertSame(1, data_get($opsMovement, 'passengers.child_no_bed_total'));
         $this->assertSame(1, data_get($opsMovement, 'passengers.infant_total'));
+    }
+
+    public function test_non_admin_user_cannot_update_budget_fields(): void
+    {
+        $actingUser = User::factory()->create();
+        Permission::findOrCreate('ops-movement view', 'web');
+        Permission::findOrCreate('ops-movement edit', 'web');
+        $actingUser->givePermissionTo(['ops-movement view', 'ops-movement edit']);
+
+        $this->actingAs($actingUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-BUDGET-LOCK',
+            'name' => 'Budget Lock Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-BUDGET-LOCK',
+            'ops_movement_extension' => [
+                'budget_currency' => 'SAR',
+                'budget' => [
+                    [
+                        'title' => 'Existing Budget',
+                        'sort_order' => 1,
+                        'items' => [
+                            [
+                                'item_name' => 'Existing Item',
+                                'unit_price' => 100,
+                                'quantity' => 1,
+                                'remarks' => null,
+                                'sort_order' => 1,
+                            ],
+                        ],
+                        'extensions' => [],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->put(route('ops-movements.update', $package->id), [
+            'budget_currency' => 'USD',
+            'budget' => [
+                [
+                    'title' => 'Tampered Budget',
+                    'items' => [
+                        [
+                            'item_name' => 'Tampered Item',
+                            'unit_price' => 999,
+                            'quantity' => 2,
+                            'remarks' => 'Should not persist',
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertRedirect(route('ops-movements.show', $package->id));
+
+        $manifest->refresh();
+
+        $this->assertSame(
+            'SAR',
+            (string) data_get($manifest->ops_movement_extension, 'budget_currency'),
+        );
+        $this->assertSame(
+            'Existing Budget',
+            (string) data_get($manifest->ops_movement_extension, 'budget.0.title'),
+        );
+        $this->assertSame(
+            'Existing Item',
+            (string) data_get($manifest->ops_movement_extension, 'budget.0.items.0.item_name'),
+        );
     }
 
     public function test_ops_movement_uses_newest_manifest_data(): void

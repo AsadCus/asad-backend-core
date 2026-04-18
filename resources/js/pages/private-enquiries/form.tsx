@@ -1,3 +1,5 @@
+import { FormField } from '@/components/form-field';
+import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,9 +9,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { listCustomers } from '@/routes/enquiries';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { type CustomerOption } from '../customer/schema';
 import EnquiryScopeCard from '../enquiries/components/enquiry-scope-card';
 import PrivateEnquiryFormFields, { internalFieldOptions } from './form-fields';
 import { PrivateEnquirySchema } from './schema';
@@ -86,6 +91,27 @@ export default function PrivateEnquiryForm({
         setError,
         clearErrors,
     } = useForm<PrivateEnquirySchema>(defaultData);
+
+    const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>(
+        [],
+    );
+    const [selectedExistingCustomerId, setSelectedExistingCustomerId] =
+        useState<string>('');
+
+    useEffect(() => {
+        if (!isCreate || isView) {
+            return;
+        }
+
+        fetch(listCustomers().url)
+            .then((response) => response.json())
+            .then((rows) => {
+                setCustomerOptions(rows as CustomerOption[]);
+            })
+            .catch(() => {
+                setCustomerOptions([]);
+            });
+    }, [isCreate, isView]);
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -187,21 +213,103 @@ export default function PrivateEnquiryForm({
                 />
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">
-                            {isView
-                                ? 'View Private Enquiry'
-                                : isEdit
-                                  ? 'Edit Private Enquiry'
-                                  : 'Create Private Enquiry'}
-                        </CardTitle>
-                        <CardDescription>
-                            {isView
-                                ? 'Details of the private enquiry.'
-                                : isEdit
-                                  ? 'Modify the details of the private enquiry and submit to save changes.'
-                                  : 'Fill in the details of the private enquiry and submit.'}
-                        </CardDescription>
+                    <CardHeader className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-0">
+                            <CardTitle className="text-xl">
+                                {isView
+                                    ? 'View Private Enquiry'
+                                    : isEdit
+                                      ? 'Edit Private Enquiry'
+                                      : 'Create Private Enquiry'}
+                            </CardTitle>
+                            <CardDescription>
+                                {isView
+                                    ? 'Details of the private enquiry.'
+                                    : isEdit
+                                      ? 'Modify the details of the private enquiry and submit to save changes.'
+                                      : 'Fill in the details of the private enquiry and submit.'}
+                            </CardDescription>
+                        </div>
+
+                        {isCreate && !isView && customerOptions.length > 0 && (
+                            <div className="flex flex-col justify-start md:flex-row md:justify-end">
+                                <div className="w-full md:w-auto md:max-w-[320px]">
+                                    <FormField
+                                        label="Existing Customer"
+                                        fieldRequirementsProps={{
+                                            hint: 'Optional: select a customer to auto-fill contact details.',
+                                        }}
+                                    >
+                                        <ProperInputSelect
+                                            id="existing_customer_id"
+                                            options={customerOptions.map(
+                                                (customer) => ({
+                                                    value: String(
+                                                        customer.value,
+                                                    ),
+                                                    label: customer.label,
+                                                }),
+                                            )}
+                                            value={selectedExistingCustomerId}
+                                            onValueChange={(nextValue) => {
+                                                if (Array.isArray(nextValue)) {
+                                                    return;
+                                                }
+
+                                                const nextId = String(
+                                                    nextValue ?? '',
+                                                ).trim();
+                                                setSelectedExistingCustomerId(
+                                                    nextId,
+                                                );
+
+                                                if (nextId.length === 0) {
+                                                    setData('name', '');
+                                                    setData(
+                                                        'contact_number',
+                                                        '',
+                                                    );
+                                                    setData('email', '');
+
+                                                    return;
+                                                }
+
+                                                const selectedCustomer =
+                                                    customerOptions.find(
+                                                        (customer) =>
+                                                            String(
+                                                                customer.value,
+                                                            ) === nextId,
+                                                    );
+
+                                                if (!selectedCustomer) {
+                                                    return;
+                                                }
+
+                                                setData(
+                                                    'name',
+                                                    selectedCustomer.name ?? '',
+                                                );
+                                                setData(
+                                                    'contact_number',
+                                                    selectedCustomer.contact_number ??
+                                                        '',
+                                                );
+                                                setData(
+                                                    'email',
+                                                    selectedCustomer.email ??
+                                                        '',
+                                                );
+                                            }}
+                                            placeholder="Search & select customer..."
+                                            maxWidth="320px"
+                                            responsive={true}
+                                            disabled={processing}
+                                        />
+                                    </FormField>
+                                </div>
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <PrivateEnquiryFormFields

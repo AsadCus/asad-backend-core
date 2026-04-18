@@ -36,6 +36,31 @@ class DashboardTest extends TestCase
         $this->get(route('dashboard'))->assertOk();
     }
 
+    public function test_sales_only_user_is_redirected_from_dashboard_to_enquiry_dashboard(): void
+    {
+        $salesUser = User::factory()->create();
+        Role::findOrCreate('sales', 'web');
+        $salesUser->assignRole('sales');
+
+        $this->actingAs($salesUser)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('enquiries.index'));
+    }
+
+    public function test_admin_role_takes_precedence_when_user_has_both_admin_and_sales_roles(): void
+    {
+        $user = User::factory()->create();
+        Role::findOrCreate('sales', 'web');
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('customer', 'web');
+        $user->assignRole('sales');
+        $user->assignRole('admin');
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk();
+    }
+
     public function test_dashboard_payment_summary_groups_receipts_by_item_header_category(): void
     {
         $this->actingAs(User::factory()->create());

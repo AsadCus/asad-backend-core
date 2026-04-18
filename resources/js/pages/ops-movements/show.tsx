@@ -29,6 +29,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
     const { auth } = usePage<SharedData>().props;
     const canEditOpsMovement =
         auth?.permissions?.includes('ops-movement edit') ?? false;
+    const canManageBudget = auth?.roles?.includes('admin') ?? false;
 
     const handleBack = useCallback(() => {
         window.history.back();
@@ -86,6 +87,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         initialData={data}
                         onCancel={handleBack}
                         canEdit={canEditOpsMovement}
+                        canManageBudget={canManageBudget}
                     />
                 </div>
             </div>

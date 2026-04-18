@@ -71,6 +71,11 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+
+        if ($user->hasRole('sales') && ! $user->hasRole('admin')) {
+            return redirect()->route('enquiries.index');
+        }
+
         $data = [];
 
         $selectedYearId = $request->input('financial_year_id');

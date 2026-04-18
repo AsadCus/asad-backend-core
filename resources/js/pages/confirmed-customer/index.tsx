@@ -248,7 +248,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Badge className="rounded-full bg-amber-100 px-3 py-1 text-base text-amber-800">
-                            {breakdown.total} Issue
+                            {breakdown.total} Outstanding
                             {breakdown.total > 1 ? 's' : ''}
                         </Badge>
                     </TooltipTrigger>
@@ -612,10 +612,13 @@ export default function ConfirmedCustomerIndex({
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const isHoldingIndex = indexUrl.includes('/customer-holding');
     const isCompletedIndex = indexUrl.includes('/completed-customer');
-    const canCreateCustomerConfirmation =
-        !isHoldingIndex &&
-        !isCompletedIndex &&
-        userPermissions.includes('customer create');
+    const isCancelledIndex = indexUrl.includes('/cancelled-customer');
+    const isReadOnlyIndex = isCompletedIndex || isCancelledIndex;
+    // const canCreateCustomerConfirmation =
+    //     !isHoldingIndex &&
+    //     !isReadOnlyIndex &&
+    //     userPermissions.includes('customer create');
+    const canCreateCustomerConfirmation = false;
 
     const actions: ActionType[] = [];
     if (canCreateCustomerConfirmation) actions.push('add');
@@ -1623,7 +1626,7 @@ export default function ConfirmedCustomerIndex({
                 actions={['view']}
                 showSettings={false}
                 getRowActions={(member) => {
-                    if (isCompletedIndex) {
+                    if (isReadOnlyIndex) {
                         return [];
                     }
 
@@ -1677,7 +1680,7 @@ export default function ConfirmedCustomerIndex({
                         return;
                     }
 
-                    if (isCompletedIndex && action !== 'view') {
+                    if (isReadOnlyIndex && action !== 'view') {
                         return;
                     }
 
@@ -1731,7 +1734,7 @@ export default function ConfirmedCustomerIndex({
                     }
                 }}
                 onRowDoubleClick={(member) => {
-                    if (isCompletedIndex) {
+                    if (isReadOnlyIndex) {
                         openMemberDialog(member.group_id, member.id, 'view');
 
                         return;
@@ -1749,6 +1752,7 @@ export default function ConfirmedCustomerIndex({
                     columnVisibility: {
                         nric_number: false,
                         nationality: false,
+                        has_quotation: false,
                         passport_number: false,
                         customer_number: false,
                         contact: false,
@@ -1788,7 +1792,7 @@ export default function ConfirmedCustomerIndex({
                             }
                             enableExpand
                             getRowActions={(group) => {
-                                if (isCompletedIndex) {
+                                if (isReadOnlyIndex) {
                                     return [];
                                 }
 
@@ -1938,7 +1942,7 @@ export default function ConfirmedCustomerIndex({
                                     return;
                                 }
 
-                                if (isCompletedIndex) {
+                                if (isReadOnlyIndex) {
                                     handleOpenGroupDialog(row.id, 'view');
 
                                     return;

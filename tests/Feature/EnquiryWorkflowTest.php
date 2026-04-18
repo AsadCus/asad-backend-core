@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Admin;
+use App\Models\Branch;
 use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
@@ -13,6 +15,7 @@ use App\Models\PrivateEnquiry;
 use App\Models\User;
 use App\Services\GeneralEnquiryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -871,6 +874,214 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertJsonPath('not_included', "Mutawif service not requested\nUmrah course not requested\nUmrah official not requested\nMeet & greet not requested\nMutawiffah/Ustazah Rawdah not requested");
         $response->assertJsonPath('remarks', "Private enquiry details:\nClass: Economy\nMakkah/Madinah first: makkah\nNights in Makkah: 4\nNights in Madinah: 3\nWheelchair support: No");
         $response->assertJsonPath('accommodations.0.location', 'Makkah');
+    }
+
+    public function test_private_enquiry_package_prefill_sets_country_from_enquiry_country_in_country_mode(): void
+    {
+        $this->actingAs($this->adminUser);
+        Config::set('data_scope.mode', 'country');
+
+        $country = Country::factory()->create();
+        $branchCountry = Country::factory()->create();
+        $branch = Branch::create([
+            'name' => 'Country Mode Branch',
+            'country_id' => $branchCountry->id,
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::Contacted->value,
+            'name' => 'Country Mode Prefill',
+            'contact_number' => '0170002222',
+            'email' => 'country-mode-prefill@test.com',
+            'created_by' => $this->adminUser->id,
+            'country_id' => $country->id,
+            'branch_id' => $branch->id,
+        ]);
+
+        PrivateEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'passport_expiry_date' => '2030-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-10',
+            'no_of_pax' => 2,
+            'no_of_children' => 0,
+            'airline' => '',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Grand',
+            'meals_makkah' => 'Full Board',
+            'no_of_nights_madinah' => '3',
+            'hotel_madinah' => '',
+            'meals_madinah' => '',
+            'land_transfer' => '',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => 'No',
+            'other_remarks' => '',
+        ]);
+
+        $response = $this->get(route('enquiries.package-prefill', $enquiry->id));
+
+        $response->assertOk();
+        $response->assertJsonPath('country_id', (string) $country->id);
+    }
+
+    public function test_private_enquiry_package_prefill_sets_country_from_branch_country_in_branch_mode(): void
+    {
+        $this->actingAs($this->adminUser);
+        Config::set('data_scope.mode', 'branch');
+
+        $enquiryCountry = Country::factory()->create();
+        $branchCountry = Country::factory()->create();
+        $branch = Branch::create([
+            'name' => 'Branch Mode Branch',
+            'country_id' => $branchCountry->id,
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::Contacted->value,
+            'name' => 'Branch Mode Prefill',
+            'contact_number' => '0170003333',
+            'email' => 'branch-mode-prefill@test.com',
+            'created_by' => $this->adminUser->id,
+            'country_id' => $enquiryCountry->id,
+            'branch_id' => $branch->id,
+        ]);
+
+        PrivateEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'passport_expiry_date' => '2030-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-10',
+            'no_of_pax' => 2,
+            'no_of_children' => 0,
+            'airline' => '',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Grand',
+            'meals_makkah' => 'Full Board',
+            'no_of_nights_madinah' => '3',
+            'hotel_madinah' => '',
+            'meals_madinah' => '',
+            'land_transfer' => '',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => 'No',
+            'other_remarks' => '',
+        ]);
+
+        $response = $this->get(route('enquiries.package-prefill', $enquiry->id));
+
+        $response->assertOk();
+        $response->assertJsonPath('country_id', (string) $branchCountry->id);
+    }
+
+    public function test_private_enquiry_confirm_enforces_scope_country_for_package_data_in_branch_mode(): void
+    {
+        $this->actingAs($this->adminUser);
+        Config::set('data_scope.mode', 'branch');
+
+        $scopeCountry = Country::factory()->create();
+        $fallbackCountry = Country::factory()->create();
+        $branch = Branch::create([
+            'name' => 'Scoped Branch',
+            'country_id' => $scopeCountry->id,
+        ]);
+
+        Admin::create([
+            'user_id' => $this->adminUser->id,
+            'branch_id' => $branch->id,
+            'country_id' => $scopeCountry->id,
+            'branch_ids' => [$branch->id],
+            'country_ids' => [$scopeCountry->id],
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::Contacted->value,
+            'name' => 'Branch Confirm Scope',
+            'contact_number' => '0170004444',
+            'email' => 'branch-confirm-scope@test.com',
+            'created_by' => $this->adminUser->id,
+            'country_id' => $fallbackCountry->id,
+            'branch_id' => $branch->id,
+        ]);
+
+        PrivateEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'passport_expiry_date' => '2030-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-10',
+            'no_of_pax' => 2,
+            'no_of_children' => 0,
+            'airline' => 'Airline X',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Grand',
+            'meals_makkah' => 'Full Board',
+            'no_of_nights_madinah' => '3',
+            'hotel_madinah' => 'Madinah Grand',
+            'meals_madinah' => 'Half Board',
+            'land_transfer' => '',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => 'No',
+            'other_remarks' => '',
+        ]);
+
+        $response = $this->post(route('enquiries.confirm', $enquiry->id), [
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-01',
+            'members' => [
+                $this->memberPayload([
+                    'name' => 'Branch Confirm Scope',
+                    'email' => 'branch-confirm-scope@test.com',
+                    'contact_number' => '0170004444',
+                    'is_leader' => true,
+                ]),
+            ],
+            'package_data' => [
+                'name' => 'Scoped Package',
+                'status' => 'open',
+                'country_id' => $fallbackCountry->id,
+                'total_seats' => 10,
+                'seats_left' => 10,
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $enquiry->refresh();
+        $this->assertNotNull($enquiry->package_id);
+
+        $createdPackage = Package::findOrFail($enquiry->package_id);
+        $this->assertSame($scopeCountry->id, (int) $createdPackage->country_id);
     }
 
     public function test_search_customers_returns_results(): void

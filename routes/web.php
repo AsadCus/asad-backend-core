@@ -207,6 +207,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('confirmed-customer', [CustomerConfirmationController::class, 'index'])->middleware('permission:customer view')->name('confirmed-customer.index');
     Route::get('customer-holding', [CustomerConfirmationController::class, 'holdingIndex'])->middleware('permission:customer view')->name('customer-holding.index');
     Route::get('completed-customer', [CustomerConfirmationController::class, 'completedIndex'])->middleware('permission:customer view')->name('completed-customer.index');
+    Route::get('cancelled-customer', [CustomerConfirmationController::class, 'cancelledIndex'])->middleware('permission:customer view')->name('cancelled-customer.index');
     Route::delete('confirmed-customer/{id}', [CustomerConfirmationController::class, 'destroy'])->middleware('permission:customer edit')->name('confirmed-customer.destroy');
 
     // Enquiry Remarks

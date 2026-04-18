@@ -40,6 +40,7 @@ interface OpsMovementFormProps {
     initialData: OpsMovementSchema;
     onCancel: () => void;
     canEdit?: boolean;
+    canManageBudget?: boolean;
 }
 
 interface BudgetExtensionEditorState {
@@ -557,6 +558,7 @@ export default function OpsMovementForm({
     initialData,
     onCancel,
     canEdit = true,
+    canManageBudget = false,
 }: OpsMovementFormProps) {
     const [activeTab, setActiveTab] = useState('ops-movement');
     const [budgetExtensionEditor, setBudgetExtensionEditor] =
@@ -1337,9 +1339,11 @@ export default function OpsMovementForm({
                         <TabsTrigger value="booklet" className="text-lg">
                             Booklet
                         </TabsTrigger>
-                        <TabsTrigger value="budget" className="text-lg">
-                            Budget
-                        </TabsTrigger>
+                        {canManageBudget && (
+                            <TabsTrigger value="budget" className="text-lg">
+                                Budget
+                            </TabsTrigger>
+                        )}
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
@@ -2110,539 +2114,578 @@ export default function OpsMovementForm({
                     );
                 })}
 
-                <TabsContent value="budget" className="space-y-3">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
-                        <FormField
-                            label="Budget Currency"
-                            fieldRequirementsProps={{
-                                hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
-                                example: 'SGD',
-                            }}
-                        >
-                            <ProperInput
-                                value={data.budget_currency ?? ''}
-                                disabled={processing}
-                                placeholder="e.g. SGD"
-                                onCommit={(value) =>
-                                    setFormData(
-                                        'budget_currency',
-                                        value.trim().toUpperCase(),
-                                    )
-                                }
-                            />
-                        </FormField>
-                        <div className="flex justify-end">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={processing}
-                                onClick={addBudgetTitle}
+                {canManageBudget && (
+                    <TabsContent value="budget" className="space-y-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
+                            <FormField
+                                label="Budget Currency"
+                                fieldRequirementsProps={{
+                                    hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
+                                    example: 'SGD',
+                                }}
                             >
-                                <Plus className="h-4 w-4" />
-                                Add Title
-                            </Button>
-                        </div>
-                    </div>
-
-                    {budgetTotals.sections.map((sectionRow, titleIndex) => {
-                        const section = sectionRow.section;
-
-                        return (
-                            <Card
-                                key={`budget-title-${titleIndex}`}
-                                className="border-border/70"
-                            >
-                                <CardHeader className="gap-3">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <CardTitle className="text-lg">
-                                            <FormField
-                                                label={`Title ${titleIndex + 1}`}
-                                                layout="inline"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Budget section title grouping related cost items.',
-                                                    example: 'Hotel Logistics',
-                                                }}
-                                            >
-                                                <ProperInput
-                                                    value={section.title ?? ''}
-                                                    disabled={processing}
-                                                    onCommit={(value) =>
-                                                        updateBudgetTitle(
-                                                            titleIndex,
-                                                            {
-                                                                title: value,
-                                                            },
-                                                        )
-                                                    }
-                                                    placeholder="Enter title"
-                                                    className="md:min-w-[300px]"
-                                                />
-                                            </FormField>
-                                        </CardTitle>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            disabled={
-                                                processing ||
-                                                (data.budget ?? []).length <= 1
-                                            }
-                                            onClick={() =>
-                                                removeBudgetTitle(titleIndex)
-                                            }
-                                            className="text-destructive"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {(section.items ?? []).map(
-                                        (item, itemIndex) => {
-                                            const lineTotal =
-                                                toDecimal(item.unit_price) *
-                                                toDecimal(item.quantity);
-
-                                            return (
-                                                <div
-                                                    key={`budget-item-${titleIndex}-${itemIndex}`}
-                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
-                                                >
-                                                    <FormField label="Item Name">
-                                                        <ProperInput
-                                                            value={
-                                                                item.item_name ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                            onCommit={(value) =>
-                                                                updateBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                    {
-                                                                        item_name:
-                                                                            value,
-                                                                    },
-                                                                )
-                                                            }
-                                                            placeholder="Enter item"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Unit Price"
-                                                        error={getError(
-                                                            `budget.${titleIndex}.items.${itemIndex}.unit_price`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            value={
-                                                                item.unit_price ===
-                                                                    null ||
-                                                                item.unit_price ===
-                                                                    undefined
-                                                                    ? ''
-                                                                    : String(
-                                                                          item.unit_price,
-                                                                      )
-                                                            }
-                                                            type="number"
-                                                            inputProps={{
-                                                                step: 'any',
-                                                            }}
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                            onCommit={(value) =>
-                                                                updateBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                    {
-                                                                        unit_price:
-                                                                            value ===
-                                                                            ''
-                                                                                ? null
-                                                                                : toDecimal(
-                                                                                      value,
-                                                                                  ),
-                                                                    },
-                                                                )
-                                                            }
-                                                            placeholder="0.00"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Quantity"
-                                                        error={getError(
-                                                            `budget.${titleIndex}.items.${itemIndex}.quantity`,
-                                                        )}
-                                                    >
-                                                        <ProperInput
-                                                            value={String(
-                                                                item.quantity ??
-                                                                    0,
-                                                            )}
-                                                            type="number"
-                                                            inputProps={{
-                                                                min: 0,
-                                                                step: 'any',
-                                                            }}
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                            onCommit={(value) =>
-                                                                updateBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                    {
-                                                                        quantity:
-                                                                            toDecimal(
-                                                                                value,
-                                                                            ),
-                                                                    },
-                                                                )
-                                                            }
-                                                            placeholder="0.00"
-                                                        />
-                                                    </FormField>
-                                                    <FormField label="Amount">
-                                                        <CopyableText
-                                                            value={lineTotal}
-                                                        />
-                                                    </FormField>
-                                                    <FormField label="Remarks">
-                                                        <ProperInput
-                                                            value={
-                                                                item.remarks ??
-                                                                ''
-                                                            }
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                            textarea
-                                                            onCommit={(value) =>
-                                                                updateBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                    {
-                                                                        remarks:
-                                                                            value,
-                                                                    },
-                                                                )
-                                                            }
-                                                            placeholder="Remarks"
-                                                        />
-                                                    </FormField>
-                                                    <div className="flex items-center justify-end">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={
-                                                                processing ||
-                                                                !canEdit
-                                                            }
-                                                            onClick={() =>
-                                                                duplicateBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Copy className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={
-                                                                processing ||
-                                                                (section.items
-                                                                    ?.length ??
-                                                                    0) <= 1
-                                                            }
-                                                            onClick={() =>
-                                                                removeBudgetItem(
-                                                                    titleIndex,
-                                                                    itemIndex,
-                                                                )
-                                                            }
-                                                            className="text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        },
-                                    )}
-
-                                    <div className="flex flex-col items-end gap-3 border-t pt-3">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            disabled={processing}
-                                            onClick={() =>
-                                                addBudgetItem(titleIndex)
-                                            }
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            Add Item
-                                        </Button>
-                                        <table className="w-full max-w-sm table-fixed text-base">
-                                            <tbody className="[&>tr>td]:py-1.5">
-                                                <tr>
-                                                    <td className="w-3/4 text-right text-lg font-medium">
-                                                        {`Sub Total (${data.budget_currency}):`}
-                                                    </td>
-                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
-                                                        {formatWithInputtedBudgetCurrency(
-                                                            sectionRow.subtotal,
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                {(section.extensions ?? []).map(
-                                                    (
-                                                        extension,
-                                                        extensionIndex,
-                                                    ) => {
-                                                        const amount =
-                                                            sectionRow
-                                                                .extensions[
-                                                                extensionIndex
-                                                            ]?.amount ?? 0;
-
-                                                        return (
-                                                            <tr
-                                                                key={`budget-extension-${titleIndex}-${extensionIndex}`}
-                                                            >
-                                                                <td className="w-3/4 text-right">
-                                                                    <div className="inline-flex items-center gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="cursor-pointer font-medium underline"
-                                                                            disabled={
-                                                                                processing ||
-                                                                                !canEdit
-                                                                            }
-                                                                            onClick={() =>
-                                                                                openEditBudgetExtension(
-                                                                                    titleIndex,
-                                                                                    extensionIndex,
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            {formatBudgetExtensionLabel(
-                                                                                extension,
-                                                                            )}
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="cursor-pointer font-medium text-destructive"
-                                                                            disabled={
-                                                                                processing ||
-                                                                                !canEdit
-                                                                            }
-                                                                            onClick={() =>
-                                                                                removeBudgetExtension(
-                                                                                    titleIndex,
-                                                                                    extensionIndex,
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="w-1/4 text-right font-medium">
-                                                                    {formatWithInputtedBudgetCurrency(
-                                                                        amount,
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    },
-                                                )}
-                                                <tr>
-                                                    <td className="text-right">
-                                                        <button
-                                                            type="button"
-                                                            className="cursor-pointer font-medium text-primary underline"
-                                                            disabled={
-                                                                processing ||
-                                                                !canEdit
-                                                            }
-                                                            onClick={() =>
-                                                                openCreateBudgetExtension(
-                                                                    titleIndex,
-                                                                )
-                                                            }
-                                                        >
-                                                            Add Extension
-                                                        </button>
-                                                    </td>
-                                                    <td className="text-right"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="w-3/4 text-right text-lg font-semibold">
-                                                        {`Total (${data.budget_currency}):`}
-                                                    </td>
-                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
-                                                        {formatWithInputtedBudgetCurrency(
-                                                            sectionRow.total,
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-
-                    <Dialog
-                        open={budgetExtensionEditor !== null}
-                        onOpenChange={(isOpen) => {
-                            if (!isOpen) {
-                                setBudgetExtensionEditor(null);
-                            }
-                        }}
-                    >
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>
-                                    {budgetExtensionEditor?.extensionIndex ===
-                                    null
-                                        ? 'Add Extension'
-                                        : 'Edit Extension'}
-                                </DialogTitle>
-                            </DialogHeader>
-
-                            <div className="space-y-3">
-                                <FormField label="Extension Name">
-                                    <ProperInput
-                                        value={
-                                            budgetExtensionEditor?.draft.name ??
-                                            ''
-                                        }
-                                        onCommit={(value) => {
-                                            if (!budgetExtensionEditor) {
-                                                return;
-                                            }
-
-                                            setBudgetExtensionEditor({
-                                                ...budgetExtensionEditor,
-                                                draft: {
-                                                    ...budgetExtensionEditor.draft,
-                                                    name: value,
-                                                },
-                                            });
-                                        }}
-                                        placeholder="Enter Extension Name"
-                                    />
-                                </FormField>
-
-                                <FormField label="Calculation">
-                                    <ProperInputSelect
-                                        value={normalizeBudgetExtensionMode(
-                                            budgetExtensionEditor?.draft
-                                                .calculation_mode,
-                                        )}
-                                        onValueChange={(value) => {
-                                            if (!budgetExtensionEditor) {
-                                                return;
-                                            }
-
-                                            setBudgetExtensionEditor({
-                                                ...budgetExtensionEditor,
-                                                draft: {
-                                                    ...budgetExtensionEditor.draft,
-                                                    calculation_mode:
-                                                        normalizeBudgetExtensionMode(
-                                                            value,
-                                                        ),
-                                                },
-                                            });
-                                        }}
-                                        options={[
-                                            {
-                                                label: 'Fixed Amount',
-                                                value: 'fixed',
-                                            },
-                                            {
-                                                label: 'Percentage',
-                                                value: 'percentage',
-                                            },
-                                        ]}
-                                    />
-                                </FormField>
-
-                                <FormField label="Value">
-                                    <ProperInput
-                                        value={String(
-                                            budgetExtensionEditor?.draft
-                                                .calculation_value ?? 0,
-                                        )}
-                                        type="number"
-                                        inputProps={{
-                                            step: 'any',
-                                        }}
-                                        onCommit={(value) => {
-                                            if (!budgetExtensionEditor) {
-                                                return;
-                                            }
-
-                                            setBudgetExtensionEditor({
-                                                ...budgetExtensionEditor,
-                                                draft: {
-                                                    ...budgetExtensionEditor.draft,
-                                                    calculation_value:
-                                                        toDecimal(value),
-                                                },
-                                            });
-                                        }}
-                                        placeholder="0"
-                                    />
-                                </FormField>
-                            </div>
-
-                            <DialogFooter>
+                                <ProperInput
+                                    value={data.budget_currency ?? ''}
+                                    disabled={processing}
+                                    placeholder="e.g. SGD"
+                                    onCommit={(value) =>
+                                        setFormData(
+                                            'budget_currency',
+                                            value.trim().toUpperCase(),
+                                        )
+                                    }
+                                />
+                            </FormField>
+                            <div className="flex justify-end">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() =>
-                                        setBudgetExtensionEditor(null)
-                                    }
+                                    disabled={processing}
+                                    onClick={addBudgetTitle}
                                 >
-                                    Cancel
+                                    <Plus className="h-4 w-4" />
+                                    Add Title
                                 </Button>
-                                <Button
-                                    type="button"
-                                    onClick={saveBudgetExtensionEditor}
-                                >
-                                    Save
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    <Card>
-                        <CardContent>
-                            <div className="flex items-center justify-end">
-                                <p className="text-lg font-semibold">
-                                    {`Grand Total (${data.budget_currency}):`}{' '}
-                                    <span className="text-primary">
-                                        {formatWithInputtedBudgetCurrency(
-                                            budgetTotals.grandTotal,
-                                        )}
-                                    </span>
-                                </p>
                             </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                        </div>
+
+                        {budgetTotals.sections.map((sectionRow, titleIndex) => {
+                            const section = sectionRow.section;
+
+                            return (
+                                <Card
+                                    key={`budget-title-${titleIndex}`}
+                                    className="border-border/70"
+                                >
+                                    <CardHeader className="gap-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <CardTitle className="text-lg">
+                                                <FormField
+                                                    label={`Title ${titleIndex + 1}`}
+                                                    layout="inline"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Budget section title grouping related cost items.',
+                                                        example:
+                                                            'Hotel Logistics',
+                                                    }}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            section.title ?? ''
+                                                        }
+                                                        disabled={processing}
+                                                        onCommit={(value) =>
+                                                            updateBudgetTitle(
+                                                                titleIndex,
+                                                                {
+                                                                    title: value,
+                                                                },
+                                                            )
+                                                        }
+                                                        placeholder="Enter title"
+                                                        className="md:min-w-[300px]"
+                                                    />
+                                                </FormField>
+                                            </CardTitle>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                disabled={
+                                                    processing ||
+                                                    (data.budget ?? [])
+                                                        .length <= 1
+                                                }
+                                                onClick={() =>
+                                                    removeBudgetTitle(
+                                                        titleIndex,
+                                                    )
+                                                }
+                                                className="text-destructive"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        {(section.items ?? []).map(
+                                            (item, itemIndex) => {
+                                                const lineTotal =
+                                                    toDecimal(item.unit_price) *
+                                                    toDecimal(item.quantity);
+
+                                                return (
+                                                    <div
+                                                        key={`budget-item-${titleIndex}-${itemIndex}`}
+                                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
+                                                    >
+                                                        <FormField label="Item Name">
+                                                            <ProperInput
+                                                                value={
+                                                                    item.item_name ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                                onCommit={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                        {
+                                                                            item_name:
+                                                                                value,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="Enter item"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Unit Price"
+                                                            error={getError(
+                                                                `budget.${titleIndex}.items.${itemIndex}.unit_price`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                value={
+                                                                    item.unit_price ===
+                                                                        null ||
+                                                                    item.unit_price ===
+                                                                        undefined ||
+                                                                    toDecimal(
+                                                                        item.unit_price,
+                                                                    ) === 0
+                                                                        ? ''
+                                                                        : String(
+                                                                              item.unit_price,
+                                                                          )
+                                                                }
+                                                                type="number"
+                                                                inputProps={{
+                                                                    step: 'any',
+                                                                }}
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                                onCommit={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                        {
+                                                                            unit_price:
+                                                                                value ===
+                                                                                ''
+                                                                                    ? null
+                                                                                    : toDecimal(
+                                                                                          value,
+                                                                                      ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="0"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Quantity"
+                                                            error={getError(
+                                                                `budget.${titleIndex}.items.${itemIndex}.quantity`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                value={
+                                                                    toDecimal(
+                                                                        item.quantity,
+                                                                    ) === 0
+                                                                        ? ''
+                                                                        : String(
+                                                                              item.quantity ??
+                                                                                  '',
+                                                                          )
+                                                                }
+                                                                type="number"
+                                                                inputProps={{
+                                                                    min: 0,
+                                                                    step: 'any',
+                                                                }}
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                                onCommit={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                        {
+                                                                            quantity:
+                                                                                toDecimal(
+                                                                                    value,
+                                                                                ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="0"
+                                                            />
+                                                        </FormField>
+                                                        <FormField label="Amount">
+                                                            <CopyableText
+                                                                value={
+                                                                    lineTotal
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField label="Remarks">
+                                                            <ProperInput
+                                                                value={
+                                                                    item.remarks ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                                textarea
+                                                                onCommit={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                        {
+                                                                            remarks:
+                                                                                value,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="Remarks"
+                                                            />
+                                                        </FormField>
+                                                        <div className="flex items-center justify-end">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={
+                                                                    processing ||
+                                                                    !canEdit
+                                                                }
+                                                                onClick={() =>
+                                                                    duplicateBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Copy className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={
+                                                                    processing ||
+                                                                    (section
+                                                                        .items
+                                                                        ?.length ??
+                                                                        0) <= 1
+                                                                }
+                                                                onClick={() =>
+                                                                    removeBudgetItem(
+                                                                        titleIndex,
+                                                                        itemIndex,
+                                                                    )
+                                                                }
+                                                                className="text-destructive"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+
+                                        <div className="flex flex-col items-end gap-3 border-t pt-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={processing}
+                                                onClick={() =>
+                                                    addBudgetItem(titleIndex)
+                                                }
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                Add Item
+                                            </Button>
+                                            <table className="w-full max-w-sm table-fixed text-base">
+                                                <tbody className="[&>tr>td]:py-1.5">
+                                                    <tr>
+                                                        <td className="w-3/4 text-right text-lg font-medium">
+                                                            {`Sub Total (${data.budget_currency}):`}
+                                                        </td>
+                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                            {formatWithInputtedBudgetCurrency(
+                                                                sectionRow.subtotal,
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                    {(
+                                                        section.extensions ?? []
+                                                    ).map(
+                                                        (
+                                                            extension,
+                                                            extensionIndex,
+                                                        ) => {
+                                                            const amount =
+                                                                sectionRow
+                                                                    .extensions[
+                                                                    extensionIndex
+                                                                ]?.amount ?? 0;
+
+                                                            return (
+                                                                <tr
+                                                                    key={`budget-extension-${titleIndex}-${extensionIndex}`}
+                                                                >
+                                                                    <td className="w-3/4 text-right">
+                                                                        <div className="inline-flex items-center gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="cursor-pointer font-medium underline"
+                                                                                disabled={
+                                                                                    processing ||
+                                                                                    !canEdit
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    openEditBudgetExtension(
+                                                                                        titleIndex,
+                                                                                        extensionIndex,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                {formatBudgetExtensionLabel(
+                                                                                    extension,
+                                                                                )}
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="cursor-pointer font-medium text-destructive"
+                                                                                disabled={
+                                                                                    processing ||
+                                                                                    !canEdit
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    removeBudgetExtension(
+                                                                                        titleIndex,
+                                                                                        extensionIndex,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="w-1/4 text-right font-medium">
+                                                                        {formatWithInputtedBudgetCurrency(
+                                                                            amount,
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        },
+                                                    )}
+                                                    <tr>
+                                                        <td className="text-right">
+                                                            <button
+                                                                type="button"
+                                                                className="cursor-pointer font-medium text-primary underline"
+                                                                disabled={
+                                                                    processing ||
+                                                                    !canEdit
+                                                                }
+                                                                onClick={() =>
+                                                                    openCreateBudgetExtension(
+                                                                        titleIndex,
+                                                                    )
+                                                                }
+                                                            >
+                                                                Add Extension
+                                                            </button>
+                                                        </td>
+                                                        <td className="text-right"></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="w-3/4 text-right text-lg font-semibold">
+                                                            {`Total (${data.budget_currency}):`}
+                                                        </td>
+                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                            {formatWithInputtedBudgetCurrency(
+                                                                sectionRow.total,
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+
+                        <Dialog
+                            open={budgetExtensionEditor !== null}
+                            onOpenChange={(isOpen) => {
+                                if (!isOpen) {
+                                    setBudgetExtensionEditor(null);
+                                }
+                            }}
+                        >
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        {budgetExtensionEditor?.extensionIndex ===
+                                        null
+                                            ? 'Add Extension'
+                                            : 'Edit Extension'}
+                                    </DialogTitle>
+                                </DialogHeader>
+
+                                <div className="space-y-3">
+                                    <FormField label="Extension Name">
+                                        <ProperInput
+                                            value={
+                                                budgetExtensionEditor?.draft
+                                                    .name ?? ''
+                                            }
+                                            onCommit={(value) => {
+                                                if (!budgetExtensionEditor) {
+                                                    return;
+                                                }
+
+                                                setBudgetExtensionEditor({
+                                                    ...budgetExtensionEditor,
+                                                    draft: {
+                                                        ...budgetExtensionEditor.draft,
+                                                        name: value,
+                                                    },
+                                                });
+                                            }}
+                                            placeholder="Enter Extension Name"
+                                        />
+                                    </FormField>
+
+                                    <FormField label="Calculation">
+                                        <ProperInputSelect
+                                            value={normalizeBudgetExtensionMode(
+                                                budgetExtensionEditor?.draft
+                                                    .calculation_mode,
+                                            )}
+                                            onValueChange={(value) => {
+                                                if (!budgetExtensionEditor) {
+                                                    return;
+                                                }
+
+                                                setBudgetExtensionEditor({
+                                                    ...budgetExtensionEditor,
+                                                    draft: {
+                                                        ...budgetExtensionEditor.draft,
+                                                        calculation_mode:
+                                                            normalizeBudgetExtensionMode(
+                                                                value,
+                                                            ),
+                                                    },
+                                                });
+                                            }}
+                                            options={[
+                                                {
+                                                    label: 'Fixed Amount',
+                                                    value: 'fixed',
+                                                },
+                                                {
+                                                    label: 'Percentage',
+                                                    value: 'percentage',
+                                                },
+                                            ]}
+                                        />
+                                    </FormField>
+
+                                    <FormField label="Value">
+                                        <ProperInput
+                                            value={
+                                                toDecimal(
+                                                    budgetExtensionEditor?.draft
+                                                        .calculation_value,
+                                                ) === 0
+                                                    ? ''
+                                                    : String(
+                                                          budgetExtensionEditor
+                                                              ?.draft
+                                                              .calculation_value ??
+                                                              '',
+                                                      )
+                                            }
+                                            type="number"
+                                            inputProps={{
+                                                step: 'any',
+                                            }}
+                                            onCommit={(value) => {
+                                                if (!budgetExtensionEditor) {
+                                                    return;
+                                                }
+
+                                                setBudgetExtensionEditor({
+                                                    ...budgetExtensionEditor,
+                                                    draft: {
+                                                        ...budgetExtensionEditor.draft,
+                                                        calculation_value:
+                                                            toDecimal(value),
+                                                    },
+                                                });
+                                            }}
+                                            placeholder="0"
+                                        />
+                                    </FormField>
+                                </div>
+
+                                <DialogFooter>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            setBudgetExtensionEditor(null)
+                                        }
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={saveBudgetExtensionEditor}
+                                    >
+                                        Save
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+
+                        <Card>
+                            <CardContent>
+                                <div className="flex items-center justify-end">
+                                    <p className="text-lg font-semibold">
+                                        {`Grand Total (${data.budget_currency}):`}{' '}
+                                        <span className="text-primary">
+                                            {formatWithInputtedBudgetCurrency(
+                                                budgetTotals.grandTotal,
+                                            )}
+                                        </span>
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
 
                 <TabsContent value="pif" className="space-y-6">
                     <Card>

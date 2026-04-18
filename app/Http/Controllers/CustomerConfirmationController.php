@@ -85,6 +85,24 @@ class CustomerConfirmationController extends Controller
     }
 
     /**
+     * Display a listing of cancelled customer confirmations.
+     */
+    public function cancelledIndex()
+    {
+        $dataGroups = $this->customerConfirmationService->getForCancelledIndex();
+        $packageOptions = $this->packageService->getForFilter();
+
+        return Inertia::render('confirmed-customer/index', [
+            'dataGroups' => $dataGroups,
+            'packageOptions' => $packageOptions,
+            'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
+            'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
+            'pageTitle' => 'Cancelled Customers',
+            'indexUrl' => route('cancelled-customer.index'),
+        ]);
+    }
+
+    /**
      * Get customer confirmation data for view/edit (JSON).
      */
     public function show(string $id)
