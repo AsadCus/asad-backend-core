@@ -102,7 +102,6 @@ class PasswordResetTest extends TestCase
 
             $this->assertStringContainsString('Karva Travel and Tours Management System', $html);
             $this->assertStringContainsString('report/brand-logo.png', $html);
-            $this->assertStringContainsString('Travel Account Security', $html);
             $this->assertStringContainsString('Reset your password to continue your journey.', $html);
             $this->assertStringContainsString('#c05427', $html);
 

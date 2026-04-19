@@ -25,7 +25,7 @@ class DocumentationPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('documentations.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('documentations/index')
+                ->component('documentations/v1/index')
                 ->has('documentation', fn (Assert $documentation) => $documentation
                     ->where('manual.title', 'Documentation V1 - Travel Management System Manual')
                     ->hasAll([
@@ -68,7 +68,7 @@ class DocumentationPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('documentations.index', ['version' => 'v2']))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('documentations/index')
+                ->component('documentations/v2/index')
                 ->has('documentation', fn (Assert $documentation) => $documentation
                     ->where('manual.title', 'Documentation V2 - Travel Management System Manual')
                     ->etc()
