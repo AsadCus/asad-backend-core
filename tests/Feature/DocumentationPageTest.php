@@ -27,6 +27,7 @@ class DocumentationPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('documentations/index')
                 ->has('documentation', fn (Assert $documentation) => $documentation
+                    ->where('manual.title', 'Documentation V1 - Travel Management System Manual')
                     ->hasAll([
                         'introduction',
                         'menuGroups',
@@ -36,7 +37,15 @@ class DocumentationPageTest extends TestCase
                         'tips',
                     ])
                     ->has('menuGroups.0', fn (Assert $group) => $group
-                        ->hasAll(['menu', 'module', 'purpose', 'features', 'how_to'])
+                        ->hasAll([
+                            'menu',
+                            'route_path',
+                            'module',
+                            'purpose',
+                            'features',
+                            'how_to',
+                        ])
+                        ->etc()
                     )
                     ->has('coreWorkflows.0', fn (Assert $workflow) => $workflow
                         ->hasAll(['name', 'goal', 'steps'])
@@ -47,6 +56,21 @@ class DocumentationPageTest extends TestCase
                     ->has('commonStatuses.0', fn (Assert $status) => $status
                         ->hasAll(['topic', 'notes'])
                     )
+                    ->etc()
+                )
+            );
+    }
+
+    public function test_authenticated_user_can_open_documentation_v2_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('documentations.v2'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('documentations/v2/index')
+                ->has('documentation', fn (Assert $documentation) => $documentation
+                    ->where('manual.title', 'Documentation V2 - Travel Management System Manual')
                     ->etc()
                 )
             );

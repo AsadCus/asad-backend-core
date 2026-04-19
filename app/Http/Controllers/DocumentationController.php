@@ -13,7 +13,14 @@ class DocumentationController extends Controller
     public function index(): Response
     {
         return Inertia::render('documentations/index', [
-            'documentation' => $this->documentationService->getIndexData(),
+            'documentation' => $this->documentationService->getIndexData('v1'),
+        ]);
+    }
+
+    public function indexV2(): Response
+    {
+        return Inertia::render('documentations/v2/index', [
+            'documentation' => $this->documentationService->getIndexData('v2'),
         ]);
     }
 }

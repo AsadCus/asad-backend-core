@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Documentation
     Route::get('documentations', [DocumentationController::class, 'index'])->name('documentations.index');
+    Route::get('documentations/v2', [DocumentationController::class, 'indexV2'])->name('documentations.v2');
 
     // Masters
     Route::prefix('master')->name('master.')->middleware(['role:admin'])->group(function () {
