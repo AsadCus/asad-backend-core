@@ -103,9 +103,28 @@ class ReportTemplateTest extends TestCase
 
         $html = (string) $response->json('html');
 
-        $this->assertStringContainsString('margin: 3.17cm;', $html);
-        $this->assertStringContainsString('margin-bottom: 14px;', $html);
+        $this->assertStringContainsString('margin-top: 1.70cm;', $html);
+        $this->assertStringContainsString('margin-right: 1.50cm;', $html);
+        $this->assertStringContainsString('margin-bottom: 1.70cm;', $html);
+        $this->assertStringContainsString('margin-left: 1.50cm;', $html);
+        $this->assertStringContainsString('margin-bottom: 16px;', $html);
         $this->assertStringContainsString('margin-top: 16px;', $html);
+
+        $normalResponse = $this->actingAs($user)->postJson(route('report-template.preview'), [
+            'module_key' => 'quotation',
+            'page_margin_preset' => 'normal',
+            'section_spacing_preset' => 'normal',
+        ]);
+
+        $normalResponse->assertOk();
+        $normalHtml = (string) $normalResponse->json('html');
+
+        $this->assertStringContainsString('margin-top: 0.85cm;', $normalHtml);
+        $this->assertStringContainsString('margin-right: 0.75cm;', $normalHtml);
+        $this->assertStringContainsString('margin-bottom: 0.85cm;', $normalHtml);
+        $this->assertStringContainsString('margin-left: 0.75cm;', $normalHtml);
+        $this->assertStringContainsString('margin-bottom: 10px;', $normalHtml);
+        $this->assertStringContainsString('margin-top: 10px;', $normalHtml);
     }
 
     public function test_company_name_is_required(): void

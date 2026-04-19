@@ -7,24 +7,32 @@
     @php
         $marginPreset = $branding['page_margin_preset'] ?? 'normal';
         $marginByPreset = [
-            'narrow' => '1.27cm',
-            'normal' => '2.54cm',
-            'wide' => '3.17cm',
+            'narrow' => ['top' => '0.56cm', 'right' => '0.50cm', 'bottom' => '0.56cm', 'left' => '0.50cm'],
+            'normal' => ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'],
+            'wide' => ['top' => '1.70cm', 'right' => '1.50cm', 'bottom' => '1.70cm', 'left' => '1.50cm'],
         ];
-        $pageMargin = $marginByPreset[$marginPreset] ?? $marginByPreset['normal'];
+        $resolvedMargin = $marginByPreset[$marginPreset] ?? $marginByPreset['normal'];
+        $pageMarginTop = $resolvedMargin['top'];
+        $pageMarginRight = $resolvedMargin['right'];
+        $pageMarginBottom = $resolvedMargin['bottom'];
+        $pageMarginLeft = $resolvedMargin['left'];
+        $pageMargin = implode(' ', [$pageMarginTop, $pageMarginRight, $pageMarginBottom, $pageMarginLeft]);
 
         $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
         $sectionSpacingByPreset = [
-            'compact' => ['section' => '6px', 'header' => '6px', 'footer' => '8px'],
-            'normal' => ['section' => '10px', 'header' => '10px', 'footer' => '12px'],
-            'relaxed' => ['section' => '14px', 'header' => '14px', 'footer' => '16px'],
+            'compact' => ['section' => '8px', 'header' => '8px', 'footer' => '8px'],
+            'normal' => ['section' => '10px', 'header' => '10px', 'footer' => '10px'],
+            'relaxed' => ['section' => '16px', 'header' => '16px', 'footer' => '16px'],
         ];
         $spacingTokens = $sectionSpacingByPreset[$sectionSpacingPreset] ?? $sectionSpacingByPreset['normal'];
     @endphp
     <style>
         @page {
             size: A4;
-            margin: {{ $pageMargin }};
+            margin-top: {{ $pageMarginTop }};
+            margin-right: {{ $pageMarginRight }};
+            margin-bottom: {{ $pageMarginBottom }};
+            margin-left: {{ $pageMarginLeft }};
         }
 
         * {
@@ -189,6 +197,7 @@
         }
 
 
+        @if (!($is_pdf ?? false))
         @@media screen {
             html {
                 background: #cacaca;
@@ -196,8 +205,11 @@
 
             body {
                 font-size: 13px;
-                line-height: 1.55;
-                padding: {{ $pageMargin }};
+                line-height: 1.5;
+                padding-top: {{ $pageMarginTop }};
+                padding-right: {{ $pageMarginRight }};
+                padding-bottom: {{ $pageMarginBottom }};
+                padding-left: {{ $pageMarginLeft }};
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;
@@ -215,34 +227,8 @@
                 text-decoration: none;
             }
 
-            /* Scale up text that was sized for 96dpi DomPDF */
-            .company-name {
-                font-size: 15px;
-            }
-
-            .company-details {
-                font-size: 12px;
-            }
-
-            .company-reg {
-                font-size: 12px;
-            }
-
-            .title-bar {
-                font-size: 16px;
-                padding: 5px 8px;
-                letter-spacing: 1px;
-            }
-
-            .footer-section {
-                font-size: 12px;
-            }
-
-            .footer-note {
-                font-size: 12px;
-            }
-
         }
+        @endif
     </style>
 
     @stack('styles')

@@ -169,7 +169,7 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.6px;
-            color: #666;
+            color: #000;
             text-align: right;
             padding-top: 2px;
             padding-bottom: 1px;
@@ -180,8 +180,25 @@
             padding-top: 10px;
         }
 
+        .payment-history-table {
+            width: 360px;
+            table-layout: fixed;
+        }
+
         .payment-history-table td {
             padding: 0;
+        }
+
+        .payment-history-table .total-label {
+            width: 56%;
+            padding-right: 10px;
+            word-break: break-word;
+        }
+
+        .payment-history-table .total-amount {
+            width: 44%;
+            text-align: right;
+            white-space: nowrap;
         }
 
         .footer-section {

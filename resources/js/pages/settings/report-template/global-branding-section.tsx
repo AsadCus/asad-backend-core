@@ -292,7 +292,7 @@ export function GlobalBrandingSection({
                         <FormField
                             label="Page Margin"
                             fieldRequirementsProps={{
-                                hint: 'Word-like A4 margin preset (applies to all sides)',
+                                hint: 'Preset A4 margin (top/right/bottom/left). Normal follows estimate ratio.',
                             }}
                             htmlFor="page_margin_preset"
                             error={errors.page_margin_preset}
@@ -308,13 +308,13 @@ export function GlobalBrandingSection({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="narrow">
-                                        Narrow (1.27 cm)
+                                        Narrow (T/B 0.56 cm, L/R 0.50 cm)
                                     </SelectItem>
                                     <SelectItem value="normal">
-                                        Normal (2.54 cm)
+                                        Normal (T/B 0.85 cm, L/R 0.75 cm)
                                     </SelectItem>
                                     <SelectItem value="wide">
-                                        Wide (3.17 cm)
+                                        Wide (T/B 1.70 cm, L/R 1.50 cm)
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -323,7 +323,7 @@ export function GlobalBrandingSection({
                         <FormField
                             label="Section Spacing"
                             fieldRequirementsProps={{
-                                hint: 'Spacing for report components/rows (excluding items)',
+                                hint: 'Preset spacing for report sections/headers/footers (excluding items table rows).',
                             }}
                             htmlFor="section_spacing_preset"
                             error={errors.section_spacing_preset}
@@ -338,9 +338,9 @@ export function GlobalBrandingSection({
                                     <SelectValue placeholder="Select section spacing" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="compact">Compact</SelectItem>
-                                    <SelectItem value="normal">Normal</SelectItem>
-                                    <SelectItem value="relaxed">Relaxed</SelectItem>
+                                    <SelectItem value="compact">Compact (8 px)</SelectItem>
+                                    <SelectItem value="normal">Normal (10 px)</SelectItem>
+                                    <SelectItem value="relaxed">Relaxed (16 px)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </FormField>
