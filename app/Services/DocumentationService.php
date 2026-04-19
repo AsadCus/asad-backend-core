@@ -227,6 +227,7 @@ class DocumentationService
             'menuGroups' => [
                 [
                     'menu' => 'Dashboard',
+                    'route_path' => '/dashboard',
                     'module' => 'Dashboard analytics and summaries',
                     'purpose' => 'Monitor key metrics based on your role, including revenue, customer trend, and enquiry summary.',
                     'features' => [
@@ -241,6 +242,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Master',
+                    'route_path' => '/master',
                     'module' => 'System setup and reference management',
                     'purpose' => 'Configure users, country, branch, fiscal year, and product-service catalogs before operations start.',
                     'features' => [
@@ -255,6 +257,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Sales',
+                    'route_path' => '/sales',
                     'module' => 'Quotation, Order, Invoice, Receipt',
                     'purpose' => 'Handle full financial document lifecycle from offer creation to payment recording.',
                     'features' => [
@@ -270,6 +273,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Customer',
+                    'route_path' => '/customer',
                     'module' => 'Customer profile and assignment tracking',
                     'purpose' => 'Maintain customer records and assignment status for sales and admin follow-up.',
                     'features' => [
@@ -284,6 +288,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Enquiry',
+                    'route_path' => '/enquiries',
                     'module' => 'General and Private enquiry pipelines',
                     'purpose' => 'Capture incoming demand and move qualified enquiries into customer confirmation flow.',
                     'features' => [
@@ -299,6 +304,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Confirmed Customer',
+                    'route_path' => '/confirmed-customer',
                     'module' => 'Customer confirmation groups and member-level lifecycle',
                     'purpose' => 'Manage confirmed traveller groups, payment progress, and customer lifecycle buckets.',
                     'features' => [
@@ -313,6 +319,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Package',
+                    'route_path' => '/packages',
                     'module' => 'Travel package setup and capacity control',
                     'purpose' => 'Define package pricing, schedule, accommodation, flights, and seat inventory.',
                     'features' => [
@@ -327,6 +334,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Manifest',
+                    'route_path' => '/manifests',
                     'module' => 'Travel execution manifest and rooming operations',
                     'purpose' => 'Prepare traveler operational list and finalize room and section data before departure.',
                     'features' => [
@@ -341,6 +349,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Ops Movement',
+                    'route_path' => '/ops-movements',
                     'module' => 'Operational movement and budget tracking',
                     'purpose' => 'Track operational workflow linked to package and manifest, including execution and reporting outputs.',
                     'features' => [
@@ -355,6 +364,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'User Logs',
+                    'route_path' => '/user-logs',
                     'module' => 'Audit trail and change history',
                     'purpose' => 'Trace system actions and inspect before-after changes for compliance and troubleshooting.',
                     'features' => [
@@ -369,6 +379,7 @@ class DocumentationService
                 ],
                 [
                     'menu' => 'Settings',
+                    'route_path' => '/settings',
                     'module' => 'Profile, password, appearance, report template, number formats',
                     'purpose' => 'Manage account settings and system-level output formatting for documents and visuals.',
                     'features' => [
