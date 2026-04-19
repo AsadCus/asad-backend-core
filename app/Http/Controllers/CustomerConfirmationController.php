@@ -10,6 +10,7 @@ use App\Services\PackageService;
 use App\Services\ReceiptService;
 use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -303,6 +304,10 @@ class CustomerConfirmationController extends Controller
 
     /**
      * Create refund receipt(s) for one or more customer confirmation members.
+     *
+     * Important: If all members in the CC are being refunded, this will mark them as cancelled
+     * in the ORIGINAL CC without creating a new holding CC. Use areAllMembersBeingRefunded()
+     * to check before calling moveMembersToHolding() from the frontend.
      */
     public function createRefunds(Request $request, string $id): RedirectResponse
     {
@@ -340,6 +345,27 @@ class CustomerConfirmationController extends Controller
         return redirect()
             ->route('receipt.index')
             ->with('success', $result['count'].' refund receipt document(s) created successfully.');
+    }
+
+    /**
+     * Check if all members in a confirmation are being refunded.
+     *
+     * Use this to determine whether to call moveMembersToHolding() before processing refunds.
+     * If all members are being refunded, skip moveMembersToHolding to avoid CC duplication.
+     */
+    public function checkAllMembersBeingRefunded(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1'],
+            'member_ids.*' => ['required', 'integer'],
+        ]);
+
+        $allBeingRefunded = $this->customerConfirmationService->areAllMembersBeingRefunded(
+            (int) $id,
+            collect($validated['member_ids'])->map(fn ($id) => ['member_id' => $id])->all(),
+        );
+
+        return response()->json(['all_members_being_refunded' => $allBeingRefunded]);
     }
 
     /**

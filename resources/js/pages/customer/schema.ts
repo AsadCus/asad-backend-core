@@ -151,9 +151,11 @@ export interface CustomerConfirmationMemberDatatableSchema {
     relationship?: string | null;
     has_quotation?: boolean;
     paid_amount: number;
+    invoice_paid_amount?: number;
     total_amount: number;
     discount?: number;
     overpaid_amount?: number;
+    refunded_amount?: number;
     billed_amount?: number;
     balance_invoice_amount?: number;
     name: string;
@@ -184,6 +186,7 @@ export interface CustomerConfirmationDatatableSchema {
     quoted_member_count: number;
     paid_amount: number;
     total_amount: number;
+    refunded_amount?: number;
     overpaid_amount?: number;
     can_create_quotation: boolean;
     can_delete?: boolean;

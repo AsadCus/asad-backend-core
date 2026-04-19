@@ -336,6 +336,7 @@ class CustomerConfirmationService
                 $groupTotalAmount = (float) $memberSummaries->sum('total_amount');
                 $groupPaidAmount = (float) $memberSummaries->sum('paid_amount');
                 $groupOverpaidAmount = (float) $memberSummaries->sum('overpaid_amount');
+                $groupRefundedAmount = (float) $memberSummaries->sum('refunded_amount');
 
                 $quotedMemberCount = $activeMembers->filter(
                     fn (CustomerConfirmationMember $member) => $this->hasActiveQuotationItemLink($member)
@@ -364,6 +365,7 @@ class CustomerConfirmationService
                     'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
                     'total_amount' => round($groupTotalAmount, 2),
+                    'refunded_amount' => round($groupRefundedAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
@@ -383,9 +385,11 @@ class CustomerConfirmationService
                             'relationship' => $member->relationship,
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
+                            'invoice_paid_amount' => round((float) ($summary['invoice_paid_amount'] ?? 0), 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'refunded_amount' => round((float) $summary['refunded_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
@@ -443,6 +447,7 @@ class CustomerConfirmationService
                 $groupTotalAmount = (float) $memberSummaries->sum('total_amount');
                 $groupPaidAmount = (float) $memberSummaries->sum('paid_amount');
                 $groupOverpaidAmount = (float) $memberSummaries->sum('overpaid_amount');
+                $groupRefundedAmount = (float) $memberSummaries->sum('refunded_amount');
 
                 $quotedMemberCount = $activeMembers->filter(
                     fn (CustomerConfirmationMember $member) => $this->hasActiveQuotationItemLink($member)
@@ -470,6 +475,7 @@ class CustomerConfirmationService
                     'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
                     'total_amount' => round($groupTotalAmount, 2),
+                    'refunded_amount' => round($groupRefundedAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
@@ -489,9 +495,11 @@ class CustomerConfirmationService
                             'relationship' => $member->relationship,
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
+                            'invoice_paid_amount' => round((float) ($summary['invoice_paid_amount'] ?? 0), 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'refunded_amount' => round((float) $summary['refunded_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
@@ -556,6 +564,7 @@ class CustomerConfirmationService
                 $groupTotalAmount = (float) $memberSummaries->sum('total_amount');
                 $groupPaidAmount = (float) $memberSummaries->sum('paid_amount');
                 $groupOverpaidAmount = (float) $memberSummaries->sum('overpaid_amount');
+                $groupRefundedAmount = (float) $memberSummaries->sum('refunded_amount');
 
                 $quotedMemberCount = $activeMembers->filter(
                     fn (CustomerConfirmationMember $member) => $this->hasActiveQuotationItemLink($member)
@@ -583,6 +592,7 @@ class CustomerConfirmationService
                     'quoted_member_count' => $quotedMemberCount,
                     'paid_amount' => round($groupPaidAmount, 2),
                     'total_amount' => round($groupTotalAmount, 2),
+                    'refunded_amount' => round($groupRefundedAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
@@ -602,9 +612,11 @@ class CustomerConfirmationService
                             'relationship' => $member->relationship,
                             'has_quotation' => $this->hasActiveQuotationItemLink($member),
                             'paid_amount' => round((float) $summary['paid_amount'], 2),
+                            'invoice_paid_amount' => round((float) ($summary['invoice_paid_amount'] ?? 0), 2),
                             'total_amount' => round((float) $summary['total_amount'], 2),
                             'discount' => round((float) ($summary['discount'] ?? 0), 2),
                             'overpaid_amount' => round((float) $summary['overpaid_amount'], 2),
+                            'refunded_amount' => round((float) $summary['refunded_amount'], 2),
                             'billed_amount' => round((float) $summary['billed_amount'], 2),
                             'balance_invoice_amount' => round(max(0.0, (float) $summary['total_amount'] - (float) $summary['billed_amount']), 2),
                             'name' => $member->customer?->user?->name ?? '-',
@@ -1022,22 +1034,11 @@ class CustomerConfirmationService
     }
 
     /**
-     * @return array{status:string,paid_amount:float,total_amount:float,discount:float,overpaid_amount:float,billed_amount:float}
+     * @return array{status:string,paid_amount:float,invoice_paid_amount:float,total_amount:float,discount:float,overpaid_amount:float,billed_amount:float,refunded_amount:float}
      */
     private function resolveMemberFinancialSnapshot(CustomerConfirmationMember $member, ?Package $package): array
     {
         $normalizedStatus = $this->normalizePaymentStatus($member->status ?? null);
-
-        if ($normalizedStatus === 'cancelled') {
-            return [
-                'status' => 'cancelled',
-                'paid_amount' => 0.0,
-                'total_amount' => 0.0,
-                'discount' => 0.0,
-                'overpaid_amount' => 0.0,
-                'billed_amount' => 0.0,
-            ];
-        }
 
         $packagePrice = $package ? $this->resolveMemberTotalAmount($member, $package) : 0.0;
         $discountAmount = $this->resolveNegativeExtensionDiscountShareForMember(
@@ -1063,15 +1064,82 @@ class CustomerConfirmationService
         );
         $billedAmount = $this->resolveMemberBilledAmount($member);
         $overpaidAmount = max(0.0, round($paidAmount - $payableAmount, 2));
+        $refundedAmount = $this->resolveMemberRefundedAmount($member);
+        $invoicePaidAmount = max(0.0, round($this->resolveMemberPaidAmount($member) + $refundedAmount, 2));
 
         return [
             'status' => $this->resolveComputedMemberStatus($normalizedStatus, $package, $paidAmount, $payableAmount),
             'paid_amount' => round($paidAmount, 2),
+            'invoice_paid_amount' => round($invoicePaidAmount, 2),
             'total_amount' => round($payableAmount, 2),
             'discount' => round($discountAmount, 2),
             'overpaid_amount' => round($overpaidAmount, 2),
             'billed_amount' => round($billedAmount, 2),
+            'refunded_amount' => round($refundedAmount, 2),
         ];
+    }
+
+    /**
+     * Resolve the total refunded amount for a member.
+     * Refunds are identified by invoices with status='refund' or negative amounts.
+     * Returns the absolute value of all negative receipts from refund invoices.
+     */
+    private function resolveMemberRefundedAmount(CustomerConfirmationMember $member): float
+    {
+        $refundedAmount = 0.0;
+
+        $refundInvoices = $member->quotationItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->unique('id')
+            ->values()
+            ->filter(function ($invoice): bool {
+                return InvoiceStatus::isRefund($invoice->status ?? null)
+                    || (float) ($invoice->amount ?? 0) < 0;
+            });
+
+        foreach ($refundInvoices as $invoice) {
+            $invoiceItems = $invoice->quotationItems
+                ->filter(fn ($item): bool => ! (bool) ($item->is_header ?? false))
+                ->values();
+
+            if ($invoiceItems->isEmpty()) {
+                continue;
+            }
+
+            $invoiceSubtotalAbsolute = abs((float) $invoiceItems->sum(function ($item): float {
+                return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            }));
+
+            if ($invoiceSubtotalAbsolute <= 0) {
+                continue;
+            }
+
+            $memberSubtotalAbsolute = abs((float) $invoiceItems
+                ->where('customer_confirmation_member_id', $member->id)
+                ->sum(function ($item): float {
+                    return (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                }));
+
+            if ($memberSubtotalAbsolute <= 0) {
+                continue;
+            }
+
+            $receiptTotal = abs((float) $invoice->receipt->sum(function ($receipt): float {
+                return (float) ($receipt->amount ?? 0);
+            }));
+
+            $effectiveRefundTotal = $receiptTotal > 0
+                ? $receiptTotal
+                : abs((float) ($invoice->amount ?? 0));
+
+            if ($effectiveRefundTotal <= 0) {
+                continue;
+            }
+
+            $refundedAmount += $effectiveRefundTotal * ($memberSubtotalAbsolute / $invoiceSubtotalAbsolute);
+        }
+
+        return round($refundedAmount, 2);
     }
 
     /**
@@ -4238,6 +4306,39 @@ class CustomerConfirmationService
     }
 
     /**
+     * Check if all members in a confirmation are being refunded.
+     *
+     * @param  array<int, array<string, mixed>>  $memberRefunds
+     */
+    public function areAllMembersBeingRefunded(int $confirmationId, array $memberRefunds): bool
+    {
+        $group = CustomerConfirmation::query()->with('members')->findOrFail($confirmationId);
+
+        $refundMemberIds = collect($memberRefunds)
+            ->map(fn ($refund) => (int) ($refund['member_id'] ?? 0))
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $totalMembers = count($group->members ?? []);
+        $refundingMembers = count($refundMemberIds);
+
+        return $totalMembers > 0 && $refundingMembers === $totalMembers;
+    }
+
+    /**
+     * Create refund receipts for selected members.
+     *
+     * Important: This method updates members in the EXISTING confirmation, does NOT create a new CC.
+     * When refunding all members in a confirmation, they will be marked as cancelled in the original CC,
+     * and the is_holding flag will be set to false if no active members remain.
+     *
+     * To prevent CC duplication:
+     * - When ALL members are being refunded, don't call moveMembersToHolding beforehand
+     * - Only call moveMembersToHolding when refunding SOME members (keeping others active)
+     * - Use areAllMembersBeingRefunded() to check before deciding to call moveMembersToHolding
+     *
      * @param  array<int, array<string, mixed>>  $memberRefunds
      * @return array{count:int, receipt_ids:array<int, int>, invoice_ids:array<int, int>}
      */

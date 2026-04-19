@@ -306,7 +306,8 @@ class QuotationExtensionWorkflowTest extends TestCase
         $row = $rows->firstWhere('id', $quotation->id);
 
         $this->assertNotNull($row);
-        $this->assertSame(900.0, (float) ($row['total_amount'] ?? 0));
+        // Refund invoices are now included in total calculation: 700 + 200 - 50 = 850
+        $this->assertSame(850.0, (float) ($row['total_amount'] ?? 0));
     }
 
     public function test_update_converted_quotation_does_not_override_invoice_owned_extensions(): void

@@ -282,6 +282,32 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         ),
     },
     {
+        id: 'refunded_paid_summary',
+        header: 'Refunded/Paid',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const members = row.original.members ?? [];
+            const totalRefundedAmount = members.reduce(
+                (sum, member) => sum + (member.refunded_amount ?? 0),
+                0,
+            );
+            const totalPaidAmount = members.reduce(
+                (sum, member) => sum + (member.invoice_paid_amount ?? 0),
+                0,
+            );
+            return (
+                <div className="flex flex-col gap-1 text-sm">
+                    <div className="font-medium text-green-600">
+                        Paid: {formatCurrency(totalPaidAmount)}
+                    </div>
+                    <div className="font-medium text-red-600">
+                        Refunded: {formatCurrency(totalRefundedAmount)}
+                    </div>
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: 'enquiry_type',
         header: 'Enquiry Type',
         meta: { exportable: true },
@@ -522,7 +548,7 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
             return (
                 <button
                     type="button"
-                    className="font-medium text-primary underline-offset-4 hover:underline"
+                    className="cursor-pointer font-medium text-primary underline-offset-4 hover:underline"
                     onClick={(event) => {
                         event.stopPropagation();
                         router.get(editOrder(orderId).url);
@@ -553,6 +579,25 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
                 {formatCurrency(row.original.total_amount ?? 0)}
             </Badge>
         ),
+    },
+    {
+        accessorKey: 'refunded_paid_amount',
+        header: 'Refunded/Paid',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const refundedAmount = row.original.refunded_amount ?? 0;
+            const paidAmount = row.original.invoice_paid_amount ?? 0;
+            return (
+                <div className="flex flex-col gap-1 text-sm">
+                    <div className="font-medium text-green-600">
+                        Paid: {formatCurrency(paidAmount)}
+                    </div>
+                    <div className="font-medium text-red-600">
+                        Refunded: {formatCurrency(refundedAmount)}
+                    </div>
+                </div>
+            );
+        },
     },
 ];
 
@@ -614,6 +659,36 @@ export default function ConfirmedCustomerIndex({
     const isCompletedIndex = indexUrl.includes('/completed-customer');
     const isCancelledIndex = indexUrl.includes('/cancelled-customer');
     const isReadOnlyIndex = isCompletedIndex || isCancelledIndex;
+
+    const groupTableColumns = useMemo(() => {
+        return groupColumns.filter((column) => {
+            const columnKey =
+                'accessorKey' in column
+                    ? String(column.accessorKey ?? '')
+                    : String(column.id ?? '');
+
+            if (isCancelledIndex) {
+                return columnKey !== 'paid_amount';
+            }
+
+            return columnKey !== 'refunded_paid_summary';
+        });
+    }, [isCancelledIndex]);
+
+    const memberTableColumns = useMemo(() => {
+        return memberColumns.filter((column) => {
+            const columnKey =
+                'accessorKey' in column
+                    ? String(column.accessorKey ?? '')
+                    : String(column.id ?? '');
+
+            if (isCancelledIndex) {
+                return columnKey !== 'paid_amount';
+            }
+
+            return columnKey !== 'refunded_paid_amount';
+        });
+    }, [isCancelledIndex]);
     // const canCreateCustomerConfirmation =
     //     !isHoldingIndex &&
     //     !isReadOnlyIndex &&
@@ -1621,7 +1696,7 @@ export default function ConfirmedCustomerIndex({
 
         return (
             <DataTable
-                columns={memberColumns}
+                columns={memberTableColumns}
                 data={data}
                 actions={['view']}
                 showSettings={false}
@@ -1757,6 +1832,8 @@ export default function ConfirmedCustomerIndex({
                         customer_number: false,
                         contact: false,
                         email: false,
+                        paid_amount: !isCancelledIndex,
+                        refunded_paid_amount: isCancelledIndex,
                     },
                     pagination: {
                         pageIndex: 0,
@@ -1778,7 +1855,7 @@ export default function ConfirmedCustomerIndex({
 
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
-                            columns={groupColumns}
+                            columns={groupTableColumns}
                             data={dataGroups}
                             actions={actions}
                             searchFilterMode="outside"
@@ -1971,7 +2048,8 @@ export default function ConfirmedCustomerIndex({
                                     enquiry_contact: false,
                                     member_count: true,
                                     package_name: true,
-                                    paid_amount: true,
+                                    paid_amount: !isCancelledIndex,
+                                    refunded_paid_summary: isCancelledIndex,
                                     enquiry_type: true,
                                     enquiry_status: false,
                                     quoted_member_count: false,

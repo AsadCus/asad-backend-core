@@ -2022,7 +2022,7 @@ class QuotationService
             ->filter(function ($invoice): bool {
                 $status = strtolower(trim((string) ($invoice->status ?? '')));
 
-                if ($status === InvoiceStatus::Cancelled || InvoiceStatus::isRefund($invoice->status)) {
+                if ($status === InvoiceStatus::Cancelled) {
                     return false;
                 }
 
