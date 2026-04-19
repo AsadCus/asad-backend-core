@@ -36,6 +36,10 @@ class ReportTemplateController extends Controller
         'down_side',
     ];
 
+    private const ALLOWED_MARGIN_PRESETS = ['narrow', 'normal', 'wide'];
+
+    private const ALLOWED_SECTION_SPACING_PRESETS = ['compact', 'normal', 'relaxed'];
+
     private const PRESET_LAYOUTS = [
         'percent' => [
             'left_side' => [
@@ -116,6 +120,12 @@ class ReportTemplateController extends Controller
                 'company_phone' => $settings->company_phone,
                 'company_email' => $settings->company_email,
                 'brand_color' => $settings->brand_color ?? '#c05427',
+                'page_margin_preset' => in_array($settings->page_margin_preset, self::ALLOWED_MARGIN_PRESETS, true)
+                    ? $settings->page_margin_preset
+                    : 'normal',
+                'section_spacing_preset' => in_array($settings->section_spacing_preset, self::ALLOWED_SECTION_SPACING_PRESETS, true)
+                    ? $settings->section_spacing_preset
+                    : 'normal',
                 'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)
                     ? $settings->qr_alignment
                     : 'center',
@@ -156,6 +166,12 @@ class ReportTemplateController extends Controller
             'company_phone' => $validated['company_phone'] ?? null,
             'company_email' => $validated['company_email'] ?? null,
             'brand_color' => $validated['brand_color'] ?? '#c05427',
+            'page_margin_preset' => in_array($validated['page_margin_preset'] ?? null, self::ALLOWED_MARGIN_PRESETS, true)
+                ? $validated['page_margin_preset']
+                : 'normal',
+            'section_spacing_preset' => in_array($validated['section_spacing_preset'] ?? null, self::ALLOWED_SECTION_SPACING_PRESETS, true)
+                ? $validated['section_spacing_preset']
+                : 'normal',
             'qr_alignment' => in_array($validated['qr_alignment'] ?? null, ['left', 'center', 'right'], true)
                 ? $validated['qr_alignment']
                 : 'center',
@@ -485,6 +501,12 @@ class ReportTemplateController extends Controller
             'company_phone' => $request->input('company_phone', $settings->company_phone),
             'company_email' => $request->input('company_email', $settings->company_email),
             'title_color' => $brandColor,
+            'page_margin_preset' => in_array((string) $request->input('page_margin_preset', $settings->page_margin_preset), self::ALLOWED_MARGIN_PRESETS, true)
+                ? (string) $request->input('page_margin_preset', $settings->page_margin_preset)
+                : 'normal',
+            'section_spacing_preset' => in_array((string) $request->input('section_spacing_preset', $settings->section_spacing_preset), self::ALLOWED_SECTION_SPACING_PRESETS, true)
+                ? (string) $request->input('section_spacing_preset', $settings->section_spacing_preset)
+                : 'normal',
             'signature_stamp_layout' => $signatureStampLayout,
             'qr_alignment' => in_array((string) $request->input('qr_alignment', $settings->qr_alignment), ['left', 'center', 'right'], true)
                 ? (string) $request->input('qr_alignment', $settings->qr_alignment)

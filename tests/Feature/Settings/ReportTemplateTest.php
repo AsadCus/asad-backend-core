@@ -69,6 +69,8 @@ class ReportTemplateTest extends TestCase
                 'company_phone' => '+65 1234 5678',
                 'company_email' => 'test@example.com',
                 'footer_text' => 'Test footer text',
+                'page_margin_preset' => 'wide',
+                'section_spacing_preset' => 'relaxed',
             ]);
 
         $response
@@ -82,7 +84,28 @@ class ReportTemplateTest extends TestCase
         $this->assertSame('+65 1234 5678', $settings->company_phone);
         $this->assertSame('test@example.com', $settings->company_email);
         $this->assertSame('Test footer text', $settings->footer_text);
+        $this->assertSame('wide', $settings->page_margin_preset);
+        $this->assertSame('relaxed', $settings->section_spacing_preset);
         $this->assertEquals($user->id, $settings->updated_by);
+    }
+
+    public function test_report_template_preview_applies_margin_and_spacing_presets(): void
+    {
+        $user = $this->createGhostAdminUser();
+
+        $response = $this->actingAs($user)->postJson(route('report-template.preview'), [
+            'module_key' => 'quotation',
+            'page_margin_preset' => 'wide',
+            'section_spacing_preset' => 'relaxed',
+        ]);
+
+        $response->assertOk();
+
+        $html = (string) $response->json('html');
+
+        $this->assertStringContainsString('margin: 3.17cm;', $html);
+        $this->assertStringContainsString('margin-bottom: 14px;', $html);
+        $this->assertStringContainsString('margin-top: 16px;', $html);
     }
 
     public function test_company_name_is_required(): void

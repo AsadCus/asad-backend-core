@@ -10,6 +10,8 @@ interface LivePreviewProps {
     company_address: string;
     company_phone: string;
     company_email: string;
+    page_margin_preset: 'narrow' | 'normal' | 'wide';
+    section_spacing_preset: 'compact' | 'normal' | 'relaxed';
     signature_stamp_layout: 'default' | 'custom';
     custom_signature_stamp_layout: SignatureStampLayoutConfig;
     module_templates: Record<string, ModuleTemplate>;
@@ -31,6 +33,8 @@ export function PdfPreview({
     company_address,
     company_phone,
     company_email,
+    page_margin_preset,
+    section_spacing_preset,
     signature_stamp_layout,
     custom_signature_stamp_layout,
     module_templates,
@@ -73,6 +77,8 @@ export function PdfPreview({
                 company_address,
                 company_phone,
                 company_email,
+                page_margin_preset,
+                section_spacing_preset,
                 signature_stamp_layout,
                 custom_signature_stamp_layout: parsedLayout,
                 module_templates: allModuleTemplates,
@@ -99,6 +105,8 @@ export function PdfPreview({
         company_address,
         company_phone,
         company_email,
+        page_margin_preset,
+        section_spacing_preset,
         signature_stamp_layout,
         customLayoutJson,
         module_templates,

@@ -4,10 +4,27 @@
 <head>
     <meta charset="utf-8">
     <title>@yield('document-title', 'Report')</title>
+    @php
+        $marginPreset = $branding['page_margin_preset'] ?? 'normal';
+        $marginByPreset = [
+            'narrow' => '1.27cm',
+            'normal' => '2.54cm',
+            'wide' => '3.17cm',
+        ];
+        $pageMargin = $marginByPreset[$marginPreset] ?? $marginByPreset['normal'];
+
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $sectionSpacingByPreset = [
+            'compact' => ['section' => '6px', 'header' => '6px', 'footer' => '8px'],
+            'normal' => ['section' => '10px', 'header' => '10px', 'footer' => '12px'],
+            'relaxed' => ['section' => '14px', 'header' => '14px', 'footer' => '16px'],
+        ];
+        $spacingTokens = $sectionSpacingByPreset[$sectionSpacingPreset] ?? $sectionSpacingByPreset['normal'];
+    @endphp
     <style>
         @page {
             size: A4;
-            margin: 0.35cm 0.45cm;
+            margin: {{ $pageMargin }};
         }
 
         * {
@@ -27,7 +44,7 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 5px;
+            margin-bottom: {{ $spacingTokens['header'] }};
             page-break-inside: avoid;
         }
 
@@ -79,14 +96,29 @@
             font-size: 16px;
             padding: 4px 6px;
             letter-spacing: 1px;
-            margin-bottom: 5px;
+            margin-bottom: {{ $spacingTokens['section'] }};
             page-break-inside: avoid;
+        }
+
+        .report-content-stack > * {
+            margin-bottom: {{ $spacingTokens['section'] }};
+        }
+
+        .report-content-stack > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .report-content-stack > .items-section,
+        .report-content-stack > .items-table-wrap,
+        .report-content-stack > .items-table {
+            margin-bottom: 0;
         }
 
         /* ── Footer ── */
         .footer-section {
             font-size: 12px;
             padding-top: 6px;
+            margin-top: {{ $spacingTokens['footer'] }};
             border-top: 1px solid #d0d0d0;
             page-break-inside: avoid;
         }
@@ -165,7 +197,7 @@
             body {
                 font-size: 13px;
                 line-height: 1.55;
-                padding: 0.2cm 0.4cm;
+                padding: {{ $pageMargin }};
                 background: #ffffff;
                 max-width: 794px;
                 min-height: 27.7cm;
@@ -256,7 +288,9 @@
     <div class="title-bar">@yield('title-bar')</div>
 
     {{-- ── MAIN CONTENT ── --}}
-    @yield('report-content')
+    <div class="report-content-stack">
+        @yield('report-content')
+    </div>
 
 </body>
 

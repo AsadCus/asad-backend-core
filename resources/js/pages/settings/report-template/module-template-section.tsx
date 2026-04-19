@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form-field';
+import { FieldRequirements } from '@/components/field-requirements';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -33,18 +34,23 @@ interface ModuleTemplateSectionProps {
 function ToggleRow({
     title,
     description,
+    hint,
     checked,
     onCheckedChange,
 }: {
     title: string;
     description: string;
+    hint: string;
     checked: boolean;
     onCheckedChange: (v: boolean) => void;
 }) {
     return (
         <div className="flex items-start justify-between gap-4 rounded-lg border p-3.5 lg:p-4">
             <div className="min-w-0">
-                <p className="text-base font-medium leading-tight">{title}</p>
+                <p className="inline-flex items-center gap-1.5 text-base font-medium leading-tight">
+                    {title}
+                    <FieldRequirements hint={hint} />
+                </p>
                 <p className="mt-1 text-base text-muted-foreground">{description}</p>
             </div>
             <Switch
@@ -84,6 +90,10 @@ export function ModuleTemplateSection({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        Module
+                        <FieldRequirements hint="Select which module settings you want to edit." />
+                    </span>
                     <Select
                         value={selectedModule}
                         onValueChange={(value) => setSelectedModule(value)}
@@ -194,6 +204,7 @@ export function ModuleTemplateSection({
                         <ToggleRow
                             title="Show Company Stamp"
                             description="Display stamp from Branding section."
+                            hint="Enable to render company stamp in this module report output."
                             checked={activeModule?.show_stamp ?? false}
                             onCheckedChange={(v) => updateModule('show_stamp', v)}
                         />
@@ -201,6 +212,7 @@ export function ModuleTemplateSection({
                         <ToggleRow
                             title="Show Authorised Signature"
                             description="Display signature from Branding section."
+                            hint="Enable to render authorised signature in this module report output."
                             checked={activeModule?.show_signature ?? false}
                             onCheckedChange={(v) => updateModule('show_signature', v)}
                         />
@@ -208,6 +220,7 @@ export function ModuleTemplateSection({
                         <ToggleRow
                             title="Show QR Image"
                             description="Display QR image from Branding section."
+                            hint="Enable to render QR image in this module report output."
                             checked={activeModule?.show_qr ?? true}
                             onCheckedChange={(v) => updateModule('show_qr', v)}
                         />
@@ -215,6 +228,7 @@ export function ModuleTemplateSection({
                         <ToggleRow
                             title="Show Full Name &amp; Date"
                             description="Display name and date below signature and stamp."
+                            hint="Shows configured signer full name and date together below signature and stamp."
                             checked={
                                 (activeModule?.show_signature_stamp_name ?? false) &&
                                 (activeModule?.show_signature_stamp_date ?? false)

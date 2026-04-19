@@ -25,6 +25,8 @@ interface ReportTemplatePreviewModalProps {
     company_address: string;
     company_phone: string;
     company_email: string;
+    page_margin_preset: 'narrow' | 'normal' | 'wide';
+    section_spacing_preset: 'compact' | 'normal' | 'relaxed';
     custom_signature_stamp_layout: SignatureStampLayoutConfig;
     module_templates: Record<string, ModuleTemplate>;
 }
@@ -39,6 +41,8 @@ export function ReportTemplatePreviewModal({
     company_address,
     company_phone,
     company_email,
+    page_margin_preset,
+    section_spacing_preset,
     custom_signature_stamp_layout,
     module_templates,
 }: ReportTemplatePreviewModalProps) {
@@ -115,6 +119,8 @@ export function ReportTemplatePreviewModal({
                         company_address={company_address}
                         company_phone={company_phone}
                         company_email={company_email}
+                        page_margin_preset={page_margin_preset}
+                        section_spacing_preset={section_spacing_preset}
                         signature_stamp_layout="custom"
                         custom_signature_stamp_layout={
                             custom_signature_stamp_layout

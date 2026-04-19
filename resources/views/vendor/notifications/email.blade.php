@@ -1,18 +1,32 @@
 <x-mail::message>
+@php
+    $mailBrandName = 'Karva Travel and Tours Management System';
+    $isPasswordReset = isset($actionText) && str_contains(strtolower($actionText), 'reset');
+@endphp
+
+@if ($isPasswordReset)
+<p style="margin: 0 0 14px; color: #a64a24; font-size: 13px; font-weight: 700; letter-spacing: 0.2px;">
+
+</p>
+<h2 style="margin: 0 0 12px; font-size: 21px; line-height: 1.35; color: #1f2937;">
+Reset your password to continue your journey.
+</h2>
+@endif
+
 {{-- Greeting --}}
 @if (! empty($greeting))
 # {{ $greeting }}
 @else
 @if ($level === 'error')
 # @lang('Whoops!')
-@else
-# @lang('Hello!')
 @endif
 @endif
 
 {{-- Intro Lines --}}
 @foreach ($introLines as $line)
+<p style="margin: 0 0 14px; color: #4b5563; line-height: 1.7;">
 {{ $line }}
+</p>
 
 @endforeach
 
@@ -36,11 +50,15 @@
 @endforeach
 
 {{-- Salutation --}}
+<p style="margin: 0 0 8px; color: #9a6a56; font-size: 13px;">
+&#128205; Need help? Reach us through our official support channel.
+</p>
+
 @if (! empty($salutation))
 {{ $salutation }}
 @else
 @lang('Regards,')<br>
-{{ config('app.name') }}
+{{ $mailBrandName }}
 @endif
 
 {{-- Subcopy --}}
@@ -64,3 +82,4 @@
 </x-slot:subcopy>
 @endisset
 </x-mail::message>
+
