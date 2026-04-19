@@ -25,14 +25,25 @@ import { NotificationItem, typeStyles } from '@/pages/notifications';
 import { index, read } from '@/routes/notifications';
 import { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
-import { Bell, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
+import { Bell, Globe, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Badge } from './ui/badge';
 
 export function NavActions() {
     const [isOpen, setIsOpen] = useState(false);
+    const [isScopeOpen, setIsScopeOpen] = useState(false);
     const { auth } = usePage<SharedData>().props;
     const notifications = auth.notifications;
+    const roles = auth.roles ?? [];
+    const isScopeIndicatorVisible =
+        roles.includes('admin') ||
+        roles.includes('sales') ||
+        roles.includes('operations');
+    const scopeModeLabel = auth.scope_mode === 'branch' ? 'Branch' : 'Country';
+    const scopeLabels = Array.isArray(auth.scope_labels)
+        ? auth.scope_labels
+        : [];
     const { appearance, updateAppearance } = useAppearance();
 
     const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -72,12 +83,14 @@ export function NavActions() {
 
     return (
         <div className="flex items-center gap-2 text-base">
-            <div className="hidden font-medium text-muted-foreground md:inline-block">
-                {new Date().toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                })}
+            <div className="hidden items-center gap-2 text-muted-foreground md:flex">
+                <span className="font-medium">
+                    {new Date().toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                    })}
+                </span>
             </div>
 
             <DropdownMenu>
@@ -120,6 +133,64 @@ export function NavActions() {
             >
                 <RotateCcw className="h-4 w-4" />
             </Button>
+
+            {isScopeIndicatorVisible && (
+                <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="relative h-7 w-7 data-[state=open]:bg-accent"
+                            aria-label="View data scope"
+                        >
+                            <Globe className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-72 rounded-lg p-4" align="end">
+                        <div className="space-y-3">
+                            <div>
+                                <h3 className="text-base font-semibold text-foreground">
+                                    Data Scope
+                                </h3>
+                                <p className="text-base text-muted-foreground">
+                                    Your assigned data access scope
+                                </p>
+                            </div>
+
+                            <div className="space-y-2 border-t pt-2">
+                                <div>
+                                    <p className="text-base font-medium text-muted-foreground">
+                                        Scope Mode
+                                    </p>
+                                    <p className="text-base font-medium text-foreground">
+                                        {scopeModeLabel}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-base font-medium text-muted-foreground">
+                                        {scopeModeLabel === 'Branch'
+                                            ? 'Assigned Branches'
+                                            : 'Assigned Countries'}
+                                    </p>
+                                    {scopeLabels.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {scopeLabels.map((label, idx) => (
+                                                <Badge key={idx}>{label}</Badge>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1 text-base text-muted-foreground">
+                                            Not configured
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
 
             <Popover open={isOpen} onOpenChange={setIsOpen}>
                 <PopoverTrigger asChild>

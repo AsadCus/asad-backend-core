@@ -9,6 +9,7 @@ export interface Auth {
     is_ghost_user?: boolean;
     notifications: NotificationItem[];
     scope_mode?: 'country' | 'branch' | string;
+    scope_labels?: string[];
 }
 
 export interface BreadcrumbItem {

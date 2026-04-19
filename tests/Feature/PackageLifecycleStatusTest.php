@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\CustomerConfirmation;
+use App\Models\Enquiry;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
 use App\Models\Package;
 use App\Services\PackageSeatService;
+use App\Services\PackageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -120,5 +123,45 @@ class PackageLifecycleStatusTest extends TestCase
 
         $this->assertSame('open', (string) $package->status);
         $this->assertSame(12, (int) $package->seats_left);
+    }
+
+    public function test_deleting_package_sets_enquiry_and_confirmation_package_to_null(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-LIFE-006',
+            'name' => 'Lifecycle Null Relation Package',
+            'status' => 'open',
+            'departure_date' => now()->addDays(15)->format('Y-m-d'),
+            'total_seats' => 10,
+            'seats_left' => 10,
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'status' => 'new_lead',
+            'name' => 'Lifecycle User',
+            'contact_number' => '0123456789',
+            'email' => 'lifecycle@example.com',
+            'package_id' => $package->id,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'enquiry_id' => $enquiry->id,
+            'package_id' => $package->id,
+            'is_holding' => false,
+        ]);
+
+        $result = app(PackageService::class)->delete((int) $package->id);
+
+        $this->assertTrue($result);
+        $this->assertDatabaseMissing('packages', ['id' => $package->id]);
+        $this->assertDatabaseHas('enquiries', [
+            'id' => $enquiry->id,
+            'package_id' => null,
+        ]);
+        $this->assertDatabaseHas('customer_confirmations', [
+            'id' => $confirmation->id,
+            'package_id' => null,
+        ]);
     }
 }

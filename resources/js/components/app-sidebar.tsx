@@ -59,6 +59,8 @@ import {
     TicketCheck,
     User,
     UserCheck,
+    UserMinus,
+    UserX,
     Wallet,
 } from 'lucide-react';
 import AppLogo from './app-logo';
@@ -279,7 +281,7 @@ export function AppSidebar() {
                         {
                             title: 'Customer Holding Area',
                             href: customerHolding.index.url(),
-                            icon: UserCheck,
+                            icon: UserMinus,
                         },
                         {
                             title: 'Completed Customer',
@@ -289,7 +291,7 @@ export function AppSidebar() {
                         {
                             title: 'Cancelled Customer',
                             href: cancelledCustomer.index.url(),
-                            icon: UserCheck,
+                            icon: UserX,
                         },
                     ]
                   : []),

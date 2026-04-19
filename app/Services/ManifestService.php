@@ -65,8 +65,8 @@ class ManifestService
                 return [
                     'id' => $q->id,
                     'package_id' => $q->package_id,
+                    'package_number' => $q->package?->package_number,
                     'package_name' => $q->package?->name,
-                    'manifest_number' => $q->manifest_number,
                     'departure_date' => $q->package?->departure_date_formatted,
                     'return_date' => $q->package?->return_date_formatted,
                     'total_seats' => $q->package?->total_seats,

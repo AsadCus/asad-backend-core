@@ -173,6 +173,79 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame($hiddenPackage->id, (int) ($hiddenPackageDetails['id'] ?? 0));
     }
 
+    public function test_operations_user_branch_scope_resolves_visibility_through_branch_country_mapping(): void
+    {
+        config()->set('data_scope.enabled', true);
+        config()->set('data_scope.mode', 'branch');
+
+        $countryA = Country::create([
+            'name' => 'Singapore',
+            'adjective' => 'Singaporean',
+        ]);
+
+        $countryB = Country::create([
+            'name' => 'Indonesia',
+            'adjective' => 'Indonesian',
+        ]);
+
+        $branchA = Branch::create([
+            'name' => 'Singapore Branch',
+            'country_id' => $countryA->id,
+        ]);
+
+        $branchB = Branch::create([
+            'name' => 'Indonesia Branch',
+            'country_id' => $countryB->id,
+        ]);
+
+        $operationsUser = User::factory()->create();
+
+        Role::findOrCreate('operations', 'web');
+        $operationsUser->assignRole('operations');
+
+        Operation::query()->create([
+            'user_id' => $operationsUser->id,
+            'branch_id' => $branchA->id,
+            'country_id' => null,
+            'branch_ids' => [$branchA->id],
+            'country_ids' => [],
+        ]);
+
+        $visiblePackage = Package::create([
+            'package_number' => 'PKG-OPS-BRANCH-1',
+            'name' => 'Visible Branch Scope Package',
+            'status' => 'open',
+            'country_id' => $countryA->id,
+        ]);
+
+        $hiddenPackage = Package::create([
+            'package_number' => 'PKG-OPS-BRANCH-2',
+            'name' => 'Hidden Branch Scope Package',
+            'status' => 'open',
+            'country_id' => $countryB->id,
+        ]);
+
+        Manifest::create([
+            'package_id' => $visiblePackage->id,
+            'manifest_number' => 'MNF-VISIBLE-BRANCH',
+        ]);
+
+        Manifest::create([
+            'package_id' => $hiddenPackage->id,
+            'manifest_number' => 'MNF-HIDDEN-BRANCH',
+        ]);
+
+        $this->actingAs($operationsUser);
+
+        $datatableRows = app(OpsMovementService::class)->getForDataTable();
+
+        $this->assertCount(1, $datatableRows);
+        $this->assertSame($visiblePackage->id, (int) $datatableRows->first()['id']);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(OpsMovementService::class)->getForShow($hiddenPackage->id);
+    }
+
     public function test_update_persists_editable_ops_movement_fields(): void
     {
         Storage::fake('public');

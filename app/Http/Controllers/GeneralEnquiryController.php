@@ -7,6 +7,7 @@ use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\GeneralEnquiryService;
 use App\Services\PackageService;
+use App\Services\SalesService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -19,6 +20,7 @@ class GeneralEnquiryController extends Controller
         protected PackageService $packageService,
         protected BranchService $branchService,
         protected CountryService $countryService,
+        protected SalesService $salesService,
     ) {}
 
     /**
@@ -28,6 +30,7 @@ class GeneralEnquiryController extends Controller
     {
         $data['enquiriesForDatatable'] = $this->generalEnquiryService->getForDataTable();
         $data['packageOptions'] = $this->packageService->getForFilter();
+        $data['handledByOptions'] = $this->salesService->getForFilter();
 
         return Inertia::render('general-enquiries/index', [
             'data' => $data,

@@ -1,11 +1,10 @@
 import { ActionType } from '@/components/action-column';
-import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import { destroy, edit, index, show } from '@/routes/manifests';
+import { edit, index, show } from '@/routes/manifests';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -33,8 +32,8 @@ const columns: ColumnDef<ManifestSchema>[] = [
         meta: { exportable: true },
     },
     {
-        accessorKey: 'manifest_number',
-        header: 'Manifest No.',
+        accessorKey: 'package_number',
+        header: 'Package No.',
         meta: { exportable: true },
     },
     {
@@ -114,9 +113,6 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
     // if (userPermissions.includes('manifest create')) actions.push('add');
     if (userPermissions.includes('manifest view')) actions.push('view');
     if (userPermissions.includes('manifest edit')) actions.push('edit');
-    if (userPermissions.includes('manifest delete')) actions.push('delete');
-
-    const { confirm, ConfirmDialog } = useConfirmDialog();
 
     return (
         <>
@@ -143,18 +139,6 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                         router.get(show(manifestId).url);
                                     } else if (action === 'edit') {
                                         router.get(edit(manifestId).url);
-                                    } else if (action === 'delete') {
-                                        confirm({
-                                            title: 'Delete Manifest',
-                                            message: `Are you sure you want to delete manifest "${row?.original.manifest_number}"?`,
-                                            confirmText: 'Delete',
-                                            cancelText: 'Cancel',
-                                            onConfirm: () => {
-                                                router.delete(
-                                                    destroy(manifestId).url,
-                                                );
-                                            },
-                                        });
                                     }
                                 }
                             }}
@@ -188,8 +172,6 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                     </div>
                 </div>
             </AppLayout>
-
-            <ConfirmDialog />
         </>
     );
 }

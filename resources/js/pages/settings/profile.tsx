@@ -187,6 +187,35 @@ export default function Profile({
                                     )}
                                 </div>
                             </div>
+
+                            <div>
+                                <h3 className="text-base font-medium text-muted-foreground">
+                                    Scope
+                                </h3>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <p className="text-base text-muted-foreground">
+                                        {auth.scope_mode === 'branch'
+                                            ? 'Assigned Branches'
+                                            : 'Assigned Countries'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {auth.scope_labels &&
+                                        auth.scope_labels.length > 0 ? (
+                                            auth.scope_labels.map(
+                                                (label: string) => (
+                                                    <Badge key={label}>
+                                                        {label}
+                                                    </Badge>
+                                                ),
+                                            )
+                                        ) : (
+                                            <p className="text-base text-gray-500">
+                                                Not configured.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

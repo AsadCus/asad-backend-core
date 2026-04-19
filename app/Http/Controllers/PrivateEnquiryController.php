@@ -7,6 +7,7 @@ use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\PackageService;
 use App\Services\PrivateEnquiryService;
+use App\Services\SalesService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -19,6 +20,7 @@ class PrivateEnquiryController extends Controller
         protected PackageService $packageService,
         protected BranchService $branchService,
         protected CountryService $countryService,
+        protected SalesService $salesService,
     ) {}
 
     /**
@@ -29,6 +31,7 @@ class PrivateEnquiryController extends Controller
         $data['enquiriesForDatatable'] = $this->privateEnquiryService->getForDataTable();
         $data['packageOptions'] = $this->packageService->getForFilter();
         $data['countryOptions'] = $this->countryService->getForFilter();
+        $data['handledByOptions'] = $this->salesService->getForFilter();
 
         return Inertia::render('private-enquiries/index', [
             'data' => $data,

@@ -57,7 +57,8 @@ class EnquiryService
                     'package_id' => $enquiry->package_id,
                     'package_name' => $enquiry->package?->name ?? null,
                     'latest_remark' => $enquiry->latestRemark?->remark ?? '-',
-                    'handled_by_name' => $enquiry->handledBy?->name ?? '-',
+                    'handled_by' => $enquiry->handled_by,
+                    'handled_by_name' => $enquiry->handledBy?->name ?? 'Unassigned',
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
             })
@@ -308,20 +309,36 @@ class EnquiryService
         $countryIds = DataScope::scopedCountryIds();
         $branchIds = DataScope::scopedBranchIds();
 
-        $query->where(function (Builder $visibilityQuery) {
-            $visibilityQuery
-                ->where('handled_by', auth()->id())
-                ->orWhereNull('handled_by');
-        });
-
         if ($scopeMode === 'branch' && ! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
+            $query->where(function (Builder $visibilityQuery) use ($branchIds, $countryIds): void {
+                $visibilityQuery
+                    ->where('handled_by', auth()->id())
+                    ->orWhere(function (Builder $locationQuery) use ($branchIds, $countryIds): void {
+                        $locationQuery->whereIn('branch_id', $branchIds);
+
+                        if (! empty($countryIds)) {
+                            $locationQuery->orWhereIn('country_id', $countryIds);
+                        }
+                    });
+            });
 
             return;
         }
 
-        if ($scopeMode === 'country' && ! empty($countryIds)) {
-            $query->whereIn('country_id', $countryIds);
+        if (! empty($countryIds)) {
+            $query->where(function (Builder $visibilityQuery) use ($countryIds): void {
+                $visibilityQuery
+                    ->where('handled_by', auth()->id())
+                    ->orWhereIn('country_id', $countryIds);
+            });
+
+            return;
         }
+
+        $query->where(function (Builder $visibilityQuery): void {
+            $visibilityQuery
+                ->where('handled_by', auth()->id())
+                ->orWhereNull('handled_by');
+        });
     }
 }

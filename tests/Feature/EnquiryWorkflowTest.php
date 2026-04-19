@@ -49,6 +49,7 @@ class EnquiryWorkflowTest extends TestCase
         $adminRole = Role::findOrCreate('admin', 'web');
         $adminRole->givePermissionTo($permissions);
 
+        Role::findOrCreate('sales', 'web');
         Role::findOrCreate('customer', 'web');
 
         $this->adminUser = User::factory()->create();

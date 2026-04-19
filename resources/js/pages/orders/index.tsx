@@ -209,6 +209,7 @@ export default function OrderIndex({ data }: QuotationsProps) {
         convertableQuotations,
     } = data;
     const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.roles.includes('admin');
     const userPermissions = auth.permissions || [];
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -378,12 +379,14 @@ export default function OrderIndex({ data }: QuotationsProps) {
                                         title="Customer"
                                         options={customers}
                                     />
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="sales_id"
-                                        title="Salesperson"
-                                        options={salespersons}
-                                    />
+                                    {isAdmin && (
+                                        <ColumnFilter
+                                            table={table}
+                                            columnId="sales_id"
+                                            title="Salesperson"
+                                            options={salespersons}
+                                        />
+                                    )}
                                     <DateRangeFilter
                                         table={table}
                                         columnId="created_at"

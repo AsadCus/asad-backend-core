@@ -9,6 +9,7 @@ use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
 use App\Services\PackageService;
+use App\Services\SalesService;
 use App\Support\DataScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class EnquiryController extends Controller
         protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
         protected CountryService $countryService,
+        protected SalesService $salesService,
     ) {}
 
     /**
@@ -34,6 +36,7 @@ class EnquiryController extends Controller
         $data['statusOptions'] = $this->enquiryService->getStatusOptions();
         $data['packageOptions'] = $this->packageService->getForFilter();
         $data['countryOptions'] = $this->countryService->getForFilter();
+        $data['handledByOptions'] = $this->salesService->getForFilter();
 
         return Inertia::render('enquiries/index', [
             'data' => $data,

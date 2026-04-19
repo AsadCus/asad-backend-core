@@ -2,7 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Branch;
+use App\Models\Country;
+use App\Models\User;
 use App\Services\NotificationService;
+use App\Support\DataScope;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -60,7 +64,8 @@ class HandleInertiaRequests extends Middleware
                 'notifications' => $user
                     ? $this->notificationService->getUserNotifications($user->id)
                     : [],
-                'scope_mode' => strtolower((string) config('data_scope.mode', 'country')),
+                'scope_mode' => DataScope::mode(),
+                'scope_labels' => $user ? $this->resolveScopeLabels($user) : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
@@ -70,5 +75,64 @@ class HandleInertiaRequests extends Middleware
             ],
 
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function resolveScopeLabels(User $user): array
+    {
+        if (! $this->canShowScopeIndicator($user)) {
+            return [];
+        }
+
+        if (DataScope::mode() === 'branch') {
+            $branchIds = DataScope::scopedBranchIds($user);
+
+            if (empty($branchIds)) {
+                return [];
+            }
+
+            $branchNamesById = Branch::query()
+                ->whereIn('id', $branchIds)
+                ->pluck('name', 'id');
+
+            $labels = [];
+            foreach ($branchIds as $branchId) {
+                $label = $branchNamesById->get($branchId);
+                if (is_string($label) && $label !== '') {
+                    $labels[] = $label;
+                }
+            }
+
+            return array_values(array_unique($labels));
+        }
+
+        $countryIds = DataScope::scopedCountryIds($user);
+
+        if (empty($countryIds)) {
+            return [];
+        }
+
+        $countryNamesById = Country::query()
+            ->whereIn('id', $countryIds)
+            ->pluck('name', 'id');
+
+        $labels = [];
+        foreach ($countryIds as $countryId) {
+            $label = $countryNamesById->get($countryId);
+            if (is_string($label) && $label !== '') {
+                $labels[] = $label;
+            }
+        }
+
+        return array_values(array_unique($labels));
+    }
+
+    protected function canShowScopeIndicator(User $user): bool
+    {
+        return $user->hasRole('admin')
+            || $user->hasRole('sales')
+            || $user->hasRole('operations');
     }
 }

@@ -54,6 +54,7 @@ export interface GeneralEnquiriesProps {
     data: {
         enquiriesForDatatable: GeneralEnquiryDatatableSchema[];
         packageOptions: OptionType[];
+        handledByOptions: OptionType[];
     };
 }
 
@@ -132,6 +133,12 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'handled_by',
+        header: 'Handled By ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -156,7 +163,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
         actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('general-enquiry edit');
-    const { enquiriesForDatatable, packageOptions } = data;
+    const { enquiriesForDatatable, packageOptions, handledByOptions } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -325,6 +332,7 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                     no_of_adults: false,
                                     no_of_children: false,
                                     requires_mobility_assistance: false,
+                                    handled_by: false,
                                     updated_at: false,
                                 },
                             }}
@@ -335,6 +343,12 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                                         columnId="status"
                                         title="Status"
                                         options={statusOptions}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="handled_by"
+                                        title="Handled By"
+                                        options={handledByOptions}
                                     />
                                     <DateRangeFilter
                                         table={table}

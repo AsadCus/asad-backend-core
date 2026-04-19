@@ -83,7 +83,7 @@ class SalesController extends Controller
     {
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/create', [
@@ -117,7 +117,7 @@ class SalesController extends Controller
         $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/view', [
@@ -138,7 +138,7 @@ class SalesController extends Controller
         $data = $this->salesUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
-        $dataCountry = $this->countryService->getForFilterByName();
+        $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/edit', [

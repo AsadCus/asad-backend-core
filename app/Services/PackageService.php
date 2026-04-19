@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Helpers\FormatService;
+use App\Models\CustomerConfirmation;
+use App\Models\Enquiry;
 use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
@@ -467,7 +469,17 @@ class PackageService
             ->withProperties(['subject_type' => 'Package', 'subject_id' => $package->id])
             ->log('Package deleted successfully #'.$package->package_number);
 
-        return $package->delete();
+        return DB::transaction(function () use ($package) {
+            Enquiry::query()
+                ->where('package_id', $package->id)
+                ->update(['package_id' => null]);
+
+            CustomerConfirmation::query()
+                ->where('package_id', $package->id)
+                ->update(['package_id' => null]);
+
+            return $package->delete();
+        });
     }
 
     /**

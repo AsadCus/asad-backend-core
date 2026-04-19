@@ -175,6 +175,7 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
 export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.roles.includes('admin');
     const userPermissions = auth.permissions || [];
     const columns = useMemo(() => getColumns(), []);
     const actions: ActionType[] = [];
@@ -444,12 +445,14 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         title="Customer"
                                         options={customers}
                                     />
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="sales_id"
-                                        title="Salesperson"
-                                        options={salespersons}
-                                    />
+                                    {isAdmin && (
+                                        <ColumnFilter
+                                            table={table}
+                                            columnId="sales_id"
+                                            title="Salesperson"
+                                            options={salespersons}
+                                        />
+                                    )}
                                     <DateRangeFilter
                                         table={table}
                                         columnId="quotation_date"

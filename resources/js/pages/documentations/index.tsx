@@ -103,7 +103,7 @@ export default function DocumentationIndex({
                         {documentation.introduction}
                     </p>
 
-                    <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-muted-foreground md:grid-cols-3">
+                    <div className="mt-4 grid grid-cols-1 gap-2 text-base text-muted-foreground md:grid-cols-3">
                         <div>
                             <span className="font-medium text-foreground">
                                 Version:
@@ -137,7 +137,7 @@ export default function DocumentationIndex({
                             <a
                                 key={item.id}
                                 href={`#${item.id}`}
-                                className="rounded-md border border-sidebar-border/70 px-3 py-2 text-sm text-primary hover:bg-muted"
+                                className="rounded-md border border-sidebar-border/70 px-3 py-2 text-base text-primary hover:bg-muted"
                             >
                                 {item.title}
                             </a>

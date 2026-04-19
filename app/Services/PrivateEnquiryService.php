@@ -27,11 +27,11 @@ class PrivateEnquiryService
                     $countryIds = DataScope::scopedCountryIds();
                     $branchIds = DataScope::scopedBranchIds();
 
-                    $enquiryQuery->where(function ($visibilityQuery) {
-                        $visibilityQuery
-                            ->where('handled_by', auth()->id())
-                            ->orWhereNull('handled_by');
-                    });
+                    // $enquiryQuery->where(function ($visibilityQuery) {
+                    //     $visibilityQuery
+                    //         ->where('handled_by', auth()->id())
+                    //         ->orWhereNull('handled_by');
+                    // });
 
                     if ($scopeMode === 'branch' && ! empty($branchIds)) {
                         $enquiryQuery->whereIn('branch_id', $branchIds);
@@ -95,7 +95,8 @@ class PrivateEnquiryService
                     'need_wheelchair' => $privateEnquiry->need_wheelchair,
                     'other_remarks' => $privateEnquiry->other_remarks,
                     'last_remark' => $privateEnquiry->enquiry?->latestRemark->remark ?? '-',
-                    'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name ?? '-',
+                    'handled_by' => $privateEnquiry->enquiry?->handled_by,
+                    'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name ?? 'Unassigned',
                     'branch_id' => $privateEnquiry->enquiry?->branch_id,
                     'country_id' => $privateEnquiry->enquiry?->country_id,
                     'created_at' => $privateEnquiry->created_at?->translatedFormat('d F Y'),
@@ -183,11 +184,11 @@ class PrivateEnquiryService
                 $countryIds = DataScope::scopedCountryIds();
                 $branchIds = DataScope::scopedBranchIds();
 
-                $enquiryQuery->where(function ($visibilityQuery) {
-                    $visibilityQuery
-                        ->where('handled_by', auth()->id())
-                        ->orWhereNull('handled_by');
-                });
+                // $enquiryQuery->where(function ($visibilityQuery) {
+                //     $visibilityQuery
+                //         ->where('handled_by', auth()->id())
+                //         ->orWhereNull('handled_by');
+                // });
 
                 if ($scopeMode === 'branch' && ! empty($branchIds)) {
                     $enquiryQuery->whereIn('branch_id', $branchIds);

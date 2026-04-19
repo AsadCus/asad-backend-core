@@ -20,6 +20,8 @@ class RolePermissionSeederTest extends TestCase
         $this->assertTrue($salesRole->hasPermissionTo('manifest view'));
         $this->assertTrue($salesRole->hasPermissionTo('manifest create'));
         $this->assertTrue($salesRole->hasPermissionTo('manifest edit'));
-        $this->assertTrue($salesRole->hasPermissionTo('manifest delete'));
+        $this->assertFalse(
+            $salesRole->permissions->pluck('name')->contains('manifest delete'),
+        );
     }
 }

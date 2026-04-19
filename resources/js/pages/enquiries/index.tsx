@@ -55,6 +55,7 @@ export interface EnquiriesProps {
         statusOptions: OptionType[];
         packageOptions: OptionType[];
         countryOptions: OptionType[];
+        handledByOptions: OptionType[];
     };
 }
 
@@ -139,6 +140,12 @@ const columns: ColumnDef<EnquirySchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'handled_by',
+        header: 'Handled By ID',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -147,7 +154,12 @@ const columns: ColumnDef<EnquirySchema>[] = [
 ];
 
 export default function EnquiriesIndex({ data }: EnquiriesProps) {
-    const { enquiriesForDatatable, packageOptions, countryOptions } = data;
+    const {
+        enquiriesForDatatable,
+        packageOptions,
+        countryOptions,
+        handledByOptions,
+    } = data;
 
     const actions: ActionType[] = ['view', 'edit'];
 
@@ -426,6 +438,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                 columnVisibility: {
                                     id: false,
                                     package_name: false,
+                                    handled_by: false,
                                 },
                             }}
                             renderFilter={(table) => (
@@ -441,6 +454,12 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                                         columnId="status"
                                         title="Status"
                                         options={statusOptions}
+                                    />
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="handled_by"
+                                        title="Handled By"
+                                        options={handledByOptions}
                                     />
                                     <DateRangeFilter
                                         table={table}

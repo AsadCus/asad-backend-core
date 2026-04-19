@@ -72,7 +72,6 @@ class RolePermissionSeeder extends Seeder
             'manifest view',
             'manifest create',
             'manifest edit',
-            'manifest delete',
             'ops-movement view',
             'ops-movement edit',
         ];
@@ -153,7 +152,6 @@ class RolePermissionSeeder extends Seeder
             'manifest view',
             'manifest create',
             'manifest edit',
-            'manifest delete',
             'ops-movement view',
             'ops-movement edit',
         ]);
@@ -197,7 +195,6 @@ class RolePermissionSeeder extends Seeder
             'manifest view',
             'manifest create',
             'manifest edit',
-            'manifest delete',
         ]);
         Role::findByName('customer')->givePermissionTo([
             'dashboard view',

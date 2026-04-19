@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\EnquiryStatus;
+use App\Models\Branch;
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -12,6 +14,7 @@ use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\Receipt;
+use App\Models\Sales;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
@@ -120,6 +123,227 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertContains($groupB->id, $groupIds);
     }
 
+    public function test_sales_sees_enquiries_and_confirmations_in_scoped_country_even_when_handled_by_other_sales(): void
+    {
+        config()->set('data_scope.enabled', true);
+        config()->set('data_scope.mode', 'country');
+
+        $countrySingapore = Country::create([
+            'name' => 'Singapore',
+            'adjective' => 'Singaporean',
+        ]);
+
+        $countryMalaysia = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+        Sales::query()->create([
+            'user_id' => $salesA->id,
+            'country_id' => $countrySingapore->id,
+            'country_ids' => [$countrySingapore->id],
+            'branch_ids' => [],
+        ]);
+
+        $salesB = User::factory()->create();
+        $salesB->assignRole('sales');
+        Sales::query()->create([
+            'user_id' => $salesB->id,
+            'country_id' => $countryMalaysia->id,
+            'country_ids' => [$countryMalaysia->id],
+            'branch_ids' => [],
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-SCOPE-COUNTRY-001',
+            'name' => 'Country Scope Package',
+            'status' => 'open',
+        ]);
+
+        $visibleGroup = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesB->id,
+            packageId: $package->id,
+            suffix: 'country-visible',
+            countryId: $countrySingapore->id,
+        );
+
+        $hiddenGroup = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesB->id,
+            packageId: $package->id,
+            suffix: 'country-hidden',
+            countryId: $countryMalaysia->id,
+        );
+
+        $this->actingAs($salesA);
+
+        $enquiryRows = app(EnquiryService::class)->getForDataTable();
+        $enquiryIds = collect($enquiryRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $groupRows = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $groupIds = collect($groupRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains((int) $visibleGroup->enquiry_id, $enquiryIds);
+        $this->assertNotContains((int) $hiddenGroup->enquiry_id, $enquiryIds);
+        $this->assertContains($visibleGroup->id, $groupIds);
+        $this->assertNotContains($hiddenGroup->id, $groupIds);
+    }
+
+    public function test_sales_still_sees_own_handled_enquiries_and_confirmations_even_if_location_is_outside_scope(): void
+    {
+        config()->set('data_scope.enabled', true);
+        config()->set('data_scope.mode', 'country');
+
+        $countrySingapore = Country::create([
+            'name' => 'Singapore',
+            'adjective' => 'Singaporean',
+        ]);
+
+        $countryMalaysia = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+        Sales::query()->create([
+            'user_id' => $salesA->id,
+            'country_id' => $countrySingapore->id,
+            'country_ids' => [$countrySingapore->id],
+            'branch_ids' => [],
+        ]);
+
+        $ownedGroupOutsideLocation = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesA->id,
+            packageId: Package::create([
+                'package_number' => 'PKG-SCOPE-OWN-001',
+                'name' => 'Own Handled Scope Package',
+                'status' => 'open',
+            ])->id,
+            suffix: 'own-outside-scope',
+            countryId: $countryMalaysia->id,
+        );
+
+        $this->actingAs($salesA);
+
+        $enquiryRows = app(EnquiryService::class)->getForDataTable();
+        $enquiryIds = collect($enquiryRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $groupRows = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $groupIds = collect($groupRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains((int) $ownedGroupOutsideLocation->enquiry_id, $enquiryIds);
+        $this->assertContains($ownedGroupOutsideLocation->id, $groupIds);
+    }
+
+    public function test_sales_branch_scope_uses_branch_and_branch_country_for_enquiry_and_confirmation_visibility(): void
+    {
+        config()->set('data_scope.enabled', true);
+        config()->set('data_scope.mode', 'branch');
+
+        $countrySingapore = Country::create([
+            'name' => 'Singapore',
+            'adjective' => 'Singaporean',
+        ]);
+
+        $countryMalaysia = Country::create([
+            'name' => 'Malaysia',
+            'adjective' => 'Malaysian',
+        ]);
+
+        $branchSingapore = Branch::create([
+            'name' => 'Singapore Branch',
+            'country_id' => $countrySingapore->id,
+        ]);
+
+        $branchMalaysia = Branch::create([
+            'name' => 'Malaysia Branch',
+            'country_id' => $countryMalaysia->id,
+        ]);
+
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+        Sales::query()->create([
+            'user_id' => $salesA->id,
+            'branch_id' => $branchSingapore->id,
+            'branch_ids' => [$branchSingapore->id],
+            'country_ids' => [],
+        ]);
+
+        $salesB = User::factory()->create();
+        $salesB->assignRole('sales');
+        Sales::query()->create([
+            'user_id' => $salesB->id,
+            'branch_id' => $branchMalaysia->id,
+            'branch_ids' => [$branchMalaysia->id],
+            'country_ids' => [],
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-SCOPE-BRANCH-001',
+            'name' => 'Branch Scope Package',
+            'status' => 'open',
+        ]);
+
+        $visibleByBranch = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesB->id,
+            packageId: $package->id,
+            suffix: 'branch-visible',
+            countryId: null,
+            branchId: $branchSingapore->id,
+        );
+
+        $visibleByCountryFallback = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesB->id,
+            packageId: $package->id,
+            suffix: 'branch-country-visible',
+            countryId: $countrySingapore->id,
+            branchId: null,
+        );
+
+        $hiddenGroup = $this->createConfirmationGroupHandledBy(
+            handledBy: $salesB->id,
+            packageId: $package->id,
+            suffix: 'branch-hidden',
+            countryId: $countryMalaysia->id,
+            branchId: $branchMalaysia->id,
+        );
+
+        $this->actingAs($salesA);
+
+        $enquiryRows = app(EnquiryService::class)->getForDataTable();
+        $enquiryIds = collect($enquiryRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $groupRows = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+        $groupIds = collect($groupRows)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains((int) $visibleByBranch->enquiry_id, $enquiryIds);
+        $this->assertContains((int) $visibleByCountryFallback->enquiry_id, $enquiryIds);
+        $this->assertNotContains((int) $hiddenGroup->enquiry_id, $enquiryIds);
+        $this->assertContains($visibleByBranch->id, $groupIds);
+        $this->assertContains($visibleByCountryFallback->id, $groupIds);
+        $this->assertNotContains($hiddenGroup->id, $groupIds);
+    }
+
     public function test_sales_only_sees_pipeline_records_for_their_handled_enquiries(): void
     {
         $salesA = User::factory()->create();
@@ -188,8 +412,13 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertCount(0, $quotationsForSalesA);
     }
 
-    private function createConfirmationGroupHandledBy(int $handledBy, int $packageId, string $suffix): CustomerConfirmation
-    {
+    private function createConfirmationGroupHandledBy(
+        int $handledBy,
+        int $packageId,
+        string $suffix,
+        ?int $countryId = null,
+        ?int $branchId = null,
+    ): CustomerConfirmation {
         $enquiry = Enquiry::create([
             'type' => 'general',
             'status' => EnquiryStatus::Confirmed->value,
@@ -198,6 +427,8 @@ class EnquirySalesWorkflowTest extends TestCase
             'email' => "handled-{$suffix}@test.com",
             'created_by' => $handledBy,
             'handled_by' => $handledBy,
+            'country_id' => $countryId,
+            'branch_id' => $branchId,
         ]);
 
         $customerUser = User::factory()->create([

@@ -309,13 +309,7 @@ class CustomerConfirmationService
             'package',
         ])
             ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
-                $query->where(function ($visibilityQuery) {
-                    $visibilityQuery
-                        ->whereHas('enquiry', function ($enquiryQuery) {
-                            $enquiryQuery->where('handled_by', auth()->id());
-                        })
-                        ->orWhereDoesntHave('enquiry');
-                });
+                $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->when($withPackage, function ($query) {
                 $query->whereNotNull('package_id');
@@ -426,13 +420,7 @@ class CustomerConfirmationService
             'package',
         ])
             ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
-                $query->where(function ($visibilityQuery) {
-                    $visibilityQuery
-                        ->whereHas('enquiry', function ($enquiryQuery) {
-                            $enquiryQuery->where('handled_by', auth()->id());
-                        })
-                        ->orWhereDoesntHave('enquiry');
-                });
+                $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->where('is_holding', false)
             ->orderBy('created_at', 'desc')
@@ -546,13 +534,7 @@ class CustomerConfirmationService
             'package',
         ])
             ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
-                $query->where(function ($visibilityQuery) {
-                    $visibilityQuery
-                        ->whereHas('enquiry', function ($enquiryQuery) {
-                            $enquiryQuery->where('handled_by', auth()->id());
-                        })
-                        ->orWhereDoesntHave('enquiry');
-                });
+                $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->where('is_holding', true)
             ->orderBy('created_at', 'desc')
@@ -674,6 +656,47 @@ class CustomerConfirmationService
             })
             ->values()
             ->all();
+    }
+
+    private function applySalesEnquiryScopeToConfirmationQuery($query): void
+    {
+        $scopeMode = DataScope::mode();
+        $countryIds = DataScope::scopedCountryIds();
+        $branchIds = DataScope::scopedBranchIds();
+
+        $query->where(function ($visibilityQuery) use ($scopeMode, $branchIds, $countryIds): void {
+            $visibilityQuery
+                ->whereHas('enquiry', function ($enquiryQuery) use ($scopeMode, $branchIds, $countryIds): void {
+                    if ($scopeMode === 'branch' && ! empty($branchIds)) {
+                        $enquiryQuery->where(function ($visibilityQuery) use ($branchIds, $countryIds): void {
+                            $visibilityQuery
+                                ->where('handled_by', auth()->id())
+                                ->orWhere(function ($locationQuery) use ($branchIds, $countryIds): void {
+                                    $locationQuery->whereIn('branch_id', $branchIds);
+
+                                    if (! empty($countryIds)) {
+                                        $locationQuery->orWhereIn('country_id', $countryIds);
+                                    }
+                                });
+                        });
+
+                        return;
+                    }
+
+                    if (! empty($countryIds)) {
+                        $enquiryQuery->where(function ($visibilityQuery) use ($countryIds): void {
+                            $visibilityQuery
+                                ->where('handled_by', auth()->id())
+                                ->orWhereIn('country_id', $countryIds);
+                        });
+
+                        return;
+                    }
+
+                    $enquiryQuery->where('handled_by', auth()->id());
+                })
+                ->orWhereDoesntHave('enquiry');
+        });
     }
 
     /**
