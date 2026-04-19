@@ -30,6 +30,8 @@ interface GlobalBrandingSectionProps {
         company_phone: string;
         company_email: string;
         brand_color: string;
+        page_margin_preset?: 'narrow' | 'normal' | 'wide';
+        section_spacing_preset?: 'compact' | 'normal' | 'relaxed';
         qr_alignment?: 'left' | 'center' | 'right';
         qr_width?: number;
         qr_height?: number;
@@ -132,7 +134,10 @@ export function GlobalBrandingSection({
                     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                         <FormField
                             label="Company Name"
-                            fieldRequirementsProps={{ required: true }}
+                            fieldRequirementsProps={{
+                                required: true,
+                                hint: 'Legal or brand name shown in report header.',
+                            }}
                             htmlFor="company_name"
                             error={errors.company_name}
                         >
@@ -148,6 +153,9 @@ export function GlobalBrandingSection({
 
                         <FormField
                             label="Company Address"
+                            fieldRequirementsProps={{
+                                hint: 'Printed below the company name in report header.',
+                            }}
                             htmlFor="company_address"
                             error={errors.company_address}
                         >
@@ -168,6 +176,9 @@ export function GlobalBrandingSection({
                     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                         <FormField
                             label="Phone"
+                            fieldRequirementsProps={{
+                                hint: 'Contact number displayed in report header.',
+                            }}
                             htmlFor="company_phone"
                             error={errors.company_phone}
                         >
@@ -185,6 +196,9 @@ export function GlobalBrandingSection({
 
                         <FormField
                             label="Email"
+                            fieldRequirementsProps={{
+                                hint: 'Contact email displayed in report header.',
+                            }}
                             htmlFor="company_email"
                             error={errors.company_email}
                         >
@@ -271,6 +285,64 @@ export function GlobalBrandingSection({
                                     maxLength={7}
                                 />
                             </div>
+                        </FormField>
+                    </div>
+
+                    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                        <FormField
+                            label="Page Margin"
+                            fieldRequirementsProps={{
+                                hint: 'Word-like A4 margin preset (applies to all sides)',
+                            }}
+                            htmlFor="page_margin_preset"
+                            error={errors.page_margin_preset}
+                        >
+                            <Select
+                                value={data.page_margin_preset || 'normal'}
+                                onValueChange={(value) =>
+                                    onDataChange('page_margin_preset', value)
+                                }
+                            >
+                                <SelectTrigger id="page_margin_preset">
+                                    <SelectValue placeholder="Select page margin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="narrow">
+                                        Narrow (1.27 cm)
+                                    </SelectItem>
+                                    <SelectItem value="normal">
+                                        Normal (2.54 cm)
+                                    </SelectItem>
+                                    <SelectItem value="wide">
+                                        Wide (3.17 cm)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+
+                        <FormField
+                            label="Section Spacing"
+                            fieldRequirementsProps={{
+                                hint: 'Spacing for report components/rows (excluding items)',
+                            }}
+                            htmlFor="section_spacing_preset"
+                            error={errors.section_spacing_preset}
+                        >
+                            <Select
+                                value={data.section_spacing_preset || 'normal'}
+                                onValueChange={(value) =>
+                                    onDataChange('section_spacing_preset', value)
+                                }
+                            >
+                                <SelectTrigger id="section_spacing_preset">
+                                    <SelectValue placeholder="Select section spacing" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="compact">Compact</SelectItem>
+                                    <SelectItem value="normal">Normal</SelectItem>
+                                    <SelectItem value="relaxed">Relaxed</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </FormField>
                     </div>
 
@@ -459,6 +531,9 @@ export function GlobalBrandingSection({
                         <div className="space-y-4">
                             <FormField
                                 label="QR Alignment"
+                                fieldRequirementsProps={{
+                                    hint: 'Horizontal placement for QR image in report footer area.',
+                                }}
                                 htmlFor="qr_alignment"
                                 error={errors.qr_alignment}
                             >
@@ -488,6 +563,9 @@ export function GlobalBrandingSection({
                             <div className="grid grid-cols-2 items-start gap-4">
                                 <FormField
                                     label="Width (px)"
+                                    fieldRequirementsProps={{
+                                        hint: 'Controls QR image width in pixels.',
+                                    }}
                                     htmlFor="qr_width"
                                     error={errors.qr_width}
                                 >
@@ -507,6 +585,9 @@ export function GlobalBrandingSection({
                                 </FormField>
                                 <FormField
                                     label="Height (px)"
+                                    fieldRequirementsProps={{
+                                        hint: 'Height is auto-calculated to preserve aspect ratio.',
+                                    }}
                                     htmlFor="qr_height"
                                     error={errors.qr_height}
                                 >

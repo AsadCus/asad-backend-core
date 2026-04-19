@@ -23,6 +23,8 @@ interface ReportTemplateSettings {
     company_phone: string;
     company_email: string;
     brand_color: string;
+    page_margin_preset?: 'narrow' | 'normal' | 'wide';
+    section_spacing_preset?: 'compact' | 'normal' | 'relaxed';
     qr_alignment: 'left' | 'center' | 'right';
     qr_width?: number;
     qr_height?: number;
@@ -42,6 +44,8 @@ interface ReportTemplateFormData {
     company_phone: string;
     company_email: string;
     brand_color: string;
+    page_margin_preset: 'narrow' | 'normal' | 'wide';
+    section_spacing_preset: 'compact' | 'normal' | 'relaxed';
     qr_alignment: 'left' | 'center' | 'right';
     qr_width: number;
     qr_height: number;
@@ -225,6 +229,8 @@ export default function ReportTemplate({
             company_phone: settings.company_phone || '',
             company_email: settings.company_email || '',
             brand_color: settings.brand_color || '#c05427',
+            page_margin_preset: settings.page_margin_preset || 'normal',
+            section_spacing_preset: settings.section_spacing_preset || 'normal',
             qr_alignment: settings.qr_alignment || 'center',
             qr_width: settings.qr_width ?? 120,
             qr_height: settings.qr_height ?? 120,
@@ -524,6 +530,8 @@ export default function ReportTemplate({
                     company_address={data.company_address}
                     company_phone={data.company_phone}
                     company_email={data.company_email}
+                    page_margin_preset={data.page_margin_preset}
+                    section_spacing_preset={data.section_spacing_preset}
                     custom_signature_stamp_layout={
                         data.custom_signature_stamp_layout
                     }

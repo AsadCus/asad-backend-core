@@ -57,6 +57,12 @@ class ReportTemplateService
             'company_address' => $settings->company_address,
             'company_phone' => $settings->company_phone,
             'company_email' => $settings->company_email,
+            'page_margin_preset' => in_array($settings->page_margin_preset, ['narrow', 'normal', 'wide'], true)
+                ? $settings->page_margin_preset
+                : 'normal',
+            'section_spacing_preset' => in_array($settings->section_spacing_preset, ['compact', 'normal', 'relaxed'], true)
+                ? $settings->section_spacing_preset
+                : 'normal',
             'signature_stamp_layout' => $settings->signature_stamp_layout ?? 'default',
             'custom_signature_stamp_layout' => $settings->custom_signature_stamp_layout,
             'qr_alignment' => in_array($settings->qr_alignment, ['left', 'center', 'right'], true)

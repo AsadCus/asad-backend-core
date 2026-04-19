@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\ReportSetting;
 use App\Models\User;
 use App\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,5 +84,29 @@ class PasswordResetTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
+    }
+
+    public function test_reset_password_notification_uses_full_branding_and_report_logo(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+        ReportSetting::current()->update([
+            'logo_path' => 'report/brand-logo.png',
+        ]);
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
+            $html = $notification->toMail($user)->render();
+
+            $this->assertStringContainsString('Karva Travel and Tours Management System', $html);
+            $this->assertStringContainsString('report/brand-logo.png', $html);
+            $this->assertStringContainsString('Travel Account Security', $html);
+            $this->assertStringContainsString('Reset your password to continue your journey.', $html);
+            $this->assertStringContainsString('#c05427', $html);
+
+            return true;
+        });
     }
 }
