@@ -611,8 +611,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         if (groupByRowColorKey) {
             const classByValue = new Map<string, string>();
             const colorClasses = [
-                'bg-orange-50 dark:bg-orange-950/35',
-                'bg-orange-100 dark:bg-orange-900/35',
+                'bg-zinc-50 dark:bg-transparent',
+                'bg-zinc-100/60 dark:bg-[#c05427]/[0.045]',
             ];
 
             let colorIndex = 0;
@@ -647,7 +647,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         displayRows.forEach((row, index) => {
             classByRowId.set(
                 row.id,
-                index % 2 === 0 ? 'bg-muted/50' : 'bg-background',
+                index % 2 === 0
+                    ? 'bg-muted/50 dark:bg-[#c05427]/[0.03]'
+                    : 'bg-background',
             );
         });
 

@@ -64,7 +64,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                 asChild={!!subItem.href}
                                 isActive={isActive}
                                 tooltip={{ children: subItem.title }}
-                                className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                className=""
                             >
                                 {subItem.href ? (
                                     <Link href={subItem.href}>
@@ -99,7 +99,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         asChild
                                         isActive={isActive || subActive}
                                         tooltip={{ children: subItem.title }}
-                                        className="flex-1 hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                        className="flex-1 "
                                     >
                                         <Link href={subItem.href}>
                                             {subItem.icon && <subItem.icon />}
@@ -115,7 +115,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                             tooltip={{
                                                 children: `Toggle ${subItem.title}`,
                                             }}
-                                            className="ml-1 h-8 w-8 shrink-0 justify-center hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                            className="ml-1 h-8 w-8 shrink-0 justify-center "
                                         >
                                             <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible-item:rotate-90" />
                                         </SidebarMenuButton>
@@ -125,7 +125,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                 <CollapsibleTrigger asChild>
                                     <SidebarMenuButton
                                         isActive={isActive || subActive}
-                                        className="w-full hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                        className="w-full "
                                         tooltip={{ children: subItem.title }}
                                     >
                                         {subItem.icon && <subItem.icon />}
@@ -166,7 +166,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     asChild={!!item.href}
                                     isActive={isActive || subActive}
                                     tooltip={{ children: item.title }}
-                                    className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                    className=""
                                 >
                                     {item.href ? (
                                         <Link href={item.href}>
@@ -197,7 +197,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         <SidebarMenuButton
                                             isActive={isActive || subActive}
                                             tooltip={{ children: item.title }}
-                                            className="hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                            className=""
                                         >
                                             {item.icon && <item.icon />}
                                         </SidebarMenuButton>
@@ -272,7 +272,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                             asChild
                                             isActive={isActive || subActive}
                                             tooltip={{ children: item.title }}
-                                            className="flex-1 hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                            className="flex-1 "
                                         >
                                             <Link href={item.href}>
                                                 {item.icon && <item.icon />}
@@ -288,7 +288,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                                 tooltip={{
                                                     children: `Toggle ${item.title}`,
                                                 }}
-                                                className="ml-1 h-8 w-8 shrink-0 justify-center hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                                className="ml-1 h-8 w-8 shrink-0 justify-center "
                                             >
                                                 <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                                             </SidebarMenuButton>
@@ -314,7 +314,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                     <SidebarMenuButton
                                         isActive={isActive || subActive}
                                         tooltip={{ children: item.title }}
-                                        className="w-full hover:bg-gray-200 active:bg-gray-300 data-[active=true]:bg-gray-200 data-[active=true]:text-foreground"
+                                        className="w-full "
                                     >
                                         {item.icon && <item.icon />}
                                         <span className="truncate">
