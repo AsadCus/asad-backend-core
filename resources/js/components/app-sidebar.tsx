@@ -335,14 +335,14 @@ export function AppSidebar() {
           ];
 
     const footerNavItems: NavItem[] = [
-        // {
-        //     title: 'Repository',
-        //     href: '#',
-        //     icon: Folder,
-        // },
         {
-            title: 'Documentation',
-            href: '/documentations',
+            title: 'Documentation V1',
+            href: '/documentations/v1',
+            icon: BookOpen,
+        },
+        {
+            title: 'Documentation V2',
+            href: '/documentations/v2',
             icon: BookOpen,
         },
     ];

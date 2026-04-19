@@ -10,10 +10,11 @@ class DocumentationController extends Controller
 {
     public function __construct(private DocumentationService $documentationService) {}
 
-    public function index(): Response
+    public function index(string $version = 'v1'): Response
     {
-        return Inertia::render('documentations/index', [
-            'documentation' => $this->documentationService->getIndexData(),
+
+        return Inertia::render("documentations/{$version}/index", [
+            'documentation' => $this->documentationService->getIndexData($version),
         ]);
     }
 }
