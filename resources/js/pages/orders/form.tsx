@@ -431,10 +431,11 @@ function sanitizeOrderPayloadBeforeSubmit(
             ...invoice,
             extensions: (invoice.extensions ?? []).map((extension) => ({
                 ...extension,
-                quotation_extension_master_id: sanitizeQuotationExtensionMasterId(
-                    extension.quotation_extension_master_id,
-                    validMasterIds,
-                ),
+                quotation_extension_master_id:
+                    sanitizeQuotationExtensionMasterId(
+                        extension.quotation_extension_master_id,
+                        validMasterIds,
+                    ),
             })),
             items: (invoice.items ?? []).map((item) => ({
                 ...item,
@@ -464,14 +465,7 @@ function applySeededInvoiceNumbering(
         (number) => number !== '' && number !== '-',
     );
 
-    console.log('[applySeededInvoiceNumbering] START', {
-        invoiceCount: invoices.length,
-        seededNumbers: normalizedSeededNumbers,
-        hasSeededNumber,
-    });
-
     if (hasSeededNumber) {
-        // If we have seeded numbers that match invoice count, use them directly
         if (normalizedSeededNumbers.length === invoices.length) {
             const result = invoices.map((invoice, index) => ({
                 ...invoice,
@@ -480,15 +474,9 @@ function applySeededInvoiceNumbering(
                     invoice.number_format_id ?? preferredFormatId ?? null,
             }));
 
-            console.log(
-                '[applySeededInvoiceNumbering] Using seeded numbers directly',
-                result.map((inv) => inv.invoice_number),
-            );
-
             return result;
         }
 
-        // If we have a single seed or partial seeds, build complete sequence
         const firstSeedNumber = normalizedSeededNumbers.find(
             (number) => number !== '' && number !== '-',
         );
@@ -499,14 +487,6 @@ function applySeededInvoiceNumbering(
                 invoices.length,
             );
 
-            console.log(
-                '[applySeededInvoiceNumbering] Built sequential from seed',
-                {
-                    firstSeedNumber,
-                    sequentialSeedNumbers,
-                },
-            );
-
             if (sequentialSeedNumbers.length === invoices.length) {
                 const result = invoices.map((invoice, index) => ({
                     ...invoice,
@@ -514,11 +494,6 @@ function applySeededInvoiceNumbering(
                     number_format_id:
                         invoice.number_format_id ?? preferredFormatId ?? null,
                 }));
-
-                console.log(
-                    '[applySeededInvoiceNumbering] Returning built sequence',
-                    result.map((inv) => inv.invoice_number),
-                );
 
                 return result;
             }
@@ -533,10 +508,6 @@ function applySeededInvoiceNumbering(
                   invoice.number_format_id ?? preferredFormatId ?? null,
           }))
         : invoices;
-
-    console.log(
-        '[applySeededInvoiceNumbering] Falling back to applyInvoiceNumberingSequence',
-    );
 
     return applyInvoiceNumberingSequence(baseInvoices, {
         sourceInvoices: hasSeededNumber ? [] : fallbackSourceInvoices,
@@ -592,13 +563,6 @@ export default function OrderForm({
         const normalized = initialInvoiceNumbers.map((number) =>
             String(number ?? '').trim(),
         );
-
-        console.log('[OrderForm.normalizedInitialInvoiceNumbers] Normalized:', {
-            input: initialInvoiceNumbers,
-            output: normalized,
-            length: normalized.length,
-            hasAny: normalized.some((n) => n !== '' && n !== '-'),
-        });
 
         return normalized;
     }, [initialInvoiceNumbers]);
@@ -1956,8 +1920,7 @@ export default function OrderForm({
     // );
 
     // dont remove the console, its for me to check the data.
-    console.log(data);
-    console.log(data.invoices.map((i) => i.invoice_number));
+    // console.log(data);
 
     return (
         <>

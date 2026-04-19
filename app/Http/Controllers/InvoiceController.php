@@ -71,11 +71,6 @@ class InvoiceController extends Controller
             $data['invoiceNumberSeed'] = $this->orderService
                 ->suggestDraftInvoiceNumbers($initialInvoiceCount);
 
-            \Log::info('[InvoiceController::create] Data being sent to frontend', [
-                'invoiceNumberSeed' => $data['invoiceNumberSeed'],
-                'paymentPlan' => $paymentPlan,
-            ]);
-
             return Inertia::render('invoices/create', [
                 'data' => $data,
             ]);
