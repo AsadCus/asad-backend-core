@@ -189,12 +189,12 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                 >
                     Total: {row.original.member_count}
                 </Badge>
-                <Badge
+                {/* <Badge
                     variant="outline"
                     className="rounded-full px-3 py-1 text-base"
                 >
                     Active: {row.original.active_member_count}
-                </Badge>
+                </Badge> */}
             </div>
         ),
     },
@@ -271,47 +271,15 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
-        id: 'members_search_blob',
-        accessorFn: (row) => {
-            const groupContent = [
-                row.main_customer_name,
-                row.main_customer_number,
-                row.enquiry_email,
-                row.enquiry_contact,
-                row.package_name,
-                row.enquiry_type,
-                row.enquiry_status,
-            ]
-                .filter(Boolean)
-                .join(' ');
-
-            const memberContent = (row.members ?? [])
-                .flatMap((member) => [
-                    member.name,
-                    member.email,
-                    member.contact,
-                    member.customer_number,
-                    member.nric_number,
-                    member.nationality,
-                    member.passport_number,
-                    member.status,
-                    member.sharing_plan,
-                    member.relationship,
-                ])
-                .filter(Boolean)
-                .join(' ');
-
-            return `${groupContent} ${memberContent}`.trim();
-        },
-        header: 'Member Search',
-        meta: { exportable: false },
-        enableSorting: false,
-    },
-    {
-        accessorKey: 'date_of_application',
-        header: 'Applied Date',
+        accessorKey: 'paid_amount',
+        header: 'Payment',
         meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
+        cell: ({ row }) => (
+            <Badge variant="outline" className="text-sm">
+                {formatCurrency(row.original.paid_amount ?? 0)} /{' '}
+                {formatCurrency(row.original.total_amount ?? 0)}
+            </Badge>
+        ),
     },
     {
         accessorKey: 'enquiry_type',
@@ -355,17 +323,6 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
-        accessorKey: 'paid_amount',
-        header: 'Payment',
-        meta: { exportable: true },
-        cell: ({ row }) => (
-            <Badge variant="outline" className="text-sm">
-                {formatCurrency(row.original.paid_amount ?? 0)} /{' '}
-                {formatCurrency(row.original.total_amount ?? 0)}
-            </Badge>
-        ),
-    },
-    {
         accessorKey: 'quoted_member_count',
         header: 'Quoted',
         meta: { exportable: true },
@@ -393,10 +350,53 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         filterFn: 'includesValue',
     },
     {
+        accessorKey: 'date_of_application',
+        header: 'Applied Date',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+    },
+    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
+    },
+    {
+        id: 'members_search_blob',
+        accessorFn: (row) => {
+            const groupContent = [
+                row.main_customer_name,
+                row.main_customer_number,
+                row.enquiry_email,
+                row.enquiry_contact,
+                row.package_name,
+                row.enquiry_type,
+                row.enquiry_status,
+            ]
+                .filter(Boolean)
+                .join(' ');
+
+            const memberContent = (row.members ?? [])
+                .flatMap((member) => [
+                    member.name,
+                    member.email,
+                    member.contact,
+                    member.customer_number,
+                    member.nric_number,
+                    member.nationality,
+                    member.passport_number,
+                    member.status,
+                    member.sharing_plan,
+                    member.relationship,
+                ])
+                .filter(Boolean)
+                .join(' ');
+
+            return `${groupContent} ${memberContent}`.trim();
+        },
+        header: 'Member Search',
+        meta: { exportable: false },
+        enableSorting: false,
     },
 ];
 
@@ -1965,14 +1965,19 @@ export default function ConfirmedCustomerIndex({
                             }}
                             initialState={{
                                 columnVisibility: {
-                                    id: false,
+                                    customer_name: true,
                                     customer_number: false,
                                     enquiry_email: false,
                                     enquiry_contact: false,
+                                    member_count: true,
+                                    package_name: true,
+                                    paid_amount: true,
+                                    enquiry_type: true,
                                     enquiry_status: false,
-                                    created_at: false,
                                     quoted_member_count: false,
                                     can_create_quotation: false,
+                                    date_of_application: false,
+                                    created_at: false,
                                     members_search_blob: false,
                                 },
                                 pagination: {

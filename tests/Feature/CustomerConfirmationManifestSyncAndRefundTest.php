@@ -950,6 +950,104 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertNotSame('cancelled', $member->status);
     }
 
+    public function test_customer_confirmation_cancel_refund_marks_holding_group_as_non_holding_when_all_members_cancelled(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Holding Refund Cancel Member',
+            'email' => 'holding-refund-cancel@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-REFUND-HOLDING-001',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-REFUND-HOLDING-001',
+            'name' => 'Holding Refund Package',
+            'status' => 'open',
+            'price_single' => 1000,
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'date_of_application' => now()->format('Y-m-d'),
+            'is_holding' => true,
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'partially_paid',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $group->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $baseItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Holding Refund Base Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Holding Refund Base Invoice',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+
+        $invoice->quotationItems()->sync([$baseItem->id]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $response = $this->post(route('customer-confirmations.refunds.store', $group->id), [
+            'refund_type' => 'cancel',
+            'member_refunds' => [
+                [
+                    'member_id' => $member->id,
+                    'mode' => 'fixed',
+                    'amount' => 100,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('receipt.index'));
+
+        $group->refresh();
+        $member->refresh();
+
+        $this->assertFalse((bool) $group->is_holding);
+        $this->assertSame('cancelled', (string) $member->status);
+    }
+
     public function test_generate_quotation_blocks_active_member_link_but_allows_after_cancellation(): void
     {
         $authUser = User::factory()->create();

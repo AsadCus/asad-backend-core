@@ -4369,6 +4369,20 @@ class CustomerConfirmationService
                 (int) ($group->package_id ?? 0),
             );
 
+            if ($normalizedRefundType === 'cancel') {
+                $group->load('members');
+
+                $hasActiveMembers = $group->members->contains(function (CustomerConfirmationMember $member): bool {
+                    return $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled';
+                });
+
+                if ((bool) $group->is_holding && ! $hasActiveMembers) {
+                    $group->update([
+                        'is_holding' => false,
+                    ]);
+                }
+            }
+
             $this->syncMemberStatusesForConfirmation((int) $group->id);
 
             return [
