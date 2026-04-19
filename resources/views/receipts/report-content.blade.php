@@ -122,10 +122,9 @@
         }
 
         .totals-table {
-            width: 320px;
             display: inline-table;
             border-collapse: collapse;
-            table-layout: fixed;
+            table-layout: auto;
         }
 
         .totals-table td {
@@ -133,14 +132,15 @@
         }
 
         .total-label {
-            width: 68%;
+            width: 56%;
             text-align: right;
             font-size: 11px;
             color: #555;
+            padding-right: 10px;
         }
 
         .total-amount {
-            width: 32%;
+            width: 44%;
             text-align: right;
             font-weight: normal;
             font-size: 11px;
@@ -181,8 +181,9 @@
         }
 
         .payment-history-table {
-            width: 360px;
-            table-layout: fixed;
+            display: inline-table;
+            border-collapse: collapse;
+            table-layout: auto;
         }
 
         .payment-history-table td {
