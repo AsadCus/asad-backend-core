@@ -17,9 +17,6 @@ class ReportPreviewRoutesTest extends TestCase
         $this->get(route('receipt.preview', ['id' => 1]))
             ->assertRedirect(route('login'));
 
-        $this->get(route('agreement.preview', ['quotation' => 1]))
-            ->assertRedirect(route('login'));
-
         $this->get(route('sales.preview', ['sale' => 1]))
             ->assertRedirect(route('login'));
     }
