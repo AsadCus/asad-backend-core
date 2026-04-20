@@ -14,18 +14,26 @@
 
 
 @push('styles')
+    @php
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['divider' => '8px', 'block' => '8px', 'table' => '6px', 'payment_gap' => '10px'],
+            'normal' => ['divider' => '10px', 'block' => '12px', 'table' => '8px', 'payment_gap' => '14px'],
+            'relaxed' => ['divider' => '16px', 'block' => '18px', 'table' => '12px', 'payment_gap' => '22px'],
+        ][$sectionSpacingPreset] ?? ['divider' => '10px', 'block' => '12px', 'table' => '8px', 'payment_gap' => '14px'];
+    @endphp
     <style>
         /* ── Divider ── */
         .section-divider {
             border: none;
             border-top: 1px solid #d0d0d0;
-            margin: 10px 0;
+            margin: {{ $moduleSpacing['divider'] }} 0;
         }
 
         /* ── Order Info ── */
         .order-info-section {
             padding: 0;
-            margin-bottom: 12px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .order-info {
@@ -58,7 +66,7 @@
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
+            margin-bottom: {{ $moduleSpacing['table'] }};
         }
 
         .items-table-wrap {
@@ -104,7 +112,7 @@
             width: 100%;
             text-align: right;
             padding: 4px 0 2px;
-            margin-top: 6px;
+            margin-top: {{ $moduleSpacing['table'] }};
         }
 
         .totals-table {
@@ -153,8 +161,8 @@
         }
 
         .payment-history-wrapper {
-            margin-top: 14px;
-            padding-top: 8px;
+            margin-top: {{ $moduleSpacing['payment_gap'] }};
+            padding-top: {{ $moduleSpacing['table'] }};
         }
 
         .payment-history-table {
@@ -180,7 +188,7 @@
 
         /* ── Footer ── */
         .footer-section {
-            padding: 12px 0 0;
+            padding: {{ $moduleSpacing['block'] }} 0 0;
             font-size: 10px;
             border-top: none;
         }
@@ -195,7 +203,7 @@
         .stamp-sig-row {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 14px;
+            margin-top: {{ $moduleSpacing['payment_gap'] }};
         }
 
         .stamp-sig-row td {

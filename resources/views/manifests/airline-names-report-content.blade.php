@@ -9,15 +9,33 @@
 @section('body-class', 'is-landscape')
 
 @push('styles')
+    @php
+        $marginPreset = $branding['page_margin_preset'] ?? 'normal';
+        $resolvedMargin = [
+            'narrow' => ['top' => '0.56cm', 'right' => '0.50cm', 'bottom' => '0.56cm', 'left' => '0.50cm'],
+            'normal' => ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'],
+            'wide' => ['top' => '1.70cm', 'right' => '1.50cm', 'bottom' => '1.70cm', 'left' => '1.50cm'],
+        ][$marginPreset] ?? ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'];
+
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['block' => '8px', 'table_top' => '6px'],
+            'normal' => ['block' => '10px', 'table_top' => '8px'],
+            'relaxed' => ['block' => '16px', 'table_top' => '12px'],
+        ][$sectionSpacingPreset] ?? ['block' => '10px', 'table_top' => '8px'];
+    @endphp
     <style>
         @page {
             size: A4 landscape;
-            margin: 0.1cm 0.2cm;
+            margin-top: {{ $resolvedMargin['top'] }};
+            margin-right: {{ $resolvedMargin['right'] }};
+            margin-bottom: {{ $resolvedMargin['bottom'] }};
+            margin-left: {{ $resolvedMargin['left'] }};
         }
 
         .summary-grid {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
             border-collapse: collapse;
             table-layout: fixed;
         }
@@ -37,7 +55,7 @@
         .airline-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 8px;
+            margin-top: {{ $moduleSpacing['table_top'] }};
             table-layout: fixed;
         }
 

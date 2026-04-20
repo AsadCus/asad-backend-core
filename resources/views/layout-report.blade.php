@@ -198,7 +198,7 @@
 
 
         @if (!($is_pdf ?? false))
-        @@media screen {
+        @media screen {
             html {
                 background: #cacaca;
             }

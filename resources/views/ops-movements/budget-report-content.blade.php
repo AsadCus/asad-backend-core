@@ -7,10 +7,28 @@
 @endsection
 
 @push('styles')
+    @php
+        $marginPreset = $branding['page_margin_preset'] ?? 'normal';
+        $resolvedMargin = [
+            'narrow' => ['top' => '0.56cm', 'right' => '0.50cm', 'bottom' => '0.56cm', 'left' => '0.50cm'],
+            'normal' => ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'],
+            'wide' => ['top' => '1.70cm', 'right' => '1.50cm', 'bottom' => '1.70cm', 'left' => '1.50cm'],
+        ][$marginPreset] ?? ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'];
+
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['block' => '8px', 'title_top' => '10px', 'title_bottom' => '6px'],
+            'normal' => ['block' => '10px', 'title_top' => '14px', 'title_bottom' => '6px'],
+            'relaxed' => ['block' => '16px', 'title_top' => '20px', 'title_bottom' => '10px'],
+        ][$sectionSpacingPreset] ?? ['block' => '10px', 'title_top' => '14px', 'title_bottom' => '6px'];
+    @endphp
     <style>
         @page {
             size: A4 portrait;
-            margin: 0.2cm 0.35cm;
+            margin-top: {{ $resolvedMargin['top'] }};
+            margin-right: {{ $resolvedMargin['right'] }};
+            margin-bottom: {{ $resolvedMargin['bottom'] }};
+            margin-left: {{ $resolvedMargin['left'] }};
         }
 
         .summary-grid,
@@ -18,7 +36,7 @@
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            margin-bottom: 8px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .summary-grid th,
@@ -44,7 +62,7 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin: 14px 0 6px;
+            margin: {{ $moduleSpacing['title_top'] }} 0 {{ $moduleSpacing['title_bottom'] }};
             padding: 4px 8px;
             background: #f0f0f0;
             border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
@@ -60,7 +78,7 @@
         }
 
         .footer-section {
-            margin-top: 8px;
+            margin-top: {{ $moduleSpacing['block'] }};
             font-size: 11px;
         }
 

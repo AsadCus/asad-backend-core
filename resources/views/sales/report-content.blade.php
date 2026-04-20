@@ -7,12 +7,15 @@
 @endsection
 
 @push('styles')
+    @php
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['block' => '8px', 'title_bottom' => '12px', 'subtitle_top' => '8px', 'subtitle_bottom' => '6px'],
+            'normal' => ['block' => '10px', 'title_bottom' => '20px', 'subtitle_top' => '16px', 'subtitle_bottom' => '8px'],
+            'relaxed' => ['block' => '16px', 'title_bottom' => '28px', 'subtitle_top' => '22px', 'subtitle_bottom' => '12px'],
+        ][$sectionSpacingPreset] ?? ['block' => '10px', 'title_bottom' => '20px', 'subtitle_top' => '16px', 'subtitle_bottom' => '8px'];
+    @endphp
     <style>
-        @@page {
-            size: A4;
-            margin: 1.2cm 1.5cm;
-        }
-
         /* Sales uses 45/55 logo/info split */
         .logo-cell {
             width: 45%;
@@ -50,7 +53,7 @@
             font-size: 15px;
             padding: 6px;
             letter-spacing: 3px;
-            margin-bottom: 20px;
+            margin-bottom: {{ $moduleSpacing['title_bottom'] }};
         }
 
         /* Content */
@@ -62,7 +65,7 @@
         .info-section {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .info-section td {
@@ -79,7 +82,7 @@
         }
 
         .payment-title {
-            margin: 16px 0 8px;
+            margin: {{ $moduleSpacing['subtitle_top'] }} 0 {{ $moduleSpacing['subtitle_bottom'] }};
             font-size: 13px;
             font-weight: bold;
             letter-spacing: 1px;
@@ -89,7 +92,7 @@
         .payment-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 18px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .payment-table th,
@@ -108,7 +111,7 @@
         /* Footer */
         .footer-section {
             clear: both;
-            padding: 15px 0 0;
+            padding: {{ $moduleSpacing['block'] }} 0 0;
             font-size: 11px;
             border-top: none;
         }

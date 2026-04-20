@@ -781,13 +781,26 @@ class ReportTemplateController extends Controller
         ];
 
         try {
-            $html = view($viewName, compact('branding', 'data', 'items', 'manifest', 'opsMovement', 'report'))->render();
+            $html = view($viewName, [
+                'branding' => $branding,
+                'data' => $data,
+                'items' => $items,
+                'manifest' => $manifest,
+                'opsMovement' => $opsMovement,
+                'report' => $report,
+                'is_pdf' => false,
+            ])->render();
 
             return response()->json(['html' => $html]);
         } catch (\Throwable $e) {
             // Fallback to quotation view if module-specific view fails
             try {
-                $html = view('quotations.report-content', compact('branding', 'data', 'items'))->render();
+                $html = view('quotations.report-content', [
+                    'branding' => $branding,
+                    'data' => $data,
+                    'items' => $items,
+                    'is_pdf' => false,
+                ])->render();
 
                 return response()->json(['html' => $html]);
             } catch (\Throwable $e2) {
