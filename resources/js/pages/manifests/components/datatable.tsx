@@ -2762,7 +2762,7 @@ export default function ManifestDatatable({
                                     member.status ?? 'pending_payment';
                                 const statusColor =
                                     confirmationMemberStatusColors[status] ??
-                                    'bg-gray-100 text-gray-800';
+                                    'bg-gray-100 text-gray-800 dark:border dark:border-white/15 dark:bg-white/8 dark:text-gray-200';
                                 const statusLabel =
                                     confirmationMemberStatusLabels[status] ??
                                     status;

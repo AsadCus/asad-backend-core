@@ -235,7 +235,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                 return (
                     <Badge
                         variant="secondary"
-                        className={`rounded-full px-3 py-1 text-base ${hasOnlyCancelledMembers ? 'bg-red-100 text-red-800' : ''}`}
+                        className={`rounded-full px-3 py-1 text-base ${hasOnlyCancelledMembers ? 'bg-red-100 text-red-800 dark:border dark:border-red-400/25 dark:bg-red-500/16 dark:text-red-200' : ''}`}
                     >
                         {hasOnlyCancelledMembers
                             ? 'Trip Cancelled'
@@ -247,7 +247,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
             return (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Badge className="rounded-full bg-amber-100 px-3 py-1 text-base text-amber-800">
+                        <Badge className="rounded-full bg-amber-100 px-3 py-1 text-base text-amber-800 dark:border dark:border-amber-400/25 dark:bg-amber-500/16 dark:text-amber-200">
                             {breakdown.total} Outstanding
                             {breakdown.total > 1 ? 's' : ''}
                         </Badge>
@@ -481,7 +481,7 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
             const label = sharingPlanLabels[normalizedPlan] ?? sharingPlan;
             const colorClass =
                 sharingPlanBadgeColors[normalizedPlan] ??
-                'bg-gray-100 text-gray-800';
+                'bg-gray-100 text-gray-800 dark:border dark:border-white/15 dark:bg-white/8 dark:text-gray-200';
 
             return (
                 <Badge
@@ -519,7 +519,7 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
             const status = row.original.status ?? 'pending_payment';
             const statusColor =
                 confirmationMemberStatusColors[status] ??
-                'bg-gray-100 text-gray-800';
+                'bg-gray-100 text-gray-800 dark:border dark:border-white/15 dark:bg-white/8 dark:text-gray-200';
             const statusLabel =
                 confirmationMemberStatusLabels[status] ?? status;
 
