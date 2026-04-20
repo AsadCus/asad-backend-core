@@ -176,7 +176,11 @@ class EnquiryWorkflowTest extends TestCase
     public function test_all_enquiries_index_page_loads(): void
     {
         $this->actingAs($this->adminUser);
-        Country::factory()->create();
+        $country = Country::factory()->create();
+        Branch::create([
+            'name' => 'Kuala Lumpur',
+            'country_id' => $country->id,
+        ]);
 
         $response = $this->get(route('enquiries.index'));
 
@@ -186,14 +190,21 @@ class EnquiryWorkflowTest extends TestCase
                 ->component('enquiries/index')
                 ->has('data.enquiriesForDatatable')
                 ->has('data.statusOptions')
+                ->has('data.packageOptions')
                 ->has('data.countryOptions', 1)
+                ->has('data.branchOptions', 1)
+                ->has('data.scopeMode')
         );
     }
 
     public function test_private_enquiries_index_page_includes_country_options(): void
     {
         $this->actingAs($this->adminUser);
-        Country::factory()->create();
+        $country = Country::factory()->create();
+        Branch::create([
+            'name' => 'Penang',
+            'country_id' => $country->id,
+        ]);
 
         $response = $this->get(route('private-enquiries.index'));
 
@@ -203,12 +214,20 @@ class EnquiryWorkflowTest extends TestCase
                 ->component('private-enquiries/index')
                 ->has('data.enquiriesForDatatable')
                 ->has('data.countryOptions', 1)
+                ->has('data.branchOptions', 1)
+                ->has('data.packageOptions')
+                ->has('data.scopeMode')
         );
     }
 
     public function test_general_enquiries_index_includes_status(): void
     {
         $this->actingAs($this->adminUser);
+        $country = Country::factory()->create();
+        Branch::create([
+            'name' => 'Johor Bahru',
+            'country_id' => $country->id,
+        ]);
 
         // Create one via the service
         $service = app(GeneralEnquiryService::class);
@@ -229,6 +248,10 @@ class EnquiryWorkflowTest extends TestCase
             fn ($page) => $page
                 ->component('general-enquiries/index')
                 ->has('data.enquiriesForDatatable', 1)
+                ->has('data.packageOptions')
+                ->has('data.countryOptions', 1)
+                ->has('data.branchOptions', 1)
+                ->has('data.scopeMode')
                 ->where('data.enquiriesForDatatable.0.status', 'new_lead')
                 ->where('data.enquiriesForDatatable.0.status_label', 'New Lead')
         );
@@ -791,7 +814,7 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertOk();
         $response->assertJsonStructure([
             'enquiry' => ['id', 'type', 'status', 'status_label'],
-            'child',
+            'child' => ['package_id', 'branch_id', 'country_id'],
             'customerConfirmation',
         ]);
     }
@@ -816,6 +839,62 @@ class EnquiryWorkflowTest extends TestCase
         $response = $this->get(route('general-enquiries.get-for-show', $ge->id));
         $response->assertOk();
         $response->assertJsonFragment(['name' => 'GE Show']);
+        $response->assertJsonStructure([
+            'package_id',
+            'branch_id',
+            'country_id',
+        ]);
+    }
+
+    public function test_private_enquiry_get_for_show_includes_scope_identifiers(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $enquiry = Enquiry::create([
+            'type' => 'private',
+            'status' => EnquiryStatus::NewLead->value,
+            'name' => 'Private Show',
+            'contact_number' => '0130000000',
+            'email' => 'private-show@test.com',
+            'created_by' => $this->adminUser->id,
+        ]);
+
+        $privateEnquiry = PrivateEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'passport_expiry_date' => '2030-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-10',
+            'no_of_pax' => 2,
+            'no_of_children' => 0,
+            'airline' => 'MAS',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'Makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Hotel Makkah',
+            'meals_makkah' => 'Breakfast',
+            'no_of_nights_madinah' => '4',
+            'hotel_madinah' => 'Hotel Madinah',
+            'meals_madinah' => 'Breakfast',
+            'land_transfer' => 'Bus',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => 'No',
+        ]);
+
+        $response = $this->get(route('private-enquiries.get-for-show', $privateEnquiry->id));
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'branch_id',
+            'country_id',
+        ]);
     }
 
     public function test_private_enquiry_package_prefill_maps_only_non_empty_fields(): void

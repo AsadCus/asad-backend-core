@@ -38,7 +38,7 @@ export default function EnquiryScopeCard({
 
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className="gap-0">
                 <CardTitle className="text-xl">Country of Enquiry</CardTitle>
                 <CardDescription>
                     Assign this enquiry to a {scopeMode}.

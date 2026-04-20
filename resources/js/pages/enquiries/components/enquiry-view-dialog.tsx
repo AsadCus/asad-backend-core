@@ -38,6 +38,9 @@ export interface EnquiryViewDialogProps {
     childData?: Record<string, unknown> | null;
     isLoadingChild?: boolean;
     packageOptions?: OptionType[];
+    branchOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    scopeMode?: 'country' | 'branch';
     showStatusActions?: boolean;
     onStatusActionConfirmed?: (enquiryId: number) => void;
 }
@@ -52,6 +55,9 @@ export default function EnquiryViewDialog({
     childData,
     isLoadingChild,
     packageOptions = [],
+    branchOptions = [],
+    countryOptions = [],
+    scopeMode = 'country',
     showStatusActions = false,
     onStatusActionConfirmed,
 }: EnquiryViewDialogProps) {
@@ -131,6 +137,9 @@ export default function EnquiryViewDialog({
                                             childData as unknown as GeneralEnquirySchema
                                         }
                                         packageOptions={packageOptions}
+                                        branchOptions={branchOptions}
+                                        countryOptions={countryOptions}
+                                        scopeMode={scopeMode}
                                     />
                                 ) : (
                                     <PrivateEnquiryForm
@@ -138,6 +147,9 @@ export default function EnquiryViewDialog({
                                         initialData={
                                             childData as unknown as PrivateEnquirySchema
                                         }
+                                        branchOptions={branchOptions}
+                                        countryOptions={countryOptions}
+                                        scopeMode={scopeMode}
                                     />
                                 )}
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Enquiry;
 use App\Rules\CustomerConfirmationRule;
 use App\Rules\PackageRule;
+use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\EnquiryService;
@@ -24,6 +25,7 @@ class EnquiryController extends Controller
         protected CustomerConfirmationRule $customerConfirmationRule,
         protected PackageService $packageService,
         protected CountryService $countryService,
+        protected BranchService $branchService,
         protected SalesService $salesService,
     ) {}
 
@@ -32,14 +34,16 @@ class EnquiryController extends Controller
      */
     public function index()
     {
-        $data['enquiriesForDatatable'] = $this->enquiryService->getForDataTable();
-        $data['statusOptions'] = $this->enquiryService->getStatusOptions();
-        $data['packageOptions'] = $this->packageService->getForFilter();
-        $data['countryOptions'] = $this->countryService->getForFilter();
-        $data['handledByOptions'] = $this->salesService->getForFilter();
-
         return Inertia::render('enquiries/index', [
-            'data' => $data,
+            'data' => [
+                'enquiriesForDatatable' => $this->enquiryService->getForDataTable(),
+                'statusOptions' => $this->enquiryService->getStatusOptions(),
+                'packageOptions' => $this->packageService->getForFilter(),
+                'countryOptions' => $this->countryService->getForFilter(),
+                'branchOptions' => $this->branchService->getForFilter(),
+                'scopeMode' => $this->scopeMode(),
+                'handledByOptions' => $this->salesService->getForFilter(),
+            ],
         ]);
     }
 
@@ -253,5 +257,10 @@ class EnquiryController extends Controller
         return response()->json(
             $this->customerConfirmationService->listActiveCustomers()
         );
+    }
+
+    private function scopeMode(): string
+    {
+        return strtolower((string) config('data_scope.mode', 'country'));
     }
 }

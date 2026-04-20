@@ -55,7 +55,9 @@ export interface EnquiriesProps {
         statusOptions: OptionType[];
         packageOptions: OptionType[];
         countryOptions: OptionType[];
+        branchOptions: OptionType[];
         handledByOptions: OptionType[];
+        scopeMode?: 'country' | 'branch';
     };
 }
 
@@ -158,7 +160,9 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
         enquiriesForDatatable,
         packageOptions,
         countryOptions,
+        branchOptions,
         handledByOptions,
+        scopeMode = 'country',
     } = data;
 
     const actions: ActionType[] = ['view', 'edit'];
@@ -487,6 +491,9 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                 }
                 isLoadingChild={isLoadingData}
                 packageOptions={packageOptions}
+                countryOptions={countryOptions}
+                branchOptions={branchOptions}
+                scopeMode={scopeMode}
                 showStatusActions={true}
                 onStatusActionConfirmed={(enquiryId) => {
                     const enquiry = enquiriesForDatatable.find(

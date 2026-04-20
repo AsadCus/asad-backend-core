@@ -54,7 +54,10 @@ export interface GeneralEnquiriesProps {
     data: {
         enquiriesForDatatable: GeneralEnquiryDatatableSchema[];
         packageOptions: OptionType[];
+        branchOptions?: OptionType[];
+        countryOptions?: OptionType[];
         handledByOptions: OptionType[];
+        scopeMode?: 'country' | 'branch';
     };
 }
 
@@ -163,7 +166,14 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
         actions.push('delete');
 
     const hasEditPermission = userPermissions.includes('general-enquiry edit');
-    const { enquiriesForDatatable, packageOptions, handledByOptions } = data;
+    const {
+        enquiriesForDatatable,
+        packageOptions,
+        branchOptions = [],
+        countryOptions = [],
+        handledByOptions,
+        scopeMode = 'country',
+    } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -382,6 +392,9 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                 childData={selectedData as Record<string, unknown> | null}
                 isLoadingChild={isLoadingData}
                 packageOptions={packageOptions}
+                branchOptions={branchOptions}
+                countryOptions={countryOptions}
+                scopeMode={scopeMode}
                 showStatusActions={true}
                 onStatusActionConfirmed={(enquiryId) => {
                     const enquiry = enquiriesForDatatable.find(

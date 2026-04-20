@@ -28,12 +28,15 @@ class GeneralEnquiryController extends Controller
      */
     public function index()
     {
-        $data['enquiriesForDatatable'] = $this->generalEnquiryService->getForDataTable();
-        $data['packageOptions'] = $this->packageService->getForFilter();
-        $data['handledByOptions'] = $this->salesService->getForFilter();
-
         return Inertia::render('general-enquiries/index', [
-            'data' => $data,
+            'data' => [
+                'enquiriesForDatatable' => $this->generalEnquiryService->getForDataTable(),
+                'packageOptions' => $this->packageService->getForFilter(),
+                'branchOptions' => $this->branchService->getForFilter(),
+                'countryOptions' => $this->countryService->getForFilter(),
+                'scopeMode' => $this->scopeMode(),
+                'handledByOptions' => $this->salesService->getForFilter(),
+            ],
         ]);
     }
 
@@ -51,7 +54,7 @@ class GeneralEnquiryController extends Controller
             'packageOptions' => $this->packageService->getForFilter(),
             'branchOptions' => $this->branchService->getForFilter(),
             'countryOptions' => $this->countryService->getForFilter(),
-            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
+            'scopeMode' => $this->scopeMode(),
         ]);
     }
 
@@ -116,7 +119,7 @@ class GeneralEnquiryController extends Controller
             'packageOptions' => $this->packageService->getForFilter(),
             'branchOptions' => $this->branchService->getForFilter(),
             'countryOptions' => $this->countryService->getForFilter(),
-            'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
+            'scopeMode' => $this->scopeMode(),
         ]);
     }
 
@@ -164,7 +167,7 @@ class GeneralEnquiryController extends Controller
      */
     private function ensureInternalScopeProvided(array $validated): void
     {
-        $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
+        $scopeMode = $this->scopeMode();
 
         if ($scopeMode === 'branch' && empty($validated['branch_id'])) {
             throw ValidationException::withMessages([
@@ -177,5 +180,10 @@ class GeneralEnquiryController extends Controller
                 'country_id' => 'Country is required.',
             ]);
         }
+    }
+
+    private function scopeMode(): string
+    {
+        return strtolower((string) config('data_scope.mode', 'country'));
     }
 }

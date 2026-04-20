@@ -58,8 +58,10 @@ export interface PrivateEnquiriesProps {
     data: {
         enquiriesForDatatable: PrivateEnquiryDatatableSchema[];
         packageOptions: OptionType[];
+        branchOptions?: OptionType[];
         countryOptions: OptionType[];
         handledByOptions: OptionType[];
+        scopeMode?: 'country' | 'branch';
     };
 }
 
@@ -278,8 +280,10 @@ export default function Index({ data }: PrivateEnquiriesProps) {
     const {
         enquiriesForDatatable,
         packageOptions,
+        branchOptions = [],
         countryOptions,
         handledByOptions,
+        scopeMode = 'country',
     } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -587,6 +591,10 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                 statusValue={selectedData?.status}
                 childData={selectedData as Record<string, unknown> | null}
                 isLoadingChild={isLoadingData}
+                packageOptions={packageOptions}
+                branchOptions={branchOptions}
+                countryOptions={countryOptions}
+                scopeMode={scopeMode}
                 showStatusActions={true}
                 onStatusActionConfirmed={(enquiryId) => {
                     startPrivateFlow(enquiryId);
