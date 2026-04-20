@@ -475,7 +475,8 @@ export default function Dashboard({ data }: DashboardProps) {
                             <h2 className="mb-3 text-lg font-semibold">
                                 Fiscal Year - Total Sales
                             </h2>
-                            <div className="mx-auto grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]">
+                            <div className="grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]">
+                                {/* <div className="mx-auto grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]"> */}
                                 <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
                                     <CardHeader className="gap-0">
                                         <CardTitle className="text-md font-semibold">
@@ -515,7 +516,8 @@ export default function Dashboard({ data }: DashboardProps) {
                     {/* Admin: Daily/Monthly/Yearly Payment */}
                     {isAdmin && (
                         <div>
-                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
+                                {/* <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"> */}
                                 <div>
                                     <h2 className="text-lg font-semibold">
                                         {paymentSectionTitle}

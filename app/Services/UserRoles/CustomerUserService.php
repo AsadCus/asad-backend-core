@@ -64,23 +64,21 @@ class CustomerUserService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'contact' => $data['contact'] ?? null,
-                'password' => isset($data['password'])
-                    ? Hash::make($data['password'])
-                    : Hash::make('password'),
-            ]);
+            $user = $this->createOrRestoreUser($data);
 
-            $user->assignRole(Role::findByName('customer'));
+            $user->syncRoles([Role::findByName('customer')]);
 
-            $customer = Customer::create([
+            $existingCustomer = Customer::query()
+                ->where('user_id', $user->id)
+                ->first();
+
+            $customer = Customer::updateOrCreate([
                 'user_id' => $user->id,
+            ], [
                 'customer_number' => $this->numberingService->ensureNumber(
                     'customer',
                     $data['customer_number'] ?? null,
-                    null,
+                    $existingCustomer?->id,
                     isset($data['number_format_id']) ? (int) $data['number_format_id'] : null,
                 ),
                 'nric_number' => $data['nric_number'] ?? null,
@@ -126,6 +124,36 @@ class CustomerUserService
 
             return $user;
         });
+    }
+
+    private function createOrRestoreUser(array $data): User
+    {
+        $hashedPassword = isset($data['password']) && $data['password']
+            ? Hash::make((string) $data['password'])
+            : Hash::make('password');
+
+        $existingUser = User::withTrashed()
+            ->where('email', (string) $data['email'])
+            ->first();
+
+        if ($existingUser && $existingUser->trashed()) {
+            $existingUser->restore();
+            $existingUser->update([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'contact' => $data['contact'] ?? null,
+                'password' => $hashedPassword,
+            ]);
+
+            return $existingUser->fresh();
+        }
+
+        return User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'contact' => $data['contact'] ?? null,
+            'password' => $hashedPassword,
+        ]);
     }
 
     public function getForEditShow($id)

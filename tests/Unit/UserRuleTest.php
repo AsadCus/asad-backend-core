@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\User;
 use App\Rules\UserRule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
@@ -60,5 +61,24 @@ class UserRuleTest extends TestCase
 
         $this->assertTrue($validator->fails());
         $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
+    }
+
+    public function test_create_rules_allow_email_when_existing_user_is_soft_deleted(): void
+    {
+        User::factory()->create([
+            'email' => 'softdeleted.user@example.com',
+        ])->delete();
+
+        $rule = new UserRule;
+
+        $payload = [
+            'name' => 'Replacement User',
+            'email' => 'softdeleted.user@example.com',
+            'role' => 'customer',
+        ];
+
+        $validator = Validator::make($payload, $rule->rules('customer'));
+
+        $this->assertTrue($validator->passes(), 'Soft-deleted user emails should be reusable.');
     }
 }

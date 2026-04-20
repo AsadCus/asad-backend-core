@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\AgreementController;
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
@@ -30,7 +29,6 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\SalesController;
-use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\UserLogsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -162,15 +160,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('receipt/{id}/preview', [ReceiptController::class, 'preview'])->name('receipt.preview');
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
-
-    // Schedule - Generated from Quotation (no database table)
-    Route::get('schedule', [ScheduleController::class, 'index'])->name('schedule.index');
-    Route::get('schedule/{quotation}/export-pdf', [ScheduleController::class, 'exportPdf'])->name('schedule.export-pdf');
-
-    // Agreement - Generated from Quotation (no database table)
-    Route::get('agreement', [AgreementController::class, 'index'])->name('agreement.index');
-    Route::get('agreement/{quotation}/preview', [AgreementController::class, 'preview'])->name('agreement.preview');
-    Route::get('agreement/{quotation}/export-pdf', [AgreementController::class, 'exportPdf'])->name('agreement.export-pdf');
 
     // User Logs
     Route::get('user-logs', [UserLogsController::class, 'index'])->name('user-logs.index');

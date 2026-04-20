@@ -2997,6 +2997,29 @@ export default function ManifestForm({
         }
     }, [data.in_charge_official_id, selectedPackageOfficials, setFormData]);
 
+    const resolveCsrfToken = useCallback((): string | null => {
+        const cookieToken = document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('XSRF-TOKEN='))
+            ?.split('=')
+            .slice(1)
+            .join('=');
+
+        if (cookieToken) {
+            try {
+                return decodeURIComponent(cookieToken);
+            } catch {
+                return cookieToken;
+            }
+        }
+
+        return (
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') ?? null
+        );
+    }, []);
+
     const moveMemberToHolding = async (member: MemberWithUI) => {
         const confirmationMemberId = member.customer_confirmation_member_id;
         const manifestMemberId = member.id;
@@ -3006,9 +3029,7 @@ export default function ManifestForm({
         }
 
         try {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
+            const csrfToken = resolveCsrfToken();
 
             const response = await fetch(
                 `/manifests/${data.id}/members/${manifestMemberId}/move-holding`,
@@ -3052,9 +3073,7 @@ export default function ManifestForm({
 
     const exportPdfWithSnapshot = useCallback(
         (url: string, snapshot: Record<string, unknown>) => {
-            const csrfToken = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content');
+            const csrfToken = resolveCsrfToken();
 
             if (!csrfToken) {
                 return;
@@ -3081,7 +3100,7 @@ export default function ManifestForm({
             exportForm.submit();
             document.body.removeChild(exportForm);
         },
-        [],
+        [resolveCsrfToken],
     );
 
     const selectedMemberCustomerFormData = useMemo(() => {

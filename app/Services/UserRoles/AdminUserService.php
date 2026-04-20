@@ -66,16 +66,9 @@ class AdminUserService
             [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
                 $this->resolveScopePayload($scopeIds, $scopeMode);
 
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'contact' => $data['contact'] ?? null,
-                'password' => isset($data['password'])
-                    ? Hash::make($data['password'])
-                    : Hash::make('password'),
-            ]);
+            $user = $this->createOrRestoreUser($data);
 
-            $user->assignRole(Role::findByName('admin'));
+            $user->syncRoles([Role::findByName('admin')]);
 
             Admin::updateOrCreate([
                 'user_id' => $user->id,
@@ -93,6 +86,36 @@ class AdminUserService
 
             return $user;
         });
+    }
+
+    private function createOrRestoreUser(array $data): User
+    {
+        $hashedPassword = isset($data['password']) && $data['password']
+            ? Hash::make((string) $data['password'])
+            : Hash::make('password');
+
+        $existingUser = User::withTrashed()
+            ->where('email', (string) $data['email'])
+            ->first();
+
+        if ($existingUser && $existingUser->trashed()) {
+            $existingUser->restore();
+            $existingUser->update([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'contact' => $data['contact'] ?? null,
+                'password' => $hashedPassword,
+            ]);
+
+            return $existingUser->fresh();
+        }
+
+        return User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'contact' => $data['contact'] ?? null,
+            'password' => $hashedPassword,
+        ]);
     }
 
     public function getForEditShow($id)

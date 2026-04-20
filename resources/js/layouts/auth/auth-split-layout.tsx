@@ -85,7 +85,7 @@ export default function AuthSplitLayout({
                 }}
             >
                 <span className="mr-2">Copyright © 2025 by "{name}"</span>
-                {/* <img src="/mams-logo.png" alt={name} className="hidden w-12" /> */}
+                {/* <img src="/tms-logo.png" alt={name} className="hidden w-12" /> */}
             </div>
         </div>
     );

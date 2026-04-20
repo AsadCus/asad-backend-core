@@ -43,10 +43,13 @@ class LoginRequest extends FormRequest
         $credentials = $this->only('email', 'password');
 
         /** @var User|null $user */
-        // $user = Auth::getProvider()->retrieveByCredentials($credentials);
-        $user = User::where('email', $credentials['email'])->whereNull('deleted_at')->first();
+        $user = User::withTrashed()
+            ->where('email', $credentials['email'])
+            ->orderByRaw('deleted_at IS NULL DESC')
+            ->orderByDesc('id')
+            ->first();
 
-        if (! $user || ! Auth::getProvider()->validateCredentials($user, $this->only('password'))) {
+        if (! $user || $user->trashed() || ! Auth::getProvider()->validateCredentials($user, $this->only('password'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use Illuminate\Validation\Rule;
+
 class UserRule
 {
     public function rules(string $role, ?string $action = null, ?string $id = null): array
@@ -10,14 +12,24 @@ class UserRule
 
         $rules = [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'contact' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6|confirmed',
             'role' => 'required|string|in:admin,sales,operations,customer',
         ];
 
         if ($action === 'update') {
-            $rules['email'] = 'required|email|unique:users,email,'.$id;
+            $rules['email'] = [
+                'required',
+                'email',
+                Rule::unique('users', 'email')
+                    ->whereNull('deleted_at')
+                    ->ignore($id),
+            ];
         }
 
         if (in_array($role, ['admin', 'sales', 'operations'], true)) {
