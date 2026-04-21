@@ -205,7 +205,7 @@ function createEmptyBudgetTitle(index: number): OpsBudgetTitleSchema {
 function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
     return [
         {
-            title: 'Manpower Expense',
+            title: 'Manpower Expenses',
             sort_order: 1,
             items: [
                 {
@@ -245,7 +245,7 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Check-in',
+                    item_name: 'Check in Madina',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
@@ -264,13 +264,43 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Bus Tipping',
+                    item_name: 'Bus tipping',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
                 },
                 {
                     item_name: 'Tipping for Airport Porter',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Taif Lunch',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Taif Cable Car',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Gua Hira @ Wahyu Museum',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Al Baik',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Chicken Nugget',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
@@ -288,19 +318,31 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Customized Sejadah',
+                    item_name: 'Lightsnack & drink',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
                 },
                 {
-                    item_name: 'Customized Onta',
+                    item_name: 'Customised Sejadah',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',
                 },
                 {
-                    item_name: 'Zamzam Water',
+                    item_name: 'Customised Onta',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Nasi Lemak Ust Faisal',
+                    unit_price: 0,
+                    quantity: 0,
+                    remarks: '',
+                },
+                {
+                    item_name: 'Zamzam water',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',

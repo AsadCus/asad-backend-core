@@ -864,7 +864,7 @@ class OpsMovementWorkflowTest extends TestCase
             ->all();
 
         $this->assertSame(
-            ['Manpower Expense', 'Petty Cash', 'Contingency'],
+            ['Manpower Expenses', 'Petty Cash', 'Contingency'],
             $budgetTitles,
         );
 
@@ -874,15 +874,22 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('Assisting Mutawwif', data_get($opsMovement, 'budget.0.items.3.item_name'));
         $this->assertSame('Assisting Mutawwifa', data_get($opsMovement, 'budget.0.items.4.item_name'));
         $this->assertSame('Mutawifa', data_get($opsMovement, 'budget.0.items.5.item_name'));
-        $this->assertSame('Check-in', data_get($opsMovement, 'budget.0.items.6.item_name'));
+        $this->assertSame('Check in Madina', data_get($opsMovement, 'budget.0.items.6.item_name'));
         $this->assertSame('Hotel Porter', data_get($opsMovement, 'budget.1.items.0.item_name'));
-        $this->assertSame('Bus Tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
+        $this->assertSame('Bus tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
         $this->assertSame('Tipping for Airport Porter', data_get($opsMovement, 'budget.1.items.2.item_name'));
-        $this->assertSame('Lunch (2nd Umrah)', data_get($opsMovement, 'budget.1.items.3.item_name'));
-        $this->assertSame('Lunch Official', data_get($opsMovement, 'budget.1.items.4.item_name'));
-        $this->assertSame('Customized Sejadah', data_get($opsMovement, 'budget.1.items.5.item_name'));
-        $this->assertSame('Customized Onta', data_get($opsMovement, 'budget.1.items.6.item_name'));
-        $this->assertSame('Zamzam Water', data_get($opsMovement, 'budget.1.items.7.item_name'));
+        $this->assertSame('Taif Lunch', data_get($opsMovement, 'budget.1.items.3.item_name'));
+        $this->assertSame('Taif Cable Car', data_get($opsMovement, 'budget.1.items.4.item_name'));
+        $this->assertSame('Gua Hira @ Wahyu Museum', data_get($opsMovement, 'budget.1.items.5.item_name'));
+        $this->assertSame('Al Baik', data_get($opsMovement, 'budget.1.items.6.item_name'));
+        $this->assertSame('Chicken Nugget', data_get($opsMovement, 'budget.1.items.7.item_name'));
+        $this->assertSame('Lunch (2nd Umrah)', data_get($opsMovement, 'budget.1.items.8.item_name'));
+        $this->assertSame('Lunch Official', data_get($opsMovement, 'budget.1.items.9.item_name'));
+        $this->assertSame('Lightsnack & drink', data_get($opsMovement, 'budget.1.items.10.item_name'));
+        $this->assertSame('Customised Sejadah', data_get($opsMovement, 'budget.1.items.11.item_name'));
+        $this->assertSame('Customised Onta', data_get($opsMovement, 'budget.1.items.12.item_name'));
+        $this->assertSame('Nasi Lemak Ust Faisal', data_get($opsMovement, 'budget.1.items.13.item_name'));
+        $this->assertSame('Zamzam water', data_get($opsMovement, 'budget.1.items.14.item_name'));
         $this->assertSame('Contingency Fund', data_get($opsMovement, 'budget.2.items.0.item_name'));
         $this->assertSame(
             'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
