@@ -104,6 +104,170 @@
 
         $allSections = collect($opsMovement['budget'] ?? [])->values()->all();
 
+        if (count($allSections) === 0) {
+            $allSections = [
+                [
+                    'title' => 'Manpower Expenses',
+                    'sort_order' => 1,
+                    'items' => [
+                        [
+                            'item_name' => 'Mutawwif',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Mutawwif Speedtrain',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Mutawwif Meal',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Assisting Mutawwif',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Assisting Mutawwifa',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Mutawifa',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Check in Madina',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                    ],
+                    'extensions' => [],
+                ],
+                [
+                    'title' => 'Petty Cash',
+                    'sort_order' => 2,
+                    'items' => [
+                        [
+                            'item_name' => 'Hotel Porter',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Bus tipping',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Tipping for Airport Porter',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Taif Lunch',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Taif Cable Car',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Gua Hira @ Wahyu Museum',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Al Baik',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Chicken Nugget',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Lunch (2nd Umrah)',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Lunch Official',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Lightsnack & drink',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Customised Sejadah',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Customised Onta',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Nasi Lemak Ust Faisal',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                        [
+                            'item_name' => 'Zamzam water',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => null,
+                        ],
+                    ],
+                    'extensions' => [],
+                ],
+                [
+                    'title' => 'Contingency',
+                    'sort_order' => 3,
+                    'items' => [
+                        [
+                            'item_name' => 'Contingency Fund',
+                            'unit_price' => 0,
+                            'quantity' => 0,
+                            'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
+                        ],
+                    ],
+                    'extensions' => [],
+                ],
+            ];
+        }
+
         $budgetGrandTotal = collect($allSections)->sum(function ($section) {
             $sectionSubtotal = collect($section['items'] ?? [])->sum(
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),

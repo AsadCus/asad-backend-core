@@ -897,6 +897,97 @@ class OpsMovementWorkflowTest extends TestCase
         );
     }
 
+    public function test_ops_movement_budget_report_renders_default_template_when_budget_is_empty(): void
+    {
+        $html = view('ops-movements.budget-report-content', [
+            'branding' => [
+                'title_color' => '#c05427',
+                'footer_text' => 'Footer text',
+            ],
+            'opsMovement' => [
+                'package_number' => 'PKG-EMPTY-BUDGET-001',
+                'manifest_number' => 'MAN-EMPTY-BUDGET-001',
+                'departure_return_range' => '15 April 2026 - 30 April 2026',
+                'budget_currency' => 'SAR',
+                'passengers' => [
+                    'adult_total' => 1,
+                    'child_total' => 0,
+                    'infant_total' => 0,
+                    'official_total' => 1,
+                    'grand_total' => 2,
+                ],
+                'officials' => [],
+                'budget' => [],
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('Manpower Expenses', $html);
+        $this->assertStringContainsString('Petty Cash', $html);
+        $this->assertStringContainsString('Contingency', $html);
+        $this->assertStringContainsString('Mutawwif', $html);
+        $this->assertStringContainsString('Hotel Porter', $html);
+        $this->assertStringContainsString('Contingency Fund', $html);
+        $this->assertStringContainsString('Grand Total (SAR)', $html);
+        $this->assertStringContainsString('SAR 0.00', $html);
+    }
+
+    public function test_ops_movement_budget_report_renders_default_template_alongside_custom_budget_sections(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-BUDGET-CUSTOM-001',
+            'name' => 'Ops Budget Custom Package',
+            'status' => 'open',
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-BUDGET-CUSTOM-001',
+            'ops_movement_extension' => [
+                'budget' => [
+                    [
+                        'title' => 'Operational Expenses',
+                        'sort_order' => 1,
+                        'items' => [
+                            [
+                                'item_name' => 'Bus Charter',
+                                'unit_price' => 2200,
+                                'quantity' => 1,
+                                'remarks' => 'Airport transfer',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
+        $budgetTitles = collect(data_get($opsMovement, 'budget', []))
+            ->pluck('title')
+            ->values()
+            ->all();
+
+        $this->assertSame(
+            ['Manpower Expenses', 'Petty Cash', 'Contingency', 'Operational Expenses'],
+            $budgetTitles,
+        );
+        $this->assertSame('Bus Charter', data_get($opsMovement, 'budget.3.items.0.item_name'));
+        $this->assertSame(2200.0, data_get($opsMovement, 'budget.3.items.0.unit_price'));
+
+        $html = view('ops-movements.budget-report-content', [
+            'branding' => [
+                'title_color' => '#c05427',
+                'footer_text' => 'Footer text',
+            ],
+            'opsMovement' => $opsMovement,
+        ])->render();
+
+        $this->assertStringContainsString('Manpower Expenses', $html);
+        $this->assertStringContainsString('Petty Cash', $html);
+        $this->assertStringContainsString('Contingency', $html);
+        $this->assertStringContainsString('Operational Expenses', $html);
+        $this->assertStringContainsString('Bus Charter', $html);
+    }
+
     public function test_ops_movement_budget_report_accumulates_extensions_into_section_and_grand_totals(): void
     {
         $html = view('ops-movements.budget-report-content', [

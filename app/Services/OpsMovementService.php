@@ -113,7 +113,7 @@ class OpsMovementService
             ->unique(fn ($location) => strtolower((string) $location))
             ->values();
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
-        $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
+        $budget = $this->buildBudgetTemplateForReport($extension['budget'] ?? []);
         $budgetCurrency = $this->normalizeNullableString($extension['budget_currency'] ?? null) ?? 'SAR';
         $nonOfficialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled')
@@ -757,6 +757,88 @@ class OpsMovementService
     /**
      * @return array<int, array<string, mixed>>
      */
+    public function buildBudgetTemplateForReport(mixed $budget): array
+    {
+        $normalizedBudget = $this->normalizeBudgetPayload($budget);
+        $defaults = $this->defaultBudgetSections();
+
+        $defaultByKey = collect($defaults)->keyBy(function (array $section): string {
+            return $this->normalizeBudgetSectionKey($section['title'] ?? null);
+        });
+
+        $incomingByDefaultKey = [];
+        $extraSections = [];
+
+        foreach ($normalizedBudget as $sectionIndex => $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $sectionKey = $this->normalizeBudgetSectionKey($section['title'] ?? null);
+
+            if ($defaultByKey->has($sectionKey)) {
+                $incomingByDefaultKey[$sectionKey] = $section;
+
+                continue;
+            }
+
+            $incomingItems = isset($section['items']) && is_array($section['items'])
+                ? $section['items']
+                : [];
+
+            $extraSections[] = [
+                'title' => is_string($section['title'] ?? null) && trim((string) $section['title']) !== ''
+                    ? (string) $section['title']
+                    : 'Title '.($sectionIndex + 1),
+                'sort_order' => isset($section['sort_order']) && is_numeric($section['sort_order'])
+                    ? (int) $section['sort_order']
+                    : ($sectionIndex + 1),
+                'items' => count($incomingItems) > 0
+                    ? $incomingItems
+                    : [[
+                        'item_name' => '',
+                        'unit_price' => 0.0,
+                        'quantity' => 0.0,
+                        'remarks' => null,
+                        'sort_order' => 1,
+                    ]],
+                'extensions' => isset($section['extensions']) && is_array($section['extensions'])
+                    ? $section['extensions']
+                    : [],
+            ];
+        }
+
+        $mergedDefaults = [];
+
+        foreach ($defaults as $sectionIndex => $defaultSection) {
+            $sectionKey = $this->normalizeBudgetSectionKey($defaultSection['title'] ?? null);
+            $incomingSection = $incomingByDefaultKey[$sectionKey] ?? null;
+
+            if (! is_array($incomingSection)) {
+                $mergedDefaults[] = $defaultSection;
+
+                continue;
+            }
+
+            $mergedDefaults[] = [
+                'title' => $this->normalizeNullableString($incomingSection['title'] ?? null) ?: ($defaultSection['title'] ?? 'Budget Section'),
+                'sort_order' => isset($incomingSection['sort_order']) && is_numeric($incomingSection['sort_order'])
+                    ? (int) $incomingSection['sort_order']
+                    : (int) ($defaultSection['sort_order'] ?? ($sectionIndex + 1)),
+                'items' => $this->mergeBudgetItemsForReport(
+                    $defaultSection['items'] ?? [],
+                    $incomingSection['items'] ?? [],
+                ),
+                'extensions' => $this->normalizeBudgetExtensions($incomingSection['extensions'] ?? []),
+            ];
+        }
+
+        return [...$mergedDefaults, ...$extraSections];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function defaultBudgetSections(): array
     {
         return [
@@ -943,6 +1025,51 @@ class OpsMovementService
                 'extensions' => [],
             ],
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $defaultItems
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeBudgetItemsForReport(array $defaultItems, mixed $incomingItems): array
+    {
+        $normalizedIncomingItems = is_array($incomingItems) ? array_values($incomingItems) : [];
+        $mergedItems = [];
+        $itemCount = max(count($defaultItems), count($normalizedIncomingItems));
+
+        for ($index = 0; $index < $itemCount; $index++) {
+            $defaultItem = $defaultItems[$index] ?? [];
+            $incomingItem = $normalizedIncomingItems[$index] ?? [];
+
+            if (! is_array($incomingItem)) {
+                $incomingItem = [];
+            }
+
+            $itemName = $this->normalizeNullableString($incomingItem['item_name'] ?? null)
+                ?: ($defaultItem['item_name'] ?? '');
+
+            $mergedItems[] = [
+                'item_name' => $itemName,
+                'unit_price' => is_numeric($incomingItem['unit_price'] ?? null)
+                    ? (float) $incomingItem['unit_price']
+                    : (float) ($defaultItem['unit_price'] ?? 0.0),
+                'quantity' => is_numeric($incomingItem['quantity'] ?? null)
+                    ? (float) $incomingItem['quantity']
+                    : (float) ($defaultItem['quantity'] ?? 0.0),
+                'remarks' => $this->normalizeNullableString($incomingItem['remarks'] ?? null)
+                    ?: ($defaultItem['remarks'] ?? null),
+                'sort_order' => isset($incomingItem['sort_order']) && is_numeric($incomingItem['sort_order'])
+                    ? (int) $incomingItem['sort_order']
+                    : (int) ($defaultItem['sort_order'] ?? ($index + 1)),
+            ];
+        }
+
+        return $mergedItems;
+    }
+
+    private function normalizeBudgetSectionKey(mixed $value): string
+    {
+        return strtolower(preg_replace('/[^a-z0-9]+/i', '', (string) ($value ?? '')) ?? '');
     }
 
     /**
