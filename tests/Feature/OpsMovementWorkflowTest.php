@@ -877,7 +877,7 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('Check in Madina', data_get($opsMovement, 'budget.0.items.6.item_name'));
         $this->assertSame('Hotel Porter', data_get($opsMovement, 'budget.1.items.0.item_name'));
         $this->assertSame('Bus tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
-        $this->assertSame('Tipping for Airport Potter', data_get($opsMovement, 'budget.1.items.2.item_name'));
+        $this->assertSame('Tipping for Airport Porter', data_get($opsMovement, 'budget.1.items.2.item_name'));
         $this->assertSame('Taif Lunch', data_get($opsMovement, 'budget.1.items.3.item_name'));
         $this->assertSame('Taif Cable Car', data_get($opsMovement, 'budget.1.items.4.item_name'));
         $this->assertSame('Gua Hira @ Wahyu Museum', data_get($opsMovement, 'budget.1.items.5.item_name'));

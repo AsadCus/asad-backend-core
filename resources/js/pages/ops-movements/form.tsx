@@ -270,7 +270,7 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Tipping for Airport Potter',
+                    item_name: 'Tipping for Airport Porter',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',

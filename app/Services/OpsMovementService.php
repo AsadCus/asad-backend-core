@@ -835,7 +835,7 @@ class OpsMovementService
                         'sort_order' => 2,
                     ],
                     [
-                        'item_name' => 'Tipping for Airport Potter',
+                        'item_name' => 'Tipping for Airport Porter',
                         'unit_price' => 0.0,
                         'quantity' => 0.0,
                         'remarks' => null,
