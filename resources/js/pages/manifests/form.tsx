@@ -35,7 +35,7 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowLeft,
@@ -2997,30 +2997,7 @@ export default function ManifestForm({
         }
     }, [data.in_charge_official_id, selectedPackageOfficials, setFormData]);
 
-    const resolveCsrfToken = useCallback((): string | null => {
-        const cookieToken = document.cookie
-            .split('; ')
-            .find((row) => row.startsWith('XSRF-TOKEN='))
-            ?.split('=')
-            .slice(1)
-            .join('=');
-
-        if (cookieToken) {
-            try {
-                return decodeURIComponent(cookieToken);
-            } catch {
-                return cookieToken;
-            }
-        }
-
-        return (
-            document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content') ?? null
-        );
-    }, []);
-
-    const moveMemberToHolding = async (member: MemberWithUI) => {
+    const moveMemberToHolding = (member: MemberWithUI) => {
         const confirmationMemberId = member.customer_confirmation_member_id;
         const manifestMemberId = member.id;
 
@@ -3028,79 +3005,79 @@ export default function ManifestForm({
             return;
         }
 
-        try {
-            const csrfToken = resolveCsrfToken();
-
-            const response = await fetch(
-                `/manifests/${data.id}/members/${manifestMemberId}/move-holding`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
-                    },
-                    body: JSON.stringify({
-                        target_package_id: null,
-                    }),
+        router.post(
+            `/manifests/${data.id}/members/${manifestMemberId}/move-holding`,
+            {
+                target_package_id: null,
+            },
+            {
+                preserveState: false,
+                preserveScroll: true,
+                onError: (errors) => {
+                    console.error(errors);
                 },
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to move member to holding.');
-            }
-
-            const nextMembers = (
-                (data.manifest_members ?? []) as MemberWithUI[]
-            ).map((row) => {
-                if (
-                    row.customer_confirmation_member_id ===
-                    member.customer_confirmation_member_id
-                ) {
-                    return {
-                        ...row,
-                        status: 'cancelled' as const,
-                    };
-                }
-
-                return row;
-            });
-
-            updateFromMembers(nextMembers);
-        } catch (error) {
-            console.error(error);
-        }
+            },
+        );
     };
 
     const exportPdfWithSnapshot = useCallback(
         (url: string, snapshot: Record<string, unknown>) => {
-            const csrfToken = resolveCsrfToken();
-
-            if (!csrfToken) {
+            if (!data.id) {
                 return;
             }
 
-            const exportForm = document.createElement('form');
-            exportForm.method = 'POST';
-            exportForm.action = url;
-            exportForm.target = '_blank';
+            const pendingTab = window.open(
+                'about:blank',
+                '_blank',
+                'noopener,noreferrer',
+            );
 
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = csrfToken;
-            exportForm.appendChild(csrfInput);
+            router.post(
+                `/manifests/${data.id}/export-snapshot-token`,
+                {
+                    snapshot: JSON.stringify(snapshot),
+                },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const flash = ((page.props as Record<string, unknown>)
+                            ?.flash as Record<string, unknown> | undefined) ?? {
+                            manifest_export_snapshot_token: null,
+                        };
+                        const snapshotToken = String(
+                            flash.manifest_export_snapshot_token ?? '',
+                        ).trim();
 
-            const snapshotInput = document.createElement('input');
-            snapshotInput.type = 'hidden';
-            snapshotInput.name = 'snapshot';
-            snapshotInput.value = JSON.stringify(snapshot);
-            exportForm.appendChild(snapshotInput);
+                        if (snapshotToken.length === 0) {
+                            pendingTab?.close();
 
-            document.body.appendChild(exportForm);
-            exportForm.submit();
-            document.body.removeChild(exportForm);
+                            return;
+                        }
+
+                        const [path, queryString = ''] = url.split('?');
+                        const query = new URLSearchParams(queryString);
+
+                        query.set('snapshot_token', snapshotToken);
+
+                        const targetUrl = `${path}?${query.toString()}`;
+
+                        if (pendingTab) {
+                            pendingTab.location.href = targetUrl;
+
+                            return;
+                        }
+
+                        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                    },
+                    onError: (errors) => {
+                        console.error(errors);
+                        pendingTab?.close();
+                    },
+                },
+            );
         },
-        [resolveCsrfToken],
+        [data.id],
     );
 
     const selectedMemberCustomerFormData = useMemo(() => {

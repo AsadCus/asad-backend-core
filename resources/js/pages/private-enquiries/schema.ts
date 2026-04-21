@@ -37,10 +37,10 @@ export const privateEnquirySchema = z.object({
     makkah_tour_with_mutawif: z.boolean().optional(),
     has_chronic_disease: z.boolean().optional(),
     chronic_disease_details: z.string().nullable().optional(),
-    need_wheelchair: z.string().optional(),
+    need_wheelchair: z.boolean().optional(),
     other_remarks: z.string().nullable().optional(),
     handled_by: z.number().nullable().optional(),
-    handled_by_name: z.string().optional(),
+    handled_by_name: z.string().nullable().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
 });

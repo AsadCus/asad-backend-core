@@ -88,6 +88,7 @@ const defaultOfficials: OfficialSchema[] = [
         type: 'mutawif',
         name: '',
         hotel: '',
+        hotel_map: {},
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -102,6 +103,7 @@ const defaultOfficials: OfficialSchema[] = [
         type: 'mutawifah',
         name: '',
         hotel: '',
+        hotel_map: {},
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -116,6 +118,7 @@ const defaultOfficials: OfficialSchema[] = [
         type: 'official',
         name: '',
         hotel: '',
+        hotel_map: {},
         contact_number: '',
         nationality: '',
         passport_number: '',
@@ -739,6 +742,7 @@ export default function PackageForm({
                 type: '',
                 name: '',
                 hotel: '',
+                hotel_map: {},
                 contact_number: '',
                 nationality: '',
                 passport_number: '',
@@ -763,12 +767,134 @@ export default function PackageForm({
     const updateOfficial = (
         index: number,
         field: keyof OfficialSchema,
-        value: string | number | null,
+        value: string | number | null | Record<string, string>,
     ) => {
         const current = [...(data.officials || [])];
         current[index] = { ...current[index], [field]: value };
         setData('officials', current);
     };
+
+    const accommodationHotelTargets = useMemo(() => {
+        return (data.accommodations || []).map((accommodation, index) => {
+            const normalizedLocation = String(
+                accommodation.location ?? '',
+            ).trim();
+            const fallbackHotelName = String(
+                accommodation.hotel_name ?? '',
+            ).trim();
+            const idKey =
+                accommodation.id !== undefined && accommodation.id !== null
+                    ? String(accommodation.id)
+                    : null;
+            const locationKey = normalizedLocation
+                ? `location:${normalizedLocation.toLowerCase()}`
+                : `location:index-${index}`;
+
+            return {
+                label:
+                    normalizedLocation.length > 0
+                        ? normalizedLocation
+                        : `Accommodation ${index + 1}`,
+                fallbackHotelName,
+                primaryKey: idKey ?? locationKey,
+                matchingKeys: idKey ? [idKey, locationKey] : [locationKey],
+            };
+        });
+    }, [data.accommodations]);
+
+    const normalizeHotelMap = useCallback(
+        (official: OfficialSchema): Record<string, string> => {
+            const rawMap = official.hotel_map;
+            if (!rawMap || typeof rawMap !== 'object') {
+                return {};
+            }
+
+            return Object.entries(rawMap).reduce<Record<string, string>>(
+                (carry, [key, value]) => {
+                    const normalizedKey = String(key).trim();
+                    const normalizedValue = String(value ?? '').trim();
+
+                    if (
+                        normalizedKey.length === 0 ||
+                        normalizedValue.length === 0
+                    ) {
+                        return carry;
+                    }
+
+                    carry[normalizedKey] = normalizedValue;
+
+                    return carry;
+                },
+                {},
+            );
+        },
+        [],
+    );
+
+    const getOfficialHotelByTarget = useCallback(
+        (
+            official: OfficialSchema,
+            matchingKeys: string[],
+            fallbackHotelName: string,
+        ): string => {
+            const hotelMap = normalizeHotelMap(official);
+            const matchedKey = matchingKeys.find((key) => {
+                return String(key).trim().length > 0 && !!hotelMap[key];
+            });
+
+            if (matchedKey) {
+                return hotelMap[matchedKey] ?? '';
+            }
+
+            if (matchingKeys.length === 1) {
+                return fallbackHotelName || official.hotel || '';
+            }
+
+            return fallbackHotelName || official.hotel || '';
+        },
+        [normalizeHotelMap],
+    );
+
+    const updateOfficialHotelByTarget = useCallback(
+        (officialIndex: number, targetKey: string, nextHotelValue: string) => {
+            setData((currentData) => {
+                const currentOfficials = [...(currentData.officials || [])];
+                const targetOfficial = currentOfficials[officialIndex];
+
+                if (!targetOfficial) {
+                    return currentData;
+                }
+
+                const existingHotelMap = normalizeHotelMap(targetOfficial);
+                const normalizedTargetKey = String(targetKey).trim();
+                const normalizedHotelValue = String(nextHotelValue).trim();
+                const nextHotelMap = { ...existingHotelMap };
+
+                if (normalizedHotelValue.length === 0) {
+                    delete nextHotelMap[normalizedTargetKey];
+                } else {
+                    nextHotelMap[normalizedTargetKey] = normalizedHotelValue;
+                }
+
+                const primaryHotel =
+                    Object.values(nextHotelMap).find((hotel) => {
+                        return String(hotel).trim().length > 0;
+                    }) ?? '';
+
+                currentOfficials[officialIndex] = {
+                    ...targetOfficial,
+                    hotel: primaryHotel || null,
+                    hotel_map: nextHotelMap,
+                };
+
+                return {
+                    ...currentData,
+                    officials: currentOfficials,
+                };
+            });
+        },
+        [normalizeHotelMap, setData],
+    );
 
     const toStartOfDay = (value?: string | null): Date | null => {
         const parsed = parseDisplayDate(value);
@@ -2632,32 +2758,6 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
-                                                    label="Hotel"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Hotel remark for official (official hotel or follows jemaah hotel)',
-                                                    }}
-                                                    error={getError(
-                                                        `officials.${index}.hotel`,
-                                                    )}
-                                                >
-                                                    <ProperInput
-                                                        value={
-                                                            official.hotel ?? ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateOfficial(
-                                                                index,
-                                                                'hotel',
-                                                                v || null,
-                                                            )
-                                                        }
-                                                        placeholder="Enter hotel"
-                                                    />
-                                                </FormField>
-                                                <FormField
                                                     label="Contact Number"
                                                     fieldRequirementsProps={{
                                                         hint: 'Enter contact number',
@@ -2684,9 +2784,6 @@ export default function PackageForm({
                                                         placeholder="Enter contact number"
                                                     />
                                                 </FormField>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Nationality"
                                                     fieldRequirementsProps={{
@@ -2714,6 +2811,9 @@ export default function PackageForm({
                                                         placeholder="e.g., Singaporean"
                                                     />
                                                 </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Passport Number"
                                                     fieldRequirementsProps={{
@@ -2772,9 +2872,6 @@ export default function PackageForm({
                                                         placeholder="Select gender"
                                                     />
                                                 </FormField>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Date of Birth"
                                                     fieldRequirementsProps={{
@@ -2808,6 +2905,9 @@ export default function PackageForm({
                                                         }
                                                     />
                                                 </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Passport Issue Date"
                                                     fieldRequirementsProps={{
@@ -2880,9 +2980,6 @@ export default function PackageForm({
                                                         }
                                                     />
                                                 </FormField>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Passport Place of Issue"
                                                     fieldRequirementsProps={{
@@ -2910,6 +3007,9 @@ export default function PackageForm({
                                                         placeholder="e.g., Kuala Lumpur"
                                                     />
                                                 </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Place of Birth"
                                                     fieldRequirementsProps={{
@@ -2937,6 +3037,82 @@ export default function PackageForm({
                                                         placeholder="e.g., Johor Bahru"
                                                     />
                                                 </FormField>
+
+                                                {accommodationHotelTargets.length ===
+                                                0 ? (
+                                                    <FormField
+                                                        label="Hotel"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Hotel remark for official',
+                                                        }}
+                                                        error={getError(
+                                                            `officials.${index}.hotel`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                official.hotel ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                isView ||
+                                                                processing
+                                                            }
+                                                            onCommit={(v) =>
+                                                                updateOfficial(
+                                                                    index,
+                                                                    'hotel',
+                                                                    v || null,
+                                                                )
+                                                            }
+                                                            placeholder="Enter hotel"
+                                                        />
+                                                    </FormField>
+                                                ) : (
+                                                    <div className="space-y-3 rounded-md border border-dashed p-4 md:col-span-2">
+                                                        <p className="text-sm font-medium">
+                                                            Hotel by Location
+                                                        </p>
+                                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                            {accommodationHotelTargets.map(
+                                                                (
+                                                                    target,
+                                                                    targetIndex,
+                                                                ) => (
+                                                                    <FormField
+                                                                        key={`${target.primaryKey}-${targetIndex}`}
+                                                                        label={`${target.label} Hotel`}
+                                                                        fieldRequirementsProps={{
+                                                                            hint: 'Official hotel for this accommodation location',
+                                                                        }}
+                                                                    >
+                                                                        <ProperInput
+                                                                            value={getOfficialHotelByTarget(
+                                                                                official,
+                                                                                target.matchingKeys,
+                                                                                target.fallbackHotelName,
+                                                                            )}
+                                                                            disabled={
+                                                                                isView ||
+                                                                                processing
+                                                                            }
+                                                                            onCommit={(
+                                                                                v,
+                                                                            ) =>
+                                                                                updateOfficialHotelByTarget(
+                                                                                    index,
+                                                                                    target.primaryKey,
+                                                                                    v,
+                                                                                )
+                                                                            }
+                                                                            placeholder={`Enter hotel for ${target.label}`}
+                                                                        />
+                                                                    </FormField>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ),

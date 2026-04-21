@@ -11,6 +11,44 @@ class PackageFilterOptionMetadataTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_get_for_filter_exposes_official_hotel_primary_value_and_map(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPT-HOTEL-MAP',
+            'name' => 'Hotel Map Package',
+            'status' => 'open',
+            'total_seats' => 10,
+            'seats_left' => 10,
+        ]);
+
+        $accommodation = $package->accommodations()->create([
+            'location' => 'Makkah',
+            'hotel_name' => 'Makkah Grand',
+        ]);
+
+        $package->officials()->create([
+            'type' => 'mutawif',
+            'name' => 'Official A',
+            'hotel' => [
+                (string) $accommodation->id => 'Official Hotel Makkah',
+            ],
+            'contact_number' => '0123456789',
+        ]);
+
+        $options = app(PackageService::class)
+            ->getForFilter()
+            ->keyBy(fn (array $option): int => (int) $option['value']);
+
+        $official = $options[$package->id]['officials'][0] ?? null;
+
+        $this->assertNotNull($official);
+        $this->assertSame('Official Hotel Makkah', $official['hotel'] ?? null);
+        $this->assertSame(
+            [''.$accommodation->id => 'Official Hotel Makkah'],
+            $official['hotel_map'] ?? [],
+        );
+    }
+
     public function test_get_for_filter_marks_selectable_and_private_packages_correctly(): void
     {
         $openSelectable = Package::create([

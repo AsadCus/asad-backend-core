@@ -92,11 +92,11 @@ class PrivateEnquiryService
                     'makkah_tour_with_mutawif' => $privateEnquiry->makkah_tour_with_mutawif,
                     'has_chronic_disease' => $privateEnquiry->has_chronic_disease,
                     'chronic_disease_details' => $privateEnquiry->chronic_disease_details,
-                    'need_wheelchair' => $privateEnquiry->need_wheelchair,
+                    'need_wheelchair' => $this->normalizeWheelchairBoolean($privateEnquiry->need_wheelchair),
                     'other_remarks' => $privateEnquiry->other_remarks,
                     'last_remark' => $privateEnquiry->enquiry?->latestRemark->remark ?? '-',
                     'handled_by' => $privateEnquiry->enquiry?->handled_by,
-                    'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name ?? 'Unassigned',
+                    'handled_by_name' => $privateEnquiry->enquiry?->handledBy?->name,
                     'branch_id' => $privateEnquiry->enquiry?->branch_id,
                     'country_id' => $privateEnquiry->enquiry?->country_id,
                     'created_at' => $privateEnquiry->created_at?->translatedFormat('d F Y'),
@@ -159,7 +159,7 @@ class PrivateEnquiryService
                 'makkah_tour_with_mutawif' => $data['makkah_tour_with_mutawif'] ?? false,
                 'has_chronic_disease' => $data['has_chronic_disease'] ?? false,
                 'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
-                'need_wheelchair' => $data['need_wheelchair'] ?? null,
+                'need_wheelchair' => $this->normalizeWheelchairBoolean($data['need_wheelchair'] ?? false),
                 'other_remarks' => $data['other_remarks'] ?? null,
             ]);
 
@@ -236,7 +236,7 @@ class PrivateEnquiryService
             'makkah_tour_with_mutawif' => $privateEnquiry->makkah_tour_with_mutawif,
             'has_chronic_disease' => $privateEnquiry->has_chronic_disease,
             'chronic_disease_details' => $privateEnquiry->chronic_disease_details,
-            'need_wheelchair' => $privateEnquiry->need_wheelchair,
+            'need_wheelchair' => $this->normalizeWheelchairBoolean($privateEnquiry->need_wheelchair),
             'other_remarks' => $privateEnquiry->other_remarks,
             'branch_id' => $privateEnquiry->enquiry?->branch_id,
             'country_id' => $privateEnquiry->enquiry?->country_id,
@@ -282,7 +282,7 @@ class PrivateEnquiryService
                 'makkah_tour_with_mutawif' => $data['makkah_tour_with_mutawif'] ?? $privateEnquiry->makkah_tour_with_mutawif,
                 'has_chronic_disease' => $data['has_chronic_disease'] ?? $privateEnquiry->has_chronic_disease,
                 'chronic_disease_details' => $data['chronic_disease_details'] ?? $privateEnquiry->chronic_disease_details,
-                'need_wheelchair' => $data['need_wheelchair'] ?? $privateEnquiry->need_wheelchair,
+                'need_wheelchair' => $this->normalizeWheelchairBoolean($data['need_wheelchair'] ?? $privateEnquiry->need_wheelchair),
                 'other_remarks' => $data['other_remarks'] ?? $privateEnquiry->other_remarks,
             ]);
 
@@ -359,6 +359,17 @@ class PrivateEnquiryService
             'branch_id' => null,
             'country_id' => $countryId > 0 ? $countryId : null,
         ];
+    }
+
+    private function normalizeWheelchairBoolean(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        return in_array($normalized, ['1', 'true', 'yes', 'y'], true);
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CountryService
 {
@@ -65,6 +66,40 @@ class CountryService
         });
 
         return $data;
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string,slug:string}>
+     */
+    public function getForPublicSelector(): array
+    {
+        return Country::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(function (Country $country): array {
+                return [
+                    'id' => (int) $country->id,
+                    'name' => (string) $country->name,
+                    'slug' => Str::slug((string) $country->name),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function findBySlug(?string $slug): ?Country
+    {
+        $normalizedSlug = Str::slug((string) $slug);
+
+        if ($normalizedSlug === '') {
+            return null;
+        }
+
+        return Country::query()
+            ->get()
+            ->first(function (Country $country) use ($normalizedSlug): bool {
+                return Str::slug((string) $country->name) === $normalizedSlug;
+            });
     }
 
     public function store(array $data)

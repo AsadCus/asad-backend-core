@@ -72,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'result' => fn () => $request->session()->get('result'),
+                'manifest_export_snapshot_token' => fn () => $request->session()->get('manifest_export_snapshot_token'),
             ],
 
         ];

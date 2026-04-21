@@ -22,6 +22,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Support\DataScope;
 use App\Support\InvoiceStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -344,6 +345,7 @@ class CustomerConfirmationService
 
                 $canCreateQuotation = $activeMembers
                     ->contains(fn (CustomerConfirmationMember $member) => ! $this->hasActiveQuotationItemLink($member));
+                $groupRefundCancelDate = $this->resolveGroupRefundCancelDate($group);
 
                 return [
                     'id' => $group->id,
@@ -367,6 +369,7 @@ class CustomerConfirmationService
                     'total_amount' => round($groupTotalAmount, 2),
                     'refunded_amount' => round($groupRefundedAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
+                    'refund_cancel_date' => $groupRefundCancelDate,
                     'can_create_quotation' => $canCreateQuotation,
                     'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
@@ -399,6 +402,7 @@ class CustomerConfirmationService
                             'nric_number' => $member->customer?->nric_number ?? '-',
                             'nationality' => $member->customer?->nationality ?? '-',
                             'passport_number' => $member->customer?->passport_number ?? '-',
+                            'refund_cancel_date' => $this->resolveMemberRefundCancelDate($member),
                             'latest_invoice_payment_method' => $this->resolveMemberLatestInvoicePaymentMethod($member),
                             'order_id' => $orderSnapshot['order_id'],
                             'order_number' => $orderSnapshot['order_number'],
@@ -1140,6 +1144,62 @@ class CustomerConfirmationService
         }
 
         return round($refundedAmount, 2);
+    }
+
+    private function resolveMemberLatestRefundReceiptDate(
+        CustomerConfirmationMember $member,
+    ): ?CarbonInterface {
+        $latestRefundReceipt = $member->quotationItems
+            ->flatMap(fn ($item) => $item->invoices)
+            ->unique('id')
+            ->values()
+            ->filter(function ($invoice): bool {
+                return InvoiceStatus::isRefund($invoice->status ?? null)
+                    || (float) ($invoice->amount ?? 0) < 0;
+            })
+            ->flatMap(fn ($invoice) => $invoice->receipt ?? collect())
+            ->filter(fn ($receipt): bool => $receipt->receipt_date !== null)
+            ->sortByDesc(
+                fn ($receipt): int => $receipt->receipt_date?->getTimestamp() ?? 0,
+            )
+            ->first();
+
+        $receiptDate = $latestRefundReceipt?->receipt_date;
+
+        return $receiptDate instanceof CarbonInterface ? $receiptDate : null;
+    }
+
+    private function resolveMemberRefundCancelDate(
+        CustomerConfirmationMember $member,
+    ): ?string {
+        $latestRefundDate = $this->resolveMemberLatestRefundReceiptDate($member);
+        $fallbackDate = $member->updated_at;
+
+        return ($latestRefundDate ?? $fallbackDate)?->translatedFormat('d F Y');
+    }
+
+    private function resolveGroupRefundCancelDate(
+        CustomerConfirmation $group,
+    ): ?string {
+        $latestRefundDate = $group->members
+            ->map(
+                fn (CustomerConfirmationMember $member): ?CarbonInterface => $this->resolveMemberLatestRefundReceiptDate($member),
+            )
+            ->filter()
+            ->sortByDesc(fn (CarbonInterface $date): int => $date->getTimestamp())
+            ->first();
+
+        if ($latestRefundDate instanceof CarbonInterface) {
+            return $latestRefundDate->translatedFormat('d F Y');
+        }
+
+        $latestCancellationDate = $group->members
+            ->map(fn (CustomerConfirmationMember $member) => $member->updated_at)
+            ->filter()
+            ->sortByDesc(fn (CarbonInterface $date): int => $date->getTimestamp())
+            ->first();
+
+        return $latestCancellationDate?->translatedFormat('d F Y');
     }
 
     /**

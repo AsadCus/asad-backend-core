@@ -36,18 +36,6 @@ export const privateEnquiryValidationSchema = privateEnquirySchema.superRefine(
             });
         }
 
-        // passport_expiry_date
-        if (
-            !data.passport_expiry_date ||
-            data.passport_expiry_date.trim().length === 0
-        ) {
-            ctx.addIssue({
-                path: ['passport_expiry_date'],
-                message: 'Passport expiry date is required',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-
         // departure_date
         if (!data.departure_date || data.departure_date.trim().length === 0) {
             ctx.addIssue({
@@ -188,7 +176,7 @@ export const privateEnquiryValidationSchema = privateEnquirySchema.superRefine(
         }
 
         // need_wheelchair
-        if (!data.need_wheelchair || data.need_wheelchair.trim().length === 0) {
+        if (typeof data.need_wheelchair !== 'boolean') {
             ctx.addIssue({
                 path: ['need_wheelchair'],
                 message: 'This field is required',

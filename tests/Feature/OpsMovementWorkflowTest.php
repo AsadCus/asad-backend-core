@@ -787,6 +787,59 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame(3, data_get($opsMovement, 'accommodations.0.room_counts.single'));
     }
 
+    public function test_ops_movement_official_hotel_rows_default_from_package_accommodation_hotels(): void
+    {
+        $package = Package::create([
+            'package_number' => 'PKG-OPS-HOTEL-FALLBACK-001',
+            'name' => 'Ops Hotel Fallback Package',
+            'status' => 'open',
+        ]);
+
+        $makkahAccommodation = PackageAccommodation::create([
+            'package_id' => $package->id,
+            'location' => 'Makkah',
+            'hotel_name' => 'Makkah Main Hotel',
+        ]);
+
+        $madinahAccommodation = PackageAccommodation::create([
+            'package_id' => $package->id,
+            'location' => 'Madinah',
+            'hotel_name' => 'Madinah Main Hotel',
+        ]);
+
+        PackageOfficial::create([
+            'package_id' => $package->id,
+            'type' => 'mutawif',
+            'name' => 'Official Fallback',
+            'contact_number' => '0193003003',
+            'hotel' => null,
+        ]);
+
+        Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MAN-OPS-HOTEL-FALLBACK-001',
+        ]);
+
+        $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
+
+        $this->assertSame('Makkah', data_get($opsMovement, 'officials.0.hotels_by_location.0.location'));
+        $this->assertSame('Makkah Main Hotel', data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertSame('Madinah', data_get($opsMovement, 'officials.0.hotels_by_location.1.location'));
+        $this->assertSame('Madinah Main Hotel', data_get($opsMovement, 'officials.0.hotels_by_location.1.hotel'));
+
+        $makkahAccommodation->update([
+            'hotel_name' => 'Makkah Updated Hotel',
+        ]);
+        $madinahAccommodation->update([
+            'hotel_name' => 'Madinah Updated Hotel',
+        ]);
+
+        $opsMovementAfterAccommodationUpdate = app(OpsMovementService::class)->getForShow($package->id);
+
+        $this->assertSame('Makkah Updated Hotel', data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertSame('Madinah Updated Hotel', data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.1.hotel'));
+    }
+
     public function test_ops_movement_export_routes_return_pdf_responses(): void
     {
         $actingUser = User::factory()->create();

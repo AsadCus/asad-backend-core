@@ -122,6 +122,9 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(-600.0, (float) (($payload['extensions'][0]['amount'] ?? 0)));
         $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
         $this->assertSame(8400.0, (float) data_get($payload, 'invoice_payment_progress.0.amount_paid'));
+        $this->assertSame(8400.0, (float) ($payload['invoice_total_amount'] ?? 0));
+        $this->assertSame(8400.0, (float) ($payload['invoice_paid_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($payload['balance_due_amount'] ?? 0));
     }
 
     public function test_receipt_report_payload_includes_subtotal_extensions_and_total_consistent_with_receipt_amount(): void
@@ -389,6 +392,9 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(0.0, (float) data_get($invoicePayload, 'invoice_payment_progress.2.amount_paid'));
         $this->assertSame(2000.0, (float) data_get($invoicePayload, 'invoice_payment_progress.1.total_amount'));
         $this->assertSame(3000.0, (float) data_get($invoicePayload, 'invoice_payment_progress.2.total_amount'));
+        $this->assertSame(8100.0, (float) ($invoicePayload['invoice_total_amount'] ?? 0));
+        $this->assertSame(5100.0, (float) ($invoicePayload['invoice_paid_amount'] ?? 0));
+        $this->assertSame(3000.0, (float) ($invoicePayload['balance_due_amount'] ?? 0));
 
         $this->assertSame('1st Payment', (string) data_get($receiptPayload, 'invoice_payment_progress.0.label'));
         $this->assertSame('2nd Payment', (string) data_get($receiptPayload, 'invoice_payment_progress.1.label'));
@@ -397,6 +403,9 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(2000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.1.amount_paid'));
         $this->assertSame(0.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.amount_paid'));
         $this->assertSame(3000.0, (float) data_get($receiptPayload, 'invoice_payment_progress.2.total_amount'));
+        $this->assertSame(8100.0, (float) ($receiptPayload['invoice_total_amount'] ?? 0));
+        $this->assertSame(5100.0, (float) ($receiptPayload['invoice_paid_amount'] ?? 0));
+        $this->assertSame(3000.0, (float) ($receiptPayload['balance_due_amount'] ?? 0));
     }
 
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -427,6 +436,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Discount Package 10%:', $invoiceHtml);
+        $this->assertStringContainsString('Balance Due:', $invoiceHtml);
     }
 
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -442,6 +452,38 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Discount Package 10%:', $receiptHtml);
+    }
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function test_receipt_report_view_shows_amount_not_refunded_only_for_refund_report(): void
+    {
+        $payload = $this->buildReportPayloadWithStalePercentageSuffix();
+        $payload['balance_due_amount'] = 350;
+        $payload['amount_not_refunded'] = 350;
+
+        $nonRefundHtml = view('receipts.report-content', [
+            'data' => [
+                ...$payload,
+                'is_refund_receipt_report' => false,
+            ],
+            'items' => $payload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $refundHtml = view('receipts.report-content', [
+            'data' => [
+                ...$payload,
+                'is_refund_receipt_report' => true,
+            ],
+            'items' => $payload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+
+        $this->assertStringContainsString('Balance Due:', $nonRefundHtml);
+        $this->assertStringNotContainsString('Amount Not Refunded:', $nonRefundHtml);
+        $this->assertStringContainsString('Amount Not Refunded:', $refundHtml);
     }
 
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]

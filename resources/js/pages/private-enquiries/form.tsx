@@ -76,7 +76,7 @@ export default function PrivateEnquiryForm({
         makkah_tour_with_mutawif: false,
         has_chronic_disease: false,
         chronic_disease_details: '',
-        need_wheelchair: '',
+        need_wheelchair: false,
         other_remarks: '',
     };
 

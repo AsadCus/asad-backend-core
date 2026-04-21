@@ -156,7 +156,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
         ]);
 
         $response->assertRedirect();
@@ -171,6 +171,156 @@ class EnquiryWorkflowTest extends TestCase
 
         $privateEnquiry = PrivateEnquiry::first();
         $this->assertNotNull($privateEnquiry->enquiry_id);
+    }
+
+    public function test_creating_private_enquiry_without_passport_expiry_date_is_allowed(): void
+    {
+        $this->actingAs($this->adminUser);
+        $country = Country::factory()->create();
+
+        $response = $this->post(route('private-enquiries.store'), [
+            'name' => 'Optional Passport Date',
+            'contact_number' => '0181234567',
+            'email' => 'optional-passport@example.com',
+            'country_id' => $country->id,
+            'departure_date' => '2026-07-01',
+            'return_date' => '2026-07-15',
+            'no_of_pax' => 2,
+            'no_of_children' => 0,
+            'airline' => 'MAS',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'Makkah',
+            'no_of_nights_makkah' => '5',
+            'hotel_makkah' => 'Grand Hotel',
+            'meals_makkah' => 'Full Board',
+            'no_of_nights_madinah' => '5',
+            'hotel_madinah' => 'Madinah Hotel',
+            'meals_madinah' => 'Half Board',
+            'land_transfer' => 'VIP Bus',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => false,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $createdPrivateEnquiry = PrivateEnquiry::query()->latest('id')->first();
+
+        $this->assertNotNull($createdPrivateEnquiry);
+        $this->assertNull($createdPrivateEnquiry?->passport_expiry_date);
+    }
+
+    public function test_public_private_enquiry_submission_allows_missing_passport_expiry_date(): void
+    {
+        Config::set('data_scope.mode', 'country');
+        $country = Country::factory()->create(['name' => 'Malaysia']);
+
+        $response = $this->post(route('private-enquiries.public.store'), [
+            'country_slug' => 'malaysia',
+            'name' => 'Public Optional Passport Date',
+            'contact_number' => '0177654321',
+            'email' => 'public-optional-passport@example.com',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-12',
+            'no_of_pax' => 3,
+            'no_of_children' => 1,
+            'airline' => 'MAS',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'Makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Tower',
+            'meals_makkah' => 'Half Board',
+            'no_of_nights_madinah' => '4',
+            'hotel_madinah' => 'Madinah Suites',
+            'meals_madinah' => 'Half Board',
+            'land_transfer' => 'Sedan (2 Pax)',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => false,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $createdPrivateEnquiry = PrivateEnquiry::query()->latest('id')->first();
+
+        $this->assertNotNull($createdPrivateEnquiry);
+        $this->assertNull($createdPrivateEnquiry?->passport_expiry_date);
+        $this->assertSame($country->id, $createdPrivateEnquiry?->enquiry?->country_id);
+    }
+
+    public function test_public_general_enquiry_form_without_country_slug_shows_country_selector(): void
+    {
+        Country::factory()->create(['name' => 'Malaysia']);
+        Country::factory()->create(['name' => 'Indonesia']);
+
+        $response = $this->get(route('general-enquiries.public.create'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('general-enquiries/public/index')
+            ->where('showCountrySelector', true)
+            ->where('selectedCountry', null)
+            ->has('countryOptions', 2));
+    }
+
+    public function test_public_general_enquiry_form_with_invalid_country_slug_redirects_to_selector(): void
+    {
+        $response = $this->get(route('general-enquiries.public.create', ['country' => 'invalid-country']));
+
+        $response->assertRedirect(route('general-enquiries.public.create'));
+    }
+
+    public function test_public_private_enquiry_store_with_invalid_country_slug_redirects_to_selector(): void
+    {
+        $response = $this->post(route('private-enquiries.public.store'), [
+            'country_slug' => 'invalid-country',
+            'name' => 'Invalid Country Slug',
+            'contact_number' => '0177000000',
+            'email' => 'invalid-country@example.com',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-12',
+            'no_of_pax' => 3,
+            'no_of_children' => 1,
+            'airline' => 'MAS',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'Makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Tower',
+            'meals_makkah' => 'Half Board',
+            'no_of_nights_madinah' => '4',
+            'hotel_madinah' => 'Madinah Suites',
+            'meals_madinah' => 'Half Board',
+            'land_transfer' => 'Sedan (2 Pax)',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => false,
+        ]);
+
+        $response->assertRedirect(route('private-enquiries.public.create'));
+        $this->assertDatabaseCount('private_enquiries', 0);
     }
 
     public function test_all_enquiries_index_page_loads(): void
@@ -885,7 +1035,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
         ]);
 
         $response = $this->get(route('private-enquiries.get-for-show', $privateEnquiry->id));
@@ -936,7 +1086,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
             'other_remarks' => '',
         ]);
 
@@ -1005,7 +1155,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
             'other_remarks' => '',
         ]);
 
@@ -1064,7 +1214,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
             'other_remarks' => '',
         ]);
 
@@ -1131,7 +1281,7 @@ class EnquiryWorkflowTest extends TestCase
             'madinah_tour_with_mutawif' => false,
             'makkah_tour_with_mutawif' => false,
             'has_chronic_disease' => false,
-            'need_wheelchair' => 'No',
+            'need_wheelchair' => false,
             'other_remarks' => '',
         ]);
 

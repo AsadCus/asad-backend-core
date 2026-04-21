@@ -345,6 +345,70 @@ class PackageOfficialManifestSyncTest extends TestCase
         ]);
     }
 
+    public function test_package_update_persists_official_hotel_map_per_accommodation(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Official Hotel Map Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Makkah Base Hotel',
+                ],
+                [
+                    'location' => 'Madinah',
+                    'hotel_name' => 'Madinah Base Hotel',
+                ],
+            ],
+            'officials' => [
+                [
+                    'type' => 'mutawif',
+                    'name' => 'Guide Hotel Map',
+                    'contact_number' => '0197000001',
+                ],
+            ],
+        ]);
+
+        $official = $package->officials()->firstOrFail();
+        $accommodations = $package->accommodations()->orderBy('id')->get()->values();
+
+        $makkahAccommodationId = (string) ($accommodations[0]->id ?? 0);
+        $madinahAccommodationId = (string) ($accommodations[1]->id ?? 0);
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => (int) $official->id,
+                    'type' => 'mutawif',
+                    'name' => 'Guide Hotel Map',
+                    'contact_number' => '0197000001',
+                    'hotel_map' => [
+                        $makkahAccommodationId => 'Official Hotel Makkah',
+                        $madinahAccommodationId => 'Official Hotel Madinah',
+                    ],
+                ],
+            ],
+        ], (int) $package->id);
+
+        $updatedPackage = $package->fresh();
+        $updatedOfficial = $updatedPackage->officials()->firstOrFail();
+
+        $this->assertEquals([
+            $makkahAccommodationId => 'Official Hotel Makkah',
+            $madinahAccommodationId => 'Official Hotel Madinah',
+        ], $updatedOfficial->hotel ?? []);
+
+        $payload = app(PackageService::class)->getForEditShow((int) $package->id);
+        $payloadOfficial = $payload['officials'][0] ?? [];
+
+        $this->assertSame('Official Hotel Makkah', $payloadOfficial['hotel'] ?? null);
+        $this->assertEquals([
+            $makkahAccommodationId => 'Official Hotel Makkah',
+            $madinahAccommodationId => 'Official Hotel Madinah',
+        ], $payloadOfficial['hotel_map'] ?? []);
+    }
+
     public function test_package_update_assigns_officials_into_manifest_sharing_groups_for_manifest_form_visibility(): void
     {
         $package = app(PackageService::class)->store([

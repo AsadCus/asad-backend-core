@@ -148,6 +148,12 @@
             white-space: nowrap;
         }
 
+        .total-amount.payment-info-head,
+        .total-label.payment-info-head {
+            color: #000;
+            font-weight: bold;
+        }
+
         .totals-table .total-row-grand .total-label {
             font-weight: bold;
         }
@@ -283,14 +289,14 @@
         </table>
 
         @php
-            if (! function_exists('formatCurrency')) {
+            if (!function_exists('formatCurrency')) {
                 function formatCurrency($value)
                 {
                     return \App\Helpers\FormatService::formatCurrency($value);
                 }
             }
 
-            if (! function_exists('formatExtensionLabel')) {
+            if (!function_exists('formatExtensionLabel')) {
                 function formatExtensionLabel($extension)
                 {
                     $name = trim((string) ($extension['name'] ?? 'Extension'));
@@ -307,7 +313,10 @@
                         }
 
                         $displayValue = $value > 0 && $value < 1 ? $value * 100 : $value;
-                        $formattedValue = floor($displayValue) == $displayValue ? number_format($displayValue, 0) : number_format($displayValue, 2);
+                        $formattedValue =
+                            floor($displayValue) == $displayValue
+                                ? number_format($displayValue, 0)
+                                : number_format($displayValue, 2);
                         $baseName = trim((string) preg_replace('/\s*-?\d+(?:\.\d+)?\s*%$/', '', $name));
                         $normalizedValue = str_contains($formattedValue, '.')
                             ? rtrim(rtrim($formattedValue, '0'), '.')
@@ -320,7 +329,7 @@
                 }
             }
 
-            if (! function_exists('toAlphabet')) {
+            if (!function_exists('toAlphabet')) {
                 function toAlphabet($num)
                 {
                     $alphabet = 'abcdefghijklmnopqrstuvwxyz';
@@ -333,7 +342,7 @@
                 }
             }
 
-            if (! function_exists('hasChildren')) {
+            if (!function_exists('hasChildren')) {
                 function hasChildren($item, $allItems)
                 {
                     return collect($allItems)
@@ -349,7 +358,7 @@
                 }
             }
 
-            if (! function_exists('renderItem')) {
+            if (!function_exists('renderItem')) {
                 function renderItem($item, $allItems, $level = 0, &$counter, &$subtotal, $subCounter = 0)
                 {
                     $itemNumber = '';
@@ -453,8 +462,9 @@
                         @endforeach
                     @endif
                     <tr class="total-row-grand">
-                        <td class="total-label">Total Amount:</td>
-                        <td class="total-amount">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}</td>
+                        <td class="total-label payment-info-head">Total Amount:</td>
+                        <td class="total-amount payment-info-head">{{ formatCurrency($data['total_amount'] ?? $subtotal) }}
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -473,7 +483,7 @@
                             </td>
                         </tr>
                     @else
-                        @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
+                        @foreach ($data['invoice_payment_progress'] ?? [] as $paymentProgress)
                             <tr>
                                 <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
                                 <td class="total-amount">
@@ -483,6 +493,12 @@
                             </tr>
                         @endforeach
                     @endif
+                    <tr>
+                        <td class="total-label payment-info-head">Balance Due:</td>
+                        <td class="total-amount payment-info-head">
+                            {{ formatCurrency($data['balance_due_amount'] ?? 0) }}
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -504,7 +520,8 @@
         {{-- Module footer text from Report Template Settings --}}
         {{-- When no notes: always show footer_text (centered) or fallback message (centered) --}}
         @if (!empty($branding['footer_text']))
-            <div class="footer-note" style="text-align:{{ $activeNotes->isEmpty() ? 'center' : 'right' }}">{!! nl2br(e($branding['footer_text'])) !!}</div>
+            <div class="footer-note" style="text-align:{{ $activeNotes->isEmpty() ? 'center' : 'right' }}">
+                {!! nl2br(e($branding['footer_text'])) !!}</div>
         @endif
 
         @include('partials.report-signature-stamp')

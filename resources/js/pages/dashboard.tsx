@@ -29,7 +29,9 @@ import {
 import { fiscalYearTotalSales } from '@/routes/dashboard';
 import { index as enquiriesIndex } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
+import { create as generalPublicCreate } from '@/routes/general-enquiries/public';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
+import { create as privatePublicCreate } from '@/routes/private-enquiries/public';
 import {
     SharedData,
     ValueNumberOptionType,
@@ -40,6 +42,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -416,6 +419,29 @@ export default function Dashboard({ data }: DashboardProps) {
 
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
+    const copyPublicEnquiryLink = async (
+        enquiryType: 'general' | 'private',
+    ): Promise<void> => {
+        try {
+            const path =
+                enquiryType === 'general'
+                    ? generalPublicCreate().url
+                    : privatePublicCreate().url;
+            const fullUrl = new URL(path, window.location.origin).toString();
+
+            await navigator.clipboard.writeText(fullUrl);
+
+            toast.success('Public form link copied.', {
+                description:
+                    enquiryType === 'general'
+                        ? 'General enquiry public link copied to clipboard.'
+                        : 'Private enquiry public link copied to clipboard.',
+            });
+        } catch {
+            toast.error('Failed to copy public form link.');
+        }
+    };
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -614,11 +640,35 @@ export default function Dashboard({ data }: DashboardProps) {
                                             : 'General and private enquiries'}
                                     </p>
                                 </div>
-                                <Button asChild variant="outline">
-                                    <Link href={enquiriesIndex().url}>
-                                        View All
-                                    </Link>
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            void copyPublicEnquiryLink(
+                                                'general',
+                                            )
+                                        }
+                                    >
+                                        Copy General Public Link
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            void copyPublicEnquiryLink(
+                                                'private',
+                                            )
+                                        }
+                                    >
+                                        Copy Private Public Link
+                                    </Button>
+                                    <Button asChild variant="outline">
+                                        <Link href={enquiriesIndex().url}>
+                                            View All
+                                        </Link>
+                                    </Button>
+                                </div>
                             </div>
                             <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable

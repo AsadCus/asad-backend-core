@@ -56,6 +56,7 @@ export const officialSchema = z.object({
     type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
     hotel: z.string().nullable().optional(),
+    hotel_map: z.record(z.string(), z.string()).optional(),
     contact_number: z.string().nullable().optional(),
     nationality: z.string().nullable().optional(),
     passport_number: z.string().nullable().optional(),
@@ -159,8 +160,10 @@ export const packageStatusColors: Record<string, string> = {
     open: 'bg-green-100 text-green-800 dark:border dark:border-green-400/25 dark:bg-green-500/16 dark:text-green-200',
     full: 'bg-amber-100 text-amber-800 dark:border dark:border-amber-400/25 dark:bg-amber-500/16 dark:text-amber-200',
     closed: 'bg-red-100 text-red-800 dark:border dark:border-red-400/25 dark:bg-red-500/16 dark:text-red-200',
-    ongoing: 'bg-cyan-100 text-cyan-800 dark:border dark:border-cyan-400/25 dark:bg-cyan-500/16 dark:text-cyan-200',
-    completed: 'bg-blue-100 text-blue-800 dark:border dark:border-blue-400/25 dark:bg-blue-500/16 dark:text-blue-200',
+    ongoing:
+        'bg-cyan-100 text-cyan-800 dark:border dark:border-cyan-400/25 dark:bg-cyan-500/16 dark:text-cyan-200',
+    completed:
+        'bg-blue-100 text-blue-800 dark:border dark:border-blue-400/25 dark:bg-blue-500/16 dark:text-blue-200',
 };
 
 export const packageStatusLabels: Record<string, string> = {
@@ -206,8 +209,10 @@ export const sharingPlanBadgeColors: Record<string, string> = {
     double: 'bg-purple-100 text-purple-800 dark:border dark:border-purple-400/25 dark:bg-purple-500/14 dark:text-purple-200',
     triple: 'bg-indigo-100 text-indigo-800 dark:border dark:border-indigo-400/25 dark:bg-indigo-500/14 dark:text-indigo-200',
     quad: 'bg-pink-100 text-pink-800 dark:border dark:border-pink-400/25 dark:bg-pink-500/14 dark:text-pink-200',
-    child_with_bed: 'bg-yellow-100 text-yellow-800 dark:border dark:border-yellow-400/25 dark:bg-yellow-500/14 dark:text-yellow-200',
-    child_no_bed: 'bg-green-100 text-green-800 dark:border dark:border-green-400/25 dark:bg-green-500/14 dark:text-green-200',
+    child_with_bed:
+        'bg-yellow-100 text-yellow-800 dark:border dark:border-yellow-400/25 dark:bg-yellow-500/14 dark:text-yellow-200',
+    child_no_bed:
+        'bg-green-100 text-green-800 dark:border dark:border-green-400/25 dark:bg-green-500/14 dark:text-green-200',
     infant: 'bg-orange-100 text-orange-800 dark:border dark:border-orange-400/25 dark:bg-orange-500/14 dark:text-orange-200',
 };
 

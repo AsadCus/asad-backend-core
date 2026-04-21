@@ -40,9 +40,34 @@ class GeneralEnquiryController extends Controller
         ]);
     }
 
-    public function publicForm()
+    public function publicForm(Request $request)
     {
-        return Inertia::render('general-enquiries/public/index');
+        $countryOptions = $this->countryService->getForPublicSelector();
+        $countrySlug = trim((string) $request->query('country', ''));
+
+        if ($countrySlug === '') {
+            return Inertia::render('general-enquiries/public/index', [
+                'countryOptions' => $countryOptions,
+                'showCountrySelector' => true,
+                'selectedCountry' => null,
+            ]);
+        }
+
+        $selectedCountry = $this->countryService->findBySlug($countrySlug);
+
+        if (! $selectedCountry) {
+            return redirect()->route('general-enquiries.public.create');
+        }
+
+        return Inertia::render('general-enquiries/public/index', [
+            'countryOptions' => $countryOptions,
+            'showCountrySelector' => false,
+            'selectedCountry' => [
+                'id' => (int) $selectedCountry->id,
+                'name' => (string) $selectedCountry->name,
+                'slug' => strtolower(trim((string) $countrySlug)),
+            ],
+        ]);
     }
 
     /**
@@ -81,10 +106,19 @@ class GeneralEnquiryController extends Controller
      */
     public function storePublic(Request $request)
     {
+        $selectedCountry = $this->resolvePublicCountryFromRequest($request);
+
+        if (! $selectedCountry) {
+            return redirect()->route('general-enquiries.public.create');
+        }
+
         $validated = $request->validate($this->generalEnquiryRule->rules());
+        $validated['country_id'] = (int) $selectedCountry->id;
+        $validated['branch_id'] = null;
         $this->generalEnquiryService->store($validated);
 
-        return back()->with('success', 'Thank you for your enquiry. We will get back to you soon.');
+        return redirect()->route('general-enquiries.public.create', ['country' => $request->input('country_slug')])
+            ->with('success', 'Thank you for your enquiry. We will get back to you soon.');
     }
 
     /**
@@ -185,5 +219,16 @@ class GeneralEnquiryController extends Controller
     private function scopeMode(): string
     {
         return strtolower((string) config('data_scope.mode', 'country'));
+    }
+
+    private function resolvePublicCountryFromRequest(Request $request): ?\App\Models\Country
+    {
+        $countrySlug = trim((string) $request->input('country_slug', $request->query('country', '')));
+
+        if ($countrySlug === '') {
+            return null;
+        }
+
+        return $this->countryService->findBySlug($countrySlug);
     }
 }

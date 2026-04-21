@@ -5,6 +5,7 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -24,10 +25,12 @@ import {
     getForShow,
     index,
 } from '@/routes/general-enquiries';
+import { create as generalPublicCreate } from '@/routes/general-enquiries/public';
 import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import CustomerConfirmationForm from '../confirmed-customer/form';
 import EnquiryRemarksDialog from '../enquiries/components/enquiry-remarks-dialog';
 import {
@@ -134,6 +137,19 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
         accessorKey: 'handled_by_name',
         header: 'Handled By',
         meta: { exportable: true },
+        cell: ({ row }) => {
+            const handledByName = row.original.handled_by_name;
+
+            if (handledByName) {
+                return handledByName;
+            }
+
+            return (
+                <Badge variant="secondary" className="italic">
+                    Unassigned
+                </Badge>
+            );
+        },
     },
     {
         accessorKey: 'handled_by',
@@ -213,6 +229,21 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
     >();
     const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
 
+    const copyPublicLink = useCallback(async () => {
+        try {
+            const fullUrl = new URL(
+                generalPublicCreate().url,
+                window.location.origin,
+            ).toString();
+
+            await navigator.clipboard.writeText(fullUrl);
+
+            toast.success('General enquiry public link copied.');
+        } catch {
+            toast.error('Failed to copy general enquiry public link.');
+        }
+    }, []);
+
     const handleOpenViewDialog = async (enquiryId: number) => {
         setViewDialogOpen(true);
         setIsLoadingData(true);
@@ -239,6 +270,13 @@ export default function GeneralEnquiriesIndex({ data }: GeneralEnquiriesProps) {
                         <h2 className="text-lg font-semibold">
                             General Enquiry
                         </h2>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void copyPublicLink()}
+                        >
+                            Copy General Public Link
+                        </Button>
                     </div>
 
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">

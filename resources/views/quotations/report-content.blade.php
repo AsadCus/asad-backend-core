@@ -427,32 +427,6 @@
             </table>
         </div>
 
-        {{-- ── PAYMENT HISTORY ── --}}
-        <div class="totals-wrapper payment-history-wrapper">
-            <div class="payment-history-heading">Payment History</div>
-            <table class="totals-table payment-history-table">
-                <tbody>
-                    @if (empty($data['invoice_payment_progress']) || count($data['invoice_payment_progress']) === 0)
-                        <tr>
-                            <td class="total-label">Pending Payment:</td>
-                            <td class="total-amount">
-                                {{ formatCurrency(0) }} / {{ formatCurrency($data['total_amount'] ?? $subtotal) }}
-                            </td>
-                        </tr>
-                    @else
-                        @foreach (($data['invoice_payment_progress'] ?? []) as $paymentProgress)
-                            <tr>
-                                <td class="total-label">{{ $paymentProgress['label'] ?? 'Payment' }}:</td>
-                                <td class="total-amount">
-                                    {{ formatCurrency($paymentProgress['amount_paid'] ?? 0) }} /
-                                    {{ formatCurrency($paymentProgress['total_amount'] ?? ($data['total_amount'] ?? $subtotal)) }}
-                                </td>
-                            </tr>
-                        @endforeach
-                    @endif
-                </tbody>
-            </table>
-        </div>
     </div>
 
     {{-- ── FOOTER ── --}}

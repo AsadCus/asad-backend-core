@@ -55,9 +55,34 @@ class PrivateEnquiryController extends Controller
     /**
      * Show the public form for creating a new private enquiry.
      */
-    public function publicForm()
+    public function publicForm(Request $request)
     {
-        return Inertia::render('private-enquiries/public/index');
+        $countryOptions = $this->countryService->getForPublicSelector();
+        $countrySlug = trim((string) $request->query('country', ''));
+
+        if ($countrySlug === '') {
+            return Inertia::render('private-enquiries/public/index', [
+                'countryOptions' => $countryOptions,
+                'showCountrySelector' => true,
+                'selectedCountry' => null,
+            ]);
+        }
+
+        $selectedCountry = $this->countryService->findBySlug($countrySlug);
+
+        if (! $selectedCountry) {
+            return redirect()->route('private-enquiries.public.create');
+        }
+
+        return Inertia::render('private-enquiries/public/index', [
+            'countryOptions' => $countryOptions,
+            'showCountrySelector' => false,
+            'selectedCountry' => [
+                'id' => (int) $selectedCountry->id,
+                'name' => (string) $selectedCountry->name,
+                'slug' => strtolower(trim((string) $countrySlug)),
+            ],
+        ]);
     }
 
     /**
@@ -78,10 +103,19 @@ class PrivateEnquiryController extends Controller
      */
     public function storePublic(Request $request)
     {
+        $selectedCountry = $this->resolvePublicCountryFromRequest($request);
+
+        if (! $selectedCountry) {
+            return redirect()->route('private-enquiries.public.create');
+        }
+
         $validated = $request->validate($this->privateEnquiryRule->rules());
+        $validated['country_id'] = (int) $selectedCountry->id;
+        $validated['branch_id'] = null;
         $this->privateEnquiryService->store($validated);
 
-        return back()->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
+        return redirect()->route('private-enquiries.public.create', ['country' => $request->input('country_slug')])
+            ->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
     }
 
     /**
@@ -176,5 +210,16 @@ class PrivateEnquiryController extends Controller
     private function scopeMode(): string
     {
         return strtolower((string) config('data_scope.mode', 'country'));
+    }
+
+    private function resolvePublicCountryFromRequest(Request $request): ?\App\Models\Country
+    {
+        $countrySlug = trim((string) $request->input('country_slug', $request->query('country', '')));
+
+        if ($countrySlug === '') {
+            return null;
+        }
+
+        return $this->countryService->findBySlug($countrySlug);
     }
 }

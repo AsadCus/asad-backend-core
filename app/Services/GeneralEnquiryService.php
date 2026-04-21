@@ -75,7 +75,7 @@ class GeneralEnquiryService
                     'requires_mobility_assistance' => $generalEnquiry->requires_mobility_assistance,
                     'last_remark' => $generalEnquiry->enquiry?->latestRemark->remark ?? '-',
                     'handled_by' => $generalEnquiry->enquiry?->handled_by,
-                    'handled_by_name' => $generalEnquiry->enquiry?->handledBy?->name ?? 'Unassigned',
+                    'handled_by_name' => $generalEnquiry->enquiry?->handledBy?->name,
                     'branch_id' => $generalEnquiry->enquiry?->branch_id,
                     'country_id' => $generalEnquiry->enquiry?->country_id,
                     'created_at' => $generalEnquiry->created_at?->translatedFormat('d F Y'),

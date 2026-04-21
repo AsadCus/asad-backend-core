@@ -14,7 +14,7 @@ class PrivateEnquiryRule
             'email' => ['required', 'email', 'max:255'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
-            'passport_expiry_date' => ['required', 'date'],
+            'passport_expiry_date' => ['nullable', 'date'],
             'departure_date' => ['required', 'date'],
             'return_date' => ['required', 'date'],
             'no_of_pax' => ['required', 'integer', 'min:1'],
@@ -39,7 +39,7 @@ class PrivateEnquiryRule
             'makkah_tour_with_mutawif' => ['required', 'boolean'],
             'has_chronic_disease' => ['required', 'boolean'],
             'chronic_disease_details' => ['nullable', 'string'],
-            'need_wheelchair' => ['required'],
+            'need_wheelchair' => ['required', 'boolean'],
             'other_remarks' => ['nullable', 'string'],
         ];
     }

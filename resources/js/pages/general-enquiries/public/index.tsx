@@ -8,29 +8,38 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Head, useForm } from '@inertiajs/react';
+    create as generalPublicCreate,
+    store as generalPublicStore,
+} from '@/routes/general-enquiries/public';
+import { Head, router, useForm } from '@inertiajs/react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import GeneralEnquiryFormFields from '../form-fields';
 import { GeneralEnquirySchema } from '../schema';
 import { generalEnquiryValidationSchema } from '../validation';
 
+interface CountrySelectorOption {
+    id: number;
+    name: string;
+    slug: string;
+}
+
 interface GeneralEnquiryFormProps {
-    mode: 'create' | 'edit' | 'view';
+    mode?: 'create' | 'edit' | 'view';
     initialData?: GeneralEnquirySchema;
     onCancel?: () => void;
+    countryOptions?: CountrySelectorOption[];
+    showCountrySelector?: boolean;
+    selectedCountry?: CountrySelectorOption | null;
 }
 
 export default function GeneralEnquiryForm({
-    mode,
+    mode = 'create',
     initialData,
     onCancel,
+    countryOptions = [],
+    showCountrySelector = true,
+    selectedCountry = null,
 }: GeneralEnquiryFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -62,6 +71,7 @@ export default function GeneralEnquiryForm({
         name: '',
         contact_number: '',
         email: '',
+        country_id: selectedCountry?.id ?? null,
         preferred_destinations: '',
         preferred_travelling_date: '',
         no_of_adults: 0,
@@ -80,6 +90,89 @@ export default function GeneralEnquiryForm({
         setError,
         clearErrors,
     } = useForm<GeneralEnquirySchema>(defaultData);
+
+    const createFormUrl = selectedCountry?.slug
+        ? generalPublicCreate({
+              query: { country: selectedCountry.slug },
+          }).url
+        : generalPublicCreate().url;
+
+    if (showCountrySelector) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+                <Head title="Select Country - Enquiry Form" />
+                <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
+                    <CardHeader className="pb-6">
+                        <CardTitle className="text-4xl font-light">
+                            Enquiry Form
+                        </CardTitle>
+                        <CardDescription className="mt-2 text-base">
+                            Please choose your country first.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {countryOptions.map((country) => (
+                                <Button
+                                    key={country.id}
+                                    type="button"
+                                    variant="outline"
+                                    className="h-auto justify-start px-5 py-4 text-left text-base"
+                                    onClick={() => {
+                                        router.visit(
+                                            generalPublicCreate({
+                                                query: {
+                                                    country: country.slug,
+                                                },
+                                            }).url,
+                                        );
+                                    }}
+                                >
+                                    {country.name}
+                                </Button>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (isSubmitted) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+                <Head title="Enquiry Submitted" />
+
+                <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
+                    <CardHeader className="pb-6">
+                        <CardTitle className="flex items-center gap-2 text-4xl font-light text-green-700">
+                            <CheckCircle className="h-7 w-7" />
+                            Enquiry Submitted
+                        </CardTitle>
+                        <CardDescription className="mt-2 text-base text-green-700">
+                            Your enquiry has been submitted. We will contact you
+                            soon.
+                        </CardDescription>
+                        {selectedCountry?.name ? (
+                            <CardDescription className="mt-2 text-base font-medium text-foreground">
+                                Selected Country: {selectedCountry.name}
+                            </CardDescription>
+                        ) : null}
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex justify-end">
+                            <Button
+                                type="button"
+                                onClick={() => router.visit(createFormUrl)}
+                            >
+                                Go to Form
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -104,7 +197,9 @@ export default function GeneralEnquiryForm({
 
         if (!validateClientSide()) return;
 
-        const url = '/general-enquiries/public/store';
+        const url = generalPublicStore({
+            query: { country: selectedCountry?.slug ?? '' },
+        }).url;
 
         post(url, {
             preserveScroll: true,
@@ -112,7 +207,6 @@ export default function GeneralEnquiryForm({
                 setIsSubmitted(true);
                 reset();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                setTimeout(() => setIsSubmitted(false), 5000);
             },
             onError: (errors) => {
                 setError(errors);
@@ -145,35 +239,14 @@ export default function GeneralEnquiryForm({
                         Thank you for your interest. Kindly fill in the details
                         below so we can assist you with your enquiry.
                     </CardDescription>
+                    {selectedCountry?.name ? (
+                        <CardDescription className="mt-2 text-base font-medium text-foreground">
+                            Selected Country: {selectedCountry.name}
+                        </CardDescription>
+                    ) : null}
                 </CardHeader>
 
                 <CardContent>
-                    <Dialog
-                        open={isSubmitted}
-                        onOpenChange={(open) => setIsSubmitted(open)}
-                    >
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-green-700">
-                                    <CheckCircle className="h-5 w-5" />
-                                    Submission Successful
-                                </DialogTitle>
-                                <DialogDescription className="text-base text-green-700">
-                                    Your enquiry has been submitted. We will
-                                    contact you soon.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="flex justify-end">
-                                <Button
-                                    type="button"
-                                    onClick={() => setIsSubmitted(false)}
-                                >
-                                    Close
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-
                     <form onSubmit={submit} className="space-y-6">
                         {/* Error Alert */}
                         {Object.keys(errors).length > 0 && !isView && (

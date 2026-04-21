@@ -254,6 +254,15 @@ class InvoiceService
 
         $extensions = array_values(array_merge($itemTaxExtensions, $quotationExtensions));
         $overallTotalAmount = (float) ($i->order?->quotation?->total_amount ?? $totalAmount);
+        $invoicePaymentProgress = $this->buildInvoicePaymentProgressRows(
+            collect($i->order?->invoices ?? []),
+            $overallTotalAmount,
+        );
+        $invoiceTotalAmount = $this->formatService->cleanDecimal((float) collect($invoicePaymentProgress)
+            ->sum(fn (array $row): float => (float) ($row['total_amount'] ?? 0)));
+        $invoicePaidAmount = $this->formatService->cleanDecimal((float) collect($invoicePaymentProgress)
+            ->sum(fn (array $row): float => (float) ($row['amount_paid'] ?? 0)));
+        $balanceDueAmount = $this->formatService->cleanDecimal(max(0.0, $invoiceTotalAmount - $invoicePaidAmount));
 
         return [
             'id' => $i->id,
@@ -280,10 +289,10 @@ class InvoiceService
             'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
-            'invoice_payment_progress' => $this->buildInvoicePaymentProgressRows(
-                collect($i->order?->invoices ?? []),
-                $overallTotalAmount,
-            ),
+            'invoice_total_amount' => $invoiceTotalAmount,
+            'invoice_paid_amount' => $invoicePaidAmount,
+            'balance_due_amount' => $balanceDueAmount,
+            'invoice_payment_progress' => $invoicePaymentProgress,
             'extensions' => $extensions,
             'notes' => $i->invoiceNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $i->quotationItems->map(fn ($item) => [

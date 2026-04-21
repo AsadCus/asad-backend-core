@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 class ManifestController extends Controller
 {
@@ -374,11 +375,17 @@ class ManifestController extends Controller
     public function exportCollectionItemsPdf(Request $request, string $id)
     {
         try {
+            $locationResponse = $this->redirectInertiaPdfRequest($request);
+
+            if ($locationResponse !== null) {
+                return $locationResponse;
+            }
+
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $request->input('snapshot');
+            $snapshot = $this->resolveSnapshotFromRequest($request);
 
             if (is_string($snapshot) && $snapshot !== '') {
                 $decodedSnapshot = json_decode($snapshot, true);
@@ -448,11 +455,17 @@ class ManifestController extends Controller
     public function exportArabicNamesPdf(Request $request, string $id)
     {
         try {
+            $locationResponse = $this->redirectInertiaPdfRequest($request);
+
+            if ($locationResponse !== null) {
+                return $locationResponse;
+            }
+
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $request->input('snapshot');
+            $snapshot = $this->resolveSnapshotFromRequest($request);
 
             if (is_string($snapshot) && $snapshot !== '') {
                 $decodedSnapshot = json_decode($snapshot, true);
@@ -530,11 +543,17 @@ class ManifestController extends Controller
     public function exportAirlineNamesPdf(Request $request, string $id)
     {
         try {
+            $locationResponse = $this->redirectInertiaPdfRequest($request);
+
+            if ($locationResponse !== null) {
+                return $locationResponse;
+            }
+
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $request->input('snapshot');
+            $snapshot = $this->resolveSnapshotFromRequest($request);
 
             if (is_string($snapshot) && $snapshot !== '') {
                 $decodedSnapshot = json_decode($snapshot, true);
@@ -596,6 +615,12 @@ class ManifestController extends Controller
     public function exportRoomCheckPdf(Request $request, string $id)
     {
         try {
+            $locationResponse = $this->redirectInertiaPdfRequest($request);
+
+            if ($locationResponse !== null) {
+                return $locationResponse;
+            }
+
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
@@ -612,7 +637,7 @@ class ManifestController extends Controller
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
 
-            $snapshot = $request->input('snapshot');
+            $snapshot = $this->resolveSnapshotFromRequest($request);
 
             if (is_string($snapshot) && $snapshot !== '') {
                 $decodedSnapshot = json_decode($snapshot, true);
@@ -706,7 +731,7 @@ class ManifestController extends Controller
     /**
      * Move one manifest member to a new holding confirmation and cancel existing assignment.
      */
-    public function moveMemberToHolding(Request $request, string $manifestId, string $memberId): JsonResponse
+    public function moveMemberToHolding(Request $request, string $manifestId, string $memberId): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'target_package_id' => ['nullable', 'integer', 'exists:packages,id'],
@@ -733,10 +758,81 @@ class ManifestController extends Controller
             (int) $manifestId,
         );
 
+        if ($request->header('X-Inertia')) {
+            return redirect()->back(303)
+                ->with('success', 'Member moved to holding confirmation successfully.');
+        }
+
         return response()->json([
             'message' => 'Member moved to holding confirmation successfully.',
             'new_confirmation_id' => $newConfirmation->id,
         ]);
+    }
+
+    public function storeExportSnapshotToken(Request $request, string $id): RedirectResponse
+    {
+        $this->resolveScopedManifest((int) $id);
+
+        $validated = $request->validate([
+            'snapshot' => ['required', 'string'],
+        ]);
+
+        $token = (string) Str::uuid();
+
+        session()->put('manifest_pdf_snapshots.'.$token, $validated['snapshot']);
+
+        return redirect()->back(303)
+            ->with('manifest_export_snapshot_token', $token);
+    }
+
+    private function redirectInertiaPdfRequest(Request $request): ?Response
+    {
+        if (! $request->header('X-Inertia')) {
+            return null;
+        }
+
+        $query = $request->query();
+        $snapshot = $request->input('snapshot');
+
+        if (is_string($snapshot) && $snapshot !== '') {
+            $token = (string) Str::uuid();
+
+            session()->put('manifest_pdf_snapshots.'.$token, $snapshot);
+            $query['snapshot_token'] = $token;
+        }
+
+        unset($query['snapshot']);
+
+        $location = url()->current();
+
+        if ($query !== []) {
+            $location .= '?'.http_build_query($query);
+        }
+
+        return Inertia::location($location);
+    }
+
+    private function resolveSnapshotFromRequest(Request $request): ?string
+    {
+        $snapshot = $request->input('snapshot');
+
+        if (is_string($snapshot) && $snapshot !== '') {
+            return $snapshot;
+        }
+
+        $snapshotToken = trim((string) $request->query('snapshot_token', ''));
+
+        if ($snapshotToken === '') {
+            return null;
+        }
+
+        $storedSnapshot = session()->pull('manifest_pdf_snapshots.'.$snapshotToken);
+
+        if (! is_string($storedSnapshot) || $storedSnapshot === '') {
+            return null;
+        }
+
+        return $storedSnapshot;
     }
 
     /**

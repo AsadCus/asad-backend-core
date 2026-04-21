@@ -271,6 +271,20 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'refund_cancel_date',
+        header: 'Refund Cancel Date',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const value = row.original.refund_cancel_date;
+
+            if (!value || String(value).trim().length === 0) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return <span>{value}</span>;
+        },
+    },
+    {
         accessorKey: 'paid_amount',
         header: 'Payment',
         meta: { exportable: true },
@@ -295,6 +309,8 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                 (sum, member) => sum + (member.invoice_paid_amount ?? 0),
                 0,
             );
+            const holdAmount = totalPaidAmount - totalRefundedAmount;
+
             return (
                 <div className="flex flex-col gap-1 text-sm">
                     <div className="font-medium text-green-600">
@@ -302,6 +318,9 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
                     </div>
                     <div className="font-medium text-red-600">
                         Refunded: {formatCurrency(totalRefundedAmount)}
+                    </div>
+                    <div className="font-medium text-muted-foreground">
+                        Hold Amount: {formatCurrency(holdAmount)}
                     </div>
                 </div>
             );
@@ -587,6 +606,8 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
         cell: ({ row }) => {
             const refundedAmount = row.original.refunded_amount ?? 0;
             const paidAmount = row.original.invoice_paid_amount ?? 0;
+            const holdAmount = paidAmount - refundedAmount;
+
             return (
                 <div className="flex flex-col gap-1 text-sm">
                     <div className="font-medium text-green-600">
@@ -594,6 +615,9 @@ const memberColumns: ColumnDef<CustomerConfirmationMemberDatatableSchema>[] = [
                     </div>
                     <div className="font-medium text-red-600">
                         Refunded: {formatCurrency(refundedAmount)}
+                    </div>
+                    <div className="font-medium text-muted-foreground">
+                        Hold Amount: {formatCurrency(holdAmount)}
                     </div>
                 </div>
             );
@@ -671,7 +695,10 @@ export default function ConfirmedCustomerIndex({
                 return columnKey !== 'paid_amount';
             }
 
-            return columnKey !== 'refunded_paid_summary';
+            return (
+                columnKey !== 'refunded_paid_summary' &&
+                columnKey !== 'refund_cancel_date'
+            );
         });
     }, [isCancelledIndex]);
 
@@ -1700,6 +1727,7 @@ export default function ConfirmedCustomerIndex({
                 data={data}
                 actions={['view']}
                 showSettings={false}
+                showExport={false}
                 getRowActions={(member) => {
                     if (isReadOnlyIndex) {
                         return [];
@@ -1858,6 +1886,7 @@ export default function ConfirmedCustomerIndex({
                             columns={groupTableColumns}
                             data={dataGroups}
                             actions={actions}
+                            showExport={false}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
                             inheritExpandedRowBackground

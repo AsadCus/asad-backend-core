@@ -26,6 +26,7 @@ interface DataTableToolbarProps<TData> {
     searchFilterMode?: 'inside' | 'outside';
     columnFilterMode?: 'inside' | 'outside';
     showSettings?: boolean;
+    showExport?: boolean;
 }
 
 export function DataTableToolbar<TData>({
@@ -45,6 +46,7 @@ export function DataTableToolbar<TData>({
     searchFilterMode = 'inside',
     columnFilterMode = 'inside',
     showSettings = true,
+    showExport = true,
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const showOutsideSearch = searchFilterMode === 'outside';
@@ -144,7 +146,12 @@ export function DataTableToolbar<TData>({
                         )}
                     </div>
 
-                    <DataTableExport table={table} filename={exportFilename} />
+                    {showExport && (
+                        <DataTableExport
+                            table={table}
+                            filename={exportFilename}
+                        />
+                    )}
                 </div>
 
                 {(showOutsideSearch || showOutsideColumnFilters) && (

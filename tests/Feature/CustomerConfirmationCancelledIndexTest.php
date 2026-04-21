@@ -64,9 +64,13 @@ class CustomerConfirmationCancelledIndexTest extends TestCase
             ]);
         };
 
-        $createMember($cancelledNonHoldingGroup, 'cancelled', true);
+        $cancelledMember = $createMember($cancelledNonHoldingGroup, 'cancelled', true);
         $createMember($activeNonHoldingGroup, 'pending_payment', true);
         $createMember($cancelledHoldingGroup, 'cancelled', true);
+
+        $cancelledMember->forceFill([
+            'updated_at' => '2026-04-12 10:00:00',
+        ])->save();
 
         $response = $this->get(route('cancelled-customer.index'));
 
@@ -78,6 +82,7 @@ class CustomerConfirmationCancelledIndexTest extends TestCase
                 ->where('indexUrl', route('cancelled-customer.index'))
                 ->has('dataGroups', 1)
                 ->where('dataGroups.0.id', $cancelledNonHoldingGroup->id)
+                ->where('dataGroups.0.refund_cancel_date', '12 April 2026')
             );
     }
 }

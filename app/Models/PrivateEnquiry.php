@@ -52,6 +52,7 @@ class PrivateEnquiry extends Model
         'madinah_tour_with_mutawif' => 'boolean',
         'makkah_tour_with_mutawif' => 'boolean',
         'has_chronic_disease' => 'boolean',
+        'need_wheelchair' => 'boolean',
     ];
 
     // Formatting Helpers

@@ -744,8 +744,8 @@ function buildInstallmentItems(
                   : 0;
 
         const depositAmount = clampToItemAmount(perItemDepositAmount, amount);
-        const fiftyPercentTarget = roundToCents(amount * 0.5);
         const remainingAfterDeposit = roundToCents(amount - depositAmount);
+        const fiftyPercentTarget = roundToCents(remainingAfterDeposit * 0.5);
         const fiftyPercentAmount = clampToItemAmount(
             fiftyPercentTarget,
             remainingAfterDeposit,

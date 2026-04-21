@@ -104,10 +104,13 @@ class PackageService
                 'is_private' => $isPrivate,
                 'is_selectable' => $isSelectable,
                 'officials' => $q->officials->map(function ($official) {
+                    $hotelMap = $this->normalizeOfficialHotelMap($official->hotel);
+
                     return [
                         'id' => $official->id,
                         'name' => $official->name,
-                        'hotel' => $official->hotel,
+                        'hotel' => $this->resolvePrimaryOfficialHotel($official->hotel),
+                        'hotel_map' => $hotelMap,
                         'contact_number' => $official->contact_number,
                     ];
                 })->values()->toArray(),
@@ -337,11 +340,14 @@ class PackageService
                 ];
             })->toArray(),
             'officials' => $package->officials->map(function ($o) {
+                $hotelMap = $this->normalizeOfficialHotelMap($o->hotel);
+
                 return [
                     'id' => $o->id,
                     'type' => $o->type,
                     'name' => $o->name,
-                    'hotel' => $o->hotel,
+                    'hotel' => $this->resolvePrimaryOfficialHotel($o->hotel),
+                    'hotel_map' => $hotelMap,
                     'contact_number' => $o->contact_number,
                     'nationality' => $o->nationality,
                     'passport_number' => $o->passport_number,
@@ -595,9 +601,7 @@ class PackageService
         if (! empty($privateEnquiry->no_of_nights_madinah)) {
             $remarks[] = 'Nights in Madinah: '.$privateEnquiry->no_of_nights_madinah;
         }
-        if (! empty($privateEnquiry->need_wheelchair)) {
-            $remarks[] = 'Wheelchair support: '.$privateEnquiry->need_wheelchair;
-        }
+        $remarks[] = 'Wheelchair support: '.($privateEnquiry->need_wheelchair ? 'Yes' : 'No');
         if ($privateEnquiry->has_chronic_disease) {
             $remarks[] = 'Chronic disease: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
         }
@@ -847,6 +851,9 @@ class PackageService
     private function syncOfficials(Package $package, array $officials): void
     {
         $existingOfficials = $package->officials()->get()->keyBy('id');
+        $accommodationIds = $package->accommodations()->orderBy('id')->pluck('id')
+            ->map(fn ($id) => (string) (int) $id)
+            ->all();
         $existingOfficialsByPassport = $package->officials()
             ->get()
             ->filter(fn ($official) => ! empty($official->passport_number))
@@ -865,7 +872,7 @@ class PackageService
             $payload = [
                 'type' => $official['type'] ?? null,
                 'name' => $official['name'] ?? null,
-                'hotel' => $official['hotel'] ?? null,
+                'hotel' => $this->buildOfficialHotelMap($official, $accommodationIds),
                 'contact_number' => $official['contact_number'] ?? null,
                 'nationality' => $official['nationality'] ?? null,
                 'passport_number' => $official['passport_number'] ?? null,
@@ -1163,6 +1170,101 @@ class PackageService
 
             $nextSortOrder++;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function normalizeOfficialHotelMap(mixed $rawHotel): array
+    {
+        if (! is_array($rawHotel)) {
+            return [];
+        }
+
+        $hotelMap = [];
+
+        foreach ($rawHotel as $key => $value) {
+            $hotel = trim((string) ($value ?? ''));
+            if ($hotel === '') {
+                continue;
+            }
+
+            $normalizedKey = is_int($key) || ctype_digit((string) $key)
+                ? (string) (int) $key
+                : trim((string) $key);
+
+            if ($normalizedKey === '') {
+                continue;
+            }
+
+            $hotelMap[$normalizedKey] = $hotel;
+        }
+
+        return $hotelMap;
+    }
+
+    private function resolvePrimaryOfficialHotel(mixed $rawHotel): ?string
+    {
+        foreach ($this->normalizeOfficialHotelMap($rawHotel) as $hotel) {
+            $normalizedHotel = trim((string) $hotel);
+            if ($normalizedHotel !== '') {
+                return $normalizedHotel;
+            }
+        }
+
+        if (! is_string($rawHotel)) {
+            return null;
+        }
+
+        $normalizedHotel = trim($rawHotel);
+
+        return $normalizedHotel !== '' ? $normalizedHotel : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $official
+     * @param  array<int, string>  $accommodationIds
+     * @return array<string, string>|null
+     */
+    private function buildOfficialHotelMap(array $official, array $accommodationIds): ?array
+    {
+        $rawHotelMap = $official['hotel_map'] ?? null;
+
+        if (is_array($rawHotelMap)) {
+            $hotelMap = $this->normalizeOfficialHotelMap($rawHotelMap);
+
+            if ($hotelMap !== []) {
+                return $hotelMap;
+            }
+        }
+
+        $rawHotel = $official['hotel'] ?? null;
+
+        if (is_array($rawHotel)) {
+            $hotelMap = $this->normalizeOfficialHotelMap($rawHotel);
+
+            return $hotelMap !== [] ? $hotelMap : null;
+        }
+
+        if (! is_string($rawHotel)) {
+            return null;
+        }
+
+        $normalizedHotel = trim($rawHotel);
+        if ($normalizedHotel === '') {
+            return null;
+        }
+
+        if ($accommodationIds === []) {
+            return ['0' => $normalizedHotel];
+        }
+
+        $hotelMap = [];
+        foreach ($accommodationIds as $accommodationId) {
+            $hotelMap[$accommodationId] = $normalizedHotel;
+        }
+
+        return $hotelMap;
     }
 
     /**

@@ -756,32 +756,36 @@ export default function OpsMovementForm({
         setFormData('accommodations', nextRows);
     };
 
-    const accommodationLocations = useMemo(() => {
-        const locations = (data.accommodations ?? []).map(
-            (accommodation, index) => {
-                const normalizedLocation = String(
-                    accommodation.location ?? '',
-                ).trim();
+    const accommodationLocationTargets = useMemo(() => {
+        const uniqueTargets: Array<{
+            location: string;
+            fallbackHotel: string;
+        }> = [];
 
-                return normalizedLocation.length > 0
+        (data.accommodations ?? []).forEach((accommodation, index) => {
+            const normalizedLocation = String(
+                accommodation.location ?? '',
+            ).trim();
+            const location =
+                normalizedLocation.length > 0
                     ? normalizedLocation
                     : `Location ${index + 1}`;
-            },
-        );
+            const fallbackHotel = String(accommodation.hotel_name ?? '').trim();
 
-        const uniqueLocations: string[] = [];
-        locations.forEach((location) => {
             if (
-                !uniqueLocations.some(
-                    (current) =>
-                        current.toLowerCase() === location.toLowerCase(),
+                uniqueTargets.some(
+                    (target) =>
+                        target.location.toLowerCase() ===
+                        location.toLowerCase(),
                 )
             ) {
-                uniqueLocations.push(location);
+                return;
             }
+
+            uniqueTargets.push({ location, fallbackHotel });
         });
 
-        return uniqueLocations;
+        return uniqueTargets;
     }, [data.accommodations]);
 
     const resolveOfficialHotelRows = (official: OpsOfficialSchema) => {
@@ -792,8 +796,9 @@ export default function OpsMovementForm({
             }))
             .filter((row) => row.location.length > 0);
 
-        if (accommodationLocations.length > 0) {
-            return accommodationLocations.map((location) => {
+        if (accommodationLocationTargets.length > 0) {
+            return accommodationLocationTargets.map((target) => {
+                const location = target.location;
                 const matched = storedRows.find(
                     (row) =>
                         row.location.toLowerCase() === location.toLowerCase(),
@@ -802,7 +807,9 @@ export default function OpsMovementForm({
                 return {
                     location,
                     hotel:
-                        matched?.hotel ?? String(official.hotel ?? '').trim(),
+                        matched?.hotel ??
+                        (target.fallbackHotel ||
+                            String(official.hotel ?? '').trim()),
                 };
             });
         }
@@ -1587,7 +1594,7 @@ export default function OpsMovementForm({
                                         (hotelRow, hotelIndex) => (
                                             <FormField
                                                 key={`${official.id}-${hotelRow.location}-${hotelIndex}`}
-                                                label={`${hotelRow.location} - Hotel`}
+                                                label={`${hotelRow.location} Hotel`}
                                                 fieldRequirementsProps={{
                                                     hint: 'Hotel remark for this accommodation location.',
                                                 }}

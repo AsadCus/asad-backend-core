@@ -166,6 +166,7 @@ export interface CustomerConfirmationMemberDatatableSchema {
     nationality: string;
     passport_number: string;
     latest_invoice_payment_method?: string | null;
+    refund_cancel_date?: string | null;
 }
 
 export interface CustomerConfirmationDatatableSchema {
@@ -188,6 +189,7 @@ export interface CustomerConfirmationDatatableSchema {
     total_amount: number;
     refunded_amount?: number;
     overpaid_amount?: number;
+    refund_cancel_date?: string | null;
     can_create_quotation: boolean;
     can_delete?: boolean;
     created_at: string;

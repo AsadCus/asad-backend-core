@@ -99,6 +99,8 @@ class PackageRule
             'officials.*.type' => ['nullable', 'string', 'max:255'],
             'officials.*.name' => ['nullable', 'string', 'max:255'],
             'officials.*.hotel' => ['nullable', 'string', 'max:255'],
+            'officials.*.hotel_map' => ['nullable', 'array'],
+            'officials.*.hotel_map.*' => ['nullable', 'string', 'max:255'],
             'officials.*.contact_number' => ['nullable', 'string', 'max:255'],
             'officials.*.nationality' => ['nullable', 'string', 'max:100'],
             'officials.*.passport_number' => ['nullable', 'string', 'max:100'],

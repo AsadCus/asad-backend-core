@@ -58,7 +58,7 @@ class EnquiryService
                     'package_name' => $enquiry->package?->name ?? null,
                     'latest_remark' => $enquiry->latestRemark?->remark ?? '-',
                     'handled_by' => $enquiry->handled_by,
-                    'handled_by_name' => $enquiry->handledBy?->name ?? 'Unassigned',
+                    'handled_by_name' => $enquiry->handledBy?->name,
                     'created_at' => $enquiry->created_at?->translatedFormat('d F Y'),
                 ];
             })

@@ -8,29 +8,38 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Head, useForm } from '@inertiajs/react';
+    create as privatePublicCreate,
+    store as privatePublicStore,
+} from '@/routes/private-enquiries/public';
+import { Head, router, useForm } from '@inertiajs/react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PrivateEnquiryFormFields from '../form-fields';
 import { PrivateEnquirySchema } from '../schema';
 import { privateEnquiryValidationSchema } from '../validation';
 
+interface CountrySelectorOption {
+    id: number;
+    name: string;
+    slug: string;
+}
+
 interface PrivateEnquiryFormProps {
-    mode: 'create' | 'edit' | 'view';
+    mode?: 'create' | 'edit' | 'view';
     initialData?: PrivateEnquirySchema;
     onCancel?: () => void;
+    countryOptions?: CountrySelectorOption[];
+    showCountrySelector?: boolean;
+    selectedCountry?: CountrySelectorOption | null;
 }
 
 export default function PrivateEnquiryForm({
-    mode,
+    mode = 'create',
     initialData,
     onCancel,
+    countryOptions = [],
+    showCountrySelector = true,
+    selectedCountry = null,
 }: PrivateEnquiryFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
@@ -62,6 +71,7 @@ export default function PrivateEnquiryForm({
         name: '',
         contact_number: '',
         email: '',
+        country_id: selectedCountry?.id ?? null,
         passport_expiry_date: '',
         departure_date: '',
         return_date: '',
@@ -87,7 +97,7 @@ export default function PrivateEnquiryForm({
         makkah_tour_with_mutawif: false,
         has_chronic_disease: false,
         chronic_disease_details: '',
-        need_wheelchair: '',
+        need_wheelchair: false,
         other_remarks: '',
     };
 
@@ -102,6 +112,89 @@ export default function PrivateEnquiryForm({
         setError,
         clearErrors,
     } = useForm<PrivateEnquirySchema>(defaultData);
+
+    const createFormUrl = selectedCountry?.slug
+        ? privatePublicCreate({
+              query: { country: selectedCountry.slug },
+          }).url
+        : privatePublicCreate().url;
+
+    if (showCountrySelector) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+                <Head title="Select Country - Private Enquiry" />
+                <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
+                    <CardHeader className="pb-6">
+                        <CardTitle className="text-4xl font-light">
+                            Private Umrah Enquiry Form
+                        </CardTitle>
+                        <CardDescription className="mt-2 text-base">
+                            Please choose your country first.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {countryOptions.map((country) => (
+                                <Button
+                                    key={country.id}
+                                    type="button"
+                                    variant="outline"
+                                    className="h-auto justify-start px-5 py-4 text-left text-base"
+                                    onClick={() => {
+                                        router.visit(
+                                            privatePublicCreate({
+                                                query: {
+                                                    country: country.slug,
+                                                },
+                                            }).url,
+                                        );
+                                    }}
+                                >
+                                    {country.name}
+                                </Button>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (isSubmitted) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+                <Head title="Private Enquiry Submitted" />
+
+                <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
+                    <CardHeader className="pb-6">
+                        <CardTitle className="flex items-center gap-2 text-4xl font-light text-green-700">
+                            <CheckCircle className="h-7 w-7" />
+                            Private Enquiry Submitted
+                        </CardTitle>
+                        <CardDescription className="mt-2 text-base text-green-700">
+                            Your private enquiry has been submitted. We will
+                            contact you soon with a detailed quotation.
+                        </CardDescription>
+                        {selectedCountry?.name ? (
+                            <CardDescription className="mt-2 text-base font-medium text-foreground">
+                                Selected Country: {selectedCountry.name}
+                            </CardDescription>
+                        ) : null}
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex justify-end">
+                            <Button
+                                type="button"
+                                onClick={() => router.visit(createFormUrl)}
+                            >
+                                Go to Form
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     function validateClientSide(): boolean {
         clearErrors();
@@ -126,7 +219,9 @@ export default function PrivateEnquiryForm({
 
         if (!validateClientSide()) return;
 
-        const url = '/private-enquiries/public/store';
+        const url = privatePublicStore({
+            query: { country: selectedCountry?.slug ?? '' },
+        }).url;
 
         post(url, {
             preserveScroll: true,
@@ -134,7 +229,6 @@ export default function PrivateEnquiryForm({
                 setIsSubmitted(true);
                 reset();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                setTimeout(() => setIsSubmitted(false), 5000);
             },
             onError: (errors) => {
                 setError(errors);
@@ -168,36 +262,14 @@ export default function PrivateEnquiryForm({
                         packages. Please fill in the details below so we can
                         prepare a personalized quotation for you.
                     </CardDescription>
+                    {selectedCountry?.name ? (
+                        <CardDescription className="mt-2 text-base font-medium text-foreground">
+                            Selected Country: {selectedCountry.name}
+                        </CardDescription>
+                    ) : null}
                 </CardHeader>
 
                 <CardContent>
-                    <Dialog
-                        open={isSubmitted}
-                        onOpenChange={(open) => setIsSubmitted(open)}
-                    >
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-green-700">
-                                    <CheckCircle className="h-5 w-5" />
-                                    Submission Successful
-                                </DialogTitle>
-                                <DialogDescription className="text-base text-green-700">
-                                    Your private enquiry has been submitted. We
-                                    will contact you soon with a detailed
-                                    quotation.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="flex justify-end">
-                                <Button
-                                    type="button"
-                                    onClick={() => setIsSubmitted(false)}
-                                >
-                                    Close
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-
                     <form onSubmit={submit} className="space-y-6">
                         {/* Error Alert */}
                         {Object.keys(errors).length > 0 && !isView && (

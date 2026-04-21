@@ -24,7 +24,6 @@ export interface PrivateEnquiryFieldOptions {
     nightsMakkah: OptionType[];
     nightsMadinah: OptionType[];
     landTransfer: OptionType[];
-    wheelchair: OptionType[];
 }
 
 const nightCountOptions: OptionType[] = Array.from({ length: 10 }, (_, i) => {
@@ -121,10 +120,6 @@ export const internalFieldOptions: PrivateEnquiryFieldOptions = {
         { value: 'Hi-Ace (8 Pax)', label: 'Hi-Ace (8 Pax)' },
         { value: 'Coaster (12 Pax)', label: 'Coaster (12 Pax)' },
     ],
-    wheelchair: [
-        { value: 'No', label: 'No' },
-        { value: 'Yes', label: 'Yes' },
-    ],
 };
 
 export default function PrivateEnquiryFormFields({
@@ -143,7 +138,6 @@ export default function PrivateEnquiryFormFields({
     const nightsMakkah = options.nightsMakkah;
     const nightsMadinah = options.nightsMadinah;
     const landTransferOpts = options.landTransfer;
-    const wheelchairOpts = options.wheelchair;
     const disabled = isView || processing;
 
     return (
@@ -222,10 +216,7 @@ export default function PrivateEnquiryFormFields({
                     <div className="grid w-full items-center gap-3">
                         <Label htmlFor="passport_expiry_date">
                             Passport Expiry Date
-                            <FieldRequirements
-                                required
-                                hint="Select passport expiry date"
-                            />
+                            <FieldRequirements hint="Optional: select passport expiry date" />
                         </Label>
                         <div className="relative">
                             <DatePickerField
@@ -265,7 +256,11 @@ export default function PrivateEnquiryFormFields({
                                 value={data.departure_date}
                                 disabled={disabled}
                                 disabledDates={isBeforeToday}
-                                onChange={(v) => setData('departure_date', v)}
+                                onChange={(v) => {
+                                    const nextDate = v || '';
+                                    setData('departure_date', nextDate);
+                                    setData('return_date', nextDate);
+                                }}
                             />
                             {renderError('departure_date')}
                         </div>
@@ -909,9 +904,9 @@ export default function PrivateEnquiryFormFields({
                         </Label>
                         <div className="relative">
                             <Select
-                                value={data.need_wheelchair}
+                                value={data.need_wheelchair ? 'yes' : 'no'}
                                 onValueChange={(value) =>
-                                    setData('need_wheelchair', value)
+                                    setData('need_wheelchair', value === 'yes')
                                 }
                                 disabled={disabled}
                             >
@@ -919,14 +914,8 @@ export default function PrivateEnquiryFormFields({
                                     <SelectValue placeholder="Select option" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {wheelchairOpts.map((opt) => (
-                                        <SelectItem
-                                            key={opt.value}
-                                            value={opt.value}
-                                        >
-                                            {opt.label}
-                                        </SelectItem>
-                                    ))}
+                                    <SelectItem value="no">No</SelectItem>
+                                    <SelectItem value="yes">Yes</SelectItem>
                                 </SelectContent>
                             </Select>
                             {renderError('need_wheelchair')}

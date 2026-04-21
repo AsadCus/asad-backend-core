@@ -184,7 +184,7 @@ class ReceiptService
         $query = Receipt::with([
             'invoice.quotationItems.taxes',
             'invoice.order.quotation.customer.user',
-            'invoice.order.invoices',
+            'invoice.order.invoices.receipt',
             'receiptNotes',
         ]);
 
@@ -238,6 +238,17 @@ class ReceiptService
         $extensions = array_values(array_merge($itemTaxExtensions, $quotationExtensions));
         $overallTotalAmount = (float) ($invoice?->order?->quotation?->total_amount ?? $totalAmount);
 
+        $invoicePaymentProgress = $this->buildInvoicePaymentProgressRows(
+            collect($invoice?->order?->invoices ?? []),
+            $overallTotalAmount,
+        );
+        $invoiceTotalAmount = $this->formatService->cleanDecimal((float) collect($invoicePaymentProgress)
+            ->sum(fn (array $row): float => (float) ($row['total_amount'] ?? 0)));
+        $invoicePaidAmount = $this->formatService->cleanDecimal((float) collect($invoicePaymentProgress)
+            ->sum(fn (array $row): float => (float) ($row['amount_paid'] ?? 0)));
+        $balanceDueAmount = $this->formatService->cleanDecimal(max(0.0, $invoiceTotalAmount - $invoicePaidAmount));
+        $isRefundInvoiceReport = InvoiceStatus::isRefund($invoice?->status);
+
         return [
             'id' => $r->id,
             'receipt_number' => $r->receipt_number,
@@ -257,10 +268,12 @@ class ReceiptService
             'subtotal_amount' => $this->formatService->cleanDecimal($subtotalAmount),
             'extension_total_amount' => $this->formatService->cleanDecimal($extensionTotalAmount),
             'total_amount' => $this->formatService->cleanDecimal($totalAmount),
-            'invoice_payment_progress' => $this->buildInvoicePaymentProgressRows(
-                collect($invoice?->order?->invoices ?? []),
-                $overallTotalAmount,
-            ),
+            'invoice_total_amount' => $invoiceTotalAmount,
+            'invoice_paid_amount' => $invoicePaidAmount,
+            'balance_due_amount' => $balanceDueAmount,
+            'is_refund_receipt_report' => $isRefundInvoiceReport,
+            'amount_not_refunded' => $isRefundInvoiceReport ? $balanceDueAmount : null,
+            'invoice_payment_progress' => $invoicePaymentProgress,
             'extensions' => $extensions,
             'notes' => $r->receiptNotes->sortBy('sort_order')->values()->toArray(),
             'items' => $r->invoice?->quotationItems->map(fn ($item) => [

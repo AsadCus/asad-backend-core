@@ -4,6 +4,7 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -18,11 +19,14 @@ import {
 } from '@/lib/dialog-focus';
 import { getForShow, index, packagePrefill } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
+import { create as generalPublicCreate } from '@/routes/general-enquiries/public';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
+import { create as privatePublicCreate } from '@/routes/private-enquiries/public';
 import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import CustomerConfirmationForm from '../confirmed-customer/form';
 import PackageForm from '../packages/form';
 import type { PackageSchema } from '../packages/schema';
@@ -140,6 +144,19 @@ const columns: ColumnDef<EnquirySchema>[] = [
         accessorKey: 'handled_by_name',
         header: 'Handled By',
         meta: { exportable: true },
+        cell: ({ row }) => {
+            const handledByName = row.original.handled_by_name;
+
+            if (handledByName) {
+                return handledByName;
+            }
+
+            return (
+                <Badge variant="secondary" className="italic">
+                    Unassigned
+                </Badge>
+            );
+        },
     },
     {
         accessorKey: 'handled_by',
@@ -237,6 +254,33 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
     >();
     const [remarksEnquiryName, setRemarksEnquiryName] = useState('');
 
+    const copyPublicEnquiryLink = useCallback(
+        async (enquiryType: 'general' | 'private') => {
+            try {
+                const path =
+                    enquiryType === 'general'
+                        ? generalPublicCreate().url
+                        : privatePublicCreate().url;
+                const fullUrl = new URL(
+                    path,
+                    window.location.origin,
+                ).toString();
+
+                await navigator.clipboard.writeText(fullUrl);
+
+                toast.success('Public form link copied.', {
+                    description:
+                        enquiryType === 'general'
+                            ? 'General enquiry public link copied to clipboard.'
+                            : 'Private enquiry public link copied to clipboard.',
+                });
+            } catch {
+                toast.error('Failed to copy public form link.');
+            }
+        },
+        [],
+    );
+
     /** Start the private enquiry step-by-step confirmation flow. */
     const startPrivateFlow = useCallback(
         async (enquiryId: number) => {
@@ -323,6 +367,26 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         <h2 className="text-lg font-semibold">
                             Enquiry Dashboard
                         </h2>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() =>
+                                    void copyPublicEnquiryLink('general')
+                                }
+                            >
+                                Copy General Public Link
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() =>
+                                    void copyPublicEnquiryLink('private')
+                                }
+                            >
+                                Copy Private Public Link
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">

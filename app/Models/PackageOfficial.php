@@ -28,6 +28,7 @@ class PackageOfficial extends Model
     protected function casts(): array
     {
         return [
+            'hotel' => 'array',
             'date_of_birth' => 'date',
             'passport_issue_date' => 'date',
             'passport_expiry_date' => 'date',

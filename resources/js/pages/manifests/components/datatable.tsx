@@ -1261,7 +1261,7 @@ export default function ManifestDatatable({
         }
 
         if (mode === 'room_check') {
-            return drag + 15;
+            return drag + 16;
         }
 
         if (mode === 'course_collection') {
@@ -1522,6 +1522,9 @@ export default function ManifestDatatable({
             )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-20">Age</TableHead>
+            )}
+            {mode === 'room_check' && (
+                <TableHead className="min-w-45">Contact Number</TableHead>
             )}
             {mode === 'room_check' && (
                 <TableHead className="min-w-52">No. Of Beds Checked</TableHead>
@@ -1857,6 +1860,11 @@ export default function ManifestDatatable({
                         <TableCell>
                             <span className="text-muted-foreground">-</span>
                         </TableCell>
+                        {mode === 'room_check' && (
+                            <TableCell>
+                                <span className="text-muted-foreground">-</span>
+                            </TableCell>
+                        )}
                         {mode === 'room_check' && (
                             <TableCell>
                                 <div className="inline-flex items-center gap-3 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2 text-base">
@@ -2845,6 +2853,16 @@ export default function ManifestDatatable({
                                 size="default"
                             />
                         </TableCell>
+                        {mode === 'room_check' && (
+                            <TableCell>
+                                <ProperInput
+                                    value={member.contact_no ?? ''}
+                                    disabled={true}
+                                    onCommit={() => {}}
+                                    size="default"
+                                />
+                            </TableCell>
+                        )}
                         {mode === 'room_check' && (
                             <TableCell>
                                 <span className="text-muted-foreground">-</span>

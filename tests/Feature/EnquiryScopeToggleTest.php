@@ -63,10 +63,13 @@ class EnquiryScopeToggleTest extends TestCase
 
         $rows = app(EnquiryService::class)->getForDataTable();
         $ids = collect($rows)->pluck('id')->all();
+        $visibleUnhandledRow = collect($rows)->firstWhere('id', $visibleUnhandled->id);
 
         $this->assertCount(2, $rows);
         $this->assertContains($visibleUnhandled->id, $ids);
         $this->assertContains($visibleHandledBySelf->id, $ids);
+        $this->assertNotNull($visibleUnhandledRow);
+        $this->assertNull($visibleUnhandledRow['handled_by_name']);
     }
 
     public function test_sales_sees_all_enquiries_when_scope_disabled(): void

@@ -107,10 +107,15 @@ class OpsMovementService
         $officialOpsMap = collect($extension['officials'] ?? [])
             ->filter(fn ($official) => is_array($official) && isset($official['id']))
             ->keyBy('id');
-        $accommodationLocations = $package->accommodations
-            ->map(fn ($accommodation) => $this->normalizeNullableString($accommodation->location))
-            ->filter(fn ($location) => $location !== null)
-            ->unique(fn ($location) => strtolower((string) $location))
+        $accommodationTargets = $package->accommodations
+            ->map(function ($accommodation, int $index): array {
+                return [
+                    'id' => (int) $accommodation->id,
+                    'location' => $this->normalizeNullableString($accommodation->location)
+                        ?? ('Location '.($index + 1)),
+                    'hotel_name' => $this->normalizeNullableString($accommodation->hotel_name),
+                ];
+            })
             ->values();
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
         $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
@@ -253,8 +258,9 @@ class OpsMovementService
                     'remarks' => $accommodation->remarks ?? null,
                 ];
             })->values()->toArray(),
-            'officials' => $package->officials->map(function ($official) use ($officialOpsMap, $accommodationLocations) {
+            'officials' => $package->officials->map(function ($official) use ($officialOpsMap, $accommodationTargets) {
                 $officialOps = $officialOpsMap->get((int) $official->id, []);
+                $officialHotelMap = $this->normalizeOfficialHotelMap($official->hotel);
                 $storedHotelsByLocation = collect($officialOps['hotels_by_location'] ?? [])
                     ->filter(fn ($row) => is_array($row))
                     ->map(function ($row): array {
@@ -266,17 +272,20 @@ class OpsMovementService
                     ->filter(fn ($row) => $row['location'] !== null)
                     ->values();
                 $fallbackHotel = $this->normalizeNullableString($officialOps['hotel'] ?? null)
-                    ?? $this->normalizeNullableString($official->hotel);
+                    ?? $this->resolvePrimaryOfficialHotel($official->hotel);
 
-                $hotelsByLocation = $accommodationLocations
-                    ->map(function ($location) use ($storedHotelsByLocation, $fallbackHotel): array {
+                $hotelsByLocation = $accommodationTargets
+                    ->map(function (array $target) use ($storedHotelsByLocation, $fallbackHotel, $officialHotelMap): array {
+                        $location = (string) ($target['location'] ?? '');
+                        $hotelFromAccommodationMap = $officialHotelMap[(int) ($target['id'] ?? 0)] ?? null;
+                        $hotelFromAccommodation = $this->normalizeNullableString($target['hotel_name'] ?? null);
                         $matched = $storedHotelsByLocation->first(function (array $row) use ($location): bool {
                             return strtolower((string) $row['location']) === strtolower((string) $location);
                         });
 
                         return [
                             'location' => $location,
-                            'hotel' => $matched['hotel'] ?? $fallbackHotel,
+                            'hotel' => $matched['hotel'] ?? $hotelFromAccommodationMap ?? $hotelFromAccommodation ?? $fallbackHotel,
                         ];
                     })
                     ->values();
@@ -442,8 +451,35 @@ class OpsMovementService
                         ->map(fn ($hotel) => $this->normalizeNullableString($hotel))
                         ->first(fn ($hotel) => $hotel !== null);
 
+                $accommodationHotelMap = [];
+                foreach ($package->accommodations as $accommodation) {
+                    $location = $this->normalizeNullableString($accommodation->location);
+
+                    if ($location === null) {
+                        continue;
+                    }
+
+                    $matchedHotel = $hotelsByLocation
+                        ->first(function (array $row) use ($location): bool {
+                            return strtolower((string) ($row['location'] ?? '')) === strtolower($location);
+                        });
+
+                    $normalizedHotel = $this->normalizeNullableString($matchedHotel['hotel'] ?? null)
+                        ?? $primaryHotel;
+
+                    if ($normalizedHotel === null) {
+                        continue;
+                    }
+
+                    $accommodationHotelMap[(string) (int) $accommodation->id] = $normalizedHotel;
+                }
+
+                if ($accommodationHotelMap === [] && $primaryHotel !== null) {
+                    $accommodationHotelMap['0'] = $primaryHotel;
+                }
+
                 $official->update([
-                    'hotel' => $primaryHotel,
+                    'hotel' => $accommodationHotelMap === [] ? null : $accommodationHotelMap,
                 ]);
 
                 $officialExtensionRows[] = [
@@ -947,6 +983,53 @@ class OpsMovementService
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizeOfficialHotelMap(mixed $rawHotel): array
+    {
+        if (! is_array($rawHotel)) {
+            return [];
+        }
+
+        $hotelMap = [];
+
+        foreach ($rawHotel as $key => $value) {
+            $hotel = $this->normalizeNullableString($value);
+
+            if ($hotel === null) {
+                continue;
+            }
+
+            $normalizedKey = is_int($key) || ctype_digit((string) $key)
+                ? (int) $key
+                : null;
+
+            if ($normalizedKey === null) {
+                continue;
+            }
+
+            $hotelMap[$normalizedKey] = $hotel;
+        }
+
+        return $hotelMap;
+    }
+
+    private function resolvePrimaryOfficialHotel(mixed $rawHotel): ?string
+    {
+        $hotelMap = $this->normalizeOfficialHotelMap($rawHotel);
+
+        foreach ($hotelMap as $hotel) {
+            $normalizedHotel = $this->normalizeNullableString($hotel);
+
+            if ($normalizedHotel !== null) {
+                return $normalizedHotel;
+            }
+        }
+
+        return $this->normalizeNullableString($rawHotel);
     }
 
     /**
