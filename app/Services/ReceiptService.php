@@ -248,6 +248,9 @@ class ReceiptService
             ->sum(fn (array $row): float => (float) ($row['amount_paid'] ?? 0)));
         $balanceDueAmount = $this->formatService->cleanDecimal(max(0.0, $invoiceTotalAmount - $invoicePaidAmount));
         $isRefundInvoiceReport = InvoiceStatus::isRefund($invoice?->status);
+        $amountNotRefunded = $isRefundInvoiceReport
+            ? $this->resolveAmountNotRefundedForRefundReport($invoice)
+            : null;
 
         return [
             'id' => $r->id,
@@ -272,7 +275,7 @@ class ReceiptService
             'invoice_paid_amount' => $invoicePaidAmount,
             'balance_due_amount' => $balanceDueAmount,
             'is_refund_receipt_report' => $isRefundInvoiceReport,
-            'amount_not_refunded' => $isRefundInvoiceReport ? $balanceDueAmount : null,
+            'amount_not_refunded' => $amountNotRefunded,
             'invoice_payment_progress' => $invoicePaymentProgress,
             'extensions' => $extensions,
             'notes' => $r->receiptNotes->sortBy('sort_order')->values()->toArray(),
@@ -346,6 +349,25 @@ class ReceiptService
                 'total_amount' => $invoiceAmount,
             ];
         })->values()->all();
+    }
+
+    private function resolveAmountNotRefundedForRefundReport(?Invoice $invoice): float
+    {
+        if (! $invoice || ! $invoice->relationLoaded('order') || ! $invoice->order) {
+            return 0.0;
+        }
+
+        $netAmount = collect($invoice->order->invoices ?? [])
+            ->filter(function ($orderInvoice): bool {
+                $normalizedStatus = strtolower(trim((string) ($orderInvoice->status ?? '')));
+
+                return $normalizedStatus !== InvoiceStatus::Cancelled;
+            })
+            ->sum(function ($orderInvoice): float {
+                return $this->resolveInvoiceTotalWithExtensions($orderInvoice);
+            });
+
+        return $this->formatService->cleanDecimal(max(0.0, (float) $netAmount));
     }
 
     private function resolveInvoiceTotalWithExtensions($invoice): float

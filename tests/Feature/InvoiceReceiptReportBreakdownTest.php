@@ -257,6 +257,76 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
     }
 
     /**
+     * @return array{quotation: Quotation, refund_invoice: Invoice, receipt: Receipt}
+     */
+    private function createRefundReceiptGraph(): array
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RPT-REFUND-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Refund Scenario Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $paidInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Main invoice',
+            'amount' => 5000,
+            'invoice_date' => now()->subDays(2)->format('Y-m-d'),
+            'due_date' => now()->subDay()->format('Y-m-d'),
+            'status' => 'paid',
+        ]);
+        $paidInvoice->quotationItems()->sync([(int) $item->id]);
+
+        $refundInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Trip Cancelled-Refund',
+            'amount' => -4500,
+            'invoice_date' => now()->subDay()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'refund',
+        ]);
+        $refundInvoice->quotationItems()->sync([(int) $item->id]);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $refundInvoice->id,
+            'amount' => -4500,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'refund',
+        ]);
+
+        return [
+            'quotation' => $quotation,
+            'refund_invoice' => $refundInvoice,
+            'receipt' => $receipt,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function buildReportPayloadWithStalePercentageSuffix(): array
@@ -406,6 +476,16 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(8100.0, (float) ($receiptPayload['invoice_total_amount'] ?? 0));
         $this->assertSame(5100.0, (float) ($receiptPayload['invoice_paid_amount'] ?? 0));
         $this->assertSame(3000.0, (float) ($receiptPayload['balance_due_amount'] ?? 0));
+    }
+
+    public function test_refund_receipt_report_payload_uses_net_order_total_for_amount_not_refunded(): void
+    {
+        $graph = $this->createRefundReceiptGraph();
+
+        $payload = app(ReceiptService::class)->getForEditShow((int) $graph['receipt']->id);
+
+        $this->assertTrue((bool) ($payload['is_refund_receipt_report'] ?? false));
+        $this->assertSame(500.0, (float) ($payload['amount_not_refunded'] ?? 0));
     }
 
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
