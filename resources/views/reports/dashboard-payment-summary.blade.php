@@ -9,10 +9,28 @@
 @section('body-class', 'is-landscape')
 
 @push('styles')
+    @php
+        $marginPreset = $branding['page_margin_preset'] ?? 'normal';
+        $resolvedMargin = [
+            'narrow' => ['top' => '0.56cm', 'right' => '0.50cm', 'bottom' => '0.56cm', 'left' => '0.50cm'],
+            'normal' => ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'],
+            'wide' => ['top' => '1.70cm', 'right' => '1.50cm', 'bottom' => '1.70cm', 'left' => '1.50cm'],
+        ][$marginPreset] ?? ['top' => '0.85cm', 'right' => '0.75cm', 'bottom' => '0.85cm', 'left' => '0.75cm'];
+
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['block' => '8px', 'table' => '6px', 'header' => '8px'],
+            'normal' => ['block' => '10px', 'table' => '8px', 'header' => '10px'],
+            'relaxed' => ['block' => '16px', 'table' => '12px', 'header' => '16px'],
+        ][$sectionSpacingPreset] ?? ['block' => '10px', 'table' => '8px', 'header' => '10px'];
+    @endphp
     <style>
         @page {
             size: A4 landscape;
-            margin: 0.35cm 0.45cm;
+            margin-top: {{ $resolvedMargin['top'] }};
+            margin-right: {{ $resolvedMargin['right'] }};
+            margin-bottom: {{ $resolvedMargin['bottom'] }};
+            margin-left: {{ $resolvedMargin['left'] }};
         }
 
         /* ── Base table styles ─────────────────────────────────── */
@@ -21,7 +39,7 @@
             width: 100%;
             border-collapse: collapse;
             table-layout: auto;
-            margin-bottom: 8px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
             page-break-inside: auto;
         }
 
@@ -139,12 +157,12 @@
         }
 
         .footer-section {
-            margin-top: 8px;
+            margin-top: {{ $moduleSpacing['block'] }};
             font-size: 11px;
         }
 
         .footer-note {
-            margin-bottom: 6px;
+            margin-bottom: {{ $moduleSpacing['table'] }};
         }
     </style>
 @endpush

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -40,6 +41,10 @@ class ReportTemplateTest extends TestCase
             ->get(route('report-template.edit'));
 
         $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('settings/report-template')
+            ->where('settings.module_templates.manifest_airline_names.show_qr', true)
+        );
     }
 
     public function test_report_template_preview_shows_payment_history_for_quotation(): void

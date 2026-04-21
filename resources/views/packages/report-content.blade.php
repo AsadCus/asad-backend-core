@@ -7,6 +7,14 @@
 @endsection
 
 @push('styles')
+    @php
+        $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
+        $moduleSpacing = [
+            'compact' => ['block' => '8px', 'table_top' => '6px', 'title_top' => '10px', 'title_bottom' => '6px'],
+            'normal' => ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'],
+            'relaxed' => ['block' => '16px', 'table_top' => '12px', 'title_top' => '20px', 'title_bottom' => '10px'],
+        ][$sectionSpacingPreset] ?? ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'];
+    @endphp
     <style>
         /* ── Content Wrapper ── */
         .content-wrapper {
@@ -17,7 +25,7 @@
         .meta-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .meta-table td {
@@ -41,7 +49,7 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin: 14px 0 6px;
+            margin: {{ $moduleSpacing['title_top'] }} 0 {{ $moduleSpacing['title_bottom'] }};
             padding: 4px 8px;
             background: #f0f0f0;
             border-left: 3px solid {{ $branding['title_color'] ?? '#40A09D' }};
@@ -52,7 +60,7 @@
         .section-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            margin-bottom: {{ $moduleSpacing['block'] }};
         }
 
         .section-table th,
@@ -83,7 +91,7 @@
             color: #888;
             font-style: italic;
             font-size: 10px;
-            padding: 4px 0 8px;
+            padding: 4px 0 {{ $moduleSpacing['table_top'] }};
         }
     </style>
 @endpush
