@@ -66,7 +66,7 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertFalse((bool) $newGroup->is_holding);
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $movedMember->id,
-            'status' => 'cancelled',
+            'status' => 'pending_payment',
         ]);
     }
 
@@ -163,6 +163,46 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         ]);
     }
 
+    public function test_holding_move_requires_package_selection(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => null,
+            'created_by' => $user->id,
+            'is_holding' => true,
+        ]);
+
+        $memberUser = User::factory()->create();
+        $memberCustomer = Customer::create([
+            'user_id' => $memberUser->id,
+            'customer_number' => 'CUST-HOLD-REQ-001',
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $memberCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $response = $this->from(route('customer-holding.index'))
+            ->post(route('customer-confirmations.move-members', [
+                'id' => $sourceConfirmation->id,
+            ]), [
+                'member_ids' => [$member->id],
+            ]);
+
+        $response->assertRedirect(route('customer-holding.index'));
+        $response->assertSessionHasErrors('target_package_id');
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $member->id,
+            'status' => 'pending_payment',
+        ]);
+    }
+
     public function test_manifest_move_to_holding_reuses_same_confirmation_when_only_active_member_selected(): void
     {
         $user = User::factory()->create();
@@ -225,6 +265,266 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertNull($confirmation->package_id);
         $this->assertDatabaseMissing('manifest_members', [
             'id' => $manifestMember->id,
+        ]);
+    }
+
+    public function test_group_move_all_active_members_reuses_same_confirmation_for_confirmed_to_holding(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $sourcePackage = Package::create([
+            'package_number' => 'PKG-INPLACE-CH-001',
+            'name' => 'In Place Confirmed Holding Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => $sourcePackage->id,
+            'created_by' => $user->id,
+            'is_holding' => false,
+        ]);
+
+        $memberIds = [];
+        for ($index = 0; $index < 2; $index++) {
+            $memberUser = User::factory()->create();
+            $memberCustomer = Customer::create([
+                'user_id' => $memberUser->id,
+                'customer_number' => 'CUST-INPLACE-CH-00'.($index + 1),
+            ]);
+
+            $memberIds[] = CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $sourceConfirmation->id,
+                'customer_id' => $memberCustomer->id,
+                'is_leader' => $index === 0,
+                'status' => 'pending_payment',
+                'sharing_plan' => 'single',
+            ])->id;
+        }
+
+        $initialCount = CustomerConfirmation::query()->count();
+
+        $result = app(CustomerConfirmationService::class)->moveMembersToHolding(
+            $sourceConfirmation->id,
+            $memberIds,
+            null,
+        );
+
+        $sourceConfirmation->refresh();
+
+        $this->assertSame($sourceConfirmation->id, $result->id);
+        $this->assertSame($initialCount, CustomerConfirmation::query()->count());
+        $this->assertTrue((bool) $sourceConfirmation->is_holding);
+        $this->assertNull($sourceConfirmation->package_id);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $memberIds[0],
+            'status' => 'pending_payment',
+        ]);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $memberIds[1],
+            'status' => 'pending_payment',
+        ]);
+    }
+
+    public function test_group_move_all_active_members_reuses_same_confirmation_for_holding_to_confirmed(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $targetPackage = Package::create([
+            'package_number' => 'PKG-INPLACE-HC-001',
+            'name' => 'In Place Holding Confirmed Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => null,
+            'created_by' => $user->id,
+            'is_holding' => true,
+        ]);
+
+        $memberIds = [];
+        for ($index = 0; $index < 2; $index++) {
+            $memberUser = User::factory()->create();
+            $memberCustomer = Customer::create([
+                'user_id' => $memberUser->id,
+                'customer_number' => 'CUST-INPLACE-HC-00'.($index + 1),
+            ]);
+
+            $memberIds[] = CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $sourceConfirmation->id,
+                'customer_id' => $memberCustomer->id,
+                'is_leader' => $index === 0,
+                'status' => 'pending_payment',
+                'sharing_plan' => 'single',
+            ])->id;
+        }
+
+        $initialCount = CustomerConfirmation::query()->count();
+
+        $result = app(CustomerConfirmationService::class)->moveMembersToHolding(
+            $sourceConfirmation->id,
+            $memberIds,
+            $targetPackage->id,
+        );
+
+        $sourceConfirmation->refresh();
+
+        $this->assertSame($sourceConfirmation->id, $result->id);
+        $this->assertSame($initialCount, CustomerConfirmation::query()->count());
+        $this->assertFalse((bool) $sourceConfirmation->is_holding);
+        $this->assertSame($targetPackage->id, (int) $sourceConfirmation->package_id);
+    }
+
+    public function test_partial_move_creates_new_confirmation_and_auto_adjusts_source_leader(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $sourcePackage = Package::create([
+            'package_number' => 'PKG-PARTIAL-LEAD-001',
+            'name' => 'Partial Move Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $sourceConfirmation = CustomerConfirmation::create([
+            'package_id' => $sourcePackage->id,
+            'created_by' => $user->id,
+            'is_holding' => false,
+        ]);
+
+        $leaderUser = User::factory()->create();
+        $leaderCustomer = Customer::create([
+            'user_id' => $leaderUser->id,
+            'customer_number' => 'CUST-PARTIAL-LEAD-001',
+        ]);
+
+        $remainingUser = User::factory()->create();
+        $remainingCustomer = Customer::create([
+            'user_id' => $remainingUser->id,
+            'customer_number' => 'CUST-PARTIAL-LEAD-002',
+        ]);
+
+        $leaderMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $leaderCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $remainingMember = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $sourceConfirmation->id,
+            'customer_id' => $remainingCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $newGroup = app(CustomerConfirmationService::class)->moveMembersToHolding(
+            $sourceConfirmation->id,
+            [$leaderMember->id],
+            null,
+        );
+
+        $this->assertNotSame($sourceConfirmation->id, $newGroup->id);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $leaderMember->id,
+            'status' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $remainingMember->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+        ]);
+
+        $newGroupLeader = CustomerConfirmationMember::query()
+            ->where('customer_confirmation_id', $newGroup->id)
+            ->where('is_leader', true)
+            ->first();
+
+        $this->assertNotNull($newGroupLeader);
+    }
+
+    public function test_manifest_move_creates_new_confirmation_when_source_has_other_active_members(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANIFEST-PARTIAL-001',
+            'name' => 'Manifest Partial Move Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'created_by' => $user->id,
+            'is_holding' => false,
+        ]);
+
+        $memberOneUser = User::factory()->create();
+        $memberOneCustomer = Customer::create([
+            'user_id' => $memberOneUser->id,
+            'customer_number' => 'CUST-MANIFEST-PARTIAL-001',
+        ]);
+
+        $memberTwoUser = User::factory()->create();
+        $memberTwoCustomer = Customer::create([
+            'user_id' => $memberTwoUser->id,
+            'customer_number' => 'CUST-MANIFEST-PARTIAL-002',
+        ]);
+
+        $memberToMove = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $memberOneCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $memberTwoCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MANIFEST-PARTIAL-001',
+        ]);
+
+        $manifestMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $memberToMove->id,
+            'name' => $memberOneUser->name,
+            'sort_order' => 1,
+        ]);
+
+        $initialCount = CustomerConfirmation::query()->count();
+
+        $response = $this->post(route('manifests.members.move-holding', [
+            'manifestId' => $manifest->id,
+            'memberId' => $manifestMember->id,
+        ]), [
+            'target_package_id' => null,
+        ]);
+
+        $response->assertOk();
+
+        $confirmation->refresh();
+
+        $this->assertSame($initialCount + 1, CustomerConfirmation::query()->count());
+        $this->assertFalse((bool) $confirmation->is_holding);
+        $this->assertDatabaseHas('customer_confirmation_members', [
+            'id' => $memberToMove->id,
+            'status' => 'cancelled',
         ]);
     }
 
@@ -670,7 +970,7 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertSame('cancelled', $member->status);
     }
 
-    public function test_moving_member_reuses_dedicated_paid_quotation_and_switches_customer_to_moved_leader(): void
+    public function test_moving_single_member_in_place_keeps_dedicated_paid_quotation_customer_assignment(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -766,14 +1066,14 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $sourceQuotation->refresh();
 
         $this->assertSame((int) $newGroup->id, (int) $sourceQuotation->customer_confirmation_id);
-        $this->assertSame((int) $memberCustomer->id, (int) $sourceQuotation->customer_id);
+        $this->assertSame((int) $otherPayerCustomer->id, (int) $sourceQuotation->customer_id);
 
         $item->refresh();
         $this->assertSame((int) $newMember->id, (int) $item->customer_confirmation_member_id);
 
-        $this->assertDatabaseMissing('customer_confirmation_members', [
+        $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $sourceMember->id,
-            'status' => 'partially_paid',
+            'status' => 'pending_payment',
         ]);
     }
 

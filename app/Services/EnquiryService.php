@@ -301,7 +301,7 @@ class EnquiryService
 
     private function applySalesEnquiryScope(Builder $query): void
     {
-        if (! DataScope::shouldScopeSalesEnquiries()) {
+        if (! DataScope::shouldScopeEnquiryAndConfirmation()) {
             return;
         }
 
@@ -310,35 +310,31 @@ class EnquiryService
         $branchIds = DataScope::scopedBranchIds();
 
         if ($scopeMode === 'branch' && ! empty($branchIds)) {
-            $query->where(function (Builder $visibilityQuery) use ($branchIds, $countryIds): void {
-                $visibilityQuery
-                    ->where('handled_by', auth()->id())
-                    ->orWhere(function (Builder $locationQuery) use ($branchIds, $countryIds): void {
-                        $locationQuery->whereIn('branch_id', $branchIds);
+            $query->where(function (Builder $locationQuery) use ($branchIds, $countryIds): void {
+                $locationQuery->whereIn('branch_id', $branchIds);
 
-                        if (! empty($countryIds)) {
-                            $locationQuery->orWhereIn('country_id', $countryIds);
-                        }
-                    });
+                if (! empty($countryIds)) {
+                    $locationQuery->orWhereIn('country_id', $countryIds);
+                }
             });
 
             return;
         }
 
         if (! empty($countryIds)) {
-            $query->where(function (Builder $visibilityQuery) use ($countryIds): void {
-                $visibilityQuery
-                    ->where('handled_by', auth()->id())
-                    ->orWhereIn('country_id', $countryIds);
-            });
+            $query->whereIn('country_id', $countryIds);
 
             return;
         }
 
-        $query->where(function (Builder $visibilityQuery): void {
-            $visibilityQuery
-                ->where('handled_by', auth()->id())
-                ->orWhereNull('handled_by');
-        });
+        $resolvedUser = DataScope::user();
+
+        if ($resolvedUser?->hasRole('sales')) {
+            $query->where(function (Builder $visibilityQuery): void {
+                $visibilityQuery
+                    ->where('handled_by', auth()->id())
+                    ->orWhereNull('handled_by');
+            });
+        }
     }
 }

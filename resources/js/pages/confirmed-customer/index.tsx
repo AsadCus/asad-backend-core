@@ -753,6 +753,7 @@ export default function ConfirmedCustomerIndex({
     >([]);
     const [targetPackageId, setTargetPackageId] = useState<number | null>(null);
     const [movingMembers, setMovingMembers] = useState(false);
+    const [moveDialogError, setMoveDialogError] = useState<string | null>(null);
 
     const [memberDialogOpen, setMemberDialogOpen] = useState(false);
     const [memberDialogMode, setMemberDialogMode] = useState<'view' | 'edit'>(
@@ -907,6 +908,7 @@ export default function ConfirmedCustomerIndex({
         setSelectedMoveGroup(group);
         setSelectedMoveMemberIds(Array.from(new Set(activeMemberIds)));
         setTargetPackageId(null);
+        setMoveDialogError(null);
         setMoveDialogOpen(true);
     };
 
@@ -915,7 +917,16 @@ export default function ConfirmedCustomerIndex({
             return;
         }
 
+        if (isHoldingIndex && !targetPackageId) {
+            setMoveDialogError(
+                'Please select a package before moving members.',
+            );
+
+            return;
+        }
+
         setMovingMembers(true);
+        setMoveDialogError(null);
 
         router.post(
             `/customer-confirmations/${selectedMoveGroup.id}/move-members`,
@@ -2225,20 +2236,38 @@ export default function ConfirmedCustomerIndex({
                     onKeyDown={handleDialogTabKey}
                 >
                     <DialogHeader>
-                        <DialogTitle>Move Members to Holding</DialogTitle>
+                        <DialogTitle>
+                            {isHoldingIndex
+                                ? 'Move Members to Confirmed Customer'
+                                : 'Move Members to Holding'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Select members to cancel from this confirmation and
-                            move into a new holding confirmation.
+                            {isHoldingIndex
+                                ? 'Select members to move out of holding and assign them to a confirmed customer package.'
+                                : 'Select members to cancel from this confirmation and move into a new holding confirmation.'}
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedMoveGroup && (
                         <div className="space-y-4">
-                            <FormField label="Target Package (Optional)">
+                            <FormField
+                                label={
+                                    isHoldingIndex
+                                        ? 'Target Package'
+                                        : 'Target Package (Optional)'
+                                }
+                                error={
+                                    isHoldingIndex && moveDialogError
+                                        ? moveDialogError
+                                        : undefined
+                                }
+                            >
                                 <ProperInputSelect
                                     options={targetPackageOptions}
                                     value={targetPackageId ?? ''}
                                     onValueChange={(value) => {
+                                        setMoveDialogError(null);
+
                                         if (!value) {
                                             setTargetPackageId(null);
 
@@ -2247,7 +2276,11 @@ export default function ConfirmedCustomerIndex({
 
                                         setTargetPackageId(Number(value));
                                     }}
-                                    placeholder="Leave empty to discuss package later"
+                                    placeholder={
+                                        isHoldingIndex
+                                            ? 'Select a package to confirm these members'
+                                            : 'Leave empty to discuss package later'
+                                    }
                                 />
                             </FormField>
 
@@ -2322,10 +2355,7 @@ export default function ConfirmedCustomerIndex({
                                 <Button
                                     type="button"
                                     onClick={submitMoveMembers}
-                                    disabled={
-                                        movingMembers ||
-                                        selectedMoveMemberIds.length === 0
-                                    }
+                                    disabled={movingMembers}
                                 >
                                     Move Selected Members
                                 </Button>

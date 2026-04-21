@@ -311,7 +311,7 @@ class CustomerConfirmationService
             'enquiry.handledBy:id,name',
             'package',
         ])
-            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+            ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->when($withPackage, function ($query) {
@@ -429,7 +429,7 @@ class CustomerConfirmationService
             'enquiry.handledBy:id,name',
             'package',
         ])
-            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+            ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->where('is_holding', false)
@@ -547,7 +547,7 @@ class CustomerConfirmationService
             'enquiry.handledBy:id,name',
             'package',
         ])
-            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+            ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
             })
             ->where('is_holding', true)
@@ -682,39 +682,59 @@ class CustomerConfirmationService
         $countryIds = DataScope::scopedCountryIds();
         $branchIds = DataScope::scopedBranchIds();
 
-        $query->where(function ($visibilityQuery) use ($scopeMode, $branchIds, $countryIds): void {
-            $visibilityQuery
-                ->whereHas('enquiry', function ($enquiryQuery) use ($scopeMode, $branchIds, $countryIds): void {
-                    if ($scopeMode === 'branch' && ! empty($branchIds)) {
-                        $enquiryQuery->where(function ($visibilityQuery) use ($branchIds, $countryIds): void {
-                            $visibilityQuery
-                                ->where('handled_by', auth()->id())
-                                ->orWhere(function ($locationQuery) use ($branchIds, $countryIds): void {
-                                    $locationQuery->whereIn('branch_id', $branchIds);
+        if ($scopeMode === 'branch' && ! empty($branchIds)) {
+            $query->where(function ($visibilityQuery) use ($branchIds, $countryIds): void {
+                $visibilityQuery
+                    ->whereHas('enquiry', function ($enquiryQuery) use ($branchIds, $countryIds): void {
+                        $enquiryQuery->where(function ($locationQuery) use ($branchIds, $countryIds): void {
+                            $locationQuery->whereIn('branch_id', $branchIds);
 
-                                    if (! empty($countryIds)) {
-                                        $locationQuery->orWhereIn('country_id', $countryIds);
-                                    }
-                                });
+                            if (! empty($countryIds)) {
+                                $locationQuery->orWhereIn('country_id', $countryIds);
+                            }
                         });
+                    })
+                    ->orWhere(function ($noEnquiryQuery) use ($countryIds): void {
+                        $noEnquiryQuery
+                            ->whereDoesntHave('enquiry')
+                            ->whereHas('package', function ($packageQuery) use ($countryIds): void {
+                                $packageQuery->whereIn('country_id', $countryIds);
+                            });
+                    });
+            });
 
-                        return;
-                    }
+            return;
+        }
 
-                    if (! empty($countryIds)) {
-                        $enquiryQuery->where(function ($visibilityQuery) use ($countryIds): void {
-                            $visibilityQuery
-                                ->where('handled_by', auth()->id())
-                                ->orWhereIn('country_id', $countryIds);
-                        });
+        if (! empty($countryIds)) {
+            $query->where(function ($visibilityQuery) use ($countryIds): void {
+                $visibilityQuery
+                    ->whereHas('enquiry', function ($enquiryQuery) use ($countryIds): void {
+                        $enquiryQuery->whereIn('country_id', $countryIds);
+                    })
+                    ->orWhere(function ($noEnquiryQuery) use ($countryIds): void {
+                        $noEnquiryQuery
+                            ->whereDoesntHave('enquiry')
+                            ->whereHas('package', function ($packageQuery) use ($countryIds): void {
+                                $packageQuery->whereIn('country_id', $countryIds);
+                            });
+                    });
+            });
 
-                        return;
-                    }
+            return;
+        }
 
-                    $enquiryQuery->where('handled_by', auth()->id());
-                })
-                ->orWhereDoesntHave('enquiry');
-        });
+        $resolvedUser = DataScope::user();
+
+        if ($resolvedUser?->hasRole('sales')) {
+            $query->where(function ($visibilityQuery): void {
+                $visibilityQuery
+                    ->whereHas('enquiry', function ($enquiryQuery): void {
+                        $enquiryQuery->where('handled_by', auth()->id());
+                    })
+                    ->orWhereDoesntHave('enquiry');
+            });
+        }
     }
 
     /**
@@ -2592,7 +2612,9 @@ class CustomerConfirmationService
                 ->values()
                 ->all();
 
-            $activeSourceMemberIds = $sourceGroup->members
+            $activeSourceMemberIds = CustomerConfirmationMember::query()
+                ->where('customer_confirmation_id', $sourceGroup->id)
+                ->get()
                 ->filter(function (CustomerConfirmationMember $member): bool {
                     return $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled';
                 })
@@ -2607,18 +2629,18 @@ class CustomerConfirmationService
                 ->values()
                 ->all();
 
-            $shouldMoveInPlaceToHolding =
-                $sourceManifestId !== null
-                && ! $targetPackageId
-                && $activeSourceMemberIds !== []
-                && $selectedMemberIdsSorted === $activeSourceMemberIds;
+            $shouldMoveInPlace =
+                $activeSourceMemberIds !== []
+                && $selectedMemberIdsSorted !== []
+                && array_values(array_diff($selectedMemberIdsSorted, $activeSourceMemberIds)) === []
+                && array_values(array_diff($activeSourceMemberIds, $selectedMemberIdsSorted)) === [];
 
-            if ($shouldMoveInPlaceToHolding) {
+            if ($shouldMoveInPlace) {
                 $previousPackageId = (int) ($sourceGroup->package_id ?? 0);
 
                 $sourceGroup->update([
-                    'package_id' => null,
-                    'is_holding' => true,
+                    'package_id' => $targetPackageId,
+                    'is_holding' => $targetPackageId ? false : true,
                 ]);
 
                 $this->deleteManifestMembersForMovedMembers(
@@ -2637,7 +2659,7 @@ class CustomerConfirmationService
                         'subject_type' => 'CustomerConfirmation',
                         'subject_id' => $sourceGroup->id,
                         'context' => $this->buildLogContext(
-                            operation: 'move_to_holding',
+                            operation: 'move_members_in_place',
                             enquiryId: $sourceGroup->enquiry_id,
                             packageId: $sourceGroup->package_id,
                         ),
@@ -2646,14 +2668,18 @@ class CustomerConfirmationService
                         'source_manifest_id' => $sourceManifestId,
                         'new_member_ids' => [],
                     ])
-                    ->log('Customer members moved to holding confirmation #'.$sourceGroup->id);
+                    ->log('Customer members moved in-place on confirmation #'.$sourceGroup->id);
 
                 app(PackageSeatService::class)->recalculateForPackageId($previousPackageId);
+                app(PackageSeatService::class)->recalculateForPackageId((int) ($targetPackageId ?? 0));
 
                 return $sourceGroup;
             }
 
             $sourceMembersById = $selectedMembers->keyBy('id');
+            $selectedMembers = $selectedMembers
+                ->sortByDesc(fn (CustomerConfirmationMember $member): int => (int) $member->is_leader)
+                ->values();
 
             $newGroup = CustomerConfirmation::create([
                 'number' => $this->numberingService->ensureNumber('customer_confirmation', null),
@@ -2685,6 +2711,9 @@ class CustomerConfirmationService
             CustomerConfirmationMember::query()
                 ->whereIn('id', $selectedMemberIds)
                 ->update(['status' => 'cancelled']);
+
+            $this->ensureLeaderAssignmentForActiveMembers((int) $sourceGroup->id);
+            $this->ensureLeaderAssignmentForActiveMembers((int) $newGroup->id);
 
             $sourceGroup->load('members');
 
@@ -2735,6 +2764,38 @@ class CustomerConfirmationService
 
             return $newGroup;
         });
+    }
+
+    private function ensureLeaderAssignmentForActiveMembers(int $confirmationId): void
+    {
+        $members = CustomerConfirmationMember::query()
+            ->where('customer_confirmation_id', $confirmationId)
+            ->orderBy('id')
+            ->get();
+
+        $activeMembers = $members
+            ->filter(fn (CustomerConfirmationMember $member): bool => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+            ->values();
+
+        if ($activeMembers->isEmpty()) {
+            return;
+        }
+
+        $activeLeader = $activeMembers->first(
+            fn (CustomerConfirmationMember $member): bool => (bool) $member->is_leader,
+        );
+
+        $leaderId = (int) ($activeLeader?->id ?? $activeMembers->first()->id);
+
+        CustomerConfirmationMember::query()
+            ->where('customer_confirmation_id', $confirmationId)
+            ->where('id', '!=', $leaderId)
+            ->where('is_leader', true)
+            ->update(['is_leader' => false]);
+
+        CustomerConfirmationMember::query()
+            ->where('id', $leaderId)
+            ->update(['is_leader' => true]);
     }
 
     /**

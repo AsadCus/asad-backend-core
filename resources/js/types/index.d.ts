@@ -10,6 +10,8 @@ export interface Auth {
     notifications: NotificationItem[];
     scope_mode?: 'country' | 'branch' | string;
     scope_labels?: string[];
+    scope_country_options?: Array<{ id: number; label: string }>;
+    scope_selected_country_ids?: number[];
 }
 
 export interface BreadcrumbItem {

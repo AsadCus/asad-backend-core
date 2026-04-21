@@ -196,7 +196,7 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertNotContains($hiddenGroup->id, $groupIds);
     }
 
-    public function test_sales_still_sees_own_handled_enquiries_and_confirmations_even_if_location_is_outside_scope(): void
+    public function test_sales_does_not_see_own_handled_enquiries_and_confirmations_outside_selected_scope(): void
     {
         config()->set('data_scope.enabled', true);
         config()->set('data_scope.mode', 'country');
@@ -245,8 +245,8 @@ class EnquirySalesWorkflowTest extends TestCase
             ->map(fn ($id): int => (int) $id)
             ->all();
 
-        $this->assertContains((int) $ownedGroupOutsideLocation->enquiry_id, $enquiryIds);
-        $this->assertContains($ownedGroupOutsideLocation->id, $groupIds);
+        $this->assertNotContains((int) $ownedGroupOutsideLocation->enquiry_id, $enquiryIds);
+        $this->assertNotContains($ownedGroupOutsideLocation->id, $groupIds);
     }
 
     public function test_sales_branch_scope_uses_branch_and_branch_country_for_enquiry_and_confirmation_visibility(): void

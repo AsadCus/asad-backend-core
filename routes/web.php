@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataScopeController;
 use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\EnquiryRemarkController;
@@ -55,6 +56,8 @@ Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerConfirmat
 Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerConfirmationController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('data-scope/countries', [DataScopeController::class, 'updateCountrySelection'])->name('data-scope.countries.update');
+
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/sales-dashboard-data', [DashboardController::class, 'getSalesDashboardData'])->name('dashboard.sales-dashboard-data');
     Route::get('dashboard/fiscal-year-total-sales', [DashboardController::class, 'getFiscalYearTotalSales'])->name('dashboard.fiscal-year-total-sales');

@@ -1,5 +1,6 @@
 import { clearAllDataTableSettings } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,7 +27,7 @@ import { index, read } from '@/routes/notifications';
 import { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import { Bell, Globe, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from './ui/badge';
 
@@ -40,11 +41,61 @@ export function NavActions() {
         roles.includes('admin') ||
         roles.includes('sales') ||
         roles.includes('operations');
-    const scopeModeLabel = auth.scope_mode === 'branch' ? 'Branch' : 'Country';
+    const scopeMode = String(auth.scope_mode ?? 'country').toLowerCase();
+    const scopeModeLabel = scopeMode === 'branch' ? 'Branch' : 'Country';
     const scopeLabels = Array.isArray(auth.scope_labels)
         ? auth.scope_labels
         : [];
+    const scopeCountryOptions = Array.isArray(auth.scope_country_options)
+        ? auth.scope_country_options
+              .map((option) => ({
+                  id: Number(option.id),
+                  label: String(option.label ?? ''),
+              }))
+              .filter(
+                  (option) =>
+                      Number.isFinite(option.id) &&
+                      option.id > 0 &&
+                      option.label.length > 0,
+              )
+        : [];
+    const scopeSelectedCountryIdsFromServer = Array.isArray(
+        auth.scope_selected_country_ids,
+    )
+        ? auth.scope_selected_country_ids
+              .map((id) => Number(id))
+              .filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+    const defaultSelectedScopeCountryIds =
+        scopeSelectedCountryIdsFromServer.length > 0
+            ? scopeSelectedCountryIdsFromServer
+            : scopeCountryOptions.map((option) => option.id);
+    const [selectedScopeCountryIds, setSelectedScopeCountryIds] = useState<
+        number[]
+    >(defaultSelectedScopeCountryIds);
+    const [scopeError, setScopeError] = useState<string | null>(null);
+    const [isApplyingScope, setIsApplyingScope] = useState(false);
     const { appearance, updateAppearance } = useAppearance();
+
+    const scopeSelectionSeed = useMemo(() => {
+        return JSON.stringify({
+            optionIds: scopeCountryOptions.map((option) => option.id),
+            selectedIds: defaultSelectedScopeCountryIds,
+        });
+    }, [scopeCountryOptions, defaultSelectedScopeCountryIds]);
+
+    useEffect(() => {
+        setSelectedScopeCountryIds(defaultSelectedScopeCountryIds);
+        setScopeError(null);
+    }, [scopeSelectionSeed]);
+
+    const selectedScopeCountryLabels = scopeCountryOptions
+        .filter((option) => selectedScopeCountryIds.includes(option.id))
+        .map((option) => option.label);
+
+    const isAllAssignedCountriesSelected =
+        scopeCountryOptions.length > 0 &&
+        selectedScopeCountryIds.length === scopeCountryOptions.length;
 
     const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -79,6 +130,45 @@ export function NavActions() {
     const handleDataTableReset = () => {
         clearAllDataTableSettings();
         toast.success('Data table settings reset to default.');
+    };
+
+    const applyScopeSelection = () => {
+        if (selectedScopeCountryIds.length === 0) {
+            setScopeError(
+                'Please select at least one country before applying.',
+            );
+
+            return;
+        }
+
+        setIsApplyingScope(true);
+        setScopeError(null);
+
+        router.post(
+            '/data-scope/countries',
+            {
+                country_ids: selectedScopeCountryIds,
+            },
+            {
+                preserveScroll: true,
+                preserveState: false,
+                onSuccess: () => {
+                    toast.success('Data scope updated.');
+                    setIsScopeOpen(false);
+                },
+                onError: (errors) => {
+                    const message =
+                        typeof errors.country_ids === 'string'
+                            ? errors.country_ids
+                            : 'Failed to update data scope.';
+
+                    setScopeError(message);
+                },
+                onFinish: () => {
+                    setIsApplyingScope(false);
+                },
+            },
+        );
     };
 
     return (
@@ -134,63 +224,226 @@ export function NavActions() {
                 <RotateCcw className="h-4 w-4" />
             </Button>
 
-            {isScopeIndicatorVisible && (
-                <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="relative h-7 w-7 data-[state=open]:bg-accent"
-                            aria-label="View data scope"
+            {isScopeIndicatorVisible &&
+                scopeMode === 'country' &&
+                scopeCountryOptions.length === 1 && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-base text-muted-foreground">
+                            You are viewing:
+                        </span>
+                        <Badge variant="secondary">
+                            {scopeCountryOptions[0].label}
+                        </Badge>
+                    </div>
+                )}
+
+            {isScopeIndicatorVisible &&
+                scopeMode === 'country' &&
+                scopeCountryOptions.length > 1 && (
+                    <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="relative h-7 w-7 data-[state=open]:bg-accent"
+                                aria-label="View data scope"
+                            >
+                                <Globe className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+
+                        <PopoverContent
+                            className="w-72 rounded-lg p-4"
+                            align="end"
                         >
-                            <Globe className="h-4 w-4" />
-                        </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-72 rounded-lg p-4" align="end">
-                        <div className="space-y-3">
-                            <div>
-                                <h3 className="text-base font-semibold text-foreground">
-                                    Data Scope
-                                </h3>
-                                <p className="text-base text-muted-foreground">
-                                    Your assigned data access scope
-                                </p>
-                            </div>
-
-                            <div className="space-y-2 border-t pt-2">
+                            <div className="space-y-3">
                                 <div>
-                                    <p className="text-base font-medium text-muted-foreground">
-                                        Scope Mode
-                                    </p>
-                                    <p className="text-base font-medium text-foreground">
-                                        {scopeModeLabel}
+                                    <h3 className="text-base font-semibold text-foreground">
+                                        Data Scope
+                                    </h3>
+                                    <p className="text-base text-muted-foreground">
+                                        Select countries and apply scope
                                     </p>
                                 </div>
 
-                                <div>
-                                    <p className="text-base font-medium text-muted-foreground">
-                                        {scopeModeLabel === 'Branch'
-                                            ? 'Assigned Branches'
-                                            : 'Assigned Countries'}
-                                    </p>
-                                    {scopeLabels.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {scopeLabels.map((label, idx) => (
-                                                <Badge key={idx}>{label}</Badge>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="mt-1 text-base text-muted-foreground">
-                                            Not configured
+                                <div className="space-y-2 border-t pt-2">
+                                    <div>
+                                        <p className="text-base font-medium text-muted-foreground">
+                                            You are viewing
                                         </p>
-                                    )}
+                                        {selectedScopeCountryLabels.length >
+                                        0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedScopeCountryLabels.map(
+                                                    (label, idx) => (
+                                                        <Badge
+                                                            key={`${label}-${idx}`}
+                                                        >
+                                                            {label}
+                                                        </Badge>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="mt-1 text-base text-muted-foreground">
+                                                No country selected
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-base font-medium text-muted-foreground">
+                                            Assigned Countries
+                                        </p>
+                                        <div className="space-y-2 rounded-md border p-2">
+                                            {scopeCountryOptions.map(
+                                                (option) => (
+                                                    <label
+                                                        key={option.id}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Checkbox
+                                                            checked={selectedScopeCountryIds.includes(
+                                                                option.id,
+                                                            )}
+                                                            onCheckedChange={(
+                                                                value,
+                                                            ) => {
+                                                                const checked =
+                                                                    Boolean(
+                                                                        value,
+                                                                    );
+
+                                                                setScopeError(
+                                                                    null,
+                                                                );
+                                                                setSelectedScopeCountryIds(
+                                                                    (
+                                                                        previous,
+                                                                    ) => {
+                                                                        if (
+                                                                            checked
+                                                                        ) {
+                                                                            return Array.from(
+                                                                                new Set(
+                                                                                    [
+                                                                                        ...previous,
+                                                                                        option.id,
+                                                                                    ],
+                                                                                ),
+                                                                            );
+                                                                        }
+
+                                                                        return previous.filter(
+                                                                            (
+                                                                                countryId,
+                                                                            ) =>
+                                                                                countryId !==
+                                                                                option.id,
+                                                                        );
+                                                                    },
+                                                                );
+                                                            }}
+                                                        />
+                                                        <span>
+                                                            {option.label}
+                                                        </span>
+                                                    </label>
+                                                ),
+                                            )}
+                                        </div>
+
+                                        {scopeError && (
+                                            <p className="text-sm font-medium text-destructive">
+                                                {scopeError}
+                                            </p>
+                                        )}
+
+                                        <Button
+                                            type="button"
+                                            className="w-full"
+                                            disabled={isApplyingScope}
+                                            onClick={applyScopeSelection}
+                                        >
+                                            {isApplyingScope
+                                                ? 'Applying...'
+                                                : isAllAssignedCountriesSelected
+                                                  ? 'Apply (All Countries)'
+                                                  : 'Apply'}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-            )}
+                        </PopoverContent>
+                    </Popover>
+                )}
+
+            {isScopeIndicatorVisible &&
+                (scopeMode !== 'country' ||
+                    scopeCountryOptions.length === 0) && (
+                    <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="relative h-7 w-7 data-[state=open]:bg-accent"
+                                aria-label="View data scope"
+                            >
+                                <Globe className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+
+                        <PopoverContent
+                            className="w-72 rounded-lg p-4"
+                            align="end"
+                        >
+                            <div className="space-y-3">
+                                <div>
+                                    <h3 className="text-base font-semibold text-foreground">
+                                        Data Scope
+                                    </h3>
+                                    <p className="text-base text-muted-foreground">
+                                        Your assigned data access scope
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2 border-t pt-2">
+                                    <div>
+                                        <p className="text-base font-medium text-muted-foreground">
+                                            Scope Mode
+                                        </p>
+                                        <p className="text-base font-medium text-foreground">
+                                            {scopeModeLabel}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-base font-medium text-muted-foreground">
+                                            {scopeModeLabel === 'Branch'
+                                                ? 'Assigned Branches'
+                                                : 'Assigned Countries'}
+                                        </p>
+                                        {scopeLabels.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {scopeLabels.map(
+                                                    (label, idx) => (
+                                                        <Badge key={idx}>
+                                                            {label}
+                                                        </Badge>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="mt-1 text-base text-muted-foreground">
+                                                Not configured
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                )}
 
             <Popover open={isOpen} onOpenChange={setIsOpen}>
                 <PopoverTrigger asChild>

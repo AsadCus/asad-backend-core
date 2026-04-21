@@ -66,6 +66,8 @@ class HandleInertiaRequests extends Middleware
                     : [],
                 'scope_mode' => DataScope::mode(),
                 'scope_labels' => $user ? $this->resolveScopeLabels($user) : [],
+                'scope_country_options' => $user ? $this->resolveScopeCountryOptions($user) : [],
+                'scope_selected_country_ids' => $user ? DataScope::scopedCountryIds($user) : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
@@ -108,7 +110,7 @@ class HandleInertiaRequests extends Middleware
             return array_values(array_unique($labels));
         }
 
-        $countryIds = DataScope::scopedCountryIds($user);
+        $countryIds = DataScope::assignableCountryIds($user);
 
         if (empty($countryIds)) {
             return [];
@@ -127,6 +129,41 @@ class HandleInertiaRequests extends Middleware
         }
 
         return array_values(array_unique($labels));
+    }
+
+    /**
+     * @return array<int, array{id: int, label: string}>
+     */
+    protected function resolveScopeCountryOptions(User $user): array
+    {
+        if (! $this->canShowScopeIndicator($user) || DataScope::mode() !== 'country') {
+            return [];
+        }
+
+        $countryIds = DataScope::assignableCountryIds($user);
+
+        if (empty($countryIds)) {
+            return [];
+        }
+
+        $countryNamesById = Country::query()
+            ->whereIn('id', $countryIds)
+            ->pluck('name', 'id');
+
+        $options = [];
+        foreach ($countryIds as $countryId) {
+            $label = $countryNamesById->get($countryId);
+            if (! is_string($label) || $label === '') {
+                continue;
+            }
+
+            $options[] = [
+                'id' => $countryId,
+                'label' => $label,
+            ];
+        }
+
+        return $options;
     }
 
     protected function canShowScopeIndicator(User $user): bool

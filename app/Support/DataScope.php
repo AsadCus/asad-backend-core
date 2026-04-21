@@ -51,6 +51,15 @@ class DataScope
         return self::shouldScopeSalesOwnership($user);
     }
 
+    public static function shouldScopeEnquiryAndConfirmation(?User $user = null): bool
+    {
+        $resolvedUser = $user ?? self::user();
+
+        return self::enabled()
+            && $resolvedUser !== null
+            && self::hasRole($resolvedUser, ['admin', 'sales', 'operations']);
+    }
+
     public static function shouldScopePackageAndManifestCountry(?User $user = null): bool
     {
         $resolvedUser = $user ?? self::user();
@@ -73,6 +82,14 @@ class DataScope
      * @return array<int, int>
      */
     public static function scopedBranchIds(?User $user = null): array
+    {
+        return self::assignableBranchIds($user);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function assignableBranchIds(?User $user = null): array
     {
         $resolvedUser = $user ?? self::user();
 
@@ -107,6 +124,32 @@ class DataScope
             return [];
         }
 
+        $assignableCountryIds = self::assignableCountryIds($resolvedUser);
+
+        if (empty($assignableCountryIds)) {
+            return [];
+        }
+
+        $selectedCountryIds = self::toIntArray($resolvedUser->selected_country_ids ?? []);
+        $selectedCountryIds = array_values(array_map(
+            static fn ($id) => (int) $id,
+            array_intersect($assignableCountryIds, $selectedCountryIds),
+        ));
+
+        return ! empty($selectedCountryIds) ? $selectedCountryIds : $assignableCountryIds;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function assignableCountryIds(?User $user = null): array
+    {
+        $resolvedUser = $user ?? self::user();
+
+        if ($resolvedUser === null) {
+            return [];
+        }
+
         $scopeSource = self::scopeSource($resolvedUser);
 
         if ($scopeSource === null) {
@@ -123,7 +166,7 @@ class DataScope
         $normalizedCountryIds = array_values(array_unique(array_filter($countryIds, static fn (int $id) => $id > 0)));
 
         if (self::mode() === 'branch') {
-            $scopedBranchIds = self::scopedBranchIds($resolvedUser);
+            $scopedBranchIds = self::assignableBranchIds($resolvedUser);
 
             if (! empty($scopedBranchIds)) {
                 $branchCountryIds = Branch::query()

@@ -179,6 +179,12 @@ class CustomerConfirmationController extends Controller
             'source_manifest_id' => ['nullable', 'integer', 'exists:manifests,id'],
         ]);
 
+        if ($this->isHoldingIndexRequest($request) && empty($validated['target_package_id'])) {
+            return back()->withErrors([
+                'target_package_id' => 'Please select a package before moving members.',
+            ]);
+        }
+
         $newConfirmation = $this->customerConfirmationService->moveMembersToHolding(
             (int) $id,
             $validated['member_ids'],
@@ -200,6 +206,11 @@ class CustomerConfirmationController extends Controller
             ->log('Customer confirmation members moved to holding confirmation');
 
         return back()->with('success', 'Customer members moved to holding confirmation successfully.');
+    }
+
+    private function isHoldingIndexRequest(Request $request): bool
+    {
+        return str_contains((string) $request->headers->get('referer', ''), '/customer-holding');
     }
 
     /**

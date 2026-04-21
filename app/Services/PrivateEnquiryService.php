@@ -21,7 +21,7 @@ class PrivateEnquiryService
     {
         $data = PrivateEnquiry::query()
             ->with(['enquiry.latestRemark', 'enquiry.handledBy:id,name'])
-            ->when(DataScope::shouldScopeSalesEnquiries(), function ($query) {
+            ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $query->whereHas('enquiry', function ($enquiryQuery) {
                     $scopeMode = DataScope::mode();
                     $countryIds = DataScope::scopedCountryIds();
@@ -178,7 +178,7 @@ class PrivateEnquiryService
     {
         $query = PrivateEnquiry::with('enquiry');
 
-        if (DataScope::shouldScopeSalesEnquiries()) {
+        if (DataScope::shouldScopeEnquiryAndConfirmation()) {
             $query->whereHas('enquiry', function ($enquiryQuery) {
                 $scopeMode = DataScope::mode();
                 $countryIds = DataScope::scopedCountryIds();
