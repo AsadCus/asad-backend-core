@@ -522,10 +522,10 @@ class OpsMovementWorkflowTest extends TestCase
             'remarks' => 'Transportation remark updated',
         ]);
 
-        $this->assertDatabaseHas('package_officials', [
-            'id' => $official->id,
-            'hotel' => 'Official Hotel A',
-        ]);
+        $official->refresh();
+        $officialHotels = array_values((array) ($official->hotel ?? []));
+
+        $this->assertContains('Official Hotel A', $officialHotels);
 
         $manifest->refresh();
 

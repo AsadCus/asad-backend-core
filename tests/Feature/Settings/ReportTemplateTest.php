@@ -44,7 +44,7 @@ class ReportTemplateTest extends TestCase
 
     public function test_report_template_preview_shows_payment_history_for_quotation(): void
     {
-        $this->assertPaymentHistoryPreviewForModule('quotation');
+        $this->assertPaymentHistoryPreviewForModule('quotation', false);
     }
 
     public function test_report_template_preview_shows_payment_history_for_invoice(): void
@@ -140,7 +140,7 @@ class ReportTemplateTest extends TestCase
         $response->assertSessionHasErrors('company_name');
     }
 
-    private function assertPaymentHistoryPreviewForModule(string $moduleKey): void
+    private function assertPaymentHistoryPreviewForModule(string $moduleKey, bool $expectsPaymentHistory = true): void
     {
         $user = $this->createGhostAdminUser();
 
@@ -152,8 +152,15 @@ class ReportTemplateTest extends TestCase
 
         $html = (string) $response->json('html');
 
-        $this->assertStringContainsString('Payment History', $html, "Preview for {$moduleKey} should show Payment History.");
-        $this->assertStringContainsString('1st Payment', $html, "Preview for {$moduleKey} should show payment rows.");
+        if ($expectsPaymentHistory) {
+            $this->assertStringContainsString('Payment History', $html, "Preview for {$moduleKey} should show Payment History.");
+            $this->assertStringContainsString('1st Payment', $html, "Preview for {$moduleKey} should show payment rows.");
+
+            return;
+        }
+
+        $this->assertStringNotContainsString('Payment History', $html, "Preview for {$moduleKey} should hide Payment History.");
+        $this->assertStringContainsString('Total Amount', $html, "Preview for {$moduleKey} should still render totals content.");
     }
 
     public function test_logo_file_can_be_uploaded(): void

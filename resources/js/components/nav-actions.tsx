@@ -46,30 +46,37 @@ export function NavActions() {
     const scopeLabels = Array.isArray(auth.scope_labels)
         ? auth.scope_labels
         : [];
-    const scopeCountryOptions = Array.isArray(auth.scope_country_options)
-        ? auth.scope_country_options
-              .map((option) => ({
-                  id: Number(option.id),
-                  label: String(option.label ?? ''),
-              }))
-              .filter(
-                  (option) =>
-                      Number.isFinite(option.id) &&
-                      option.id > 0 &&
-                      option.label.length > 0,
-              )
-        : [];
-    const scopeSelectedCountryIdsFromServer = Array.isArray(
-        auth.scope_selected_country_ids,
-    )
-        ? auth.scope_selected_country_ids
-              .map((id) => Number(id))
-              .filter((id) => Number.isFinite(id) && id > 0)
-        : [];
-    const defaultSelectedScopeCountryIds =
-        scopeSelectedCountryIdsFromServer.length > 0
+    const scopeCountryOptions = useMemo(() => {
+        if (!Array.isArray(auth.scope_country_options)) {
+            return [];
+        }
+
+        return auth.scope_country_options
+            .map((option) => ({
+                id: Number(option.id),
+                label: String(option.label ?? ''),
+            }))
+            .filter(
+                (option) =>
+                    Number.isFinite(option.id) &&
+                    option.id > 0 &&
+                    option.label.length > 0,
+            );
+    }, [auth.scope_country_options]);
+    const scopeSelectedCountryIdsFromServer = useMemo(() => {
+        if (!Array.isArray(auth.scope_selected_country_ids)) {
+            return [];
+        }
+
+        return auth.scope_selected_country_ids
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+    }, [auth.scope_selected_country_ids]);
+    const defaultSelectedScopeCountryIds = useMemo(() => {
+        return scopeSelectedCountryIdsFromServer.length > 0
             ? scopeSelectedCountryIdsFromServer
             : scopeCountryOptions.map((option) => option.id);
+    }, [scopeSelectedCountryIdsFromServer, scopeCountryOptions]);
     const [selectedScopeCountryIds, setSelectedScopeCountryIds] = useState<
         number[]
     >(defaultSelectedScopeCountryIds);
@@ -77,17 +84,10 @@ export function NavActions() {
     const [isApplyingScope, setIsApplyingScope] = useState(false);
     const { appearance, updateAppearance } = useAppearance();
 
-    const scopeSelectionSeed = useMemo(() => {
-        return JSON.stringify({
-            optionIds: scopeCountryOptions.map((option) => option.id),
-            selectedIds: defaultSelectedScopeCountryIds,
-        });
-    }, [scopeCountryOptions, defaultSelectedScopeCountryIds]);
-
     useEffect(() => {
         setSelectedScopeCountryIds(defaultSelectedScopeCountryIds);
         setScopeError(null);
-    }, [scopeSelectionSeed]);
+    }, [defaultSelectedScopeCountryIds]);
 
     const selectedScopeCountryLabels = scopeCountryOptions
         .filter((option) => selectedScopeCountryIds.includes(option.id))

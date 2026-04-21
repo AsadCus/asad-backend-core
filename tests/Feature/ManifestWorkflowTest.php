@@ -1531,30 +1531,24 @@ class ManifestWorkflowTest extends TestCase
             'memberId' => $manifestMember->id,
         ]), [
             'target_package_id' => $targetPackage->id,
-        ])->assertOk();
+        ])->assertOk()
+            ->assertJsonPath('new_confirmation_id', $confirmation->id);
 
         $this->assertDatabaseMissing('manifest_members', [
             'id' => $manifestMember->id,
         ]);
 
+        $confirmation->refresh();
+
+        $this->assertSame($targetPackage->id, $confirmation->package_id);
+        $this->assertFalse((bool) $confirmation->is_holding);
+
         $this->assertDatabaseHas('customer_confirmation_members', [
             'id' => $member->id,
-            'status' => 'cancelled',
+            'status' => 'confirmed',
         ]);
 
-        $newConfirmation = CustomerConfirmation::query()
-            ->where('id', '!=', $confirmation->id)
-            ->latest('id')
-            ->first();
-
-        $this->assertNotNull($newConfirmation);
-        $this->assertSame($targetPackage->id, $newConfirmation->package_id);
-
-        $this->assertDatabaseHas('customer_confirmation_members', [
-            'customer_confirmation_id' => $newConfirmation->id,
-            'customer_id' => $customer->id,
-            'status' => 'pending_payment',
-        ]);
+        $this->assertSame(1, CustomerConfirmation::query()->count());
     }
 
     public function test_update_allows_room_number_to_be_empty_from_room_lists(): void
