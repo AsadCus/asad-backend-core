@@ -224,73 +224,47 @@ export function NavActions() {
                 <RotateCcw className="h-4 w-4" />
             </Button>
 
-            {isScopeIndicatorVisible &&
-                scopeMode === 'country' &&
-                scopeCountryOptions.length === 1 && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-base text-muted-foreground">
-                            You are viewing:
-                        </span>
-                        <Badge variant="secondary">
-                            {scopeCountryOptions[0].label}
-                        </Badge>
-                    </div>
-                )}
-
-            {isScopeIndicatorVisible &&
-                scopeMode === 'country' &&
-                scopeCountryOptions.length > 1 && (
-                    <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="relative h-7 w-7 data-[state=open]:bg-accent"
-                                aria-label="View data scope"
-                            >
-                                <Globe className="h-4 w-4" />
-                            </Button>
-                        </PopoverTrigger>
-
-                        <PopoverContent
-                            className="w-72 rounded-lg p-4"
-                            align="end"
+            {isScopeIndicatorVisible && scopeMode === 'country' && (
+                <Popover open={isScopeOpen} onOpenChange={setIsScopeOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="relative h-7 w-7 data-[state=open]:bg-accent"
+                            aria-label="View data scope"
                         >
-                            <div className="space-y-3">
-                                <div>
-                                    <h3 className="text-base font-semibold text-foreground">
-                                        Data Scope
-                                    </h3>
-                                    <p className="text-base text-muted-foreground">
-                                        Select countries and apply scope
+                            <Globe className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-72 rounded-lg p-4" align="end">
+                        <div className="space-y-3">
+                            {/* <div className="space-y-2 border-t pt-2"> */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-base font-medium text-muted-foreground">
+                                        You are viewing
                                     </p>
+                                    {selectedScopeCountryLabels.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedScopeCountryLabels.map(
+                                                (label, idx) => (
+                                                    <Badge
+                                                        key={`${label}-${idx}`}
+                                                    >
+                                                        {label}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1 text-base text-muted-foreground">
+                                            No country selected
+                                        </p>
+                                    )}
                                 </div>
 
-                                <div className="space-y-2 border-t pt-2">
-                                    <div>
-                                        <p className="text-base font-medium text-muted-foreground">
-                                            You are viewing
-                                        </p>
-                                        {selectedScopeCountryLabels.length >
-                                        0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {selectedScopeCountryLabels.map(
-                                                    (label, idx) => (
-                                                        <Badge
-                                                            key={`${label}-${idx}`}
-                                                        >
-                                                            {label}
-                                                        </Badge>
-                                                    ),
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <p className="mt-1 text-base text-muted-foreground">
-                                                No country selected
-                                            </p>
-                                        )}
-                                    </div>
-
+                                {scopeCountryOptions.length > 1 && (
                                     <div className="space-y-2">
                                         <p className="text-base font-medium text-muted-foreground">
                                             Assigned Countries
@@ -372,11 +346,12 @@ export function NavActions() {
                                                   : 'Apply'}
                                         </Button>
                                     </div>
-                                </div>
+                                )}
                             </div>
-                        </PopoverContent>
-                    </Popover>
-                )}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
 
             {isScopeIndicatorVisible &&
                 (scopeMode !== 'country' ||
@@ -398,16 +373,17 @@ export function NavActions() {
                             align="end"
                         >
                             <div className="space-y-3">
-                                <div>
+                                {/* <div>
                                     <h3 className="text-base font-semibold text-foreground">
                                         Data Scope
                                     </h3>
                                     <p className="text-base text-muted-foreground">
                                         Your assigned data access scope
                                     </p>
-                                </div>
+                                </div> */}
 
-                                <div className="space-y-2 border-t pt-2">
+                                <div className="space-y-2">
+                                    {/* <div className="space-y-2 border-t pt-2"> */}
                                     <div>
                                         <p className="text-base font-medium text-muted-foreground">
                                             Scope Mode

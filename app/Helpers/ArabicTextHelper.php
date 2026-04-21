@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use ArPHP\I18N\Arabic;
+
 class ArabicTextHelper
 {
     public static function shapeForPdf(?string $text): string
@@ -16,15 +18,17 @@ class ArabicTextHelper
             return (string) $text;
         }
 
-        $arabicClass = 'ArPHP\\I18N\\Arabic';
-        if (! class_exists($arabicClass)) {
-            return (string) $text;
-        }
+        $arabic = new Arabic;
 
-        $arabic = new $arabicClass;
-        if (! method_exists($arabic, 'utf8Glyphs')) {
-            return (string) $text;
-        }
+        // $arabicClass = 'ArPHP\\I18N\\Arabic';
+        // if (! class_exists($arabicClass)) {
+        //     return (string) $text;
+        // }
+
+        // $arabic = new $arabicClass;
+        // if (! method_exists($arabic, 'utf8Glyphs')) {
+        //     return (string) $text;
+        // }
 
         return $arabic->utf8Glyphs((string) $text, 50, false, false);
     }

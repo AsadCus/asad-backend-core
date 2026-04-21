@@ -367,7 +367,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         <h2 className="text-lg font-semibold">
                             Enquiry Dashboard
                         </h2>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                             <Button
                                 type="button"
                                 variant="outline"

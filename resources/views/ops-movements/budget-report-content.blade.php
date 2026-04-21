@@ -102,184 +102,22 @@
                 (int) data_get($opsMovement, 'passengers.infant_total', 0) +
                 $officialTotal;
 
-        $allSections = collect($opsMovement['budget'] ?? [])->values()->all();
-
-        if (count($allSections) === 0) {
-            $allSections = [
-                [
-                    'title' => 'Manpower Expenses',
-                    'sort_order' => 1,
-                    'items' => [
-                        [
-                            'item_name' => 'Mutawwif',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Mutawwif Speedtrain',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Mutawwif Meal',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Assisting Mutawwif',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Assisting Mutawwifa',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Mutawifa',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Check in Madina',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                    ],
-                    'extensions' => [],
-                ],
-                [
-                    'title' => 'Petty Cash',
-                    'sort_order' => 2,
-                    'items' => [
-                        [
-                            'item_name' => 'Hotel Porter',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Bus tipping',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Tipping for Airport Porter',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Taif Lunch',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Taif Cable Car',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Gua Hira @ Wahyu Museum',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Al Baik',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Chicken Nugget',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Lunch (2nd Umrah)',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Lunch Official',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Lightsnack & drink',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Customised Sejadah',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Customised Onta',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Nasi Lemak Ust Faisal',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                        [
-                            'item_name' => 'Zamzam water',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => null,
-                        ],
-                    ],
-                    'extensions' => [],
-                ],
-                [
-                    'title' => 'Contingency',
-                    'sort_order' => 3,
-                    'items' => [
-                        [
-                            'item_name' => 'Contingency Fund',
-                            'unit_price' => 0,
-                            'quantity' => 0,
-                            'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
-                        ],
-                    ],
-                    'extensions' => [],
-                ],
-            ];
-        }
+        $allSections = collect($opsMovement['budget'] ?? [])
+            ->values()
+            ->all();
 
         $budgetGrandTotal = collect($allSections)->sum(function ($section) {
             $sectionSubtotal = collect($section['items'] ?? [])->sum(
                 fn($item) => (float) ($item['unit_price'] ?? 0) * (float) ($item['quantity'] ?? 0),
             );
 
-            $sectionExtensionTotal = collect($section['extensions'] ?? [])->sum(function ($extension) use ($sectionSubtotal) {
+            $sectionExtensionTotal = collect($section['extensions'] ?? [])->sum(function ($extension) use (
+                $sectionSubtotal,
+            ) {
                 $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
                 $extensionValue = (float) ($extension['calculation_value'] ?? 0);
 
-                return $extensionMode === 'percentage'
-                    ? ($sectionSubtotal * $extensionValue) / 100
-                    : $extensionValue;
+                return $extensionMode === 'percentage' ? ($sectionSubtotal * $extensionValue) / 100 : $extensionValue;
             });
 
             return $sectionSubtotal + $sectionExtensionTotal;
@@ -321,7 +159,7 @@
                             Official to indicate amount spent on remarks column. Be reminded to keep receipts if available.
                         </td>
                     </tr>
-                    
+
                 </table>
             </td>
             <td style="width: 50%; vertical-align: top;">
@@ -363,9 +201,7 @@
                 $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
                 $extensionValue = (float) ($extension['calculation_value'] ?? 0);
 
-                return $extensionMode === 'percentage'
-                    ? ($sectionSubtotal * $extensionValue) / 100
-                    : $extensionValue;
+                return $extensionMode === 'percentage' ? ($sectionSubtotal * $extensionValue) / 100 : $extensionValue;
             });
             $sectionTotal = $sectionSubtotal + $sectionExtensionTotal;
             $sectionTitle = $section['title'] ?? 'Budget Section';
@@ -407,13 +243,13 @@
                 @php
                     $extensionMode = strtolower((string) ($extension['calculation_mode'] ?? 'fixed'));
                     $extensionValue = (float) ($extension['calculation_value'] ?? 0);
-                    $extensionAmount = $extensionMode === 'percentage'
-                        ? ($sectionSubtotal * $extensionValue) / 100
-                        : $extensionValue;
+                    $extensionAmount =
+                        $extensionMode === 'percentage' ? ($sectionSubtotal * $extensionValue) / 100 : $extensionValue;
                     $extensionName = trim((string) ($extension['name'] ?? 'Extension'));
-                    $extensionLabel = $extensionMode === 'percentage'
-                        ? sprintf('%s %s%%', $extensionName, number_format($extensionValue, 2))
-                        : $extensionName;
+                    $extensionLabel =
+                        $extensionMode === 'percentage'
+                            ? sprintf('%s %s%%', $extensionName, number_format($extensionValue, 2))
+                            : $extensionName;
                 @endphp
                 <tr>
                     <td colspan="3" class="text-right">{{ $extensionLabel }}</td>
@@ -432,8 +268,10 @@
     {{-- Grand Total --}}
     <table class="section-table">
         <tr>
-            <th colspan="3" class="text-right" style="width: 50%; font-size: 10px;">Grand Total ({{ $budgetCurrency }})</th>
-            <th class="text-right" style="width: 18%; font-size: 10px;">{{ $budgetCurrency }} {{ number_format($budgetGrandTotal, 2) }}</th>
+            <th colspan="3" class="text-right" style="width: 50%; font-size: 10px;">Grand Total ({{ $budgetCurrency }})
+            </th>
+            <th class="text-right" style="width: 18%; font-size: 10px;">{{ $budgetCurrency }}
+                {{ number_format($budgetGrandTotal, 2) }}</th>
             <th style="width: 32%;"></th>
         </tr>
     </table>

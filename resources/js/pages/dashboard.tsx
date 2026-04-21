@@ -556,7 +556,7 @@ export default function Dashboard({ data }: DashboardProps) {
 
                                 <div className="flex items-center gap-2">
                                     <DateRangeFilter
-                                        title="Export Date"
+                                        title="Select Date"
                                         quickDate={true}
                                         compact={true}
                                         value={exportDateRange}

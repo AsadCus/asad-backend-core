@@ -10,9 +10,9 @@ import { index } from '@/routes/ops-movements';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { FileDown } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import OpsMovementForm from './form';
-import { type OpsMovementSchema } from './schema';
+import { type OpsBudgetTitleSchema, type OpsMovementSchema } from './schema';
 
 interface ShowOpsMovementProps {
     data: OpsMovementSchema;
@@ -30,6 +30,10 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
     const canEditOpsMovement =
         auth?.permissions?.includes('ops-movement edit') ?? false;
     const canManageBudget = auth?.roles?.includes('admin') ?? false;
+    const [budgetSnapshot, setBudgetSnapshot] = useState<{
+        budget: OpsBudgetTitleSchema[];
+        budget_currency: string;
+    } | null>(null);
 
     const handleBack = useCallback(() => {
         window.history.back();
@@ -44,8 +48,26 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
     }, [data.id]);
 
     const handleExportBudget = useCallback(() => {
-        window.open(`/ops-movements/${data.id}/export-budget-pdf`, '_blank');
-    }, [data.id]);
+        const url = new URL(
+            `/ops-movements/${data.id}/export-budget-pdf`,
+            window.location.origin,
+        );
+
+        url.searchParams.set(
+            'budget_snapshot',
+            JSON.stringify(
+                budgetSnapshot ?? {
+                    budget: [],
+                    budget_currency:
+                        typeof data.budget_currency === 'string'
+                            ? data.budget_currency
+                            : '',
+                },
+            ),
+        );
+
+        window.open(url.toString(), '_blank');
+    }, [budgetSnapshot, data.budget_currency, data.id]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -88,6 +110,7 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                         onCancel={handleBack}
                         canEdit={canEditOpsMovement}
                         canManageBudget={canManageBudget}
+                        onBudgetSnapshotChange={setBudgetSnapshot}
                     />
                 </div>
             </div>

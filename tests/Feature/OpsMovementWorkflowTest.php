@@ -892,9 +892,31 @@ class OpsMovementWorkflowTest extends TestCase
         $budgetResponse = $this->get(route('ops-movements.export-budget-pdf', $package->id));
         $budgetResponse->assertOk();
         $budgetResponse->assertHeader('content-type', 'application/pdf');
+
+        $budgetQueryResponse = $this->get(route('ops-movements.export-budget-pdf', [
+            'id' => $package->id,
+            'budget_snapshot' => json_encode([
+                'budget' => [
+                    [
+                        'title' => 'Draft Budget Section',
+                        'items' => [
+                            [
+                                'item_name' => 'Draft Item',
+                                'unit_price' => 125,
+                                'quantity' => 2,
+                            ],
+                        ],
+                        'extensions' => [],
+                    ],
+                ],
+                'budget_currency' => 'USD',
+            ]),
+        ]));
+        $budgetQueryResponse->assertOk();
+        $budgetQueryResponse->assertHeader('content-type', 'application/pdf');
     }
 
-    public function test_ops_movement_budget_defaults_to_required_sections_when_empty(): void
+    public function test_ops_movement_budget_returns_empty_when_no_saved_budget_data_exists(): void
     {
         $package = Package::create([
             'package_number' => 'PKG-OPS-BUDGET-DEFAULT-001',
@@ -911,43 +933,7 @@ class OpsMovementWorkflowTest extends TestCase
         ]);
 
         $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
-        $budgetTitles = collect(data_get($opsMovement, 'budget', []))
-            ->pluck('title')
-            ->values()
-            ->all();
-
-        $this->assertSame(
-            ['Manpower Expenses', 'Petty Cash', 'Contingency'],
-            $budgetTitles,
-        );
-
-        $this->assertSame('Mutawwif', data_get($opsMovement, 'budget.0.items.0.item_name'));
-        $this->assertSame('Mutawwif Speedtrain', data_get($opsMovement, 'budget.0.items.1.item_name'));
-        $this->assertSame('Mutawwif Meal', data_get($opsMovement, 'budget.0.items.2.item_name'));
-        $this->assertSame('Assisting Mutawwif', data_get($opsMovement, 'budget.0.items.3.item_name'));
-        $this->assertSame('Assisting Mutawwifa', data_get($opsMovement, 'budget.0.items.4.item_name'));
-        $this->assertSame('Mutawifa', data_get($opsMovement, 'budget.0.items.5.item_name'));
-        $this->assertSame('Check in Madina', data_get($opsMovement, 'budget.0.items.6.item_name'));
-        $this->assertSame('Hotel Porter', data_get($opsMovement, 'budget.1.items.0.item_name'));
-        $this->assertSame('Bus tipping', data_get($opsMovement, 'budget.1.items.1.item_name'));
-        $this->assertSame('Tipping for Airport Porter', data_get($opsMovement, 'budget.1.items.2.item_name'));
-        $this->assertSame('Taif Lunch', data_get($opsMovement, 'budget.1.items.3.item_name'));
-        $this->assertSame('Taif Cable Car', data_get($opsMovement, 'budget.1.items.4.item_name'));
-        $this->assertSame('Gua Hira @ Wahyu Museum', data_get($opsMovement, 'budget.1.items.5.item_name'));
-        $this->assertSame('Al Baik', data_get($opsMovement, 'budget.1.items.6.item_name'));
-        $this->assertSame('Chicken Nugget', data_get($opsMovement, 'budget.1.items.7.item_name'));
-        $this->assertSame('Lunch (2nd Umrah)', data_get($opsMovement, 'budget.1.items.8.item_name'));
-        $this->assertSame('Lunch Official', data_get($opsMovement, 'budget.1.items.9.item_name'));
-        $this->assertSame('Lightsnack & drink', data_get($opsMovement, 'budget.1.items.10.item_name'));
-        $this->assertSame('Customised Sejadah', data_get($opsMovement, 'budget.1.items.11.item_name'));
-        $this->assertSame('Customised Onta', data_get($opsMovement, 'budget.1.items.12.item_name'));
-        $this->assertSame('Nasi Lemak Ust Faisal', data_get($opsMovement, 'budget.1.items.13.item_name'));
-        $this->assertSame('Zamzam water', data_get($opsMovement, 'budget.1.items.14.item_name'));
-        $this->assertSame('Contingency Fund', data_get($opsMovement, 'budget.2.items.0.item_name'));
-        $this->assertSame(
-            'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
-            data_get($opsMovement, 'budget.2.items.0.remarks'),
-        );
+        $this->assertSame([], data_get($opsMovement, 'budget', []));
     }
 
     public function test_ops_movement_budget_report_renders_default_template_when_budget_is_empty(): void
@@ -974,17 +960,14 @@ class OpsMovementWorkflowTest extends TestCase
             ],
         ])->render();
 
-        $this->assertStringContainsString('Manpower Expenses', $html);
-        $this->assertStringContainsString('Petty Cash', $html);
-        $this->assertStringContainsString('Contingency', $html);
-        $this->assertStringContainsString('Mutawwif', $html);
-        $this->assertStringContainsString('Hotel Porter', $html);
-        $this->assertStringContainsString('Contingency Fund', $html);
+        $this->assertStringNotContainsString('Manpower Expenses', $html);
+        $this->assertStringNotContainsString('Petty Cash', $html);
+        $this->assertStringNotContainsString('Contingency', $html);
         $this->assertStringContainsString('Grand Total (SAR)', $html);
-        $this->assertStringContainsString('SAR 0.00', $html);
+        $this->assertStringContainsString('0.00</th>', $html);
     }
 
-    public function test_ops_movement_budget_report_renders_default_template_alongside_custom_budget_sections(): void
+    public function test_ops_movement_budget_report_renders_only_saved_custom_budget_sections(): void
     {
         $package = Package::create([
             'package_number' => 'PKG-OPS-BUDGET-CUSTOM-001',
@@ -1019,12 +1002,9 @@ class OpsMovementWorkflowTest extends TestCase
             ->values()
             ->all();
 
-        $this->assertSame(
-            ['Manpower Expenses', 'Petty Cash', 'Contingency', 'Operational Expenses'],
-            $budgetTitles,
-        );
-        $this->assertSame('Bus Charter', data_get($opsMovement, 'budget.3.items.0.item_name'));
-        $this->assertSame(2200.0, data_get($opsMovement, 'budget.3.items.0.unit_price'));
+        $this->assertSame(['Operational Expenses'], $budgetTitles);
+        $this->assertSame('Bus Charter', data_get($opsMovement, 'budget.0.items.0.item_name'));
+        $this->assertSame(2200.0, data_get($opsMovement, 'budget.0.items.0.unit_price'));
 
         $html = view('ops-movements.budget-report-content', [
             'branding' => [
@@ -1034,9 +1014,9 @@ class OpsMovementWorkflowTest extends TestCase
             'opsMovement' => $opsMovement,
         ])->render();
 
-        $this->assertStringContainsString('Manpower Expenses', $html);
-        $this->assertStringContainsString('Petty Cash', $html);
-        $this->assertStringContainsString('Contingency', $html);
+        $this->assertStringNotContainsString('Manpower Expenses', $html);
+        $this->assertStringNotContainsString('Petty Cash', $html);
+        $this->assertStringNotContainsString('Contingency', $html);
         $this->assertStringContainsString('Operational Expenses', $html);
         $this->assertStringContainsString('Bus Charter', $html);
     }

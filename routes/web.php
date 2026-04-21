@@ -260,7 +260,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('ops-movements/{id}/export-pif-pdf', [OpsMovementController::class, 'exportPifPdf'])
         ->middleware('permission:ops-movement view')
         ->name('ops-movements.export-pif-pdf');
-    Route::get('ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])
+    Route::match(['get', 'post'], 'ops-movements/{id}/export-budget-pdf', [OpsMovementController::class, 'exportBudgetPdf'])
         ->middleware('permission:ops-movement view')
         ->name('ops-movements.export-budget-pdf');
 });

@@ -155,13 +155,32 @@ class OpsMovementController extends Controller
     /**
      * Export ops movement budget report as PDF.
      */
-    public function exportBudgetPdf(string $id)
+    public function exportBudgetPdf(Request $request, string $id)
     {
         try {
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $opsMovement = $this->opsMovementService->getForShow((int) $id);
+
+            $budgetSnapshotJson = $request->input('budget_snapshot');
+
+            if (is_string($budgetSnapshotJson) && trim($budgetSnapshotJson) !== '') {
+                $decodedSnapshot = json_decode($budgetSnapshotJson, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSnapshot)) {
+                    if (array_key_exists('budget', $decodedSnapshot)) {
+                        $opsMovement['budget'] = $this->opsMovementService->normalizeBudgetForReport($decodedSnapshot['budget']);
+                    }
+
+                    if (array_key_exists('budget_currency', $decodedSnapshot)) {
+                        $normalizedBudgetCurrency = trim((string) $decodedSnapshot['budget_currency']);
+                        $opsMovement['budget_currency'] = $normalizedBudgetCurrency !== ''
+                            ? $normalizedBudgetCurrency
+                            : null;
+                    }
+                }
+            }
 
             $reportData = $this->reportTemplateService->build('ops_movement_budget', [
                 'opsMovement' => $opsMovement,

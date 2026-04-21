@@ -119,7 +119,7 @@ class OpsMovementService
             })
             ->values();
         $documents = $this->buildOpsMovementDocumentPayload($manifest);
-        $budget = $this->buildBudgetTemplateForReport($extension['budget'] ?? []);
+        $budget = $this->normalizeBudgetPayload($extension['budget'] ?? []);
         $budgetCurrency = $this->normalizeNullableString($extension['budget_currency'] ?? null) ?? 'SAR';
         $nonOfficialMembers = collect($manifest?->members ?? [])
             ->filter(fn ($member) => $member->package_official_id === null && $member->status !== 'cancelled')
@@ -508,7 +508,7 @@ class OpsMovementService
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
 
             if (array_key_exists('budget_currency', $payload)) {
-                $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null) ?? 'SAR';
+                $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null);
             }
 
             if (array_key_exists('officials', $payload) && is_array($payload['officials'])) {
@@ -585,6 +585,14 @@ class OpsMovementService
 
             return $this->getForShow($packageId);
         });
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function normalizeBudgetForReport(mixed $budget): array
+    {
+        return $this->normalizeBudgetPayload($budget);
     }
 
     private function applyOperationsCountryScope(Builder $query): void
@@ -744,7 +752,7 @@ class OpsMovementService
     private function normalizeBudgetPayload(mixed $budget): array
     {
         if (! is_array($budget)) {
-            return $this->defaultBudgetSections();
+            return [];
         }
 
         $sections = array_is_list($budget) ? $budget : [];
@@ -786,327 +794,7 @@ class OpsMovementService
             ];
         }
 
-        return count($normalized) > 0
-            ? $normalized
-            : $this->defaultBudgetSections();
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function buildBudgetTemplateForReport(mixed $budget): array
-    {
-        $normalizedBudget = $this->normalizeBudgetPayload($budget);
-        $defaults = $this->defaultBudgetSections();
-
-        $defaultByKey = collect($defaults)->keyBy(function (array $section): string {
-            return $this->normalizeBudgetSectionKey($section['title'] ?? null);
-        });
-
-        $incomingByDefaultKey = [];
-        $extraSections = [];
-
-        foreach ($normalizedBudget as $sectionIndex => $section) {
-            if (! is_array($section)) {
-                continue;
-            }
-
-            $sectionKey = $this->normalizeBudgetSectionKey($section['title'] ?? null);
-
-            if ($defaultByKey->has($sectionKey)) {
-                $incomingByDefaultKey[$sectionKey] = $section;
-
-                continue;
-            }
-
-            $incomingItems = isset($section['items']) && is_array($section['items'])
-                ? $section['items']
-                : [];
-
-            $extraSections[] = [
-                'title' => is_string($section['title'] ?? null) && trim((string) $section['title']) !== ''
-                    ? (string) $section['title']
-                    : 'Title '.($sectionIndex + 1),
-                'sort_order' => isset($section['sort_order']) && is_numeric($section['sort_order'])
-                    ? (int) $section['sort_order']
-                    : ($sectionIndex + 1),
-                'items' => count($incomingItems) > 0
-                    ? $incomingItems
-                    : [[
-                        'item_name' => '',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 1,
-                    ]],
-                'extensions' => isset($section['extensions']) && is_array($section['extensions'])
-                    ? $section['extensions']
-                    : [],
-            ];
-        }
-
-        $mergedDefaults = [];
-
-        foreach ($defaults as $sectionIndex => $defaultSection) {
-            $sectionKey = $this->normalizeBudgetSectionKey($defaultSection['title'] ?? null);
-            $incomingSection = $incomingByDefaultKey[$sectionKey] ?? null;
-
-            if (! is_array($incomingSection)) {
-                $mergedDefaults[] = $defaultSection;
-
-                continue;
-            }
-
-            $mergedDefaults[] = [
-                'title' => $this->normalizeNullableString($incomingSection['title'] ?? null) ?: ($defaultSection['title'] ?? 'Budget Section'),
-                'sort_order' => isset($incomingSection['sort_order']) && is_numeric($incomingSection['sort_order'])
-                    ? (int) $incomingSection['sort_order']
-                    : (int) ($defaultSection['sort_order'] ?? ($sectionIndex + 1)),
-                'items' => $this->mergeBudgetItemsForReport(
-                    $defaultSection['items'] ?? [],
-                    $incomingSection['items'] ?? [],
-                ),
-                'extensions' => $this->normalizeBudgetExtensions($incomingSection['extensions'] ?? []),
-            ];
-        }
-
-        return [...$mergedDefaults, ...$extraSections];
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function defaultBudgetSections(): array
-    {
-        return [
-            [
-                'title' => 'Manpower Expenses',
-                'sort_order' => 1,
-                'items' => [
-                    [
-                        'item_name' => 'Mutawwif',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 1,
-                    ],
-                    [
-                        'item_name' => 'Mutawwif Speedtrain',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 2,
-                    ],
-                    [
-                        'item_name' => 'Mutawwif Meal',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 3,
-                    ],
-                    [
-                        'item_name' => 'Assisting Mutawwif',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 4,
-                    ],
-                    [
-                        'item_name' => 'Assisting Mutawwifa',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 5,
-                    ],
-                    [
-                        'item_name' => 'Mutawifa',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 6,
-                    ],
-                    [
-                        'item_name' => 'Check in Madina',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 7,
-                    ],
-                ],
-                'extensions' => [],
-            ],
-            [
-                'title' => 'Petty Cash',
-                'sort_order' => 2,
-                'items' => [
-                    [
-                        'item_name' => 'Hotel Porter',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 1,
-                    ],
-                    [
-                        'item_name' => 'Bus tipping',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 2,
-                    ],
-                    [
-                        'item_name' => 'Tipping for Airport Porter',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 3,
-                    ],
-                    [
-                        'item_name' => 'Taif Lunch',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 4,
-                    ],
-                    [
-                        'item_name' => 'Taif Cable Car',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 5,
-                    ],
-                    [
-                        'item_name' => 'Gua Hira @ Wahyu Museum',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 6,
-                    ],
-                    [
-                        'item_name' => 'Al Baik',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 7,
-                    ],
-                    [
-                        'item_name' => 'Chicken Nugget',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 8,
-                    ],
-                    [
-                        'item_name' => 'Lunch (2nd Umrah)',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 9,
-                    ],
-                    [
-                        'item_name' => 'Lunch Official',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 10,
-                    ],
-                    [
-                        'item_name' => 'Lightsnack & drink',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 11,
-                    ],
-                    [
-                        'item_name' => 'Customised Sejadah',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 12,
-                    ],
-                    [
-                        'item_name' => 'Customised Onta',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 13,
-                    ],
-                    [
-                        'item_name' => 'Nasi Lemak Ust Faisal',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 14,
-                    ],
-                    [
-                        'item_name' => 'Zamzam water',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => null,
-                        'sort_order' => 15,
-                    ],
-                ],
-                'extensions' => [],
-            ],
-            [
-                'title' => 'Contingency',
-                'sort_order' => 3,
-                'items' => [
-                    [
-                        'item_name' => 'Contingency Fund',
-                        'unit_price' => 0.0,
-                        'quantity' => 0.0,
-                        'remarks' => 'FUND IS TO BE USED SOLELY FOR OPS MATTER ONLY',
-                        'sort_order' => 1,
-                    ],
-                ],
-                'extensions' => [],
-            ],
-        ];
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $defaultItems
-     * @return array<int, array<string, mixed>>
-     */
-    private function mergeBudgetItemsForReport(array $defaultItems, mixed $incomingItems): array
-    {
-        $normalizedIncomingItems = is_array($incomingItems) ? array_values($incomingItems) : [];
-        $mergedItems = [];
-        $itemCount = max(count($defaultItems), count($normalizedIncomingItems));
-
-        for ($index = 0; $index < $itemCount; $index++) {
-            $defaultItem = $defaultItems[$index] ?? [];
-            $incomingItem = $normalizedIncomingItems[$index] ?? [];
-
-            if (! is_array($incomingItem)) {
-                $incomingItem = [];
-            }
-
-            $itemName = $this->normalizeNullableString($incomingItem['item_name'] ?? null)
-                ?: ($defaultItem['item_name'] ?? '');
-
-            $mergedItems[] = [
-                'item_name' => $itemName,
-                'unit_price' => is_numeric($incomingItem['unit_price'] ?? null)
-                    ? (float) $incomingItem['unit_price']
-                    : (float) ($defaultItem['unit_price'] ?? 0.0),
-                'quantity' => is_numeric($incomingItem['quantity'] ?? null)
-                    ? (float) $incomingItem['quantity']
-                    : (float) ($defaultItem['quantity'] ?? 0.0),
-                'remarks' => $this->normalizeNullableString($incomingItem['remarks'] ?? null)
-                    ?: ($defaultItem['remarks'] ?? null),
-                'sort_order' => isset($incomingItem['sort_order']) && is_numeric($incomingItem['sort_order'])
-                    ? (int) $incomingItem['sort_order']
-                    : (int) ($defaultItem['sort_order'] ?? ($index + 1)),
-            ];
-        }
-
-        return $mergedItems;
-    }
-
-    private function normalizeBudgetSectionKey(mixed $value): string
-    {
-        return strtolower(preg_replace('/[^a-z0-9]+/i', '', (string) ($value ?? '')) ?? '');
+        return $normalized;
     }
 
     /**

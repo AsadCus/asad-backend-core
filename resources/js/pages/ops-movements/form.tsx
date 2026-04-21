@@ -41,6 +41,10 @@ interface OpsMovementFormProps {
     onCancel: () => void;
     canEdit?: boolean;
     canManageBudget?: boolean;
+    onBudgetSnapshotChange?: (snapshot: {
+        budget: OpsBudgetTitleSchema[];
+        budget_currency: string;
+    }) => void;
 }
 
 interface BudgetExtensionEditorState {
@@ -601,6 +605,7 @@ export default function OpsMovementForm({
     onCancel,
     canEdit = true,
     canManageBudget = false,
+    onBudgetSnapshotChange,
 }: OpsMovementFormProps) {
     const [activeTab, setActiveTab] = useState('ops-movement');
     const [budgetExtensionEditor, setBudgetExtensionEditor] =
@@ -692,6 +697,23 @@ export default function OpsMovementForm({
             },
         }));
     }, [initialData.officials, setData]);
+
+    useEffect(() => {
+        if (!onBudgetSnapshotChange) {
+            return;
+        }
+
+        const normalizedCurrency =
+            typeof data.budget_currency === 'string' &&
+            data.budget_currency.trim().length > 0
+                ? data.budget_currency.trim()
+                : 'SGD';
+
+        onBudgetSnapshotChange({
+            budget: normalizeBudgetTemplateForForm(data.budget),
+            budget_currency: normalizedCurrency,
+        });
+    }, [data.budget, data.budget_currency, onBudgetSnapshotChange]);
 
     const editablePayload = useMemo(() => {
         return {
