@@ -241,7 +241,7 @@ export function NavActions() {
                         <div className="space-y-3">
                             {/* <div className="space-y-2 border-t pt-2"> */}
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-base font-medium text-muted-foreground">
                                         You are viewing
                                     </p>
@@ -393,7 +393,7 @@ export function NavActions() {
                                         </p>
                                     </div>
 
-                                    <div>
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <p className="text-base font-medium text-muted-foreground">
                                             {scopeModeLabel === 'Branch'
                                                 ? 'Assigned Branches'
