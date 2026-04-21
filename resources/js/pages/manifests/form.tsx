@@ -3022,57 +3022,13 @@ export default function ManifestForm({
 
     const exportPdfWithSnapshot = useCallback(
         (url: string, snapshot: Record<string, unknown>) => {
+            void snapshot;
+
             if (!data.id) {
                 return;
             }
 
-            const pendingTab = window.open('about:blank', '_blank');
-
-            router.post(
-                `/manifests/${data.id}/export-snapshot-token`,
-                {
-                    snapshot: JSON.stringify(snapshot),
-                },
-                {
-                    preserveState: true,
-                    preserveScroll: true,
-                    only: ['flash'],
-                    onSuccess: (page) => {
-                        const flash = ((page.props as Record<string, unknown>)
-                            ?.flash as Record<string, unknown> | undefined) ?? {
-                            manifest_export_snapshot_token: null,
-                        };
-                        const snapshotToken = String(
-                            flash.manifest_export_snapshot_token ?? '',
-                        ).trim();
-
-                        if (snapshotToken.length === 0) {
-                            pendingTab?.close();
-
-                            return;
-                        }
-
-                        const [path, queryString = ''] = url.split('?');
-                        const query = new URLSearchParams(queryString);
-
-                        query.set('snapshot_token', snapshotToken);
-
-                        const targetUrl = `${path}?${query.toString()}`;
-
-                        if (pendingTab) {
-                            pendingTab.location.href = targetUrl;
-
-                            return;
-                        }
-
-                        window.open(targetUrl, '_blank', 'noopener,noreferrer');
-                    },
-                    onError: (errors) => {
-                        console.error(errors);
-                        pendingTab?.close();
-                    },
-                },
-            );
+            window.open(url, '_blank');
         },
         [data.id],
     );

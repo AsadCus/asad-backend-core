@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Symfony\Component\HttpFoundation\Response;
 
 class ManifestController extends Controller
 {
@@ -375,51 +374,10 @@ class ManifestController extends Controller
     public function exportCollectionItemsPdf(Request $request, string $id)
     {
         try {
-            $locationResponse = $this->redirectInertiaPdfRequest($request);
-
-            if ($locationResponse !== null) {
-                return $locationResponse;
-            }
-
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $this->resolveSnapshotFromRequest($request);
-
-            if (is_string($snapshot) && $snapshot !== '') {
-                $decodedSnapshot = json_decode($snapshot, true);
-
-                if (is_array($decodedSnapshot)) {
-                    if (isset($decodedSnapshot['members']) && is_array($decodedSnapshot['members'])) {
-                        $manifest['members'] = $decodedSnapshot['members'];
-                    }
-
-                    if (isset($decodedSnapshot['manifest_number'])) {
-                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
-                    }
-
-                    if (isset($decodedSnapshot['package_name'])) {
-                        $manifest['package_name'] = $decodedSnapshot['package_name'];
-                    }
-
-                    if (isset($decodedSnapshot['package_number'])) {
-                        $manifest['package_number'] = $decodedSnapshot['package_number'];
-                    }
-
-                    if (isset($decodedSnapshot['departure_date'])) {
-                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
-                    }
-
-                    if (isset($decodedSnapshot['return_date'])) {
-                        $manifest['return_date'] = $decodedSnapshot['return_date'];
-                    }
-
-                    if (isset($decodedSnapshot['package_accommodations']) && is_array($decodedSnapshot['package_accommodations'])) {
-                        $manifest['package_accommodations'] = $decodedSnapshot['package_accommodations'];
-                    }
-                }
-            }
 
             $reportData = $this->reportTemplateService->build('manifest_namelist_course_items', [
                 'manifest' => $manifest,
@@ -455,47 +413,10 @@ class ManifestController extends Controller
     public function exportArabicNamesPdf(Request $request, string $id)
     {
         try {
-            $locationResponse = $this->redirectInertiaPdfRequest($request);
-
-            if ($locationResponse !== null) {
-                return $locationResponse;
-            }
-
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $this->resolveSnapshotFromRequest($request);
-
-            if (is_string($snapshot) && $snapshot !== '') {
-                $decodedSnapshot = json_decode($snapshot, true);
-
-                if (is_array($decodedSnapshot)) {
-                    if (isset($decodedSnapshot['members']) && is_array($decodedSnapshot['members'])) {
-                        $manifest['members'] = $decodedSnapshot['members'];
-                    }
-
-                    if (isset($decodedSnapshot['manifest_number'])) {
-                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
-                    }
-
-                    if (isset($decodedSnapshot['package_name'])) {
-                        $manifest['package_name'] = $decodedSnapshot['package_name'];
-                    }
-
-                    if (isset($decodedSnapshot['departure_date'])) {
-                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
-                    }
-
-                    if (isset($decodedSnapshot['in_charge_official_name'])) {
-                        $manifest['in_charge_official_name'] = $decodedSnapshot['in_charge_official_name'];
-                    }
-
-                    if (isset($decodedSnapshot['in_charge_official_contact_number'])) {
-                        $manifest['in_charge_official_contact_number'] = $decodedSnapshot['in_charge_official_contact_number'];
-                    }
-                }
-            }
 
             $manifest['members'] = collect($manifest['members'] ?? [])
                 ->map(function ($member) {
@@ -543,43 +464,10 @@ class ManifestController extends Controller
     public function exportAirlineNamesPdf(Request $request, string $id)
     {
         try {
-            $locationResponse = $this->redirectInertiaPdfRequest($request);
-
-            if ($locationResponse !== null) {
-                return $locationResponse;
-            }
-
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-            $snapshot = $this->resolveSnapshotFromRequest($request);
-
-            if (is_string($snapshot) && $snapshot !== '') {
-                $decodedSnapshot = json_decode($snapshot, true);
-
-                if (is_array($decodedSnapshot)) {
-                    if (isset($decodedSnapshot['members']) && is_array($decodedSnapshot['members'])) {
-                        $manifest['members'] = $decodedSnapshot['members'];
-                    }
-
-                    if (isset($decodedSnapshot['manifest_number'])) {
-                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
-                    }
-
-                    if (isset($decodedSnapshot['package_name'])) {
-                        $manifest['package_name'] = $decodedSnapshot['package_name'];
-                    }
-
-                    if (isset($decodedSnapshot['departure_date'])) {
-                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
-                    }
-
-                    if (isset($decodedSnapshot['return_date'])) {
-                        $manifest['return_date'] = $decodedSnapshot['return_date'];
-                    }
-                }
-            }
 
             $reportData = $this->reportTemplateService->build('manifest_airline_names', [
                 'manifest' => $manifest,
@@ -615,12 +503,6 @@ class ManifestController extends Controller
     public function exportRoomCheckPdf(Request $request, string $id)
     {
         try {
-            $locationResponse = $this->redirectInertiaPdfRequest($request);
-
-            if ($locationResponse !== null) {
-                return $locationResponse;
-            }
-
             ini_set('memory_limit', '512M');
             set_time_limit(60);
 
@@ -636,46 +518,6 @@ class ManifestController extends Controller
             }
 
             $manifest = $this->manifestService->getForEditShow((int) $id);
-
-            $snapshot = $this->resolveSnapshotFromRequest($request);
-
-            if (is_string($snapshot) && $snapshot !== '') {
-                $decodedSnapshot = json_decode($snapshot, true);
-
-                if (is_array($decodedSnapshot)) {
-                    if (isset($decodedSnapshot['room_check_rows']) && is_array($decodedSnapshot['room_check_rows'])) {
-                        $manifest['room_check_rows'] = $decodedSnapshot['room_check_rows'];
-                    }
-
-                    if (isset($decodedSnapshot['room_check_location_label'])) {
-                        $manifest['room_check_location_label'] = $decodedSnapshot['room_check_location_label'];
-                    }
-
-                    if (isset($decodedSnapshot['manifest_number'])) {
-                        $manifest['manifest_number'] = $decodedSnapshot['manifest_number'];
-                    }
-
-                    if (isset($decodedSnapshot['package_name'])) {
-                        $manifest['package_name'] = $decodedSnapshot['package_name'];
-                    }
-
-                    if (isset($decodedSnapshot['package_number'])) {
-                        $manifest['package_number'] = $decodedSnapshot['package_number'];
-                    }
-
-                    if (isset($decodedSnapshot['departure_date'])) {
-                        $manifest['departure_date'] = $decodedSnapshot['departure_date'];
-                    }
-
-                    if (isset($decodedSnapshot['return_date'])) {
-                        $manifest['return_date'] = $decodedSnapshot['return_date'];
-                    }
-
-                    if (isset($decodedSnapshot['package_accommodations']) && is_array($decodedSnapshot['package_accommodations'])) {
-                        $manifest['package_accommodations'] = $decodedSnapshot['package_accommodations'];
-                    }
-                }
-            }
 
             $roomRows = collect((array) Arr::get($manifest, 'roomLists.'.$location, []))
                 ->values()
@@ -767,72 +609,6 @@ class ManifestController extends Controller
             'message' => 'Member moved to holding confirmation successfully.',
             'new_confirmation_id' => $newConfirmation->id,
         ]);
-    }
-
-    public function storeExportSnapshotToken(Request $request, string $id): RedirectResponse
-    {
-        $this->resolveScopedManifest((int) $id);
-
-        $validated = $request->validate([
-            'snapshot' => ['required', 'string'],
-        ]);
-
-        $token = (string) Str::uuid();
-
-        session()->put('manifest_pdf_snapshots.'.$token, $validated['snapshot']);
-
-        return redirect()->back(303)
-            ->with('manifest_export_snapshot_token', $token);
-    }
-
-    private function redirectInertiaPdfRequest(Request $request): ?Response
-    {
-        if (! $request->header('X-Inertia')) {
-            return null;
-        }
-
-        $query = $request->query();
-        $snapshot = $request->input('snapshot');
-
-        if (is_string($snapshot) && $snapshot !== '') {
-            $token = (string) Str::uuid();
-
-            session()->put('manifest_pdf_snapshots.'.$token, $snapshot);
-            $query['snapshot_token'] = $token;
-        }
-
-        unset($query['snapshot']);
-
-        $location = url()->current();
-
-        if ($query !== []) {
-            $location .= '?'.http_build_query($query);
-        }
-
-        return Inertia::location($location);
-    }
-
-    private function resolveSnapshotFromRequest(Request $request): ?string
-    {
-        $snapshot = $request->input('snapshot');
-
-        if (is_string($snapshot) && $snapshot !== '') {
-            return $snapshot;
-        }
-
-        $snapshotToken = trim((string) $request->query('snapshot_token', ''));
-
-        if ($snapshotToken === '') {
-            return null;
-        }
-
-        $storedSnapshot = session()->pull('manifest_pdf_snapshots.'.$snapshotToken);
-
-        if (! is_string($storedSnapshot) || $storedSnapshot === '') {
-            return null;
-        }
-
-        return $storedSnapshot;
     }
 
     /**

@@ -224,7 +224,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/airline-names-pdf', [ManifestController::class, 'exportAirlineNamesPdf'])->name('manifests.airline-names-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/room-check-pdf', [ManifestController::class, 'exportRoomCheckPdf'])->name('manifests.room-check-pdf');
-    Route::post('manifests/{id}/export-snapshot-token', [ManifestController::class, 'storeExportSnapshotToken'])->name('manifests.export-snapshot-token');
     Route::patch('manifests/{manifestId}/sections/core', [ManifestController::class, 'updateCoreSection'])->name('manifests.sections.core.update');
     Route::patch('manifests/{manifestId}/sections/sharing-groups', [ManifestController::class, 'updateSharingGroupsSection'])->name('manifests.sections.sharing-groups.update');
     Route::patch('manifests/{manifestId}/sections/rooms', [ManifestController::class, 'updateRoomsSection'])->name('manifests.sections.rooms.update');

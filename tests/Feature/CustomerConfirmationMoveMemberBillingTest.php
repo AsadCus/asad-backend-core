@@ -163,6 +163,71 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         ]);
     }
 
+    public function test_manifest_move_to_holding_reuses_same_confirmation_when_only_active_member_selected(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MOVE-ONLY-001',
+            'name' => 'Single Member Package',
+            'status' => 'open',
+            'price_single' => 5000,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'created_by' => $user->id,
+            'is_holding' => false,
+        ]);
+
+        $memberUser = User::factory()->create();
+        $memberCustomer = Customer::create([
+            'user_id' => $memberUser->id,
+            'customer_number' => 'CUST-MOVE-ONLY-001',
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $memberCustomer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MOVE-ONLY-001',
+        ]);
+
+        $manifestMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'name' => $memberUser->name,
+            'sort_order' => 1,
+        ]);
+
+        $initialConfirmationCount = CustomerConfirmation::query()->count();
+
+        $response = $this->post(route('manifests.members.move-holding', [
+            'manifestId' => $manifest->id,
+            'memberId' => $manifestMember->id,
+        ]), [
+            'target_package_id' => null,
+        ]);
+
+        $response->assertOk();
+
+        $confirmation->refresh();
+
+        $this->assertSame($initialConfirmationCount, CustomerConfirmation::query()->count());
+        $this->assertTrue((bool) $confirmation->is_holding);
+        $this->assertNull($confirmation->package_id);
+        $this->assertDatabaseMissing('manifest_members', [
+            'id' => $manifestMember->id,
+        ]);
+    }
+
     public function test_moving_member_splits_quotation_and_transfers_paid_receipt_then_creates_topup_after_group_update(): void
     {
         $user = User::factory()->create();
@@ -498,6 +563,25 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
         $this->assertDatabaseHas('manifest_members', [
             'manifest_id' => $targetManifest->id,
             'customer_confirmation_member_id' => $member->id,
+        ]);
+
+        $autoLinkedManifestMemberId = (int) ManifestMember::query()
+            ->where('manifest_id', $targetManifest->id)
+            ->where('customer_confirmation_member_id', $member->id)
+            ->value('id');
+
+        $this->assertDatabaseHas('manifest_sharing_groups', [
+            'manifest_id' => $targetManifest->id,
+            'customer_confirmation_id' => $confirmation->id,
+        ]);
+
+        $this->assertDatabaseHas('manifest_rooms', [
+            'manifest_id' => $targetManifest->id,
+            'room_label' => 'Auto Room - Confirmation #'.$confirmation->id,
+        ]);
+
+        $this->assertDatabaseHas('manifest_room_members', [
+            'manifest_member_id' => $autoLinkedManifestMemberId,
         ]);
     }
 

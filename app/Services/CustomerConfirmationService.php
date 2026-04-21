@@ -11,6 +11,8 @@ use App\Models\Enquiry;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
+use App\Models\ManifestRoom;
+use App\Models\ManifestSharingGroup;
 use App\Models\ModelFile;
 use App\Models\Order;
 use App\Models\Package;
@@ -2584,7 +2586,72 @@ class CustomerConfirmationService
                 abort(422, 'No valid members selected for moving.');
             }
 
-            $selectedMemberIds = $selectedMembers->pluck('id')->all();
+            $selectedMemberIds = $selectedMembers
+                ->pluck('id')
+                ->map(fn ($memberId): int => (int) $memberId)
+                ->values()
+                ->all();
+
+            $activeSourceMemberIds = $sourceGroup->members
+                ->filter(function (CustomerConfirmationMember $member): bool {
+                    return $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled';
+                })
+                ->pluck('id')
+                ->map(fn ($memberId): int => (int) $memberId)
+                ->sort()
+                ->values()
+                ->all();
+
+            $selectedMemberIdsSorted = collect($selectedMemberIds)
+                ->sort()
+                ->values()
+                ->all();
+
+            $shouldMoveInPlaceToHolding =
+                $sourceManifestId !== null
+                && ! $targetPackageId
+                && $activeSourceMemberIds !== []
+                && $selectedMemberIdsSorted === $activeSourceMemberIds;
+
+            if ($shouldMoveInPlaceToHolding) {
+                $previousPackageId = (int) ($sourceGroup->package_id ?? 0);
+
+                $sourceGroup->update([
+                    'package_id' => null,
+                    'is_holding' => true,
+                ]);
+
+                $this->deleteManifestMembersForMovedMembers(
+                    $selectedMemberIds,
+                    (int) $sourceGroup->id,
+                    $sourceManifestId,
+                );
+
+                $this->syncMemberStatusesForConfirmation((int) $sourceGroup->id);
+
+                $sourceGroup->load('members.customer.user', 'enquiry', 'package');
+
+                activity()
+                    ->performedOn($sourceGroup)
+                    ->withProperties([
+                        'subject_type' => 'CustomerConfirmation',
+                        'subject_id' => $sourceGroup->id,
+                        'context' => $this->buildLogContext(
+                            operation: 'move_to_holding',
+                            enquiryId: $sourceGroup->enquiry_id,
+                            packageId: $sourceGroup->package_id,
+                        ),
+                        'source_confirmation_id' => $sourceGroup->id,
+                        'source_member_ids' => $selectedMemberIds,
+                        'source_manifest_id' => $sourceManifestId,
+                        'new_member_ids' => [],
+                    ])
+                    ->log('Customer members moved to holding confirmation #'.$sourceGroup->id);
+
+                app(PackageSeatService::class)->recalculateForPackageId($previousPackageId);
+
+                return $sourceGroup;
+            }
 
             $sourceMembersById = $selectedMembers->keyBy('id');
 
@@ -2631,25 +2698,11 @@ class CustomerConfirmationService
                 ]);
             }
 
-            $manifestMemberIdsToDelete = ManifestMember::query()
-                ->whereIn('customer_confirmation_member_id', $selectedMemberIds)
-                ->whereHas('confirmationMember', function ($query) use ($sourceGroup) {
-                    $query->where('customer_confirmation_id', $sourceGroup->id);
-                })
-                ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
-                    $query->where('manifest_id', $sourceManifestId);
-                })
-                ->pluck('id')
-                ->map(fn ($manifestMemberId) => (int) $manifestMemberId)
-                ->filter(fn ($manifestMemberId) => $manifestMemberId > 0)
-                ->values()
-                ->all();
-
-            if ($manifestMemberIdsToDelete !== []) {
-                ManifestMember::query()
-                    ->whereIn('id', $manifestMemberIdsToDelete)
-                    ->delete();
-            }
+            $this->deleteManifestMembersForMovedMembers(
+                $selectedMemberIds,
+                (int) $sourceGroup->id,
+                $sourceManifestId,
+            );
 
             $this->syncMemberStatusesForConfirmation((int) $sourceGroup->id);
             $this->syncMemberStatusesForConfirmation((int) $newGroup->id);
@@ -2682,6 +2735,37 @@ class CustomerConfirmationService
 
             return $newGroup;
         });
+    }
+
+    /**
+     * @param  array<int, int>  $selectedMemberIds
+     */
+    private function deleteManifestMembersForMovedMembers(
+        array $selectedMemberIds,
+        int $sourceConfirmationId,
+        ?int $sourceManifestId,
+    ): void {
+        $manifestMemberIdsToDelete = ManifestMember::query()
+            ->whereIn('customer_confirmation_member_id', $selectedMemberIds)
+            ->whereHas('confirmationMember', function ($query) use ($sourceConfirmationId) {
+                $query->where('customer_confirmation_id', $sourceConfirmationId);
+            })
+            ->when($sourceManifestId, function ($query) use ($sourceManifestId) {
+                $query->where('manifest_id', $sourceManifestId);
+            })
+            ->pluck('id')
+            ->map(fn ($manifestMemberId) => (int) $manifestMemberId)
+            ->filter(fn ($manifestMemberId) => $manifestMemberId > 0)
+            ->values()
+            ->all();
+
+        if ($manifestMemberIdsToDelete === []) {
+            return;
+        }
+
+        ManifestMember::query()
+            ->whereIn('id', $manifestMemberIdsToDelete)
+            ->delete();
     }
 
     /**
@@ -3921,8 +4005,7 @@ class CustomerConfirmationService
 
         $packageId = (int) ($confirmation?->package_id ?? 0);
         $hasPaidAmount = $this->memberHasPaidAmountForManifestAutoLink($member, $confirmation?->package);
-
-        if (
+        $isEligibleForAutoLink =
             $packageId > 0
             && $hasPaidAmount
             && in_array(
@@ -3930,13 +4013,15 @@ class CustomerConfirmationService
                 ['partially_paid', 'fully_paid', 'overpaid'],
                 true,
             )
-            && $this->packageSeatService->hasAvailableSeat($packageId, (int) $member->id)
-        ) {
+            && $this->packageSeatService->hasAvailableSeat($packageId, (int) $member->id);
+
+        if ($isEligibleForAutoLink) {
             $existingOpenManifestMember = ManifestMember::query()
                 ->where('customer_confirmation_member_id', (int) $member->id)
                 ->whereHas('manifest.package', function ($query): void {
                     $query->where('status', 'open');
                 })
+                ->with('manifest')
                 ->first();
 
             if (! $existingOpenManifestMember) {
@@ -3949,7 +4034,7 @@ class CustomerConfirmationService
                     ->first();
 
                 if ($targetManifest) {
-                    ManifestMember::query()->create([
+                    $createdManifestMember = ManifestMember::query()->create([
                         'manifest_id' => (int) $targetManifest->id,
                         'customer_confirmation_member_id' => (int) $member->id,
                         'sharing_plan' => $member->sharing_plan,
@@ -3958,9 +4043,21 @@ class CustomerConfirmationService
                             ->max('sort_order')) + 1,
                     ]);
 
+                    $this->ensureManifestStructureForAutoLinkedMember(
+                        $member,
+                        $createdManifestMember,
+                        $targetManifest,
+                    );
+
                     $manifestIds[] = (int) $targetManifest->id;
                     $manifestIds = array_values(array_unique(array_map('intval', $manifestIds)));
                 }
+            } elseif ($existingOpenManifestMember->manifest) {
+                $this->ensureManifestStructureForAutoLinkedMember(
+                    $member,
+                    $existingOpenManifestMember,
+                    $existingOpenManifestMember->manifest,
+                );
             }
         }
 
@@ -3999,7 +4096,137 @@ class CustomerConfirmationService
             'photo_path' => $this->resolveCustomerDocumentPath($customer, 'photo'),
         ]);
 
+        if ($isEligibleForAutoLink) {
+            $openManifestMembersCollection = $openManifestMembers
+                ->with('manifest')
+                ->get();
+
+            foreach ($openManifestMembersCollection as $openManifestMember) {
+                if (! $openManifestMember->manifest) {
+                    continue;
+                }
+
+                $this->ensureManifestStructureForAutoLinkedMember(
+                    $member,
+                    $openManifestMember,
+                    $openManifestMember->manifest,
+                );
+
+                $manifestIds[] = (int) $openManifestMember->manifest_id;
+            }
+
+            $manifestIds = array_values(array_unique(array_map('intval', $manifestIds)));
+        }
+
         $this->syncIdentityDocumentsForManifests($manifestIds);
+    }
+
+    private function ensureManifestStructureForAutoLinkedMember(
+        CustomerConfirmationMember $member,
+        ManifestMember $manifestMember,
+        Manifest $manifest,
+    ): void {
+        $confirmation = $member->relationLoaded('confirmation')
+            ? $member->confirmation
+            : $member->confirmation()->first();
+
+        $confirmationId = (int) ($confirmation?->id ?? 0);
+
+        if ($confirmationId > 0 && (int) ($manifestMember->manifest_sharing_group_id ?? 0) <= 0) {
+            $sharingGroup = ManifestSharingGroup::query()
+                ->where('manifest_id', (int) $manifest->id)
+                ->where('customer_confirmation_id', $confirmationId)
+                ->orderBy('id')
+                ->first();
+
+            if (! $sharingGroup) {
+                $sharingGroup = ManifestSharingGroup::query()->create([
+                    'manifest_id' => (int) $manifest->id,
+                    'customer_confirmation_id' => $confirmationId,
+                    'sort_order' => ((int) ManifestSharingGroup::query()
+                        ->where('manifest_id', (int) $manifest->id)
+                        ->max('sort_order')) + 1,
+                    'remarks' => 'Auto-linked from confirmation #'.$confirmationId,
+                ]);
+            }
+
+            $manifestMember->update([
+                'manifest_sharing_group_id' => (int) $sharingGroup->id,
+            ]);
+        }
+
+        if ($manifestMember->roomAssignments()->exists()) {
+            return;
+        }
+
+        $normalizedSharingPlan = strtolower(trim((string) ($member->sharing_plan ?? $manifestMember->sharing_plan ?? 'single')));
+
+        if ($normalizedSharingPlan === '') {
+            $normalizedSharingPlan = 'single';
+        }
+
+        $normalizedRoomType = $this->resolveManifestRoomTypeFromSharingPlan($normalizedSharingPlan);
+        $roomLabel = $confirmationId > 0
+            ? 'Auto Room - Confirmation #'.$confirmationId
+            : 'Auto Room';
+
+        $room = ManifestRoom::query()
+            ->where('manifest_id', (int) $manifest->id)
+            ->where('room_label', $roomLabel)
+            ->orderBy('id')
+            ->first();
+
+        if (! $room) {
+            $room = ManifestRoom::query()->create([
+                'manifest_id' => (int) $manifest->id,
+                'sort_order' => ((int) ManifestRoom::query()
+                    ->where('manifest_id', (int) $manifest->id)
+                    ->max('sort_order')) + 1,
+                'room_label' => $roomLabel,
+                'room_type' => $normalizedRoomType,
+                'sharing_plan' => $normalizedSharingPlan,
+                'capacity' => $this->resolveManifestRoomCapacityFromSharingPlan($normalizedSharingPlan),
+                'status' => 'pending',
+                'remarks' => 'Auto-linked from confirmation member #'.$member->id,
+            ]);
+        }
+
+        $existingAssignment = $room->roomMembers()
+            ->where('manifest_member_id', (int) $manifestMember->id)
+            ->first();
+
+        if ($existingAssignment) {
+            return;
+        }
+
+        $room->roomMembers()->create([
+            'manifest_member_id' => (int) $manifestMember->id,
+            'sort_order' => ((int) $room->roomMembers()->max('sort_order')) + 1,
+        ]);
+    }
+
+    private function resolveManifestRoomTypeFromSharingPlan(?string $sharingPlan): string
+    {
+        $normalized = strtolower(trim((string) $sharingPlan));
+
+        return match ($normalized) {
+            'double' => 'double',
+            'triple' => 'triple',
+            'quad' => 'quad',
+            default => 'single',
+        };
+    }
+
+    private function resolveManifestRoomCapacityFromSharingPlan(?string $sharingPlan): int
+    {
+        $normalized = strtolower(trim((string) $sharingPlan));
+
+        return match ($normalized) {
+            'double' => 2,
+            'triple' => 3,
+            'quad' => 4,
+            default => 1,
+        };
     }
 
     private function memberHasPaidAmountForManifestAutoLink(

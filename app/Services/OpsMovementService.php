@@ -36,7 +36,8 @@ class OpsMovementService
             ->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
             })
-            ->orderBy('departure_date', 'desc')
+            // ->orderBy('departure_date', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($package) {
                 $totalMembers = $package->manifests->sum(function ($m) {
