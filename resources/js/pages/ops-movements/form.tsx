@@ -294,7 +294,7 @@ function createDefaultBudgetTemplate(): OpsBudgetTitleSchema[] {
                     remarks: '',
                 },
                 {
-                    item_name: 'Al baik',
+                    item_name: 'Al Baik',
                     unit_price: 0,
                     quantity: 0,
                     remarks: '',

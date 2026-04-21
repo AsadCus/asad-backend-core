@@ -863,7 +863,7 @@ class OpsMovementService
                         'sort_order' => 6,
                     ],
                     [
-                        'item_name' => 'Al baik',
+                        'item_name' => 'Al Baik',
                         'unit_price' => 0.0,
                         'quantity' => 0.0,
                         'remarks' => null,
