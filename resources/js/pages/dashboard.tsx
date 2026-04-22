@@ -20,6 +20,12 @@ import {
 } from '@/components/ui/select';
 
 import AppLayout from '@/layouts/app-layout';
+import {
+    QUICK_DATE_RANGE_OPTIONS,
+    QUICK_DATE_SINGLE_OPTIONS,
+    QuickDateKey,
+    resolveQuickDateRange,
+} from '@/lib/quick-date';
 import { formatUserTime } from '@/lib/timezone';
 import {
     formatCurrency,
@@ -59,16 +65,6 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: dashboard().url,
     },
-];
-
-const QUICK_SINGLE = [{ label: 'Today', value: 'today' }];
-
-const QUICK_RANGE = [
-    { label: 'Last 7 days', value: 'last7days' },
-    { label: 'Last 30 days', value: 'last30days' },
-    { label: 'Last 3 months', value: 'last3months' },
-    { label: 'Last 6 months', value: 'last6months' },
-    { label: 'Last 1 year', value: 'last1year' },
 ];
 
 interface FiscalYearTotalSalesType {
@@ -220,45 +216,14 @@ export default function Dashboard({ data }: DashboardProps) {
           }
         : undefined;
 
-    const getQuickDate = useCallback((type: string): Date => {
-        const date = new Date();
+    const applyQuickDate = useCallback((type: QuickDateKey) => {
+        const { from: fromDate, to: toDate } = resolveQuickDateRange(type);
 
-        switch (type) {
-            case 'last7days':
-                date.setDate(date.getDate() - 7);
-                break;
-            case 'last30days':
-                date.setDate(date.getDate() - 30);
-                break;
-            case 'last3months':
-                date.setMonth(date.getMonth() - 3);
-                break;
-            case 'last6months':
-                date.setMonth(date.getMonth() - 6);
-                break;
-            case 'last1year':
-                date.setFullYear(date.getFullYear() - 1);
-                break;
-            case 'today':
-            default:
-                break;
-        }
-
-        return date;
+        setExportDateRange({
+            from: formatDateForDisplay(fromDate),
+            to: toDate ? formatDateForDisplay(toDate) : undefined,
+        });
     }, []);
-
-    const applyQuickDate = useCallback(
-        (type: string) => {
-            const fromDate = getQuickDate(type);
-            const toDate = type.startsWith('last') ? new Date() : undefined;
-
-            setExportDateRange({
-                from: formatDateForDisplay(fromDate),
-                to: toDate ? formatDateForDisplay(toDate) : undefined,
-            });
-        },
-        [getQuickDate],
-    );
 
     const buildPaymentSummaryParams = useCallback(
         (
@@ -698,8 +663,8 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         </p>
 
                                                         {[
-                                                            ...QUICK_SINGLE,
-                                                            ...QUICK_RANGE,
+                                                            ...QUICK_DATE_SINGLE_OPTIONS,
+                                                            ...QUICK_DATE_RANGE_OPTIONS,
                                                         ].map((item) => (
                                                             <Button
                                                                 key={item.value}
@@ -724,8 +689,8 @@ export default function Dashboard({ data }: DashboardProps) {
                                                     </p>
 
                                                     {[
-                                                        ...QUICK_SINGLE,
-                                                        ...QUICK_RANGE,
+                                                        ...QUICK_DATE_SINGLE_OPTIONS,
+                                                        ...QUICK_DATE_RANGE_OPTIONS,
                                                     ].map((item) => (
                                                         <Button
                                                             key={item.value}

@@ -1,5 +1,11 @@
 'use client';
 
+import {
+    QUICK_DATE_RANGE_OPTIONS,
+    QUICK_DATE_SINGLE_OPTIONS,
+    QuickDateKey,
+    resolveQuickDateRange,
+} from '@/lib/quick-date';
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { Table } from '@tanstack/react-table';
 import { CalendarIcon, X } from 'lucide-react';
@@ -23,24 +29,6 @@ interface DateRangeFilterProps<TData> {
     value?: { from?: string; to?: string };
     onChange?: (value: { from?: string; to?: string }) => void;
 }
-
-const QUICK_SINGLE = [
-    { label: 'Today', value: 'today' },
-    // { label: 'Tomorrow', value: '3days' },
-    // { label: 'In 1 week', value: '1week' },
-    // { label: 'In 1 month', value: '1month' },
-    // { label: 'In 3 months', value: '3months' },
-    // { label: 'End of month', value: 'endmonth' },
-    // { label: 'End of next month', value: 'endnextmonth' },
-];
-
-const QUICK_RANGE = [
-    { label: 'Last 7 days', value: 'last7days' },
-    { label: 'Last 30 days', value: 'last30days' },
-    { label: 'Last 3 months', value: 'last3months' },
-    { label: 'Last 6 months', value: 'last6months' },
-    { label: 'Last 1 year', value: 'last1year' },
-];
 
 export function DateRangeFilter<TData>({
     table,
@@ -127,62 +115,8 @@ export function DateRangeFilter<TData>({
         setOpen(false);
     };
 
-    const getQuickDate = (type: string) => {
-        const date = new Date();
-
-        switch (type) {
-            case '3days':
-                date.setDate(date.getDate() + 3);
-                break;
-            case '1week':
-                date.setDate(date.getDate() + 7);
-                break;
-            case '1month':
-                date.setMonth(date.getMonth() + 1);
-                break;
-            case '3months':
-                date.setMonth(date.getMonth() + 3);
-                break;
-            case 'endmonth':
-                date.setMonth(date.getMonth() + 1, 0);
-                break;
-            case 'endnextmonth':
-                date.setMonth(date.getMonth() + 2, 0);
-                break;
-            case 'today':
-                break;
-            case 'yesterday':
-                date.setDate(date.getDate() - 1);
-                break;
-            case 'last7days':
-                date.setDate(date.getDate() - 7);
-                break;
-            case 'last30days':
-                date.setDate(date.getDate() - 30);
-                break;
-            case 'thismonth':
-                date.setDate(1);
-                break;
-            case 'last3months':
-                date.setMonth(date.getMonth() - 3);
-                break;
-            case 'last6months':
-                date.setMonth(date.getMonth() - 6);
-                break;
-            case 'last1year':
-                date.setFullYear(date.getFullYear() - 1);
-                break;
-        }
-
-        return date;
-    };
-
-    const applyQuickDate = (type: string) => {
-        const fromDate = getQuickDate(type);
-        const toDate =
-            type.startsWith('last') || type === 'thismonth'
-                ? new Date()
-                : undefined;
+    const applyQuickDate = (type: QuickDateKey) => {
+        const { from: fromDate, to: toDate } = resolveQuickDateRange(type);
 
         setDateRange({ from: fromDate, to: toDate });
 
@@ -299,35 +233,10 @@ export function DateRangeFilter<TData>({
                                             Quick Select
                                         </p>
 
-                                        {[...QUICK_SINGLE, ...QUICK_RANGE].map(
-                                            (item) => (
-                                                <Button
-                                                    key={item.value}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="justify-start"
-                                                    onClick={() =>
-                                                        applyQuickDate(
-                                                            item.value,
-                                                        )
-                                                    }
-                                                >
-                                                    {item.label}
-                                                </Button>
-                                            ),
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {quickDate && (
-                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
-                                    <p className="mb-2 text-sm font-medium">
-                                        Quick Select
-                                    </p>
-
-                                    {[...QUICK_SINGLE, ...QUICK_RANGE].map(
-                                        (item) => (
+                                        {[
+                                            ...QUICK_DATE_SINGLE_OPTIONS,
+                                            ...QUICK_DATE_RANGE_OPTIONS,
+                                        ].map((item) => (
                                             <Button
                                                 key={item.value}
                                                 variant="ghost"
@@ -339,8 +248,33 @@ export function DateRangeFilter<TData>({
                                             >
                                                 {item.label}
                                             </Button>
-                                        ),
-                                    )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {quickDate && (
+                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
+                                    <p className="mb-2 text-sm font-medium">
+                                        Quick Select
+                                    </p>
+
+                                    {[
+                                        ...QUICK_DATE_SINGLE_OPTIONS,
+                                        ...QUICK_DATE_RANGE_OPTIONS,
+                                    ].map((item) => (
+                                        <Button
+                                            key={item.value}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="justify-start"
+                                            onClick={() =>
+                                                applyQuickDate(item.value)
+                                            }
+                                        >
+                                            {item.label}
+                                        </Button>
+                                    ))}
                                 </div>
                             )}
                         </div>
