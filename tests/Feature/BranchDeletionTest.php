@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Admin;
 use App\Models\Branch;
 use App\Models\Country;
-use App\Models\Customer;
 use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
@@ -48,13 +47,6 @@ class BranchDeletionTest extends TestCase
             'country_ids' => [$country->id],
         ]);
 
-        $customerUser = User::factory()->create();
-        $customer = Customer::query()->create([
-            'user_id' => $customerUser->id,
-            'customer_number' => 'CUST-BRANCH-DELETE',
-            'branch_id' => $branchToDelete->id,
-        ]);
-
         $salesUser = User::factory()->create();
         $sales = Sales::query()->create([
             'user_id' => $salesUser->id,
@@ -80,11 +72,6 @@ class BranchDeletionTest extends TestCase
 
         $this->assertTrue($deleted);
         $this->assertDatabaseMissing('branches', ['id' => $branchToDelete->id]);
-
-        $this->assertDatabaseHas('customers', [
-            'id' => $customer->id,
-            'branch_id' => null,
-        ]);
 
         $this->assertDatabaseHas('sales', [
             'id' => $sales->id,

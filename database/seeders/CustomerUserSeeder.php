@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -20,10 +19,6 @@ class CustomerUserSeeder extends Seeder
             'name' => 'customer',
             'guard_name' => 'web',
         ]);
-
-        $branchIds = Branch::query()
-            ->pluck('id')
-            ->values();
 
         $maleNames = [
             'Ahmad Faiz',
@@ -83,11 +78,6 @@ class CustomerUserSeeder extends Seeder
 
             $user->assignRole($customerRole);
 
-            $branchId = null;
-            if ($branchIds->isNotEmpty()) {
-                $branchId = (int) $branchIds[$index % $branchIds->count()];
-            }
-
             Customer::updateOrCreate(
                 ['user_id' => (int) $user->id],
                 [
@@ -101,7 +91,6 @@ class CustomerUserSeeder extends Seeder
                     'first_time_umrah' => $index % 3 === 0,
                     'has_chronic_disease' => false,
                     'is_active' => true,
-                    'branch_id' => $branchId,
                 ]
             );
         }

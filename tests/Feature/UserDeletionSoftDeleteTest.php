@@ -55,7 +55,6 @@ class UserDeletionSoftDeleteTest extends TestCase
         $assignedCustomer = Customer::create([
             'user_id' => $customerUser->id,
             'customer_number' => 'CUST-SOFT-DELETE-002',
-            'handled_by' => $salesUser->id,
         ]);
 
         $result = app(UserService::class)->delete($salesUser->id);
@@ -64,7 +63,7 @@ class UserDeletionSoftDeleteTest extends TestCase
         $this->assertSoftDeleted('users', ['id' => $salesUser->id]);
         $this->assertDatabaseHas('customers', [
             'id' => $assignedCustomer->id,
-            'handled_by' => $salesUser->id,
+            'user_id' => $customerUser->id,
         ]);
     }
 }
