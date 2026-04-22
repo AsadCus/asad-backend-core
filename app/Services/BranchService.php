@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Admin;
 use App\Models\Branch;
-use App\Models\Customer;
 use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
@@ -101,10 +100,6 @@ class BranchService
             if (! $branch) {
                 return false;
             }
-
-            Customer::query()
-                ->where('branch_id', $branch->id)
-                ->update(['branch_id' => null]);
 
             Sales::query()
                 ->where('branch_id', $branch->id)

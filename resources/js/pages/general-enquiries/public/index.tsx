@@ -8,6 +8,14 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     create as generalPublicCreate,
     store as generalPublicStore,
 } from '@/routes/general-enquiries/public';
@@ -46,8 +54,7 @@ export default function GeneralEnquiryForm({
     // const isCreate = mode === 'create';
 
     const title = 'General Enquiry Form';
-
-    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [successModalOpen, setSuccessModalOpen] = useState(false);
 
     // Force light mode for public enquiry form
     useEffect(() => {
@@ -91,12 +98,6 @@ export default function GeneralEnquiryForm({
         clearErrors,
     } = useForm<GeneralEnquirySchema>(defaultData);
 
-    const createFormUrl = selectedCountry?.slug
-        ? generalPublicCreate({
-              query: { country: selectedCountry.slug },
-          }).url
-        : generalPublicCreate().url;
-
     if (showCountrySelector) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
@@ -138,42 +139,6 @@ export default function GeneralEnquiryForm({
         );
     }
 
-    if (isSubmitted) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
-                <Head title="Enquiry Submitted" />
-
-                <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
-                    <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-2 text-4xl font-light text-green-700">
-                            <CheckCircle className="h-7 w-7" />
-                            Enquiry Submitted
-                        </CardTitle>
-                        <CardDescription className="mt-2 text-base text-green-700">
-                            Your enquiry has been submitted. We will contact you
-                            soon.
-                        </CardDescription>
-                        {selectedCountry?.name ? (
-                            <CardDescription className="mt-2 text-base font-medium text-foreground">
-                                Selected Country: {selectedCountry.name}
-                            </CardDescription>
-                        ) : null}
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex justify-end">
-                            <Button
-                                type="button"
-                                onClick={() => router.visit(createFormUrl)}
-                            >
-                                Go to Form
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
     function validateClientSide(): boolean {
         clearErrors();
         let valid = true;
@@ -204,8 +169,8 @@ export default function GeneralEnquiryForm({
         post(url, {
             preserveScroll: true,
             onSuccess: () => {
-                setIsSubmitted(true);
                 reset();
+                setSuccessModalOpen(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             },
             onError: (errors) => {
@@ -310,6 +275,30 @@ export default function GeneralEnquiryForm({
                     </form>
                 </CardContent>
             </Card>
+
+            <Dialog open={successModalOpen} onOpenChange={setSuccessModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-green-700">
+                            <CheckCircle className="h-5 w-5" />
+                            Enquiry Submitted
+                        </DialogTitle>
+                        <DialogDescription>
+                            Your enquiry has been submitted successfully. We
+                            will contact you soon.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSuccessModalOpen(false)}
+                        >
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

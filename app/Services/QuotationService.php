@@ -44,7 +44,6 @@ class QuotationService
     {
         $data = Quotation::with([
             'customer.user',
-            'customer.handledBy',
             'customerConfirmation.enquiry.handledBy:id,name',
             'customerConfirmation.package:id,package_number,name',
             'quotationItems',

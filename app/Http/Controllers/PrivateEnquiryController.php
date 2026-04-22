@@ -114,7 +114,7 @@ class PrivateEnquiryController extends Controller
         $validated['branch_id'] = null;
         $this->privateEnquiryService->store($validated);
 
-        return redirect()->route('private-enquiries.public.create', ['country' => $request->input('country_slug')])
+        return redirect()->route('private-enquiries.public.create', ['country' => \Illuminate\Support\Str::slug((string) $selectedCountry->name)])
             ->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
     }
 

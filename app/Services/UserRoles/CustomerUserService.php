@@ -36,8 +36,6 @@ class CustomerUserService
                 $user->contact = $user->contact ?? '';
 
                 if ($user->customer) {
-                    $user->branch_id = (string) ($user->customer->branch_id ?? '');
-                    $user->handled_by = (string) ($user->customer->handled_by ?? '');
                     $user->nric_number = $user->customer->nric_number ?? '';
                     $user->address = $user->customer->address ?? '';
                     $user->nationality = $user->customer->nationality ?? '';
@@ -96,8 +94,6 @@ class CustomerUserService
                 'has_chronic_disease' => $data['has_chronic_disease'] ?? false,
                 'is_using_wheelchair' => $data['is_using_wheelchair'] ?? false,
                 'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
-                'branch_id' => $data['branch_id'] ?? null,
-                'handled_by' => $data['handled_by'] ?? null,
                 'last_login' => null,
             ]);
 
@@ -115,7 +111,7 @@ class CustomerUserService
                 'type' => 'info',
                 'link' => '/customer',
                 'exclusive' => false,
-            ], [], ['admin', 'sales'], $customer->branch_id);
+            ], [], ['admin', 'sales'], null);
 
             activity()
                 ->performedOn($user)
@@ -166,7 +162,6 @@ class CustomerUserService
             'email' => $user->email,
             'contact' => $user->contact ?? '',
             'role' => 'customer',
-            'branch_id' => (string) ($user->customer->branch_id ?? ''),
             'company_name' => '',
             'customer_id' => $user->customer->id ?? null,
             'customer_number' => $user->customer->customer_number ?? '',
@@ -187,7 +182,6 @@ class CustomerUserService
             'chronic_disease_details' => $user->customer->chronic_disease_details ?? '',
             'passport_path' => $user->customer->passport_path,
             'photo_path' => $user->customer->photo_path,
-            'handled_by' => (string) ($user->customer->handled_by ?? ''),
             'password' => '',
             'password_confirmation' => '',
         ];
@@ -232,8 +226,6 @@ class CustomerUserService
                     'has_chronic_disease' => $data['has_chronic_disease'] ?? false,
                     'is_using_wheelchair' => $data['is_using_wheelchair'] ?? false,
                     'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
-                    'branch_id' => $data['branch_id'] ?? null,
-                    'handled_by' => $data['handled_by'] ?? null,
                 ]);
 
                 $this->userRoleFileUploadService->processUploads(

@@ -44,8 +44,6 @@ class Customer extends Model
         'chronic_disease_details',
         'passport_path',
         'photo_path',
-        'branch_id',
-        'handled_by',
         'last_login',
         'is_active',
     ];
@@ -66,16 +64,6 @@ class Customer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();
-    }
-
-    public function handledBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'handled_by')->withTrashed();
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     public function files(): MorphMany

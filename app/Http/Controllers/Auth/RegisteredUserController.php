@@ -94,8 +94,7 @@ class RegisteredUserController extends Controller
 
         Customer::updateOrCreate([
             'user_id' => $user->id,
-            'branch_id' => $request->branch_id,
-            'handled_by' => null,
+        ], [
             'last_login' => null,
         ]);
 
@@ -115,9 +114,9 @@ class RegisteredUserController extends Controller
         $request->session()->regenerate();
 
         activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'RegisteredUser', 'subject_id' => $user->id ?? null])
-                ->log('RegisteredUser created successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'RegisteredUser', 'subject_id' => $user->id ?? null])
+            ->log('RegisteredUser created successfully #'.($user->id ?? null));
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

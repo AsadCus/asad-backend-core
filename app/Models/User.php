@@ -90,11 +90,6 @@ class User extends Authenticatable
         return $this->ghostUser()->exists();
     }
 
-    public function customers(): HasMany
-    {
-        return $this->hasMany(Customer::class, 'handled_by');
-    }
-
     public function userNotifications(): HasMany
     {
         return $this->hasMany(UserNotification::class, 'user_id');

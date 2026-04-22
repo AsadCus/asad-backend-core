@@ -286,6 +286,77 @@ class EnquiryWorkflowTest extends TestCase
         $response->assertRedirect(route('general-enquiries.public.create'));
     }
 
+    public function test_public_general_enquiry_submission_redirects_back_to_selected_country_form_with_success_flash(): void
+    {
+        $country = Country::factory()->create(['name' => 'Malaysia']);
+
+        $response = $this->post(route('general-enquiries.public.store'), [
+            'country_slug' => 'malaysia',
+            'name' => 'Public General User',
+            'contact_number' => '0171111111',
+            'email' => 'public-general@example.com',
+            'preferred_destinations' => 'Makkah',
+            'preferred_travelling_date' => '2026-08-01',
+            'no_of_adults' => 2,
+            'no_of_children' => 0,
+        ]);
+
+        $response->assertRedirect(route('general-enquiries.public.create', ['country' => 'malaysia']));
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('enquiries', [
+            'type' => 'general',
+            'name' => 'Public General User',
+            'email' => 'public-general@example.com',
+        ]);
+        $this->assertSame($country->id, GeneralEnquiry::query()->latest('id')->first()?->enquiry?->country_id);
+    }
+
+    public function test_public_private_enquiry_submission_redirects_back_to_selected_country_form_with_success_flash(): void
+    {
+        $country = Country::factory()->create(['name' => 'Malaysia']);
+
+        $response = $this->post(route('private-enquiries.public.store'), [
+            'country_slug' => 'malaysia',
+            'name' => 'Public Private User',
+            'contact_number' => '0172222222',
+            'email' => 'public-private@example.com',
+            'passport_expiry_date' => '2027-12-31',
+            'departure_date' => '2026-08-01',
+            'return_date' => '2026-08-12',
+            'no_of_pax' => 3,
+            'no_of_children' => 1,
+            'airline' => 'MAS',
+            'class' => 'Economy',
+            'require_mutawif' => false,
+            'require_umrah_course' => false,
+            'require_umrah_official' => false,
+            'makkah_or_madinah_first' => 'Makkah',
+            'no_of_nights_makkah' => '4',
+            'hotel_makkah' => 'Makkah Tower',
+            'meals_makkah' => 'Half Board',
+            'no_of_nights_madinah' => '4',
+            'hotel_madinah' => 'Madinah Suites',
+            'meals_madinah' => 'Half Board',
+            'land_transfer' => 'Sedan (2 Pax)',
+            'add_on_speed_train' => false,
+            'require_meet_greet' => false,
+            'require_mutawiffah_ustazah_rawdah' => false,
+            'madinah_tour_with_mutawif' => false,
+            'makkah_tour_with_mutawif' => false,
+            'has_chronic_disease' => false,
+            'need_wheelchair' => false,
+        ]);
+
+        $response->assertRedirect(route('private-enquiries.public.create', ['country' => 'malaysia']));
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('enquiries', [
+            'type' => 'private',
+            'name' => 'Public Private User',
+            'email' => 'public-private@example.com',
+        ]);
+        $this->assertSame($country->id, PrivateEnquiry::query()->latest('id')->first()?->enquiry?->country_id);
+    }
+
     public function test_public_private_enquiry_store_with_invalid_country_slug_redirects_to_selector(): void
     {
         $response = $this->post(route('private-enquiries.public.store'), [

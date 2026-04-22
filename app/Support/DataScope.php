@@ -42,6 +42,7 @@ class DataScope
         $resolvedUser = $user ?? self::user();
 
         return self::enabled()
+            && (bool) config('data_scope.scope_sales_ownership', false)
             && $resolvedUser !== null
             && $resolvedUser->hasRole('sales');
     }

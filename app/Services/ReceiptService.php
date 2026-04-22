@@ -33,7 +33,7 @@ class ReceiptService
 
     public function getForDataTable(array $filters = [])
     {
-        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customer.handledBy', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.customerConfirmation.package:id,package_number,name', 'invoice.order.quotation.createdBy:id,name'])
+        return Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.customerConfirmation.package:id,package_number,name', 'invoice.order.quotation.createdBy:id,name'])
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('invoice.order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);

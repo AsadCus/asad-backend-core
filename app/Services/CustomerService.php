@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\User;
-use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -57,14 +56,8 @@ class CustomerService
     public function getForDataTable($request)
     {
         $data = User::role('customer')->with('customer')
-            ->when(DataScope::shouldScopeSalesEnquiries($request->user()), function ($query) use ($request) {
-                $query->whereHas('customer', function ($q) use ($request) {
-                    $q->where('handled_by', $request->user()->id)->orWhereNull('handled_by');
-                });
-            })
             ->orderBy('created_at', 'desc')
             ->get()->map(function ($q) {
-
                 return [
                     'id' => $q->id,
                     'customer_id' => $q->customer->id,
@@ -74,8 +67,6 @@ class CustomerService
                     'contact' => $q->contact ?? '-',
                     'nric_number' => $q->customer->nric_number,
                     'address' => $q->customer->address ?? '-',
-                    'handled_by' => $q->customer->handled_by ?? null,
-                    'handler_name' => $q->customer->handledBy->name ?? '-',
                     'last_login' => $q->customer->last_login ?? null,
                     'is_active' => $q->customer->is_active ?? true,
                 ];
@@ -125,24 +116,9 @@ class CustomerService
             'contact' => $customer->user->contact ?? '',
             'nric_number' => $customer->nric_number ?? '',
             'address' => $customer->address ?? '',
-            'handled_by' => (string) $customer->handled_by,
         ];
 
         return $data;
-    }
-
-    public function handleCustomer($request, $id)
-    {
-        return DB::transaction(function () use ($request, $id) {
-            $user = User::findOrFail($id);
-
-            $customer = Customer::findOrFail($user->customer->id);
-            $customer->update([
-                'handled_by' => $request->user()->id,
-            ]);
-
-            return $user;
-        });
     }
 
     public function updateLastLogin(int $userId)
@@ -158,27 +134,20 @@ class CustomerService
         });
     }
 
-    public function getSalesCustomersData(int $salesUserId)
+    public function getSalesCustomersData(int $_salesUserId)
     {
         $customers = User::role('customer')
-            ->with('customer.handledBy')
-            ->whereHas('customer', function ($query) use ($salesUserId) {
-                $query->whereNull('handled_by')
-                    ->orWhere('handled_by', $salesUserId);
-            })
+            ->with('customer')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($customer) {
-                $salesName = $customer->customer->handledBy->name ?? null;
-                $isAssigned = $customer->customer->handled_by !== null;
-
                 return [
                     'id' => $customer->id,
                     'name' => $customer->name,
                     'email' => $customer->email,
                     'contact' => $customer->contact ?? '-',
-                    'assigned_sales' => $salesName,
-                    'status' => $isAssigned ? 'Assigned' : 'Unassigned',
+                    'assigned_sales' => null,
+                    'status' => 'N/A',
                 ];
             });
 

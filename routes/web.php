@@ -114,7 +114,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Customer
     Route::resource('customer', CustomerController::class);
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
-    Route::put('customer/{id}/handle', [CustomerController::class, 'handleCustomer'])->name('customer.handle');
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
     Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
 

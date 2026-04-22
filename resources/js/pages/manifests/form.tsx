@@ -3292,20 +3292,26 @@ export default function ManifestForm({
                     className="w-full"
                 >
                     <div className="space-y-3">
-                        <TabsList className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11">
+                        <TabsList
+                            className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11"
+                            variant="primary"
+                        >
                             <TabsTrigger
                                 value="main"
-                                className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                             >
                                 Main
                             </TabsTrigger>
                         </TabsList>
 
                         <ScrollArea className="w-full whitespace-nowrap">
-                            <TabsList className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11">
+                            <TabsList
+                                className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11"
+                                variant="primary"
+                            >
                                 <TabsTrigger
                                     value="airline"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Airline Name List
                                 </TabsTrigger>
@@ -3313,7 +3319,7 @@ export default function ManifestForm({
                                     <TabsTrigger
                                         key={tab.key}
                                         value={`room-${tab.key}`}
-                                        className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                        className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                     >
                                         Room List - {tab.label}
                                     </TabsTrigger>
@@ -3322,7 +3328,7 @@ export default function ManifestForm({
                                     <TabsTrigger
                                         key={tab.key}
                                         value={`room-check-${tab.sourceRoomKey}`}
-                                        className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                        className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                     >
                                         Room List for Official to Check -{' '}
                                         {tab.label}
@@ -3330,7 +3336,7 @@ export default function ManifestForm({
                                 ))}
                                 <TabsTrigger
                                     value="course-collection"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Namelist Course & Collection Items
                                 </TabsTrigger>
@@ -3339,52 +3345,55 @@ export default function ManifestForm({
                         </ScrollArea>
 
                         <ScrollArea className="w-full whitespace-nowrap">
-                            <TabsList className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11">
+                            <TabsList
+                                className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11"
+                                variant="primary"
+                            >
                                 <TabsTrigger
                                     value="document-flight-tickets"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Flight Tickets
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="document-visa"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Visa
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="document-train-tickets"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Train Tickets
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="document-hotel"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Hotel
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="document-passport"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Passport
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="document-photo"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Photo
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="arabic-names"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Arabic Names
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="receipt"
-                                    className="text-lg hover:bg-gray-200 data-[state=active]:bg-primary data-[state=active]:text-white"
+                                    className="border border-primary bg-primary/5 text-lg text-primary transition-colors hover:bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white"
                                 >
                                     Receipt
                                 </TabsTrigger>

@@ -11,7 +11,6 @@ import {
     disable,
     edit,
     enable,
-    handle,
     index,
     show,
 } from '@/routes/customer';
@@ -181,8 +180,6 @@ export default function Customer({ data }: CustomerProps) {
                                                 );
                                             },
                                         });
-                                    } else if (action == 'handle-customer') {
-                                        router.put(handle(userId).url);
                                     } else if (action === 'enable-customer') {
                                         confirm({
                                             title: 'Enable Customer',

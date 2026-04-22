@@ -66,6 +66,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_only_sees_confirmed_customer_groups_handled_by_them(): void
     {
         config()->set('data_scope.enabled', true);
+        config()->set('data_scope.scope_sales_ownership', true);
 
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
@@ -93,6 +94,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_sees_all_confirmed_customer_groups_when_data_scope_disabled(): void
     {
         config()->set('data_scope.enabled', false);
+        config()->set('data_scope.scope_sales_ownership', false);
 
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
@@ -126,6 +128,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_sees_enquiries_and_confirmations_in_scoped_country_even_when_handled_by_other_sales(): void
     {
         config()->set('data_scope.enabled', true);
+        config()->set('data_scope.scope_sales_ownership', true);
         config()->set('data_scope.mode', 'country');
 
         $countrySingapore = Country::create([
@@ -199,6 +202,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_does_not_see_own_handled_enquiries_and_confirmations_outside_selected_scope(): void
     {
         config()->set('data_scope.enabled', true);
+        config()->set('data_scope.scope_sales_ownership', true);
         config()->set('data_scope.mode', 'country');
 
         $countrySingapore = Country::create([
@@ -252,6 +256,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_branch_scope_uses_branch_and_branch_country_for_enquiry_and_confirmation_visibility(): void
     {
         config()->set('data_scope.enabled', true);
+        config()->set('data_scope.scope_sales_ownership', true);
         config()->set('data_scope.mode', 'branch');
 
         $countrySingapore = Country::create([
@@ -342,6 +347,113 @@ class EnquirySalesWorkflowTest extends TestCase
         $this->assertContains($visibleByBranch->id, $groupIds);
         $this->assertContains($visibleByCountryFallback->id, $groupIds);
         $this->assertNotContains($hiddenGroup->id, $groupIds);
+    }
+
+    public function test_sales_sees_all_quotation_order_invoice_and_receipt_data_when_sales_ownership_scope_is_disabled(): void
+    {
+        config()->set('data_scope.enabled', true);
+        config()->set('data_scope.scope_sales_ownership', false);
+
+        $salesA = User::factory()->create();
+        $salesA->assignRole('sales');
+
+        $salesB = User::factory()->create();
+        $salesB->assignRole('sales');
+
+        $customerA = Customer::create([
+            'user_id' => User::factory()->create()->id,
+            'customer_number' => 'CUST-SALES-A',
+        ]);
+
+        $customerB = Customer::create([
+            'user_id' => User::factory()->create()->id,
+            'customer_number' => 'CUST-SALES-B',
+        ]);
+
+        $quotationA = Quotation::create([
+            'customer_id' => $customerA->id,
+            'created_by' => $salesA->id,
+            'quotation_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $quotationB = Quotation::create([
+            'customer_id' => $customerB->id,
+            'created_by' => $salesB->id,
+            'quotation_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $orderA = Order::create([
+            'quotation_id' => $quotationA->id,
+        ]);
+
+        $orderB = Order::create([
+            'quotation_id' => $quotationB->id,
+        ]);
+
+        $invoiceA = Invoice::create([
+            'order_id' => $orderA->id,
+            'description' => 'Invoice A',
+            'payment_method' => 'cash',
+            'amount' => 100,
+            'invoice_date' => now()->toDateString(),
+            'status' => 'outstanding',
+        ]);
+
+        $invoiceB = Invoice::create([
+            'order_id' => $orderB->id,
+            'description' => 'Invoice B',
+            'payment_method' => 'cash',
+            'amount' => 200,
+            'invoice_date' => now()->toDateString(),
+            'status' => 'outstanding',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $invoiceA->id,
+            'amount' => 100,
+            'receipt_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $invoiceB->id,
+            'amount' => 200,
+            'receipt_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+        ]);
+
+        $this->actingAs($salesA);
+
+        $quotationIds = collect(app(QuotationService::class)->getForDataTable())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $orderIds = collect(app(OrderService::class)->getForDataTable())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $invoiceIds = collect(app(InvoiceService::class)->getForDataTable())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $receiptIds = collect(app(ReceiptService::class)->getForDataTable())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $this->assertContains($quotationA->id, $quotationIds);
+        $this->assertContains($quotationB->id, $quotationIds);
+        $this->assertContains($orderA->id, $orderIds);
+        $this->assertContains($orderB->id, $orderIds);
+        $this->assertContains($invoiceA->id, $invoiceIds);
+        $this->assertContains($invoiceB->id, $invoiceIds);
+        $this->assertContains($invoiceA->id, $receiptIds);
+        $this->assertContains($invoiceB->id, $receiptIds);
     }
 
     public function test_sales_only_sees_pipeline_records_for_their_handled_enquiries(): void

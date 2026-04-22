@@ -61,8 +61,6 @@ class UserRule
             $rules['photo_file'] = 'nullable|file|mimes:jpg,jpeg,png|max:5120';
             $rules['passport_path'] = 'nullable|string';
             $rules['photo_path'] = 'nullable|string';
-            $rules['branch_id'] = 'nullable';
-            $rules['handled_by'] = 'nullable';
             $rules['scope_ids'] = 'nullable|array';
             $rules['scope_ids.*'] = 'nullable|integer';
         }

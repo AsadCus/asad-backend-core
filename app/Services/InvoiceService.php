@@ -36,7 +36,6 @@ class InvoiceService
     {
         $invoices = Invoice::with([
             'order.quotation.customer.user',
-            'order.quotation.customer.handledBy',
             'order.quotation.customerConfirmation.enquiry.handledBy:id,name',
             'order.quotation.customerConfirmation.package:id,package_number,name,status',
             'order.quotation.createdBy:id,name',

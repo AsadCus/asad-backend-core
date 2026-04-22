@@ -5,12 +5,10 @@ namespace App\Http\Controllers;
 use App\Mail\WelcomeMail;
 use App\Models\User;
 use App\Rules\UserRule;
-use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\CustomerService;
 use App\Services\PackageService;
-use App\Services\SalesService;
 use App\Services\UserRoles\CustomerUserService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
@@ -23,10 +21,6 @@ class CustomerController extends Controller
     protected $customerUserService;
 
     protected $customerService;
-
-    protected $branchService;
-
-    protected $salesService;
 
     protected $countryService;
 
@@ -41,8 +35,6 @@ class CustomerController extends Controller
     public function __construct(
         CustomerService $customerService,
         CustomerUserService $customerUserService,
-        BranchService $branchService,
-        SalesService $salesService,
         CountryService $countryService,
         UserService $userService,
         UserRule $userRule,
@@ -51,8 +43,6 @@ class CustomerController extends Controller
     ) {
         $this->customerService = $customerService;
         $this->customerUserService = $customerUserService;
-        $this->branchService = $branchService;
-        $this->salesService = $salesService;
         $this->countryService = $countryService;
         $this->userService = $userService;
         $this->userRule = $userRule;
@@ -68,14 +58,10 @@ class CustomerController extends Controller
     public function index(Request $request)
     {
         $data = $this->customerService->getForDataTable($request);
-        $dataBranch = $this->branchService->getForFilter();
-        $dataSales = $this->salesService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
 
         return Inertia::render('customer/index', [
             'data' => $data,
-            'dataBranch' => $dataBranch,
-            'dataSales' => $dataSales,
             'dataCountry' => $dataCountry,
         ]);
     }
@@ -83,15 +69,13 @@ class CustomerController extends Controller
     public function create()
     {
         $dataRole = $this->userService->getRoleForFilter();
-        $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
-        $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/create', [
             'dataRole' => $dataRole,
-            'dataBranch' => $dataBranch,
+            'dataBranch' => [],
             'dataCountry' => $dataCountry,
-            'dataSales' => $dataSales,
+            'dataSales' => [],
             'isCustomer' => true,
         ]);
     }
@@ -122,16 +106,14 @@ class CustomerController extends Controller
     {
         $data = $this->customerUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
-        $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
-        $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/view', [
             'data' => $data,
             'dataRole' => $dataRole,
-            'dataBranch' => $dataBranch,
+            'dataBranch' => [],
             'dataCountry' => $dataCountry,
-            'dataSales' => $dataSales,
+            'dataSales' => [],
             'isCustomer' => true,
         ]);
     }
@@ -145,16 +127,14 @@ class CustomerController extends Controller
     {
         $data = $this->customerUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
-        $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilterByName();
-        $dataSales = $this->salesService->getForFilter();
 
         return Inertia::render('masters/users/edit', [
             'data' => $data,
             'dataRole' => $dataRole,
-            'dataBranch' => $dataBranch,
+            'dataBranch' => [],
             'dataCountry' => $dataCountry,
-            'dataSales' => $dataSales,
+            'dataSales' => [],
             'isCustomer' => true,
         ]);
     }
@@ -179,13 +159,6 @@ class CustomerController extends Controller
             ->log('Customer updated successfully #'.($user->id ?? null));
 
         return redirect()->intended(route('customer.index'))->with('success', 'Customer updated successfully.');
-    }
-
-    public function handleCustomer(Request $request, string $id)
-    {
-        $data = $this->customerService->handleCustomer($request, $id);
-
-        return back()->with('success', "{$data->name} has been successfully assigned to you.");
     }
 
     public function enableCustomer(string $id)

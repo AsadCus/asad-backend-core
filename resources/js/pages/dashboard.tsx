@@ -1,11 +1,16 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
-import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -16,13 +21,16 @@ import {
 
 import AppLayout from '@/layouts/app-layout';
 import { formatUserTime } from '@/lib/timezone';
-import { formatCurrency } from '@/lib/utils';
+import {
+    formatCurrency,
+    formatDateForDisplay,
+    parseDisplayDate,
+} from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
     create as customerCreate,
     destroy as customerDestroy,
     edit as customerEdit,
-    handle as customerHandle,
     index as customerIndex,
     show as customerShow,
 } from '@/routes/customer';
@@ -42,6 +50,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useState } from 'react';
+import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
 
@@ -50,6 +59,16 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: dashboard().url,
     },
+];
+
+const QUICK_SINGLE = [{ label: 'Today', value: 'today' }];
+
+const QUICK_RANGE = [
+    { label: 'Last 7 days', value: 'last7days' },
+    { label: 'Last 30 days', value: 'last30days' },
+    { label: 'Last 3 months', value: 'last3months' },
+    { label: 'Last 6 months', value: 'last6months' },
+    { label: 'Last 1 year', value: 'last1year' },
 ];
 
 interface FiscalYearTotalSalesType {
@@ -185,10 +204,61 @@ export default function Dashboard({ data }: DashboardProps) {
         useState<PaymentSummaryType | null>(null);
     const [isLoadingPaymentSummary, setIsLoadingPaymentSummary] =
         useState(false);
+    const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
+    const todayDisplayDate = formatDateForDisplay(new Date());
     const [exportDateRange, setExportDateRange] = useState<{
         from?: string;
         to?: string;
-    }>({});
+    }>({ from: todayDisplayDate });
+
+    const exportSelectedRange: DateRange | undefined = exportDateRange.from
+        ? {
+              from: parseDisplayDate(exportDateRange.from),
+              to: exportDateRange.to
+                  ? parseDisplayDate(exportDateRange.to)
+                  : undefined,
+          }
+        : undefined;
+
+    const getQuickDate = useCallback((type: string): Date => {
+        const date = new Date();
+
+        switch (type) {
+            case 'last7days':
+                date.setDate(date.getDate() - 7);
+                break;
+            case 'last30days':
+                date.setDate(date.getDate() - 30);
+                break;
+            case 'last3months':
+                date.setMonth(date.getMonth() - 3);
+                break;
+            case 'last6months':
+                date.setMonth(date.getMonth() - 6);
+                break;
+            case 'last1year':
+                date.setFullYear(date.getFullYear() - 1);
+                break;
+            case 'today':
+            default:
+                break;
+        }
+
+        return date;
+    }, []);
+
+    const applyQuickDate = useCallback(
+        (type: string) => {
+            const fromDate = getQuickDate(type);
+            const toDate = type.startsWith('last') ? new Date() : undefined;
+
+            setExportDateRange({
+                from: formatDateForDisplay(fromDate),
+                to: toDate ? formatDateForDisplay(toDate) : undefined,
+            });
+        },
+        [getQuickDate],
+    );
 
     const buildPaymentSummaryParams = useCallback(
         (
@@ -333,6 +403,7 @@ export default function Dashboard({ data }: DashboardProps) {
             `/dashboard/export-payment-summary-pdf?${params.toString()}`,
             '_blank',
         );
+        setIsExportPopoverOpen(false);
     }, [
         buildPaymentSummaryParams,
         data.selectedYearId,
@@ -381,7 +452,7 @@ export default function Dashboard({ data }: DashboardProps) {
     ]);
 
     // actions
-    const actions: ActionType[] = ['handle-customer'];
+    const actions: ActionType[] = [];
     if (userPermissions.includes('customer create')) actions.push('add');
     if (userPermissions.includes('customer view')) actions.push('view');
     if (userPermissions.includes('customer edit')) actions.push('edit');
@@ -393,11 +464,6 @@ export default function Dashboard({ data }: DashboardProps) {
         { accessorKey: 'name', header: 'Name' },
         { accessorKey: 'email', header: 'Email' },
         { accessorKey: 'contact', header: 'Contact' },
-        {
-            accessorKey: 'handler_name',
-            header: 'Sales',
-            meta: { exportable: true },
-        },
         {
             accessorKey: 'last_login',
             header: 'Last Login',
@@ -555,24 +621,130 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <DateRangeFilter
-                                        title="Select Date"
-                                        quickDate={true}
-                                        compact={true}
-                                        value={exportDateRange}
-                                        onChange={setExportDateRange}
-                                    />
-
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={isLoadingPaymentSummary}
-                                        onClick={handleExportPaymentSummaryPdf}
+                                    <Popover
+                                        open={isExportPopoverOpen}
+                                        onOpenChange={setIsExportPopoverOpen}
                                     >
-                                        <Download className="h-4 w-4" />
-                                        Export Daily Report
-                                    </Button>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="default"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                                Export Daily Report
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                            className="w-auto p-3"
+                                            align="end"
+                                            side="bottom"
+                                            sideOffset={4}
+                                        >
+                                            <div className="flex gap-3">
+                                                <div className="space-y-2">
+                                                    <Calendar
+                                                        mode="range"
+                                                        numberOfMonths={1}
+                                                        selected={
+                                                            exportSelectedRange
+                                                        }
+                                                        defaultMonth={
+                                                            exportSelectedRange?.from
+                                                        }
+                                                        onSelect={(range) => {
+                                                            if (!range?.from) {
+                                                                setExportDateRange(
+                                                                    {
+                                                                        from: todayDisplayDate,
+                                                                        to: undefined,
+                                                                    },
+                                                                );
+
+                                                                return;
+                                                            }
+
+                                                            setExportDateRange({
+                                                                from: formatDateForDisplay(
+                                                                    range.from,
+                                                                ),
+                                                                to: range.to
+                                                                    ? formatDateForDisplay(
+                                                                          range.to,
+                                                                      )
+                                                                    : undefined,
+                                                            });
+                                                        }}
+                                                        className="rounded-lg border shadow-sm"
+                                                    />
+
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        className="w-full"
+                                                        disabled={
+                                                            isLoadingPaymentSummary
+                                                        }
+                                                        onClick={
+                                                            handleExportPaymentSummaryPdf
+                                                        }
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                        Export
+                                                    </Button>
+
+                                                    <div className="mt-3 flex flex-col gap-1 border-t pt-3 md:hidden">
+                                                        <p className="mb-2 text-sm font-medium">
+                                                            Quick Select
+                                                        </p>
+
+                                                        {[
+                                                            ...QUICK_SINGLE,
+                                                            ...QUICK_RANGE,
+                                                        ].map((item) => (
+                                                            <Button
+                                                                key={item.value}
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="justify-start"
+                                                                onClick={() =>
+                                                                    applyQuickDate(
+                                                                        item.value,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {item.label}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
+                                                    <p className="mb-2 text-sm font-medium">
+                                                        Quick Select
+                                                    </p>
+
+                                                    {[
+                                                        ...QUICK_SINGLE,
+                                                        ...QUICK_RANGE,
+                                                    ].map((item) => (
+                                                        <Button
+                                                            key={item.value}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="justify-start"
+                                                            onClick={() =>
+                                                                applyQuickDate(
+                                                                    item.value,
+                                                                )
+                                                            }
+                                                        >
+                                                            {item.label}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
 
@@ -827,7 +999,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                 <h2 className="text-lg font-semibold">
                                     Recent Customers
                                 </h2>
-                                <Button asChild variant="outline">
+                                <Button asChild variant="default">
                                     <Link href={customerIndex().url}>
                                         View All
                                     </Link>
@@ -869,12 +1041,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         );
                                                     },
                                                 });
-                                            } else if (
-                                                action == 'handle-customer'
-                                            ) {
-                                                router.put(
-                                                    customerHandle(userId).url,
-                                                );
                                             }
                                         }
                                     }}
