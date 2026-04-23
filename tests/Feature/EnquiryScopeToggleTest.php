@@ -17,7 +17,7 @@ class EnquiryScopeToggleTest extends TestCase
     public function test_sales_sees_only_unhandled_and_self_handled_enquiries_when_scope_enabled(): void
     {
         config(['data_scope.enabled' => true]);
-        config(['data_scope.scope_sales_ownership' => true]);
+        config(['data_scope.sales_ownership' => true]);
 
         $salesRole = Role::query()->firstOrCreate(['name' => 'sales', 'guard_name' => 'web']);
 
@@ -76,7 +76,7 @@ class EnquiryScopeToggleTest extends TestCase
     public function test_sales_sees_all_enquiries_when_scope_disabled(): void
     {
         config(['data_scope.enabled' => false]);
-        config(['data_scope.scope_sales_ownership' => false]);
+        config(['data_scope.sales_ownership' => false]);
 
         $salesRole = Role::query()->firstOrCreate(['name' => 'sales', 'guard_name' => 'web']);
 

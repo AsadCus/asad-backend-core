@@ -34,16 +34,19 @@ class InvoiceService
 
     public function getForDataTable(array $filters = [])
     {
-        $invoices = Invoice::with([
-            'order.quotation.customer.user',
-            'order.quotation.customerConfirmation.enquiry.handledBy:id,name',
-            'order.quotation.customerConfirmation.package:id,package_number,name,status',
-            'order.quotation.createdBy:id,name',
-            'quotationItems:id,is_header,customer_confirmation_member_id',
-        ])
-            ->with('receipt:id,invoice_id')
-            ->withCount('receipt')
-            ->where('status', '!=', InvoiceStatus::Refund)
+        $invoices = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+            Invoice::with([
+                'order.quotation.customer.user',
+                'order.quotation.customerConfirmation.enquiry.handledBy:id,name',
+                'order.quotation.customerConfirmation.package:id,package_number,name,status',
+                'order.quotation.createdBy:id,name',
+                'quotationItems:id,is_header,customer_confirmation_member_id',
+            ])
+                ->with('receipt:id,invoice_id')
+                ->withCount('receipt')
+                ->where('status', '!=', InvoiceStatus::Refund),
+            'order.quotation'
+        )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -146,7 +149,10 @@ class InvoiceService
 
     public function getForFilter(array $filters = [])
     {
-        return Invoice::query()
+        return DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+            Invoice::query(),
+            'order.quotation'
+        )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
                 $query->whereHas('order.quotation', function ($quotationQuery) use ($value) {
                     $quotationQuery->where('created_by', $value);
@@ -200,20 +206,15 @@ class InvoiceService
 
     public function getForEditShow($id)
     {
-        $query = Invoice::with([
-            'quotationItems.taxes',
-            'order.quotation.customer.user',
-            'order.invoices',
-            'invoiceNotes',
-        ]);
-
-        if (DataScope::shouldScopeSalesOwnership()) {
-            $query->whereHas('order.quotation', function ($quotationQuery) {
-                $quotationQuery->where('created_by', auth()->user()?->id);
-            });
-        }
-
-        $i = $query->findOrFail($id);
+        $i = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+            Invoice::with([
+                'quotationItems.taxes',
+                'order.quotation.customer.user',
+                'order.invoices',
+                'invoiceNotes',
+            ]),
+            'order.quotation'
+        )->findOrFail($id);
 
         $subtotalAmount = (float) $i->quotationItems
             ->where('is_header', false)
@@ -522,13 +523,10 @@ class InvoiceService
     public function update(array $data, int $id): Invoice
     {
         return DB::transaction(function () use ($data, $id) {
-            $query = Invoice::with('order.quotation');
-
-            if (DataScope::shouldScopeSalesOwnership()) {
-                $query->whereHas('order.quotation', function ($quotationQuery) {
-                    $quotationQuery->where('created_by', auth()->user()?->id);
-                });
-            }
+            $query = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+                Invoice::with('order.quotation'),
+                'order.quotation'
+            );
 
             // If order_id is provided, scope to that order
             if (! empty($data['order_id'])) {
@@ -615,14 +613,10 @@ class InvoiceService
     public function recreateReceipt(int $invoiceId): void
     {
         DB::transaction(function () use ($invoiceId): void {
-            $invoiceQuery = Invoice::query()
-                ->with('receipt');
-
-            if (DataScope::shouldScopeSalesOwnership()) {
-                $invoiceQuery->whereHas('order.quotation', function ($quotationQuery): void {
-                    $quotationQuery->where('created_by', auth()->user()?->id);
-                });
-            }
+            $invoiceQuery = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+                Invoice::query()->with('receipt'),
+                'order.quotation'
+            );
 
             $invoice = $invoiceQuery->findOrFail($invoiceId);
 

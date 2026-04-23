@@ -66,7 +66,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_only_sees_confirmed_customer_groups_handled_by_them(): void
     {
         config()->set('data_scope.enabled', true);
-        config()->set('data_scope.scope_sales_ownership', true);
+        config()->set('data_scope.sales_ownership', true);
 
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
@@ -94,7 +94,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_sees_all_confirmed_customer_groups_when_data_scope_disabled(): void
     {
         config()->set('data_scope.enabled', false);
-        config()->set('data_scope.scope_sales_ownership', false);
+        config()->set('data_scope.sales_ownership', false);
 
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');
@@ -128,7 +128,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_sees_enquiries_and_confirmations_in_scoped_country_even_when_handled_by_other_sales(): void
     {
         config()->set('data_scope.enabled', true);
-        config()->set('data_scope.scope_sales_ownership', true);
+        config()->set('data_scope.sales_ownership', true);
         config()->set('data_scope.mode', 'country');
 
         $countrySingapore = Country::create([
@@ -202,7 +202,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_does_not_see_own_handled_enquiries_and_confirmations_outside_selected_scope(): void
     {
         config()->set('data_scope.enabled', true);
-        config()->set('data_scope.scope_sales_ownership', true);
+        config()->set('data_scope.sales_ownership', true);
         config()->set('data_scope.mode', 'country');
 
         $countrySingapore = Country::create([
@@ -256,7 +256,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_branch_scope_uses_branch_and_branch_country_for_enquiry_and_confirmation_visibility(): void
     {
         config()->set('data_scope.enabled', true);
-        config()->set('data_scope.scope_sales_ownership', true);
+        config()->set('data_scope.sales_ownership', true);
         config()->set('data_scope.mode', 'branch');
 
         $countrySingapore = Country::create([
@@ -352,7 +352,7 @@ class EnquirySalesWorkflowTest extends TestCase
     public function test_sales_sees_all_quotation_order_invoice_and_receipt_data_when_sales_ownership_scope_is_disabled(): void
     {
         config()->set('data_scope.enabled', true);
-        config()->set('data_scope.scope_sales_ownership', false);
+        config()->set('data_scope.sales_ownership', false);
 
         $salesA = User::factory()->create();
         $salesA->assignRole('sales');

@@ -7,6 +7,7 @@ use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
+use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -417,7 +418,7 @@ class FinancialTransactionService
             $rangeEndUtc,
         );
 
-        $receipts = Receipt::query()
+        $receiptsQuery = Receipt::query()
             ->with([
                 'invoice.quotationItems.taxes',
                 'invoice.quotationItems.parent.parent',
@@ -435,8 +436,18 @@ class FinancialTransactionService
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
             ->orderBy('receipt_date')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        if (DataScope::shouldScopePaymentCreatorCountry()) {
+            $receiptsQuery->where(function ($query): void {
+                $query->whereNull('invoice_id')
+                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery): void {
+                        DataScope::applyPaymentCreatorCountryScopeToQuotations($quotationQuery);
+                    });
+            });
+        }
+
+        $receipts = $receiptsQuery->get();
 
         $categoryTotals = [];
         $bucketTotals = [];

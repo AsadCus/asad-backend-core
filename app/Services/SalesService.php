@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Support\DataScope;
 use Carbon\Carbon;
 
 class SalesService
@@ -181,6 +182,13 @@ class SalesService
             ->whereDate('transaction_date', '<=', $today)
             ->where('reference_type', Receipt::class);
 
+        // Apply scoping only if the user should be scoped
+        if (DataScope::shouldScopePaymentCreatorCountry()) {
+            $transactions->whereHasMorph('reference', [Receipt::class], function ($receiptQuery): void {
+                DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation($receiptQuery, 'invoice.order.quotation');
+            });
+        }
+
         $count = (clone $transactions)
             ->where('amount', '>', 0)
             ->count();
@@ -206,7 +214,10 @@ class SalesService
             ];
         }
 
-        $invoices = Invoice::query()
+        $invoices = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
+            Invoice::query(),
+            'order.quotation'
+        )
             ->whereHas('order.quotation', function ($query): void {
                 $query
                     ->whereNull('deleted_at')

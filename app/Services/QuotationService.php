@@ -42,14 +42,16 @@ class QuotationService
 
     public function getForDataTable(array $filters = [])
     {
-        $data = Quotation::with([
-            'customer.user',
-            'customerConfirmation.enquiry.handledBy:id,name',
-            'customerConfirmation.package:id,package_number,name',
-            'quotationItems',
-            'order.invoices.receipt',
-            'createdBy:id,name',
-        ])->withTrashed()
+        $data = DataScope::applyPaymentCreatorCountryScopeToQuotations(
+            Quotation::with([
+                'customer.user',
+                'customerConfirmation.enquiry.handledBy:id,name',
+                'customerConfirmation.package:id,package_number,name',
+                'quotationItems',
+                'order.invoices.receipt',
+                'createdBy:id,name',
+            ])->withTrashed()
+        )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->where('created_by', $value);
             })->when($filters['status'] ?? null, function ($q, $value) {
@@ -94,8 +96,9 @@ class QuotationService
 
     public function getForFilter(array $filters = [])
     {
-        $data = Quotation::query()
-            ->select('id', 'quotation_number')
+        $data = DataScope::applyPaymentCreatorCountryScopeToQuotations(
+            Quotation::query()->select('id', 'quotation_number')
+        )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
                 $query->where('created_by', $value);
             })
@@ -112,13 +115,15 @@ class QuotationService
 
     public function getCanCreateOrderForFilter(array $filters = [])
     {
-        $data = Quotation::query()
-            ->select('id', 'quotation_number')
-            ->whereIn('status', [
-                QuotationStatus::Ready->value,
-                QuotationStatus::Accepted->value,
-            ])
-            ->whereDoesntHave('order')
+        $data = DataScope::applyPaymentCreatorCountryScopeToQuotations(
+            Quotation::query()
+                ->select('id', 'quotation_number')
+                ->whereIn('status', [
+                    QuotationStatus::Ready->value,
+                    QuotationStatus::Accepted->value,
+                ])
+                ->whereDoesntHave('order')
+        )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
                 $query->where('created_by', $value);
             })
@@ -523,19 +528,15 @@ class QuotationService
 
     public function getForEditShow($id): array
     {
-        $quotationQuery = Quotation::with([
-            'customer.user',
-            'quotationItems.confirmationMember',
-            'quotationItems.taxes',
-            'customerConfirmation.package',
-            'order.invoices.receipt',
-        ]);
-
-        if (DataScope::shouldScopeSalesOwnership()) {
-            $quotationQuery->where('created_by', auth()->user()?->id);
-        }
-
-        $quotation = $quotationQuery->findOrFail($id);
+        $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(
+            Quotation::with([
+                'customer.user',
+                'quotationItems.confirmationMember',
+                'quotationItems.taxes',
+                'customerConfirmation.package',
+                'order.invoices.receipt',
+            ])
+        )->findOrFail($id);
 
         $invoiceExtensions = $this->buildInvoiceExtensionsForQuotationDisplay($quotation);
         $isConverted = (string) ($quotation->status?->value ?? '') === QuotationStatus::Converted->value;
@@ -712,7 +713,7 @@ class QuotationService
     public function update(array $data, int $id): Quotation
     {
         return DB::transaction(function () use ($data, $id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $isConverted = (string) ($quotation->status?->value ?? '') === QuotationStatus::Converted->value;
             $requestedStatus = strtolower((string) ($data['status'] ?? $quotation->status?->value ?? ''));
             $resolvedCustomerConfirmationId = array_key_exists('customer_confirmation_id', $data)
@@ -1290,7 +1291,7 @@ class QuotationService
     public function accept($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $quotation->update(['status' => QuotationStatus::Accepted->value]);
 
             return $quotation;
@@ -1300,7 +1301,7 @@ class QuotationService
     public function converted($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $quotation->update(['status' => QuotationStatus::Converted->value]);
 
             return $quotation;
@@ -1310,7 +1311,7 @@ class QuotationService
     public function reject($data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
 
             $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
@@ -1336,7 +1337,7 @@ class QuotationService
     public function ready($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $quotation->update([
                 'status' => QuotationStatus::Ready->value,
             ]);
@@ -1348,7 +1349,7 @@ class QuotationService
     public function expire($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
             $this->resetLinkedMembersToDraft($linkedMemberIds);
@@ -1366,7 +1367,7 @@ class QuotationService
     public function cancel($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
             $linkedMemberIds = $this->getLinkedMemberIds($quotation);
 
             $this->resetLinkedMembersToDraft($linkedMemberIds);
@@ -1404,7 +1405,7 @@ class QuotationService
     public function draft($id)
     {
         return DB::transaction(function () use ($id) {
-            $quotation = Quotation::findOrFail($id);
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($id);
 
             if (! in_array($quotation->status?->value, [QuotationStatus::Rejected->value, QuotationStatus::Expired->value], true)) {
                 throw ValidationException::withMessages([

@@ -7,7 +7,6 @@ use App\Services\CustomerService;
 use App\Services\OrderService;
 use App\Services\QuotationService;
 use App\Services\SalesService;
-use App\Support\DataScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -34,12 +33,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['ordersForDatatable'] = $this->orderService->getForDataTable($filters);
         $data['customers'] = $this->customerService->getForFilter();

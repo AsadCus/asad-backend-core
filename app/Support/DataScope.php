@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Branch;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 
 class DataScope
 {
@@ -42,7 +43,7 @@ class DataScope
         $resolvedUser = $user ?? self::user();
 
         return self::enabled()
-            && (bool) config('data_scope.scope_sales_ownership', false)
+            && (bool) config('data_scope.sales_ownership', false)
             && $resolvedUser !== null
             && $resolvedUser->hasRole('sales');
     }
@@ -77,6 +78,86 @@ class DataScope
         return self::enabled()
             && $resolvedUser !== null
             && self::hasRole($resolvedUser, ['admin', 'sales', 'operations']);
+    }
+
+    public static function shouldScopePaymentCreatorCountry(?User $user = null): bool
+    {
+        $resolvedUser = $user ?? self::user();
+
+        return self::enabled()
+            && $resolvedUser !== null
+            && self::hasRole($resolvedUser, ['admin', 'sales']);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function selectedCountryIds(?User $user = null): array
+    {
+        $resolvedUser = $user ?? self::user();
+
+        if ($resolvedUser === null) {
+            return [];
+        }
+
+        $assignableCountryIds = self::assignableCountryIds($resolvedUser);
+
+        if (empty($assignableCountryIds)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            static fn ($id) => (int) $id,
+            array_intersect(
+                $assignableCountryIds,
+                self::toIntArray($resolvedUser->selected_country_ids ?? []),
+            ),
+        ));
+    }
+
+    public static function applyPaymentCreatorCountryScopeToQuotations(Builder $query, ?User $user = null): Builder
+    {
+        $resolvedUser = $user ?? self::user();
+
+        if (! self::shouldScopePaymentCreatorCountry($resolvedUser)) {
+            return $query;
+        }
+
+        $selectedCountryIds = self::selectedCountryIds($resolvedUser);
+
+        return $query->where(function (Builder $scopedQuery) use ($selectedCountryIds): void {
+            if (! empty($selectedCountryIds)) {
+                $scopedQuery->where(function (Builder $visibleQuery) use ($selectedCountryIds): void {
+                    $visibleQuery
+                        ->whereHas('createdBy.sales', function (Builder $salesQuery) use ($selectedCountryIds): void {
+                            self::applyMatchingCountryConstraint($salesQuery, $selectedCountryIds);
+                        })
+                        ->orWhereHas('createdBy.admin', function (Builder $adminQuery) use ($selectedCountryIds): void {
+                            self::applyMatchingCountryConstraint($adminQuery, $selectedCountryIds);
+                        })
+                        ->orWhere(function (Builder $globalCreatorQuery): void {
+                            self::applyGlobalCreatorConstraint($globalCreatorQuery);
+                        });
+                });
+
+                return;
+            }
+
+            self::applyGlobalCreatorConstraint($scopedQuery);
+        });
+    }
+
+    public static function applyPaymentCreatorCountryScopeViaQuotationRelation(Builder $query, string $quotationRelation, ?User $user = null): Builder
+    {
+        $resolvedUser = $user ?? self::user();
+
+        if (! self::shouldScopePaymentCreatorCountry($resolvedUser)) {
+            return $query;
+        }
+
+        return $query->whereHas($quotationRelation, function (Builder $quotationQuery) use ($resolvedUser): void {
+            self::applyPaymentCreatorCountryScopeToQuotations($quotationQuery, $resolvedUser);
+        });
     }
 
     /**
@@ -198,6 +279,44 @@ class DataScope
         $branchIds = self::scopedBranchIds($user);
 
         return ! empty($branchIds) ? (int) $branchIds[0] : null;
+    }
+
+    /**
+     * @param  array<int, int>  $countryIds
+     */
+    private static function applyMatchingCountryConstraint(Builder $query, array $countryIds): void
+    {
+        $query->where(function (Builder $countryQuery) use ($countryIds): void {
+            $countryQuery->whereIn('country_id', $countryIds);
+
+            foreach ($countryIds as $countryId) {
+                $countryQuery->orWhereJsonContains('country_ids', (int) $countryId);
+            }
+        });
+    }
+
+    private static function applyGlobalCountryConstraint(Builder $query): void
+    {
+        $query
+            ->whereNull('country_id')
+            ->where(function (Builder $countryQuery): void {
+                $countryQuery
+                    ->whereNull('country_ids')
+                    ->orWhereJsonLength('country_ids', 0);
+            });
+    }
+
+    private static function applyGlobalCreatorConstraint(Builder $query): void
+    {
+        $query->where(function (Builder $creatorQuery): void {
+            $creatorQuery
+                ->whereDoesntHave('createdBy.sales')
+                ->whereDoesntHave('createdBy.admin');
+        })->orWhereHas('createdBy.sales', function (Builder $salesQuery): void {
+            self::applyGlobalCountryConstraint($salesQuery);
+        })->orWhereHas('createdBy.admin', function (Builder $adminQuery): void {
+            self::applyGlobalCountryConstraint($adminQuery);
+        });
     }
 
     private static function scopeSource(User $user): ?object

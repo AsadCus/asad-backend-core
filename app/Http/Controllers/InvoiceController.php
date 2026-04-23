@@ -9,7 +9,6 @@ use App\Services\OrderService;
 use App\Services\QuotationService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
-use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -41,12 +40,7 @@ class InvoiceController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['invoicesForDatatable'] = $this->invoiceService->getForDataTable($filters);
         $data['quotations'] = $this->quotationService->getForFilter($filters);

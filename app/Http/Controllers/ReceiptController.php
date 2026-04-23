@@ -7,7 +7,6 @@ use App\Services\InvoiceService;
 use App\Services\ReceiptService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
-use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -37,12 +36,7 @@ class ReceiptController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['receiptsForDatatable'] = $this->receiptService->getForDataTable($filters);
         $data['invoices'] = $this->invoiceService->getForFilter($filters);
@@ -57,12 +51,7 @@ class ReceiptController extends Controller
 
     public function create(Request $request)
     {
-        $user = $request->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['invoiceId'] = $request->invoice_id;
         $data['defaultPaymentMethod'] = $this->receiptService->getDefaultPaymentMethodValue();
@@ -99,12 +88,7 @@ class ReceiptController extends Controller
 
     public function show($id)
     {
-        $user = request()->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['data'] = $this->receiptService->getForEditShow($id);
         $data['invoiceOptions'] = $this->invoiceService->getForFilter($filters);
@@ -121,12 +105,7 @@ class ReceiptController extends Controller
 
     public function edit($id)
     {
-        $user = request()->user();
         $filters = [];
-
-        if ($user && DataScope::shouldScopeSalesOwnership($user)) {
-            $filters['sales_id'] = $user->id;
-        }
 
         $data['data'] = $this->receiptService->getForEditShow($id);
         $data['invoiceOptions'] = $this->invoiceService->getForFilter($filters);
