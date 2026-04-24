@@ -168,6 +168,18 @@
 
         $roomIndex = 1;
         $rowNumber = 1;
+        $roomTypeLabels = [
+            'single' => 'Single',
+            'twin' => 'Twin',
+            'double' => 'Double',
+            'triple' => 'Triple',
+            'quad' => 'Quad',
+        ];
+        $bedTypeLabels = [
+            'single' => 'Single',
+            'king' => 'King',
+            'queen' => 'Queen',
+        ];
     @endphp
 
     <table class="summary-grid">
@@ -227,6 +239,7 @@
                 <th rowspan="2">Bed Type</th>
                 <th rowspan="2">Date of Birth</th>
                 <th rowspan="2">Age</th>
+                <th rowspan="2">Contact Number</th>
                 <th colspan="2">No. Of Beds Checked</th>
                 <th rowspan="2">Meal</th>
                 <th colspan="2">Remarks</th>
@@ -245,6 +258,12 @@
                     $first = $groupRows[0];
                     $groupColorClass = $roomColorMap[$groupKey] ?? 'group-bg-a';
                     $bedsCount = (int) ($first['no_of_beds_checked'] ?? 0);
+                    $roomTypeValue = strtolower(trim((string) ($first['room_type'] ?? '')));
+                    $bedTypeValue = strtolower(trim((string) ($first['bed_type'] ?? '')));
+                    $roomTypeDisplay =
+                        $roomTypeValue !== '' ? $roomTypeLabels[$roomTypeValue] ?? ucfirst($roomTypeValue) : '-';
+                    $bedTypeDisplay =
+                        $bedTypeValue !== '' ? $bedTypeLabels[$bedTypeValue] ?? ucfirst($bedTypeValue) : '-';
                     $extraBedCount = collect($groupRows)
                         ->filter(function ($memberRow) {
                             return strtolower(trim((string) ($memberRow['sharing_plan'] ?? ''))) === 'child_with_bed';
@@ -252,8 +271,8 @@
                         ->count();
 
                     if ($bedsCount < 1) {
-                        $roomType = strtolower((string) ($first['room_type'] ?? ''));
-                        $bedType = strtolower((string) ($first['bed_type'] ?? ''));
+                        $roomType = $roomTypeValue;
+                        $bedType = $bedTypeValue;
 
                         if ($roomType === 'single') {
                             $bedsCount = 1;
@@ -302,12 +321,13 @@
                         @if ($memberIndex === 0)
                             <td rowspan="{{ $rowSpan }}">{{ $first['room_label'] ?? 'Room ' . $roomIndex }}</td>
                             <td rowspan="{{ $rowSpan }}">{{ $first['room_number'] ?? '-' }}</td>
-                            <td rowspan="{{ $rowSpan }}">{{ $first['room_type'] ?? '-' }}</td>
-                            <td rowspan="{{ $rowSpan }}">{{ $first['bed_type'] ?? '-' }}</td>
+                            <td rowspan="{{ $rowSpan }}">{{ $roomTypeDisplay }}</td>
+                            <td rowspan="{{ $rowSpan }}">{{ $bedTypeDisplay }}</td>
                         @endif
 
                         <td>{{ $row['date_of_birth'] ?? '-' }}</td>
                         <td>{{ $row['age'] ?? '-' }}</td>
+                        <td style="text-align: left; padding-left: 8px;">{{ $row['contact_no'] ?? '-' }}</td>
 
 
                         @if ($memberIndex === 0)

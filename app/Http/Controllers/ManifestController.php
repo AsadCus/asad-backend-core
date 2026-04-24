@@ -534,9 +534,15 @@ class ManifestController extends Controller
             $manifest['room_check_location'] = $location;
             $manifest['room_check_location_label'] = $manifest['room_check_location_label'] ?? $locationLabel;
 
-            if (! isset($manifest['room_check_rows']) || ! is_array($manifest['room_check_rows'])) {
-                $manifest['room_check_rows'] = $roomRows;
-            }
+            $roomCheckRows = isset($manifest['room_check_rows']) && is_array($manifest['room_check_rows'])
+                ? $manifest['room_check_rows']
+                : $roomRows;
+
+            $manifest['room_check_rows'] = collect($roomCheckRows)
+                ->filter(fn ($row) => is_array($row))
+                ->map(fn (array $row): array => $this->sanitizeRoomCheckExportRow($row))
+                ->values()
+                ->all();
 
             $reportData = $this->reportTemplateService->build('manifest_room_check', [
                 'manifest' => $manifest,
@@ -568,6 +574,18 @@ class ManifestController extends Controller
                 'error' => 'Failed to generate PDF: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function sanitizeRoomCheckExportRow(array $row): array
+    {
+        $row['room_type'] = $this->normalizeRoomType($row['room_type'] ?? null) ?? $row['room_type'] ?? null;
+        $row['bed_type'] = $this->normalizeBedType($row['bed_type'] ?? null) ?? $row['bed_type'] ?? null;
+
+        return $row;
     }
 
     /**
