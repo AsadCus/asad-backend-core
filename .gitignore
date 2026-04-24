@@ -31,3 +31,4 @@ yarn-error.log
 # Ignore the contents of app\Docs-DevBadar files
 /app/Docs-DevBadar/*
 *.txt
+*md

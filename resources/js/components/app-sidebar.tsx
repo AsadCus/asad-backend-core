@@ -345,6 +345,11 @@ export function AppSidebar() {
             href: '/documentations/v2',
             icon: BookOpen,
         },
+        {
+            title: 'Documentation V3',
+            href: '/documentations/v3',
+            icon: BookOpen,
+        },
     ];
 
     return (

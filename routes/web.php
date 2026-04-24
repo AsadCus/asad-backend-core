@@ -76,7 +76,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Documentation
     Route::get('documentations/{version?}', [DocumentationController::class, 'index'])
-        ->where('version', 'v1|v2')
+        ->where('version', 'v1|v2|v3')
         ->defaults('version', 'v1')
         ->name('documentations.index');
 

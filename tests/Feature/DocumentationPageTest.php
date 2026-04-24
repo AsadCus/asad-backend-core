@@ -75,4 +75,38 @@ class DocumentationPageTest extends TestCase
                 )
             );
     }
+
+    public function test_authenticated_user_can_open_documentation_v3_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('documentations.index', ['version' => 'v3']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('documentations/v3/index')
+                ->has('documentation', fn (Assert $documentation) => $documentation
+                    ->where('manual.title', 'Documentation V3 - Travel Management System Manual')
+                    ->hasAll([
+                        'introduction',
+                        'menuGroups',
+                        'coreWorkflows',
+                        'howToGuides',
+                        'commonStatuses',
+                        'tips',
+                    ])
+                    ->has('menuGroups.0', fn (Assert $group) => $group
+                        ->hasAll([
+                            'menu',
+                            'route_path',
+                            'module',
+                            'purpose',
+                            'features',
+                            'how_to',
+                        ])
+                        ->etc()
+                    )
+                    ->etc()
+                )
+            );
+    }
 }
