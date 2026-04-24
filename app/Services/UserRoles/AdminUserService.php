@@ -79,6 +79,10 @@ class AdminUserService
                 'country_ids' => $countryIds,
             ]);
 
+            $user->forceFill([
+                'selected_country_ids' => $countryIds,
+            ])->save();
+
             activity()
                 ->performedOn($user)
                 ->withProperties(['subject_type' => 'AdminUser', 'subject_id' => $user->id ?? null])

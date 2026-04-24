@@ -72,6 +72,10 @@ class OperationsUserService
                 'country_ids' => $countryIds,
             ]);
 
+            $user->forceFill([
+                'selected_country_ids' => $countryIds,
+            ])->save();
+
             activity()
                 ->performedOn($user)
                 ->withProperties(['subject_type' => 'OperationsUser', 'subject_id' => $user->id ?? null])
