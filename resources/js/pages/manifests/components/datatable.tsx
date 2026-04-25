@@ -1378,6 +1378,9 @@ export default function ManifestDatatable({
                 <TableHead className="min-w-20">Age</TableHead>
             )}
             {mode === 'members' && (
+                <TableHead className="min-w-28">Wheelchair</TableHead>
+            )}
+            {mode === 'members' && (
                 <TableHead className="min-w-45">Contact No</TableHead>
             )}
             {mode === 'members' && (
@@ -1522,6 +1525,9 @@ export default function ManifestDatatable({
             )}
             {(mode === 'room' || mode === 'room_check') && (
                 <TableHead className="min-w-20">Age</TableHead>
+            )}
+            {(mode === 'room' || mode === 'room_check') && (
+                <TableHead className="min-w-28">Wheelchair</TableHead>
             )}
             {mode === 'room_check' && (
                 <TableHead className="min-w-45">Contact Number</TableHead>
@@ -1727,6 +1733,7 @@ export default function ManifestDatatable({
                         <TableCell />
                         <TableCell />
                         <TableCell />
+                        <TableCell />
                         <TableCell>
                             <ProperInput
                                 value={groupLeadMember?.group_remarks ?? ''}
@@ -1853,6 +1860,9 @@ export default function ManifestDatatable({
                                 disabled={disableRoomFields}
                                 options={BED_TYPE_OPTIONS}
                             />
+                        </TableCell>
+                        <TableCell>
+                            <span className="text-muted-foreground">-</span>
                         </TableCell>
                         <TableCell>
                             <span className="text-muted-foreground">-</span>
@@ -2474,6 +2484,21 @@ export default function ManifestDatatable({
                 {mode === 'members' && (
                     <TableCell>
                         <ProperInput
+                            value={
+                                member.is_using_wheelchair === true
+                                    ? 'Yes'
+                                    : 'No'
+                            }
+                            disabled={true}
+                            onCommit={() => {}}
+                            size="default"
+                        />
+                    </TableCell>
+                )}
+
+                {mode === 'members' && (
+                    <TableCell>
+                        <ProperInput
                             value={member.contact_no ?? ''}
                             onCommit={(value) =>
                                 updateMemberField(
@@ -2847,6 +2872,18 @@ export default function ManifestDatatable({
                                     member.age !== undefined
                                         ? String(member.age)
                                         : getAgeFromDate(member.date_of_birth)
+                                }
+                                disabled={true}
+                                onCommit={() => {}}
+                                size="default"
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <ProperInput
+                                value={
+                                    member.is_using_wheelchair === true
+                                        ? 'Yes'
+                                        : 'No'
                                 }
                                 disabled={true}
                                 onCommit={() => {}}

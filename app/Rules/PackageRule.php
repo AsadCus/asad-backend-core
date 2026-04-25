@@ -53,6 +53,7 @@ class PackageRule
             'accommodations.*.location' => ['required', 'string', 'max:255'],
             'accommodations.*.hotel_name' => ['required', 'string', 'max:255'],
             'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
+            'accommodations.*.ic_contact_number' => ['nullable', 'string', 'max:255'],
             'accommodations.*.remarks' => ['nullable', 'string'],
             'accommodations.*.type_of_meal' => ['nullable', 'string', 'max:255'],
             'accommodations.*.check_in' => ['nullable', 'date'],

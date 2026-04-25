@@ -215,6 +215,12 @@ class ManifestService
                 $receiptFiles = $member->files
                     ->where('field', 'receipt')
                     ->values();
+                $passportFiles = $member->files
+                    ->where('field', 'passport')
+                    ->values();
+                $photoFiles = $member->files
+                    ->where('field', 'photo')
+                    ->values();
                 $receiptDocumentColumns = $this->buildReceiptDocumentColumns($receiptFiles);
 
                 return [
@@ -279,12 +285,32 @@ class ManifestService
                     'has_chronic_disease' => $member->has_chronic_disease ?? $customer?->has_chronic_disease,
                     'is_using_wheelchair' => $member->is_using_wheelchair ?? $customer?->is_using_wheelchair,
                     'chronic_disease_details' => $member->chronic_disease_details ?? $customer?->chronic_disease_details,
-                    'passport_path' => $member->passport_path ?? $this->resolveCustomerDocumentPath($customer, 'passport'),
-                    'photo_path' => $member->photo_path ?? $this->resolveCustomerDocumentPath($customer, 'photo'),
+                    'passport_path' => $member->passport_path
+                        ?? $passportFiles->first()?->file_path
+                        ?? $this->resolveCustomerDocumentPath($customer, 'passport'),
+                    'photo_path' => $member->photo_path
+                        ?? $photoFiles->first()?->file_path
+                        ?? $this->resolveCustomerDocumentPath($customer, 'photo'),
                     'passport_file_name' => $customerDocuments->get('passport')?->file_name,
                     'photo_file_name' => $customerDocuments->get('photo')?->file_name,
                     'remarks' => $member->remarks,
                     'receipt_documents' => $receiptFiles
+                        ->map(fn (ModelFile $file) => [
+                            'id' => $file->id,
+                            'file_name' => $file->file_name,
+                            'file_path' => $file->file_path,
+                        ])
+                        ->values()
+                        ->toArray(),
+                    'passport_documents' => $passportFiles
+                        ->map(fn (ModelFile $file) => [
+                            'id' => $file->id,
+                            'file_name' => $file->file_name,
+                            'file_path' => $file->file_path,
+                        ])
+                        ->values()
+                        ->toArray(),
+                    'photo_documents' => $photoFiles
                         ->map(fn (ModelFile $file) => [
                             'id' => $file->id,
                             'file_name' => $file->file_name,
@@ -1167,6 +1193,14 @@ class ManifestService
                 }
 
                 $retainedMemberIds[] = (int) $savedMember->id;
+
+                if (array_key_exists('passport_documents', $memberPayload) && is_array($memberPayload['passport_documents'])) {
+                    $this->persistMemberIdentityDocuments($savedMember, $memberPayload['passport_documents'], 'passport');
+                }
+
+                if (array_key_exists('photo_documents', $memberPayload) && is_array($memberPayload['photo_documents'])) {
+                    $this->persistMemberIdentityDocuments($savedMember, $memberPayload['photo_documents'], 'photo');
+                }
 
                 $savedMember->collectionItem()->updateOrCreate(
                     [],
@@ -2839,6 +2873,63 @@ class ManifestService
         }
 
         $manifestMember->files()->where('field', 'receipt')->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $manifestMember->files()->create($row);
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $documents
+     */
+    private function persistMemberIdentityDocuments(ManifestMember $manifestMember, array $documents, string $field): void
+    {
+        if (! in_array($field, ['passport', 'photo'], true)) {
+            return;
+        }
+
+        $rowsToPersist = [];
+
+        foreach ($documents as $document) {
+            if (! is_array($document)) {
+                continue;
+            }
+
+            $isRemoved = (bool) ($document['removed'] ?? false);
+            if ($isRemoved) {
+                continue;
+            }
+
+            $uploadedPath = $this->storeDocumentFile($document['file'] ?? null, $field);
+            $requestedName = $this->normalizeNullableString($document['file_name'] ?? null);
+            $defaultFileName = $this->buildDefaultDocumentName($document['file'] ?? null, $field);
+            $existingPath = $this->normalizeNullableString($document['file_path'] ?? null);
+            $filePath = $uploadedPath ?? $existingPath;
+
+            if (! $filePath) {
+                continue;
+            }
+
+            $rowsToPersist[] = [
+                'field' => $field,
+                'file_name' => $requestedName ?? $defaultFileName ?? pathinfo(basename($filePath), PATHINFO_FILENAME),
+                'file_path' => $filePath,
+            ];
+        }
+
+        $existingFiles = $manifestMember->files()->where('field', $field)->get();
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                Storage::disk('public')->delete($existingFile->file_path);
+            }
+        }
+
+        $manifestMember->files()->where('field', $field)->delete();
 
         foreach ($rowsToPersist as $row) {
             $manifestMember->files()->create($row);

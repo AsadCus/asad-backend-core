@@ -89,6 +89,28 @@ export const memberSchema = z.object({
             }),
         )
         .optional(),
+    passport_documents: z
+        .array(
+            z.object({
+                id: z.number().optional(),
+                file_name: z.string().nullable().optional(),
+                file_path: z.string().nullable().optional(),
+                removed: z.boolean().optional(),
+                file: z.any().optional(),
+            }),
+        )
+        .optional(),
+    photo_documents: z
+        .array(
+            z.object({
+                id: z.number().optional(),
+                file_name: z.string().nullable().optional(),
+                file_path: z.string().nullable().optional(),
+                removed: z.boolean().optional(),
+                file: z.any().optional(),
+            }),
+        )
+        .optional(),
     status: z.string().nullable().optional(),
 });
 

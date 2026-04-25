@@ -5,6 +5,7 @@ export const accommodationSchema = z.object({
     location: z.string().optional(),
     hotel_name: z.string().optional(),
     ic: z.string().nullable().optional(),
+    ic_contact_number: z.string().nullable().optional(),
     remarks: z.string().nullable().optional(),
     type_of_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),

@@ -59,6 +59,7 @@ import {
     type CustomerConfirmationDatatableSchema,
     type CustomerConfirmationFormSchema,
     type CustomerConfirmationMemberDatatableSchema,
+    type CustomerDocumentItemSchema,
     type CustomerMemberFormData,
 } from '../customer/schema';
 import { customerValidationSchema } from '../customer/validation';
@@ -1091,7 +1092,7 @@ export default function ConfirmedCustomerIndex({
 
     const updateMemberDraft = (
         field: keyof CustomerMemberFormData,
-        value: string | boolean | File | null,
+        value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => {
         setMemberDialogData((prev) => {
             if (!prev) {
@@ -2470,7 +2471,7 @@ export default function ConfirmedCustomerIndex({
                 >
                     <DialogHeader className="gap-0">
                         <DialogTitle className="text-xl">
-                            Create Refund Invoice & Receipt
+                            Create Refund Receipt
                         </DialogTitle>
                         <DialogDescription>
                             Choose refund purpose first, then set refund amount
@@ -2870,7 +2871,7 @@ export default function ConfirmedCustomerIndex({
                                             >
                                                 {isSubmittingRefund
                                                     ? 'Creating...'
-                                                    : 'Create Refund Invoice & Receipt'}
+                                                    : 'Create Refund Receipt'}
                                             </Button>
                                         </div>
                                     </div>

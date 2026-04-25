@@ -467,43 +467,6 @@ export default function PackageForm({
     const rawdahMenPassengers = Number(data.rawdah_member_counts?.men ?? 0);
     const rawdahTotalPassengers = Number(data.rawdah_member_counts?.total ?? 0);
 
-    useEffect(() => {
-        const currentRows = data.rawdah_tasreehs ?? [];
-
-        if (currentRows.length === 0) {
-            return;
-        }
-
-        let hasChanges = false;
-        const nextRows = currentRows.map((row) => {
-            if (
-                row.women_passengers === rawdahWomenPassengers &&
-                row.men_passengers === rawdahMenPassengers
-            ) {
-                return row;
-            }
-
-            hasChanges = true;
-
-            return {
-                ...row,
-                women_passengers: rawdahWomenPassengers,
-                men_passengers: rawdahMenPassengers,
-            };
-        });
-
-        if (!hasChanges) {
-            return;
-        }
-
-        setData('rawdah_tasreehs', nextRows);
-    }, [
-        data.rawdah_tasreehs,
-        rawdahWomenPassengers,
-        rawdahMenPassengers,
-        setData,
-    ]);
-
     function validateClientSide(): boolean {
         clearErrors();
         let valid = true;
@@ -583,9 +546,10 @@ export default function PackageForm({
             {
                 location: '',
                 hotel_name: '',
-                ic: '',
-                remarks: '',
                 type_of_meal: '',
+                ic: '',
+                ic_contact_number: '',
+                remarks: '',
                 check_in: defaultDate,
                 check_out: defaultDate,
             },
@@ -2403,6 +2367,48 @@ export default function PackageForm({
                         )}
                     </CardHeader>
                     <CardContent>
+                        <div className="mb-4 grid grid-cols-1 gap-4 rounded-lg border border-dashed p-4 md:grid-cols-3">
+                            <FormField
+                                label="Women (Member Info)"
+                                fieldRequirementsProps={{
+                                    hint: 'Current women passenger count from manifest members for comparison.',
+                                }}
+                            >
+                                <Input
+                                    type="number"
+                                    value={rawdahWomenPassengers}
+                                    disabled={true}
+                                    className="bg-muted"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Men (Member Info)"
+                                fieldRequirementsProps={{
+                                    hint: 'Current men passenger count from manifest members for comparison.',
+                                }}
+                            >
+                                <Input
+                                    type="number"
+                                    value={rawdahMenPassengers}
+                                    disabled={true}
+                                    className="bg-muted"
+                                />
+                            </FormField>
+                            <FormField
+                                label="Total (Member Info)"
+                                fieldRequirementsProps={{
+                                    hint: 'Current total passenger count from manifest members for comparison.',
+                                }}
+                            >
+                                <Input
+                                    type="number"
+                                    value={rawdahTotalPassengers}
+                                    disabled={true}
+                                    className="bg-muted"
+                                />
+                            </FormField>
+                        </div>
+
                         {(data.rawdah_tasreehs || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No Rawdah tasreeh entries yet. Click "Add
@@ -2412,14 +2418,13 @@ export default function PackageForm({
                             <div className="space-y-4">
                                 {(data.rawdah_tasreehs || []).map(
                                     (tasreeh, index) => {
-                                        const womenCount =
-                                            rawdahWomenPassengers;
-                                        const menCount = rawdahMenPassengers;
-                                        const totalCount = Number.isFinite(
-                                            rawdahTotalPassengers,
-                                        )
-                                            ? rawdahTotalPassengers
-                                            : 0;
+                                        const womenCount = Number(
+                                            tasreeh.women_passengers ?? 0,
+                                        );
+                                        const menCount = Number(
+                                            tasreeh.men_passengers ?? 0,
+                                        );
+                                        const totalCount = womenCount + menCount;
 
                                         return (
                                             <div
@@ -2551,35 +2556,69 @@ export default function PackageForm({
                                                         <FormField
                                                             label="Women Passengers"
                                                             fieldRequirementsProps={{
-                                                                hint: 'Auto-filled from non-official manifest members',
+                                                                hint: 'Input women passenger count for this Rawdah slot.',
                                                             }}
                                                             error={getError(
                                                                 `rawdah_tasreehs.${index}.women_passengers`,
                                                             )}
                                                         >
-                                                            <Input
+                                                            <ProperInput
                                                                 type="number"
-                                                                value={
-                                                                    womenCount
+                                                                value={String(
+                                                                    womenCount,
+                                                                )}
+                                                                disabled={
+                                                                    isView ||
+                                                                    processing
                                                                 }
-                                                                disabled={true}
-                                                                className="bg-muted"
+                                                                onCommit={(v) =>
+                                                                    updateRawdahTasreeh(
+                                                                        index,
+                                                                        'women_passengers',
+                                                                        v === ''
+                                                                            ? 0
+                                                                            : Number(
+                                                                                  v,
+                                                                              ),
+                                                                    )
+                                                                }
+                                                                inputProps={{
+                                                                    min: '0',
+                                                                }}
                                                             />
                                                         </FormField>
                                                         <FormField
                                                             label="Men Passengers"
                                                             fieldRequirementsProps={{
-                                                                hint: 'Auto-filled from non-official manifest members',
+                                                                hint: 'Input men passenger count for this Rawdah slot.',
                                                             }}
                                                             error={getError(
                                                                 `rawdah_tasreehs.${index}.men_passengers`,
                                                             )}
                                                         >
-                                                            <Input
+                                                            <ProperInput
                                                                 type="number"
-                                                                value={menCount}
-                                                                disabled={true}
-                                                                className="bg-muted"
+                                                                value={String(
+                                                                    menCount,
+                                                                )}
+                                                                disabled={
+                                                                    isView ||
+                                                                    processing
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateRawdahTasreeh(
+                                                                        index,
+                                                                        'men_passengers',
+                                                                        v === ''
+                                                                            ? 0
+                                                                            : Number(
+                                                                                  v,
+                                                                              ),
+                                                                    )
+                                                                }
+                                                                inputProps={{
+                                                                    min: '0',
+                                                                }}
                                                             />
                                                         </FormField>
                                                         <FormField
@@ -2589,6 +2628,7 @@ export default function PackageForm({
                                                             }}
                                                         >
                                                             <Input
+                                                                type="number"
                                                                 value={
                                                                     totalCount
                                                                 }
@@ -2636,37 +2676,45 @@ export default function PackageForm({
                     </CardContent>
                 </Card>
 
-                {/* Officials */}
+                {/* Visa */}
                 <Card>
                     <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">Officials</CardTitle>
-                            <CardDescription>
+                        <CardTitle className="text-xl">Visa</CardTitle>
                                 Assign officials for this package.
-                            </CardDescription>
+                            Capture visa setup for this package.
                         </div>
                         {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addOfficial}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Official
-                            </Button>
-                        )}
-                    </CardHeader>
                     <CardContent>
-                        {(data.officials || []).length === 0 ? (
-                            <p className="text-base text-muted-foreground">
-                                No officials added yet. Click "Add Official" to
-                                assign officials.
-                            </p>
-                        ) : (
-                            <div className="space-y-4">
-                                {(data.officials || []).map(
+                        <FormField
+                            label="Visa Type"
+                            htmlFor="visa_type"
+                            fieldRequirementsProps={{
+                                hint: 'Enter visa type',
+                            }}
+                            error={getError('visa_type')}
+                        >
+                            <ProperInput
+                                id="visa_type"
+                                value={data.visa_type || ''}
+                                disabled={isView || processing}
+                                onCommit={(v) =>
+                                    setData('visa_type', v || null)
+                                }
+                                placeholder="e.g., Umrah Visa"
+                            />
+                        </FormField>
+                    </CardContent>
+                </Card>
+
+                {/* Vehicle */}
+                <Card>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">Vehicle</CardTitle>
+                        <CardDescription>
+                            Capture transport setup for this package.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                                     (official, index) => (
                                         <div
                                             key={index}
@@ -2841,6 +2889,36 @@ export default function PackageForm({
                                                         placeholder="Enter passport number"
                                                     />
                                                 </FormField>
+                                                    label="Meal Type"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter meal type',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.type_of_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={
+                                                            packageMealPlanOptions
+                                                        }
+                                                        value={
+                                                            accommodation.type_of_meal ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'type_of_meal',
+                                                                String(v || ''),
+                                                            )
+                                                        }
+                                                        placeholder="Select meal plan"
+                                                    />
+                                                </FormField>
+                                                <FormField
                                                 <FormField
                                                     label="Gender"
                                                     htmlFor={`officials_${index}_gender`}
@@ -2873,33 +2951,30 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
-                                                    label="Date of Birth"
+                                                    label="IC Contact Number"
                                                     fieldRequirementsProps={{
-                                                        hint: 'Official date of birth',
+                                                        hint: 'Enter IC contact number',
                                                     }}
                                                     error={getError(
-                                                        `officials.${index}.date_of_birth`,
+                                                        `accommodations.${index}.ic_contact_number`,
                                                     )}
                                                 >
-                                                    <DatePickerField
-                                                        id={`official_dob_${index}`}
-                                                        key={`official_dob_${index}`}
-                                                        value={
+                                                    <ProperInput
                                                             official.date_of_birth ||
-                                                            ''
+                                                            accommodation.ic_contact_number ??
                                                         }
                                                         disabled={
                                                             isView || processing
                                                         }
                                                         fromYear={
-                                                            new Date().getFullYear() -
+                                                        onCommit={(v) =>
                                                             100
                                                         }
-                                                        toYear={new Date().getFullYear()}
-                                                        onChange={(v) =>
+                                                                'ic_contact_number',
+                                                                v,
                                                             updateOfficial(
                                                                 index,
-                                                                'date_of_birth',
+                                                        placeholder="Enter IC contact number"
                                                                 v || null,
                                                             )
                                                         }

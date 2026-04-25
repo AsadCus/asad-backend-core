@@ -56,7 +56,8 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['pif', 'tour_leaders', index, 'contact_number'],
-                    message: 'Tour leader contact cannot exceed 255 characters.',
+                    message:
+                        'Tour leader contact cannot exceed 255 characters.',
                 });
             }
         });
@@ -66,7 +67,7 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['flights', index, 'ic'],
-                    message: 'IC cannot exceed 255 characters.',
+                    message: 'Remarks cannot exceed 255 characters.',
                 });
             }
         });
@@ -173,7 +174,8 @@ export const opsMovementValidationSchema = opsMovementSchema.superRefine(
                             extensionIndex,
                             'calculation_mode',
                         ],
-                        message: 'Calculation mode must be Fixed Amount or Percentage.',
+                        message:
+                            'Calculation mode must be Fixed Amount or Percentage.',
                     });
                 }
 

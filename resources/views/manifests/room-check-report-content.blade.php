@@ -239,6 +239,7 @@
                 <th rowspan="2">Bed Type</th>
                 <th rowspan="2">Date of Birth</th>
                 <th rowspan="2">Age</th>
+                <th rowspan="2">Wheelchair</th>
                 <th rowspan="2">Contact Number</th>
                 <th colspan="2">No. Of Beds Checked</th>
                 <th rowspan="2">Meal</th>
@@ -327,6 +328,7 @@
 
                         <td>{{ $row['date_of_birth'] ?? '-' }}</td>
                         <td>{{ $row['age'] ?? '-' }}</td>
+                        <td>{{ !empty($row['is_using_wheelchair']) ? 'Yes' : 'No' }}</td>
                         <td style="text-align: left; padding-left: 8px;">{{ $row['contact_no'] ?? '-' }}</td>
 
 

@@ -70,6 +70,7 @@ class OpsMovementService
                             'location' => $a->location,
                             'hotel_name' => $a->hotel_name,
                             'ic' => $a->ic,
+                            'ic_contact_number' => $a->ic_contact_number,
                             'type_of_meal' => $a->type_of_meal,
                             'check_in' => $a->check_in_formatted,
                             'check_out' => $a->check_out_formatted,
@@ -115,6 +116,7 @@ class OpsMovementService
                     'location' => $this->normalizeNullableString($accommodation->location)
                         ?? ('Location '.($index + 1)),
                     'hotel_name' => $this->normalizeNullableString($accommodation->hotel_name),
+                    'ic_contact_number' => $this->normalizeNullableString($accommodation->ic_contact_number),
                 ];
             })
             ->values();
@@ -154,7 +156,6 @@ class OpsMovementService
             ->countBy();
         $tourLeaders = $this->resolvePifTourLeaders(
             $extension['pif']['tour_leaders'] ?? [],
-            $package->officials,
         );
 
         return [
@@ -239,6 +240,7 @@ class OpsMovementService
                     'location' => $accommodation->location,
                     'hotel_name' => $accommodation->hotel_name,
                     'ic' => $accommodation->ic,
+                    'ic_contact_number' => $accommodation->ic_contact_number,
                     'type_of_meal' => $accommodation->type_of_meal,
                     'check_in' => $accommodation->check_in_formatted,
                     'check_out' => $accommodation->check_out_formatted,
@@ -1021,35 +1023,14 @@ class OpsMovementService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, \App\Models\PackageOfficial>  $officials
      * @return array<int, array{type:?string,name:?string,contact_number:?string}>
      */
-    private function resolvePifTourLeaders(mixed $rawTourLeaders, $officials): array
+    private function resolvePifTourLeaders(mixed $rawTourLeaders): array
     {
         $normalizedTourLeaders = $this->normalizePifTourLeaders($rawTourLeaders);
 
         if (! empty($normalizedTourLeaders)) {
             return $normalizedTourLeaders;
-        }
-
-        $officialFallback = collect($officials ?? [])
-            ->filter(function ($official): bool {
-                $type = Str::lower(trim((string) ($official->type ?? '')));
-
-                return in_array($type, ['mutawif', 'mutawifah', 'official'], true);
-            })
-            ->map(function ($official): array {
-                return [
-                    'type' => $this->normalizeNullableString($official->type ?? null),
-                    'name' => $this->normalizeNullableString($official->name ?? null),
-                    'contact_number' => $this->normalizeNullableString($official->contact_number ?? null),
-                ];
-            })
-            ->values()
-            ->all();
-
-        if (! empty($officialFallback)) {
-            return $officialFallback;
         }
 
         return [];

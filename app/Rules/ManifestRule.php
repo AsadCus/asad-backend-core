@@ -102,6 +102,18 @@ class ManifestRule
             'members.*.receipt_documents.*.file_name' => ['nullable', 'string', 'max:255'],
             'members.*.receipt_documents.*.file_path' => ['nullable', 'string', 'max:255'],
             'members.*.receipt_documents.*.removed' => ['nullable', 'boolean'],
+            'members.*.passport_documents' => ['nullable', 'array'],
+            'members.*.passport_documents.*.id' => ['nullable', 'integer'],
+            'members.*.passport_documents.*.file' => ['nullable', 'file', 'max:10240'],
+            'members.*.passport_documents.*.file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.passport_documents.*.file_path' => ['nullable', 'string', 'max:255'],
+            'members.*.passport_documents.*.removed' => ['nullable', 'boolean'],
+            'members.*.photo_documents' => ['nullable', 'array'],
+            'members.*.photo_documents.*.id' => ['nullable', 'integer'],
+            'members.*.photo_documents.*.file' => ['nullable', 'file', 'max:10240'],
+            'members.*.photo_documents.*.file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.photo_documents.*.file_path' => ['nullable', 'string', 'max:255'],
+            'members.*.photo_documents.*.removed' => ['nullable', 'boolean'],
 
             // Dedicated member receipt document section
             'manifest_member_receipts' => ['nullable', 'array'],

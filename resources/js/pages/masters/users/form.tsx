@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import CustomerFormFields from '@/pages/customer/form-fields';
+import { type CustomerDocumentItemSchema } from '@/pages/customer/schema';
 import { OptionType, SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -359,12 +360,18 @@ export function UserForm({
         photo_file: data.photo_file,
         passport_path: data.passport_path ?? null,
         photo_path: data.photo_path ?? null,
+        passport_documents: [],
+        photo_documents: [],
     };
 
     const updateCustomerField = (
         field: string,
-        value: string | boolean | File | null,
+        value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => {
+        if (field === 'passport_documents' || field === 'photo_documents') {
+            return;
+        }
+
         if (field === 'contact_number') {
             setData('contact', String(value ?? ''));
 

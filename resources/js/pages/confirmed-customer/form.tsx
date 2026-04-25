@@ -57,6 +57,7 @@ import CustomerFormFields from '../customer/form-fields';
 import {
     emptyMember,
     type CustomerConfirmationFormData,
+    type CustomerDocumentItemSchema,
     type CustomerMemberFormData,
     type CustomerOption,
 } from '../customer/schema';
@@ -700,6 +701,8 @@ export default function CustomerConfirmationForm({
                 chronic_disease_details: customer.chronic_disease_details ?? '',
                 passport_document: customer.passport_document ?? null,
                 photo_document: customer.photo_document ?? null,
+                passport_documents: customer.passport_documents ?? [],
+                photo_documents: customer.photo_documents ?? [],
                 passport_file_name:
                     customer.passport_document?.file_name ?? null,
                 photo_file_name: customer.photo_document?.file_name ?? null,
@@ -763,7 +766,7 @@ export default function CustomerConfirmationForm({
     const applyCustomerUpdate = (
         index: number,
         field: keyof CustomerMemberFormData,
-        value: string | boolean | File | null,
+        value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => {
         setData((currentData) => {
             const next = [...(currentData.members ?? [])];
@@ -786,7 +789,7 @@ export default function CustomerConfirmationForm({
     const updateCustomer = (
         index: number,
         field: keyof CustomerMemberFormData,
-        value: string | boolean | File | null,
+        value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => {
         if (field === 'is_leader' && value === true) {
             applyCustomerUpdate(index, field, value);

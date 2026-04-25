@@ -8,6 +8,14 @@ export interface ModelFileSchema {
     file_path: string;
 }
 
+export interface CustomerDocumentItemSchema {
+    id?: number;
+    file?: File | null;
+    file_name?: string | null;
+    file_path?: string | null;
+    removed?: boolean;
+}
+
 // ── Member schema (per-person fields stored in users + customers) ──
 export const customerSchema = z.object({
     customer_number: z.string().optional(),
@@ -50,6 +58,17 @@ export const customerSchema = z.object({
         })
         .nullable()
         .optional(),
+    passport_documents: z
+        .array(
+            z.object({
+                id: z.number().optional(),
+                file_name: z.string().nullable().optional(),
+                file_path: z.string().nullable().optional(),
+                removed: z.boolean().optional(),
+                file: z.any().optional(),
+            }),
+        )
+        .optional(),
     photo_document: z
         .object({
             field: z.string(),
@@ -57,6 +76,17 @@ export const customerSchema = z.object({
             file_path: z.string(),
         })
         .nullable()
+        .optional(),
+    photo_documents: z
+        .array(
+            z.object({
+                id: z.number().optional(),
+                file_name: z.string().nullable().optional(),
+                file_path: z.string().nullable().optional(),
+                removed: z.boolean().optional(),
+                file: z.any().optional(),
+            }),
+        )
         .optional(),
 });
 
@@ -85,6 +115,8 @@ export type CustomerMemberFormData = Omit<
 > & {
     passport_file?: File | null;
     photo_file?: File | null;
+    passport_documents?: CustomerDocumentItemSchema[];
+    photo_documents?: CustomerDocumentItemSchema[];
 };
 
 export type CustomerConfirmationFormData = Omit<
@@ -116,6 +148,8 @@ export interface CustomerOption extends OptionType {
     chronic_disease_details?: string;
     passport_document?: ModelFileSchema | null;
     photo_document?: ModelFileSchema | null;
+    passport_documents?: CustomerDocumentItemSchema[];
+    photo_documents?: CustomerDocumentItemSchema[];
 }
 
 // ── Options ──
@@ -250,4 +284,6 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     photo_file_removed: false,
     passport_document: null,
     photo_document: null,
+    passport_documents: [],
+    photo_documents: [],
 });

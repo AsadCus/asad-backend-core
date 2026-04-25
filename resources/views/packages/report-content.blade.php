@@ -13,7 +13,12 @@
             'compact' => ['block' => '8px', 'table_top' => '6px', 'title_top' => '10px', 'title_bottom' => '6px'],
             'normal' => ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'],
             'relaxed' => ['block' => '16px', 'table_top' => '12px', 'title_top' => '20px', 'title_bottom' => '10px'],
-        ][$sectionSpacingPreset] ?? ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'];
+        ][$sectionSpacingPreset] ?? [
+            'block' => '10px',
+            'table_top' => '8px',
+            'title_top' => '14px',
+            'title_bottom' => '6px',
+        ];
     @endphp
     <style>
         /* ── Content Wrapper ── */
@@ -124,16 +129,22 @@
                 <td>{{ $data['seats_left'] ?? '-' }}</td>
             </tr>
             <tr>
-                <td class="meta-label">Vehicle Type</td>
-                <td>{{ $data['vehicle_type'] ?? '-' }}</td>
                 <td class="meta-label">Visa Type</td>
                 <td>{{ $data['visa_type'] ?? '-' }}</td>
             </tr>
+        </table>
+
+        <div class="section-title">Vehicle</div>
+        <table class="meta-table">
             <tr>
+                <td class="meta-label">Vehicle Type</td>
+                <td>{{ $data['vehicle_type'] ?? '-' }}</td>
                 <td class="meta-label">Driver</td>
                 <td>{{ $data['vehicle_driver_name'] ?? '-' }}</td>
+            </tr>
+            <tr>
                 <td class="meta-label">Driver Contact</td>
-                <td>{{ $data['vehicle_driver_contact_number'] ?? '-' }}</td>
+                <td colspan="3">{{ $data['vehicle_driver_contact_number'] ?? '-' }}</td>
             </tr>
         </table>
 
@@ -172,6 +183,8 @@
                         <th>Location</th>
                         <th>Hotel</th>
                         <th>Meal Plan</th>
+                        <th>IC</th>
+                        <th>IC Contact</th>
                         <th>Check In</th>
                         <th>Check Out</th>
                     </tr>
@@ -183,6 +196,8 @@
                             <td>{{ $accommodation['location'] ?? '-' }}</td>
                             <td>{{ $accommodation['hotel_name'] ?? '-' }}</td>
                             <td>{{ $accommodation['type_of_meal'] ?? '-' }}</td>
+                            <td>{{ $accommodation['ic'] ?? '-' }}</td>
+                            <td>{{ $accommodation['ic_contact_number'] ?? '-' }}</td>
                             <td>{{ $accommodation['check_in'] ?? '-' }}</td>
                             <td>{{ $accommodation['check_out'] ?? '-' }}</td>
                         </tr>

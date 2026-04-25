@@ -48,7 +48,10 @@ import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ConfirmedCustomerFormFields from '../customer/confirmed-customer-form-fields';
 import CustomerFormFields from '../customer/form-fields';
-import { type CustomerSchema } from '../customer/schema';
+import {
+    type CustomerDocumentItemSchema,
+    type CustomerSchema,
+} from '../customer/schema';
 import AccommodationInformationCard from './components/accommodation-information-card';
 import ManifestDatatable from './components/datatable';
 import FlightDetailInformationCard from './components/flight-detail-information-card';
@@ -148,53 +151,6 @@ function toManifestRoomTypeSharingPlan(
     }
 
     return null;
-}
-
-function buildMemberIdentityDocuments(
-    members: MemberWithUI[],
-    field: 'passport' | 'photo',
-): ManifestDocumentItem[] {
-    const rows: ManifestDocumentItem[] = [];
-
-    members.forEach((member, index) => {
-        const filePath = String(
-            field === 'passport'
-                ? (member.passport_path ?? '')
-                : (member.photo_path ?? ''),
-        ).trim();
-
-        if (filePath.length === 0) {
-            return;
-        }
-
-        const memberName = String(
-            member.name_as_per_passport ?? member.customer_name ?? '',
-        ).trim();
-        const fallbackName =
-            memberName.length > 0 ? memberName : `Member ${index + 1}`;
-        const preferredStoredFileName = String(
-            field === 'passport'
-                ? (member.passport_file_name ?? '')
-                : (member.photo_file_name ?? ''),
-        ).trim();
-        const fallbackFileName =
-            field === 'passport'
-                ? `Passport ${fallbackName}`
-                : `Photo ${fallbackName}`;
-        const fileName =
-            preferredStoredFileName.length > 0
-                ? preferredStoredFileName
-                : fallbackFileName;
-
-        rows.push({
-            file: null,
-            file_name: fileName,
-            file_path: filePath,
-            removed: false,
-        });
-    });
-
-    return rows;
 }
 
 function createEmptyDocumentEntry(): ManifestDocumentItem {
@@ -312,6 +268,30 @@ function toMemberWithUI(
         receipt_documents: Array.isArray(row.receipt_documents)
             ? (row.receipt_documents as ManifestDocumentItem[])
             : [createEmptyDocumentEntry()],
+        passport_documents: Array.isArray(row.passport_documents)
+            ? (row.passport_documents as ManifestDocumentItem[])
+            : String(row.passport_path ?? '').trim().length > 0
+              ? [
+                    {
+                        file: null,
+                        file_name: null,
+                        file_path: String(row.passport_path ?? ''),
+                        removed: false,
+                    },
+                ]
+              : [],
+        photo_documents: Array.isArray(row.photo_documents)
+            ? (row.photo_documents as ManifestDocumentItem[])
+            : String(row.photo_path ?? '').trim().length > 0
+              ? [
+                    {
+                        file: null,
+                        file_name: null,
+                        file_path: String(row.photo_path ?? ''),
+                        removed: false,
+                    },
+                ]
+              : [],
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
@@ -710,8 +690,18 @@ function buildDefaultData(initialData?: ManifestFormData): ManifestFormData {
                   removed: doc.removed ?? false,
               }))
             : fallbackDocuments.hotel,
-        passport: buildMemberIdentityDocuments(members, 'passport'),
-        photo: buildMemberIdentityDocuments(members, 'photo'),
+        passport: sourceDocuments?.passport?.length
+            ? sourceDocuments.passport.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
+            : fallbackDocuments.passport,
+        photo: sourceDocuments?.photo?.length
+            ? sourceDocuments.photo.map((doc) => ({
+                  ...doc,
+                  removed: doc.removed ?? false,
+              }))
+            : fallbackDocuments.photo,
     };
 
     const canonicalRoomLists = buildRoomListsFromCanonicalRooms(
@@ -1366,6 +1356,38 @@ function toMemberSubmitRow(
         payload.receipt_documents = normalizedReceipts;
     }
 
+    const normalizedPassportDocuments = normalizeDocumentEntriesForSubmit(
+        member.passport_documents,
+    );
+    const baselinePassportDocuments = normalizeDocumentEntriesForSubmit(
+        baselineMember?.passport_documents,
+    );
+
+    if (
+        !areDocumentEntriesEquivalent(
+            normalizedPassportDocuments,
+            baselinePassportDocuments,
+        )
+    ) {
+        payload.passport_documents = normalizedPassportDocuments;
+    }
+
+    const normalizedPhotoDocuments = normalizeDocumentEntriesForSubmit(
+        member.photo_documents,
+    );
+    const baselinePhotoDocuments = normalizeDocumentEntriesForSubmit(
+        baselineMember?.photo_documents,
+    );
+
+    if (
+        !areDocumentEntriesEquivalent(
+            normalizedPhotoDocuments,
+            baselinePhotoDocuments,
+        )
+    ) {
+        payload.photo_documents = normalizedPhotoDocuments;
+    }
+
     return payload;
 }
 
@@ -1702,6 +1724,12 @@ function validateRoomCapacityOnSubmit(
 function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
     const passportPath = String(member.passport_path ?? '').trim();
     const photoPath = String(member.photo_path ?? '').trim();
+    const passportDocuments = Array.isArray(member.passport_documents)
+        ? member.passport_documents
+        : [];
+    const photoDocuments = Array.isArray(member.photo_documents)
+        ? member.photo_documents
+        : [];
 
     return {
         customer_number: String(member.customer_number ?? ''),
@@ -1756,6 +1784,25 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
                       file_path: passportPath,
                   }
                 : null,
+        passport_documents:
+            passportDocuments.length > 0
+                ? passportDocuments.map((document) => ({
+                      id: document.id,
+                      file: null,
+                      file_name: document.file_name ?? null,
+                      file_path: document.file_path ?? null,
+                      removed: Boolean(document.removed),
+                  }))
+                : passportPath.length > 0
+                  ? [
+                        {
+                            file: null,
+                            file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Passport`,
+                            file_path: passportPath,
+                            removed: false,
+                        },
+                    ]
+                  : [],
         photo_document:
             photoPath.length > 0
                 ? {
@@ -1764,6 +1811,25 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
                       file_path: photoPath,
                   }
                 : null,
+        photo_documents:
+            photoDocuments.length > 0
+                ? photoDocuments.map((document) => ({
+                      id: document.id,
+                      file: null,
+                      file_name: document.file_name ?? null,
+                      file_path: document.file_path ?? null,
+                      removed: Boolean(document.removed),
+                  }))
+                : photoPath.length > 0
+                  ? [
+                        {
+                            file: null,
+                            file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Photo`,
+                            file_path: photoPath,
+                            removed: false,
+                        },
+                    ]
+                  : [],
     };
 }
 
@@ -1886,45 +1952,6 @@ export default function ManifestForm({
 
         setFormData('manifest_rooms', canonicalRooms);
     }, [roomListsState, setFormData]);
-
-    useEffect(() => {
-        const members = (data.manifest_members as MemberWithUI[]) ?? [];
-        const currentDocuments =
-            data.documents ?? buildEmptyManifestDocuments();
-
-        const mirroredPassportRows = buildMemberIdentityDocuments(
-            members,
-            'passport',
-        );
-        const mirroredPhotoRows = buildMemberIdentityDocuments(
-            members,
-            'photo',
-        );
-
-        const currentPassportRows =
-            (currentDocuments.passport as ManifestDocumentItem[]) ?? [];
-        const currentPhotoRows =
-            (currentDocuments.photo as ManifestDocumentItem[]) ?? [];
-
-        const isPassportSynced = areDocumentEntriesEquivalent(
-            currentPassportRows,
-            mirroredPassportRows,
-        );
-        const isPhotoSynced = areDocumentEntriesEquivalent(
-            currentPhotoRows,
-            mirroredPhotoRows,
-        );
-
-        if (isPassportSynced && isPhotoSynced) {
-            return;
-        }
-
-        setFormData('documents', {
-            ...currentDocuments,
-            passport: mirroredPassportRows,
-            photo: mirroredPhotoRows,
-        });
-    }, [data.documents, data.manifest_members, setFormData]);
 
     const scrollToErrorBanner = useCallback(() => {
         setTimeout(() => {
@@ -2656,6 +2683,52 @@ export default function ManifestForm({
         [data.manifest_members, setFormData],
     );
 
+    const updateMemberPassportDocuments = useCallback(
+        (member: MemberWithUI, rows: ManifestDocumentItem[]) => {
+            const nextMembers = (
+                (data.manifest_members ?? []) as MemberWithUI[]
+            ).map((row, index) => {
+                if (
+                    memberIdentityKey(row, index) !==
+                    memberIdentityKey(member, 0)
+                ) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    passport_documents: rows,
+                };
+            });
+
+            setFormData('manifest_members', nextMembers);
+        },
+        [data.manifest_members, setFormData],
+    );
+
+    const updateMemberPhotoDocuments = useCallback(
+        (member: MemberWithUI, rows: ManifestDocumentItem[]) => {
+            const nextMembers = (
+                (data.manifest_members ?? []) as MemberWithUI[]
+            ).map((row, index) => {
+                if (
+                    memberIdentityKey(row, index) !==
+                    memberIdentityKey(member, 0)
+                ) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    photo_documents: rows,
+                };
+            });
+
+            setFormData('manifest_members', nextMembers);
+        },
+        [data.manifest_members, setFormData],
+    );
+
     const submit = async (event: React.FormEvent) => {
         event.preventDefault();
 
@@ -3056,7 +3129,12 @@ export default function ManifestForm({
     const viewOnlyCustomerUpdate = useCallback(
         (
             field: keyof CustomerSchema,
-            value: string | boolean | File | null,
+            value:
+                | string
+                | boolean
+                | File
+                | null
+                | CustomerDocumentItemSchema[],
         ) => {
             void field;
             void value;
@@ -4096,7 +4174,7 @@ export default function ManifestForm({
                     </TabsContent>
 
                     {MANIFEST_DOCUMENT_TABS.map((tab) => {
-                        const isMemberMirroredDocumentTab =
+                        const isMemberIdentityDocumentTab =
                             tab.key === 'passport' || tab.key === 'photo';
                         const allRows =
                             (data.documents?.[tab.key] as
@@ -4133,20 +4211,373 @@ export default function ManifestForm({
                                 value={`document-${tab.key.replaceAll('_', '-')}`}
                                 className="space-y-4"
                             >
-                                <div className="rounded-xl border border-border/70 p-4">
-                                    <div className="mb-4 flex items-center justify-between">
-                                        <div>
+                                {isMemberIdentityDocumentTab ? (
+                                    <div className="rounded-xl border border-border/70 p-4">
+                                        <div className="mb-4">
                                             <h3 className="text-lg font-semibold">
                                                 {tab.label} Documents
                                             </h3>
                                             <p className="text-sm text-muted-foreground">
-                                                {isMemberMirroredDocumentTab
-                                                    ? `Auto-synced from member ${tab.label.toLowerCase()} files in customer confirmation.`
-                                                    : tab.hint}
+                                                Upload {tab.label.toLowerCase()}{' '}
+                                                files for each member.
                                             </p>
                                         </div>
-                                        {!isView &&
-                                            !isMemberMirroredDocumentTab && (
+
+                                        <div className="overflow-hidden rounded-xl border border-border/70">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-muted/40 text-left">
+                                                    <tr>
+                                                        <th className="px-4 py-3 font-semibold">
+                                                            No
+                                                        </th>
+                                                        <th className="px-4 py-3 font-semibold">
+                                                            Name
+                                                        </th>
+                                                        <th className="px-4 py-3 font-semibold">
+                                                            {tab.label}
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {nonCancelledNonOfficialMembers.map(
+                                                        (member, index) => {
+                                                            const sourceRows =
+                                                                tab.key ===
+                                                                'passport'
+                                                                    ? (member.passport_documents ??
+                                                                      [])
+                                                                    : (member.photo_documents ??
+                                                                      []);
+                                                            const visibleIndexes =
+                                                                sourceRows
+                                                                    .map(
+                                                                        (
+                                                                            row,
+                                                                            rowIndex,
+                                                                        ) =>
+                                                                            row.removed
+                                                                                ? null
+                                                                                : rowIndex,
+                                                                    )
+                                                                    .filter(
+                                                                        (
+                                                                            rowIndex,
+                                                                        ): rowIndex is number =>
+                                                                            rowIndex !==
+                                                                            null,
+                                                                    );
+                                                            const rowsToRender =
+                                                                visibleIndexes.length >
+                                                                0
+                                                                    ? visibleIndexes.map(
+                                                                          (
+                                                                              actualIndex,
+                                                                              visibleIndex,
+                                                                          ) => ({
+                                                                              row: sourceRows[
+                                                                                  actualIndex
+                                                                              ],
+                                                                              actualIndex,
+                                                                              visibleIndex,
+                                                                          }),
+                                                                      )
+                                                                    : [
+                                                                          {
+                                                                              row: createEmptyDocumentEntry(),
+                                                                              actualIndex:
+                                                                                  -1,
+                                                                              visibleIndex: 0,
+                                                                          },
+                                                                      ];
+
+                                                            return (
+                                                                <tr
+                                                                    key={`${memberIdentityKey(member, index)}-${tab.key}`}
+                                                                    className="border-t"
+                                                                >
+                                                                    <td className="px-4 py-3 align-top">
+                                                                        {index +
+                                                                            1}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 align-top">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={
+                                                                                member.name_as_per_passport ??
+                                                                                ''
+                                                                            }
+                                                                            disabled
+                                                                            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="space-y-3">
+                                                                            {rowsToRender.map(
+                                                                                (
+                                                                                    renderRow,
+                                                                                ) => {
+                                                                                    const {
+                                                                                        row,
+                                                                                        actualIndex,
+                                                                                        visibleIndex,
+                                                                                    } =
+                                                                                        renderRow;
+
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={`${memberIdentityKey(member, index)}-${tab.key}-doc-${row.id ?? visibleIndex}`}
+                                                                                            className="rounded-lg border p-3"
+                                                                                        >
+                                                                                            {!isView &&
+                                                                                                actualIndex >=
+                                                                                                    0 && (
+                                                                                                    <div className="mb-3 flex justify-end">
+                                                                                                        <Button
+                                                                                                            type="button"
+                                                                                                            variant="ghost"
+                                                                                                            size="sm"
+                                                                                                            className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                                                            onClick={() => {
+                                                                                                                const nextRows =
+                                                                                                                    removeDocumentEntryAtIndex(
+                                                                                                                        sourceRows,
+                                                                                                                        actualIndex,
+                                                                                                                    );
+
+                                                                                                                if (
+                                                                                                                    tab.key ===
+                                                                                                                    'passport'
+                                                                                                                ) {
+                                                                                                                    updateMemberPassportDocuments(
+                                                                                                                        member,
+                                                                                                                        nextRows,
+                                                                                                                    );
+                                                                                                                } else {
+                                                                                                                    updateMemberPhotoDocuments(
+                                                                                                                        member,
+                                                                                                                        nextRows,
+                                                                                                                    );
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            Remove
+                                                                                                        </Button>
+                                                                                                    </div>
+                                                                                                )}
+
+                                                                                            <DocumentField
+                                                                                                label={`${tab.label} #${visibleIndex + 1}`}
+                                                                                                hint={`Upload ${tab.label.toLowerCase()} files for this member.`}
+                                                                                                accept={
+                                                                                                    tab.accept
+                                                                                                }
+                                                                                                fileValue={
+                                                                                                    row.file ??
+                                                                                                    undefined
+                                                                                                }
+                                                                                                existingPath={
+                                                                                                    row.file_path ??
+                                                                                                    undefined
+                                                                                                }
+                                                                                                existingFileName={
+                                                                                                    row.file_name ??
+                                                                                                    undefined
+                                                                                                }
+                                                                                                useFileNameInput
+                                                                                                fileNameValue={
+                                                                                                    row.file_name ??
+                                                                                                    null
+                                                                                                }
+                                                                                                isView={
+                                                                                                    isView
+                                                                                                }
+                                                                                                disabled={
+                                                                                                    isView
+                                                                                                }
+                                                                                                onSelect={(
+                                                                                                    file,
+                                                                                                ) => {
+                                                                                                    const nextRows =
+                                                                                                        sourceRows.length >
+                                                                                                        0
+                                                                                                            ? [
+                                                                                                                  ...sourceRows,
+                                                                                                              ]
+                                                                                                            : [
+                                                                                                                  createEmptyDocumentEntry(),
+                                                                                                              ];
+                                                                                                    const targetIndex =
+                                                                                                        actualIndex >=
+                                                                                                        0
+                                                                                                            ? actualIndex
+                                                                                                            : 0;
+
+                                                                                                    nextRows[
+                                                                                                        targetIndex
+                                                                                                    ] =
+                                                                                                        {
+                                                                                                            ...nextRows[
+                                                                                                                targetIndex
+                                                                                                            ],
+                                                                                                            file,
+                                                                                                            removed: false,
+                                                                                                            file_name:
+                                                                                                                nextRows[
+                                                                                                                    targetIndex
+                                                                                                                ]
+                                                                                                                    ?.file_name ??
+                                                                                                                buildManifestDocumentFileName(
+                                                                                                                    tab.label,
+                                                                                                                    visibleIndex +
+                                                                                                                        1,
+                                                                                                                    data.manifest_number,
+                                                                                                                ),
+                                                                                                        };
+
+                                                                                                    if (
+                                                                                                        tab.key ===
+                                                                                                        'passport'
+                                                                                                    ) {
+                                                                                                        updateMemberPassportDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    } else {
+                                                                                                        updateMemberPhotoDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    }
+                                                                                                }}
+                                                                                                onFileNameChange={(
+                                                                                                    fileName,
+                                                                                                ) => {
+                                                                                                    const nextRows =
+                                                                                                        sourceRows.length >
+                                                                                                        0
+                                                                                                            ? [
+                                                                                                                  ...sourceRows,
+                                                                                                              ]
+                                                                                                            : [
+                                                                                                                  createEmptyDocumentEntry(),
+                                                                                                              ];
+                                                                                                    const targetIndex =
+                                                                                                        actualIndex >=
+                                                                                                        0
+                                                                                                            ? actualIndex
+                                                                                                            : 0;
+
+                                                                                                    nextRows[
+                                                                                                        targetIndex
+                                                                                                    ] =
+                                                                                                        {
+                                                                                                            ...nextRows[
+                                                                                                                targetIndex
+                                                                                                            ],
+                                                                                                            file_name:
+                                                                                                                fileName,
+                                                                                                        };
+
+                                                                                                    if (
+                                                                                                        tab.key ===
+                                                                                                        'passport'
+                                                                                                    ) {
+                                                                                                        updateMemberPassportDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    } else {
+                                                                                                        updateMemberPhotoDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    }
+                                                                                                }}
+                                                                                                onClear={() => {
+                                                                                                    const nextRows =
+                                                                                                        removeDocumentEntryAtIndex(
+                                                                                                            sourceRows,
+                                                                                                            actualIndex,
+                                                                                                        );
+
+                                                                                                    if (
+                                                                                                        tab.key ===
+                                                                                                        'passport'
+                                                                                                    ) {
+                                                                                                        updateMemberPassportDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    } else {
+                                                                                                        updateMemberPhotoDocuments(
+                                                                                                            member,
+                                                                                                            nextRows,
+                                                                                                        );
+                                                                                                    }
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+                                                                                    );
+                                                                                },
+                                                                            )}
+
+                                                                            {!isView && (
+                                                                                <div>
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant="outline"
+                                                                                        onClick={() => {
+                                                                                            const nextRows =
+                                                                                                [
+                                                                                                    ...sourceRows,
+                                                                                                    createEmptyDocumentEntry(),
+                                                                                                ];
+
+                                                                                            if (
+                                                                                                tab.key ===
+                                                                                                'passport'
+                                                                                            ) {
+                                                                                                updateMemberPassportDocuments(
+                                                                                                    member,
+                                                                                                    nextRows,
+                                                                                                );
+                                                                                            } else {
+                                                                                                updateMemberPhotoDocuments(
+                                                                                                    member,
+                                                                                                    nextRows,
+                                                                                                );
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        Add{' '}
+                                                                                        {
+                                                                                            tab.label
+                                                                                        }
+                                                                                    </Button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        },
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-border/70 p-4">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold">
+                                                    {tab.label} Documents
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {tab.hint}
+                                                </p>
+                                            </div>
+                                            {!isView && (
                                                 <Button
                                                     type="button"
                                                     variant="outline"
@@ -4163,158 +4594,157 @@ export default function ManifestForm({
                                                     Add Document
                                                 </Button>
                                             )}
-                                    </div>
+                                        </div>
 
-                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                        {rowsToRender.map((renderRow) => {
-                                            const {
-                                                row,
-                                                actualIndex,
-                                                visibleIndex,
-                                            } = renderRow;
+                                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                            {rowsToRender.map((renderRow) => {
+                                                const {
+                                                    row,
+                                                    actualIndex,
+                                                    visibleIndex,
+                                                } = renderRow;
 
-                                            return (
-                                                <div
-                                                    key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
-                                                    className="rounded-lg border p-3"
-                                                >
-                                                    {!isView &&
-                                                        !isMemberMirroredDocumentTab &&
-                                                        actualIndex >= 0 && (
-                                                            <div className="mb-3 flex justify-end">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 px-2 text-destructive hover:text-destructive"
-                                                                    onClick={() => {
-                                                                        updateManifestDocuments(
-                                                                            tab.key,
-                                                                            removeDocumentEntryAtIndex(
-                                                                                allRows,
-                                                                                actualIndex,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    Remove
-                                                                </Button>
-                                                            </div>
-                                                        )}
+                                                return (
+                                                    <div
+                                                        key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
+                                                        className="rounded-lg border p-3"
+                                                    >
+                                                        {!isView &&
+                                                            actualIndex >=
+                                                                0 && (
+                                                                <div className="mb-3 flex justify-end">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                        onClick={() => {
+                                                                            updateManifestDocuments(
+                                                                                tab.key,
+                                                                                removeDocumentEntryAtIndex(
+                                                                                    allRows,
+                                                                                    actualIndex,
+                                                                                ),
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        Remove
+                                                                    </Button>
+                                                                </div>
+                                                            )}
 
-                                                    <DocumentField
-                                                        label={`${tab.label} #${visibleIndex + 1}`}
-                                                        hint={tab.hint}
-                                                        accept={tab.accept}
-                                                        fileValue={
-                                                            row.file ??
-                                                            undefined
-                                                        }
-                                                        existingPath={
-                                                            row.file_path ??
-                                                            undefined
-                                                        }
-                                                        existingFileName={
-                                                            row.file_name ??
-                                                            undefined
-                                                        }
-                                                        useFileNameInput
-                                                        showRemoveButton={
-                                                            !isMemberMirroredDocumentTab
-                                                        }
-                                                        fileNameValue={
-                                                            row.file_name ??
-                                                            null
-                                                        }
-                                                        isView={isView}
-                                                        disabled={
-                                                            isView ||
-                                                            isMemberMirroredDocumentTab
-                                                        }
-                                                        onSelect={(file) => {
-                                                            const nextRows =
-                                                                allRows.length >
-                                                                0
-                                                                    ? [
-                                                                          ...allRows,
-                                                                      ]
-                                                                    : [
-                                                                          createEmptyDocumentEntry(),
-                                                                      ];
-                                                            const targetIndex =
-                                                                actualIndex >= 0
-                                                                    ? actualIndex
-                                                                    : 0;
-                                                            nextRows[
-                                                                targetIndex
-                                                            ] = {
-                                                                ...nextRows[
-                                                                    targetIndex
-                                                                ],
+                                                        <DocumentField
+                                                            label={`${tab.label} #${visibleIndex + 1}`}
+                                                            hint={tab.hint}
+                                                            accept={tab.accept}
+                                                            fileValue={
+                                                                row.file ??
+                                                                undefined
+                                                            }
+                                                            existingPath={
+                                                                row.file_path ??
+                                                                undefined
+                                                            }
+                                                            existingFileName={
+                                                                row.file_name ??
+                                                                undefined
+                                                            }
+                                                            useFileNameInput
+                                                            fileNameValue={
+                                                                row.file_name ??
+                                                                null
+                                                            }
+                                                            isView={isView}
+                                                            disabled={isView}
+                                                            onSelect={(
                                                                 file,
-                                                                removed: false,
-                                                                file_name:
-                                                                    nextRows[
-                                                                        targetIndex
-                                                                    ]
-                                                                        ?.file_name ??
-                                                                    buildManifestDocumentFileName(
-                                                                        tab.label,
-                                                                        visibleIndex +
-                                                                            1,
-                                                                        data.manifest_number,
-                                                                    ),
-                                                            };
-                                                            updateManifestDocuments(
-                                                                tab.key,
-                                                                nextRows,
-                                                            );
-                                                        }}
-                                                        onFileNameChange={(
-                                                            fileName,
-                                                        ) => {
-                                                            const nextRows =
-                                                                allRows.length >
-                                                                0
-                                                                    ? [
-                                                                          ...allRows,
-                                                                      ]
-                                                                    : [
-                                                                          createEmptyDocumentEntry(),
-                                                                      ];
-                                                            const targetIndex =
-                                                                actualIndex >= 0
-                                                                    ? actualIndex
-                                                                    : 0;
-                                                            nextRows[
-                                                                targetIndex
-                                                            ] = {
-                                                                ...nextRows[
+                                                            ) => {
+                                                                const nextRows =
+                                                                    allRows.length >
+                                                                    0
+                                                                        ? [
+                                                                              ...allRows,
+                                                                          ]
+                                                                        : [
+                                                                              createEmptyDocumentEntry(),
+                                                                          ];
+                                                                const targetIndex =
+                                                                    actualIndex >=
+                                                                    0
+                                                                        ? actualIndex
+                                                                        : 0;
+                                                                nextRows[
                                                                     targetIndex
-                                                                ],
-                                                                file_name:
-                                                                    fileName,
-                                                            };
-                                                            updateManifestDocuments(
-                                                                tab.key,
-                                                                nextRows,
-                                                            );
-                                                        }}
-                                                        onClear={() => {
-                                                            updateManifestDocuments(
-                                                                tab.key,
-                                                                removeDocumentEntryAtIndex(
-                                                                    allRows,
-                                                                    actualIndex,
-                                                                ),
-                                                            );
-                                                        }}
-                                                    />
-                                                </div>
-                                            );
-                                        })}
+                                                                ] = {
+                                                                    ...nextRows[
+                                                                        targetIndex
+                                                                    ],
+                                                                    file,
+                                                                    removed: false,
+                                                                    file_name:
+                                                                        nextRows[
+                                                                            targetIndex
+                                                                        ]
+                                                                            ?.file_name ??
+                                                                        buildManifestDocumentFileName(
+                                                                            tab.label,
+                                                                            visibleIndex +
+                                                                                1,
+                                                                            data.manifest_number,
+                                                                        ),
+                                                                };
+                                                                updateManifestDocuments(
+                                                                    tab.key,
+                                                                    nextRows,
+                                                                );
+                                                            }}
+                                                            onFileNameChange={(
+                                                                fileName,
+                                                            ) => {
+                                                                const nextRows =
+                                                                    allRows.length >
+                                                                    0
+                                                                        ? [
+                                                                              ...allRows,
+                                                                          ]
+                                                                        : [
+                                                                              createEmptyDocumentEntry(),
+                                                                          ];
+                                                                const targetIndex =
+                                                                    actualIndex >=
+                                                                    0
+                                                                        ? actualIndex
+                                                                        : 0;
+                                                                nextRows[
+                                                                    targetIndex
+                                                                ] = {
+                                                                    ...nextRows[
+                                                                        targetIndex
+                                                                    ],
+                                                                    file_name:
+                                                                        fileName,
+                                                                };
+                                                                updateManifestDocuments(
+                                                                    tab.key,
+                                                                    nextRows,
+                                                                );
+                                                            }}
+                                                            onClear={() => {
+                                                                updateManifestDocuments(
+                                                                    tab.key,
+                                                                    removeDocumentEntryAtIndex(
+                                                                        allRows,
+                                                                        actualIndex,
+                                                                    ),
+                                                                );
+                                                            }}
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </TabsContent>
                         );
                     })}

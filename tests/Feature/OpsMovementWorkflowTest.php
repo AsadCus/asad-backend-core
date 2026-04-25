@@ -782,8 +782,7 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame(1, data_get($opsMovement, 'passengers.adult_total'));
         $this->assertSame(1, data_get($opsMovement, 'passengers.child_total'));
         $this->assertSame(1, data_get($opsMovement, 'passengers.infant_total'));
-        $this->assertSame('Mutawif Fallback', data_get($opsMovement, 'pif.tour_leaders.0.name'));
-        $this->assertSame('mutawif', data_get($opsMovement, 'pif.tour_leaders.0.type'));
+        $this->assertSame([], data_get($opsMovement, 'pif.tour_leaders'));
         $this->assertSame(3, data_get($opsMovement, 'accommodations.0.room_counts.single'));
     }
 

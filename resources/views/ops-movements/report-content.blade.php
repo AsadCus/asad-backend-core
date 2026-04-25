@@ -22,7 +22,12 @@
             'compact' => ['block' => '8px', 'table_top' => '6px', 'title_top' => '10px', 'title_bottom' => '6px'],
             'normal' => ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'],
             'relaxed' => ['block' => '16px', 'table_top' => '12px', 'title_top' => '20px', 'title_bottom' => '10px'],
-        ][$sectionSpacingPreset] ?? ['block' => '10px', 'table_top' => '8px', 'title_top' => '14px', 'title_bottom' => '6px'];
+        ][$sectionSpacingPreset] ?? [
+            'block' => '10px',
+            'table_top' => '8px',
+            'title_top' => '14px',
+            'title_bottom' => '6px',
+        ];
     @endphp
     <style>
         @page {
@@ -171,6 +176,7 @@
             <th>Check Out</th>
             <th>Meal</th>
             <th>IC</th>
+            <th>IC Contact</th>
         </tr>
         @forelse ($accommodations as $accommodation)
             <tr>
@@ -180,10 +186,11 @@
                 <td>{{ $accommodation['check_out'] ?? '-' }}</td>
                 <td>{{ $accommodation['type_of_meal'] ?? '-' }}</td>
                 <td>{{ $accommodation['ic'] ?? '-' }}</td>
+                <td>{{ $accommodation['ic_contact_number'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="text-center">No accommodation data.</td>
+                <td colspan="7" class="text-center">No accommodation data.</td>
             </tr>
         @endforelse
     </table>
@@ -220,7 +227,7 @@
             <th>PNR</th>
             <th>DOA By</th>
             <th>DOA Datetime</th>
-            <th>IC</th>
+            <th>Remarks</th>
         </tr>
         @forelse ($flights as $flight)
             <tr>

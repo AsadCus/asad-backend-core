@@ -1796,7 +1796,9 @@ class CustomerConfirmationService
             ->get()
             ->map(function ($user) {
                 $customer = $user->customer;
-                $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
+                $documentsByField = $customer ? $this->getCustomerDocumentsGroupedByField($customer) : collect();
+                $passportDocuments = $documentsByField->get('passport', collect());
+                $photoDocuments = $documentsByField->get('photo', collect());
 
                 return [
                     'value' => $user->id,
@@ -1819,8 +1821,10 @@ class CustomerConfirmationService
                     'has_chronic_disease' => $customer->has_chronic_disease ?? false,
                     'is_using_wheelchair' => $customer->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer->chronic_disease_details ?? '',
-                    'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
-                    'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
+                    'passport_document' => $this->formatDocumentPayload($passportDocuments->first()),
+                    'photo_document' => $this->formatDocumentPayload($photoDocuments->first()),
+                    'passport_documents' => $this->formatDocumentListPayload($passportDocuments),
+                    'photo_documents' => $this->formatDocumentListPayload($photoDocuments),
                 ];
             })
             ->all();
@@ -1853,7 +1857,9 @@ class CustomerConfirmationService
             'members' => $visibleMembers->map(function (CustomerConfirmationMember $member) {
                 $customer = $member->customer;
                 $user = $customer?->user;
-                $documents = $customer ? $this->getCustomerDocumentsByField($customer) : collect();
+                $documentsByField = $customer ? $this->getCustomerDocumentsGroupedByField($customer) : collect();
+                $passportDocuments = $documentsByField->get('passport', collect());
+                $photoDocuments = $documentsByField->get('photo', collect());
 
                 return [
                     'member_id' => $member->id,
@@ -1882,10 +1888,12 @@ class CustomerConfirmationService
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
                     'is_using_wheelchair' => $customer?->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
-                    'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
-                    'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
-                    'passport_file_name' => $documents->get('passport')?->file_name,
-                    'photo_file_name' => $documents->get('photo')?->file_name,
+                    'passport_document' => $this->formatDocumentPayload($passportDocuments->first()),
+                    'photo_document' => $this->formatDocumentPayload($photoDocuments->first()),
+                    'passport_documents' => $this->formatDocumentListPayload($passportDocuments),
+                    'photo_documents' => $this->formatDocumentListPayload($photoDocuments),
+                    'passport_file_name' => $passportDocuments->first()?->file_name,
+                    'photo_file_name' => $photoDocuments->first()?->file_name,
                     'passport_file_removed' => false,
                     'photo_file_removed' => false,
                 ];
@@ -2311,6 +2319,16 @@ class CustomerConfirmationService
                 'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
                 'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
                 'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
+                'passport_documents' => $this->formatDocumentListPayload(
+                    $member->customer
+                        ? $this->getCustomerDocumentsGroupedByField($member->customer)->get('passport', collect())
+                        : collect(),
+                ),
+                'photo_documents' => $this->formatDocumentListPayload(
+                    $member->customer
+                        ? $this->getCustomerDocumentsGroupedByField($member->customer)->get('photo', collect())
+                        : collect(),
+                ),
                 'passport_file_name' => $documents->get('passport')?->file_name,
                 'photo_file_name' => $documents->get('photo')?->file_name,
                 'passport_file_removed' => false,
@@ -4388,12 +4406,14 @@ class CustomerConfirmationService
         $documentConfigs = [
             [
                 'field' => 'passport',
+                'documents_key' => 'passport_documents',
                 'file_key' => 'passport_file',
                 'name_key' => 'passport_file_name',
                 'removed_key' => 'passport_file_removed',
             ],
             [
                 'field' => 'photo',
+                'documents_key' => 'photo_documents',
                 'file_key' => 'photo_file',
                 'name_key' => 'photo_file_name',
                 'removed_key' => 'photo_file_removed',
@@ -4401,56 +4421,117 @@ class CustomerConfirmationService
         ];
 
         $customerName = $customer->user?->name ?? 'customer';
-        $existingFiles = $this->getCustomerDocumentsByField($customer);
         $customerPathUpdates = [];
 
         foreach ($documentConfigs as $documentConfig) {
             $field = $documentConfig['field'];
+            $documentsKey = $documentConfig['documents_key'];
             $fileKey = $documentConfig['file_key'];
             $nameKey = $documentConfig['name_key'];
             $removedKey = $documentConfig['removed_key'];
 
-            $existingFile = $existingFiles->get($field);
-            $path = $this->handleFileUpload($memberData[$fileKey] ?? null, $field);
-            $isMarkedAsRemoved = (bool) ($memberData[$removedKey] ?? false);
+            $documents = $this->normalizeMemberDocumentPayload(
+                $memberData,
+                $documentsKey,
+                $fileKey,
+                $nameKey,
+                $removedKey,
+            );
 
-            if ($path) {
-                if ($existingFile?->file_path) {
-                    Storage::disk('public')->delete($existingFile->file_path);
-                }
+            $primaryPath = $this->persistCustomerDocuments(
+                $customer,
+                $field,
+                $documents,
+                $customerName,
+            );
 
-                $uploadedFile = $memberData[$fileKey];
-                $requestedFileName = $this->normalizeNullableString($memberData[$nameKey] ?? null);
-                $defaultFileName = $uploadedFile instanceof UploadedFile
-                    ? $this->buildDefaultDocumentName($field, $customerName, $uploadedFile)
-                    : null;
-
-                $customer->files()->updateOrCreate(
-                    ['field' => $field],
-                    [
-                        'file_name' => $requestedFileName ?? $defaultFileName ?? $field,
-                        'file_path' => $path,
-                    ],
-                );
-
-                $customerPathUpdates[$field.'_path'] = $path;
-
-                continue;
-            }
-
-            if ($isMarkedAsRemoved) {
-                if ($existingFile) {
-                    Storage::disk('public')->delete($existingFile->file_path);
-                    $existingFile->delete();
-                }
-
-                $customerPathUpdates[$field.'_path'] = null;
-            }
+            $customerPathUpdates[$field.'_path'] = $primaryPath;
         }
 
         if ($customerPathUpdates !== []) {
             $customer->update($customerPathUpdates);
         }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeMemberDocumentPayload(
+        array $memberData,
+        string $documentsKey,
+        string $fileKey,
+        string $nameKey,
+        string $removedKey,
+    ): array {
+        $documents = $memberData[$documentsKey] ?? null;
+
+        if (is_array($documents)) {
+            return array_values(array_filter($documents, fn ($row) => is_array($row)));
+        }
+
+        return [[
+            'file' => $memberData[$fileKey] ?? null,
+            'file_name' => $memberData[$nameKey] ?? null,
+            'file_path' => null,
+            'removed' => (bool) ($memberData[$removedKey] ?? false),
+        ]];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $documents
+     */
+    private function persistCustomerDocuments(
+        Customer $customer,
+        string $field,
+        array $documents,
+        string $customerName,
+    ): ?string {
+        $rowsToPersist = [];
+
+        foreach ($documents as $document) {
+            $isRemoved = (bool) ($document['removed'] ?? false);
+            if ($isRemoved) {
+                continue;
+            }
+
+            $uploadedPath = $this->handleFileUpload($document['file'] ?? null, $field);
+            $requestedFileName = $this->normalizeNullableString($document['file_name'] ?? null);
+            $defaultFileName = ($document['file'] ?? null) instanceof UploadedFile
+                ? $this->buildDefaultDocumentName($field, $customerName, $document['file'])
+                : null;
+            $existingPath = $this->normalizeNullableString($document['file_path'] ?? null);
+            $filePath = $uploadedPath ?? $existingPath;
+
+            if (! $filePath) {
+                continue;
+            }
+
+            $rowsToPersist[] = [
+                'field' => $field,
+                'file_name' => $requestedFileName ?? $defaultFileName ?? $field,
+                'file_path' => $filePath,
+            ];
+        }
+
+        $existingFiles = $customer->files()->where('field', $field)->get();
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                Storage::disk('public')->delete($existingFile->file_path);
+            }
+        }
+
+        $customer->files()->where('field', $field)->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $customer->files()->create($row);
+        }
+
+        return $rowsToPersist[0]['file_path'] ?? null;
     }
 
     private function resolveCustomerDocumentPath(Customer $customer, string $field): ?string
@@ -4505,6 +4586,18 @@ class CustomerConfirmationService
         return $customer->files()->get()->keyBy('field');
     }
 
+    /**
+     * @return Collection<string, Collection<int, ModelFile>>
+     */
+    private function getCustomerDocumentsGroupedByField(Customer $customer): Collection
+    {
+        $files = $customer->relationLoaded('files')
+            ? $customer->files
+            : $customer->files()->get();
+
+        return $files->groupBy('field');
+    }
+
     private function formatDocumentPayload(?ModelFile $modelFile): ?array
     {
         if (! $modelFile) {
@@ -4516,6 +4609,25 @@ class CustomerConfirmationService
             'file_name' => $modelFile->file_name,
             'file_path' => $modelFile->file_path,
         ];
+    }
+
+    /**
+     * @param  Collection<int, ModelFile>  $rows
+     * @return array<int, array{field:string,file_name:string,file_path:string}>
+     */
+    private function formatDocumentListPayload(Collection $rows): array
+    {
+        return $rows
+            ->map(function (ModelFile $row): array {
+                return [
+                    'id' => $row->id,
+                    'field' => $row->field,
+                    'file_name' => $row->file_name,
+                    'file_path' => $row->file_path,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

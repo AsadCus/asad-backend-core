@@ -22,7 +22,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useForm } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     type OpsAccommodationSchema,
     type OpsBudgetExtensionSchema,
@@ -503,49 +503,6 @@ function createEmptyTourLeader(): OpsTourLeaderSchema {
     };
 }
 
-function normalizeTourLeaderText(value: unknown): string {
-    return String(value ?? '').trim();
-}
-
-function deriveTourLeadersFromPackageOfficials(
-    officials: OpsOfficialSchema[] | undefined,
-): OpsTourLeaderSchema[] {
-    return (officials ?? [])
-        .map((official) => {
-            const name = normalizeTourLeaderText(official.name);
-            const contactNumber = normalizeTourLeaderText(
-                official.contact_number,
-            );
-
-            return {
-                type: '',
-                name,
-                contact_number: contactNumber,
-            };
-        })
-        .filter((tourLeader) => {
-            return (
-                normalizeTourLeaderText(tourLeader.name).length > 0 ||
-                normalizeTourLeaderText(tourLeader.contact_number).length > 0
-            );
-        });
-}
-
-function buildPackageOfficialsSyncSignature(
-    officials: OpsOfficialSchema[] | undefined,
-): string {
-    return JSON.stringify(
-        (officials ?? []).map((official) => ({
-            id: official.id ?? null,
-            name: normalizeTourLeaderText(official.name),
-            contact_number: normalizeTourLeaderText(official.contact_number),
-            locations: (official.hotels_by_location ?? [])
-                .map((hotelRow) => normalizeTourLeaderText(hotelRow.location))
-                .filter((location) => location.length > 0),
-        })),
-    );
-}
-
 function toDecimal(value: unknown): number {
     const parsed = Number(value ?? 0);
 
@@ -665,38 +622,6 @@ export default function OpsMovementForm({
             value,
         );
     };
-
-    const packageOfficialsSyncSignatureRef = useRef<string>('');
-
-    useEffect(() => {
-        const packageOfficials = Array.isArray(initialData.officials)
-            ? initialData.officials
-            : [];
-        const nextSignature =
-            buildPackageOfficialsSyncSignature(packageOfficials);
-
-        if (nextSignature === packageOfficialsSyncSignatureRef.current) {
-            return;
-        }
-
-        packageOfficialsSyncSignatureRef.current = nextSignature;
-
-        const nextTourLeaders =
-            deriveTourLeadersFromPackageOfficials(packageOfficials);
-
-        (
-            setData as unknown as (
-                callback: (currentData: OpsMovementSchema) => OpsMovementSchema,
-            ) => void
-        )((currentData) => ({
-            ...currentData,
-            officials: packageOfficials,
-            pif: {
-                ...(currentData.pif ?? {}),
-                tour_leaders: nextTourLeaders,
-            },
-        }));
-    }, [initialData.officials, setData]);
 
     useEffect(() => {
         if (!onBudgetSnapshotChange) {
@@ -1594,6 +1519,13 @@ export default function OpsMovementForm({
                                                 value={accommodation.hotel_name}
                                             />
                                         </FormField>
+                                        <FormField label="Meal">
+                                            <CopyableText
+                                                value={
+                                                    accommodation.type_of_meal
+                                                }
+                                            />
+                                        </FormField>
                                         <FormField
                                             label="IC"
                                             error={getError(
@@ -1621,13 +1553,6 @@ export default function OpsMovementForm({
                                         <FormField label="Check Out">
                                             <CopyableText
                                                 value={accommodation.check_out}
-                                            />
-                                        </FormField>
-                                        <FormField label="Meal">
-                                            <CopyableText
-                                                value={
-                                                    accommodation.type_of_meal
-                                                }
                                             />
                                         </FormField>
                                     </div>
@@ -1801,7 +1726,7 @@ export default function OpsMovementForm({
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="In Charge"
+                                                label="Remarks"
                                                 error={getError(
                                                     `flights.${index}.ic`,
                                                 )}
@@ -1816,7 +1741,7 @@ export default function OpsMovementForm({
                                                             value,
                                                         )
                                                     }
-                                                    placeholder="Enter in charge"
+                                                    placeholder="Enter remarks"
                                                 />
                                             </FormField>
                                         </div>
@@ -1843,10 +1768,8 @@ export default function OpsMovementForm({
                             >
                                 <ProperInput
                                     value={data.vehicle_type ?? ''}
-                                    disabled={processing}
-                                    onCommit={(value) =>
-                                        setFormData('vehicle_type', value)
-                                    }
+                                    disabled={true}
+                                    onCommit={() => undefined}
                                     placeholder="Enter vehicle type"
                                 />
                             </FormField>
@@ -1856,13 +1779,8 @@ export default function OpsMovementForm({
                             >
                                 <ProperInput
                                     value={data.vehicle_driver_name ?? ''}
-                                    disabled={processing}
-                                    onCommit={(value) =>
-                                        setFormData(
-                                            'vehicle_driver_name',
-                                            value,
-                                        )
-                                    }
+                                    disabled={true}
+                                    onCommit={() => undefined}
                                     placeholder="Enter driver name"
                                 />
                             </FormField>
@@ -1874,13 +1792,8 @@ export default function OpsMovementForm({
                                     value={
                                         data.vehicle_driver_contact_number ?? ''
                                     }
-                                    disabled={processing}
-                                    onCommit={(value) =>
-                                        setFormData(
-                                            'vehicle_driver_contact_number',
-                                            value,
-                                        )
-                                    }
+                                    disabled={true}
+                                    onCommit={() => undefined}
                                     placeholder="Enter driver contact"
                                 />
                             </FormField>
@@ -1902,11 +1815,9 @@ export default function OpsMovementForm({
                             >
                                 <ProperInput
                                     value={data.train_description ?? ''}
-                                    disabled={processing}
+                                    disabled={true}
                                     textarea
-                                    onCommit={(value) =>
-                                        setFormData('train_description', value)
-                                    }
+                                    onCommit={() => undefined}
                                     placeholder="Enter train description"
                                 />
                             </FormField>
@@ -3373,7 +3284,7 @@ export default function OpsMovementForm({
                                 (row, index) => (
                                     <div
                                         key={`pif-transport-${row.id}`}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3"
                                     >
                                         <FormField
                                             label="From"

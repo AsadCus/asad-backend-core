@@ -123,9 +123,22 @@
         $childWithBed = (int) data_get($opsMovement, 'passengers.child_with_bed_total', 0);
         $childNoBed = (int) data_get($opsMovement, 'passengers.child_no_bed_total', 0);
 
-        $saudiLeader = $tourLeaders->firstWhere('type', 'Saudi') ?? [];
-        $singaporeLeader = $tourLeaders->firstWhere('type', 'Singapore') ?? [];
-        $extraLeaders = $tourLeaders->whereNotIn('type', ['Saudi', 'Singapore'])->values();
+        $displayTourLeaders = $tourLeaders
+            ->filter(function ($row) {
+                return is_array($row);
+            })
+            ->map(function ($row) {
+                $type = trim((string) ($row['type'] ?? ''));
+                $name = trim((string) ($row['name'] ?? ''));
+                $contactNumber = trim((string) ($row['contact_number'] ?? ''));
+
+                return [
+                    'type' => $type !== '' ? $type : 'Official',
+                    'name' => $name !== '' ? $name : '-',
+                    'contact_number' => $contactNumber !== '' ? $contactNumber : '-',
+                ];
+            })
+            ->values();
     @endphp
 
     {{-- Group Duration --}}
@@ -156,14 +169,15 @@
             <td class="text-center">{{ $infantTotal }}</td>
             <td class="text-center">{{ $grandTotal }}</td>
             <td>
-                Saudi Official: {{ $saudiLeader['name'] ?? '-' }}<br>
-                Contact No: {{ $saudiLeader['contact_number'] ?? '-' }}<br>
-                Singapore Official: {{ $singaporeLeader['name'] ?? '-' }}<br>
-                Contact No: {{ $singaporeLeader['contact_number'] ?? '-' }}
-                @foreach ($extraLeaders as $extra)
-                    <br>{{ $extra['type'] ?? 'Official' }}: {{ $extra['name'] ?? '-' }}<br>
-                    Contact No: {{ $extra['contact_number'] ?? '-' }}
-                @endforeach
+                @forelse ($displayTourLeaders as $leader)
+                    {{ $leader['type'] }}: {{ $leader['name'] }}<br>
+                    Contact No: {{ $leader['contact_number'] }}
+                    @if (!$loop->last)
+                        <br>
+                    @endif
+                @empty
+                    -
+                @endforelse
             </td>
         </tr>
     </table>
@@ -229,9 +243,9 @@
         @forelse ($accommodations as $accommodation)
             @php
                 $singleRoomCount =
-                    (int) data_get($accommodation, 'room_counts.single', 0)
-                    + (int) data_get($accommodation, 'room_counts.child_with_bed', 0)
-                    + (int) data_get($accommodation, 'room_counts.child_no_bed', 0);
+                    (int) data_get($accommodation, 'room_counts.single', 0) +
+                    (int) data_get($accommodation, 'room_counts.child_with_bed', 0) +
+                    (int) data_get($accommodation, 'room_counts.child_no_bed', 0);
             @endphp
             <tr>
                 <td>{{ $accommodation['location'] ?? '-' }}</td>

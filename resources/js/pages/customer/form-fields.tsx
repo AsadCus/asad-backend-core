@@ -9,6 +9,7 @@ import { parseDisplayDate } from '@/lib/utils';
 import {
     genderOptions,
     maritalStatusOptions,
+    type CustomerDocumentItemSchema,
     type CustomerSchema,
 } from './schema';
 
@@ -24,16 +25,18 @@ interface CustomerFormFieldsProps {
     getError: (path: string) => string | undefined;
     onUpdateCustomer: (
         field: keyof CustomerSchema,
-        value: string | boolean | File | null,
+        value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => void;
 }
 
 const DOCUMENT_FIELDS = [
     {
-        fileKey: 'passport_file' as const,
-        nameKey: 'passport_file_name' as const,
-        removedKey: 'passport_file_removed' as const,
-        documentKey: 'passport_document' as const,
+        key: 'passport' as const,
+        documentsKey: 'passport_documents' as const,
+        legacyFileKey: 'passport_file' as const,
+        legacyNameKey: 'passport_file_name' as const,
+        legacyRemovedKey: 'passport_file_removed' as const,
+        legacyDocumentKey: 'passport_document' as const,
         label: 'Passport',
         accept: '.jpg,.jpeg,.png,.pdf',
         acceptedFileTypesLabel: 'JPG, JPEG, PNG, PDF',
@@ -41,10 +44,12 @@ const DOCUMENT_FIELDS = [
         hint: 'Upload passport attachment. Accepted: JPG, JPEG, PNG, PDF. Max 5MB.',
     },
     {
-        fileKey: 'photo_file' as const,
-        nameKey: 'photo_file_name' as const,
-        removedKey: 'photo_file_removed' as const,
-        documentKey: 'photo_document' as const,
+        key: 'photo' as const,
+        documentsKey: 'photo_documents' as const,
+        legacyFileKey: 'photo_file' as const,
+        legacyNameKey: 'photo_file_name' as const,
+        legacyRemovedKey: 'photo_file_removed' as const,
+        legacyDocumentKey: 'photo_document' as const,
         label: 'Photo',
         accept: '.jpg,.jpeg,.png',
         acceptedFileTypesLabel: 'JPG, JPEG, PNG',
@@ -52,6 +57,47 @@ const DOCUMENT_FIELDS = [
         hint: 'Upload photo attachment. Accepted: JPG, JPEG, PNG. Max 5MB.',
     },
 ] as const;
+
+function createEmptyDocumentEntry(): CustomerDocumentItemSchema {
+    return {
+        file: null,
+        file_name: null,
+        file_path: null,
+        removed: false,
+    };
+}
+
+function removeDocumentEntryAtIndex(
+    rows: CustomerDocumentItemSchema[],
+    index: number,
+): CustomerDocumentItemSchema[] {
+    if (index < 0 || index >= rows.length) {
+        return rows;
+    }
+
+    const nextRows = [...rows];
+    const currentRow = nextRows[index];
+
+    if (!currentRow) {
+        return nextRows;
+    }
+
+    if (currentRow.id || currentRow.file_path) {
+        nextRows[index] = {
+            ...currentRow,
+            file: null,
+            file_name: null,
+            file_path: null,
+            removed: true,
+        };
+
+        return nextRows;
+    }
+
+    nextRows.splice(index, 1);
+
+    return nextRows;
+}
 
 export default function CustomerFormFields({
     customer,
@@ -519,64 +565,215 @@ export default function CustomerFormFields({
                     Documents &amp; Photos
                 </h3>
                 <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
-                    {DOCUMENT_FIELDS.map((doc) => (
-                        <DocumentField
-                            key={doc.fileKey}
-                            label={doc.label}
-                            hint={doc.hint}
-                            accept={doc.accept}
-                            acceptedFileTypesLabel={doc.acceptedFileTypesLabel}
-                            maxFileSizeKb={doc.maxFileSizeKb}
-                            fileValue={
-                                customer[doc.fileKey] as File | undefined
-                            }
-                            existingPath={customer[doc.documentKey]?.file_path}
-                            existingFileName={
-                                customer[doc.documentKey]?.file_name
-                            }
-                            useFileNameInput
-                            fileNameValue={
-                                (customer[doc.nameKey] as string | null) ?? null
-                            }
-                            isView={isView}
-                            disabled={disabled}
-                            error={getError(fieldPath(doc.fileKey))}
-                            onSelect={(file) => {
-                                onUpdateCustomer(doc.fileKey, file);
-                                onUpdateCustomer(doc.removedKey, false);
+                    {DOCUMENT_FIELDS.map((doc) => {
+                        const sourceRows =
+                            (customer[doc.documentsKey] as
+                                | CustomerDocumentItemSchema[]
+                                | undefined) ??
+                            (customer[doc.legacyDocumentKey]
+                                ? [
+                                      {
+                                          file: null,
+                                          file_name:
+                                              customer[doc.legacyDocumentKey]
+                                                  ?.file_name ?? null,
+                                          file_path:
+                                              customer[doc.legacyDocumentKey]
+                                                  ?.file_path ?? null,
+                                          removed: false,
+                                      },
+                                  ]
+                                : []);
 
-                                if (useGeneratedDocumentName) {
-                                    onUpdateCustomer(
-                                        doc.nameKey,
-                                        buildGeneratedFileName(doc.label),
+                        const visibleIndexes = sourceRows
+                            .map((row, rowIndex) =>
+                                row.removed ? null : rowIndex,
+                            )
+                            .filter(
+                                (rowIndex): rowIndex is number =>
+                                    rowIndex !== null,
+                            );
+                        const rowsToRender =
+                            visibleIndexes.length > 0
+                                ? visibleIndexes.map(
+                                      (actualIndex, visibleIndex) => ({
+                                          row: sourceRows[actualIndex],
+                                          actualIndex,
+                                          visibleIndex,
+                                      }),
+                                  )
+                                : [
+                                      {
+                                          row: createEmptyDocumentEntry(),
+                                          actualIndex: -1,
+                                          visibleIndex: 0,
+                                      },
+                                  ];
+
+                        return (
+                            <div key={doc.key} className="space-y-3">
+                                {rowsToRender.map((renderRow) => {
+                                    const { row, actualIndex, visibleIndex } =
+                                        renderRow;
+
+                                    return (
+                                        <div
+                                            key={`${doc.key}-${row.id ?? visibleIndex}`}
+                                            className="rounded-lg border p-3"
+                                        >
+                                            {!disabled && actualIndex >= 0 && (
+                                                <div className="mb-3 flex justify-end">
+                                                    <button
+                                                        type="button"
+                                                        className="h-8 px-2 text-sm text-destructive hover:text-destructive"
+                                                        onClick={() => {
+                                                            onUpdateCustomer(
+                                                                doc.documentsKey,
+                                                                removeDocumentEntryAtIndex(
+                                                                    sourceRows,
+                                                                    actualIndex,
+                                                                ),
+                                                            );
+                                                        }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <DocumentField
+                                                label={`${doc.label} #${visibleIndex + 1}`}
+                                                hint={doc.hint}
+                                                accept={doc.accept}
+                                                acceptedFileTypesLabel={
+                                                    doc.acceptedFileTypesLabel
+                                                }
+                                                maxFileSizeKb={
+                                                    doc.maxFileSizeKb
+                                                }
+                                                fileValue={
+                                                    row.file ?? undefined
+                                                }
+                                                existingPath={
+                                                    row.file_path ?? undefined
+                                                }
+                                                existingFileName={
+                                                    row.file_name ?? undefined
+                                                }
+                                                useFileNameInput
+                                                fileNameValue={
+                                                    row.file_name ?? null
+                                                }
+                                                isView={isView}
+                                                disabled={disabled}
+                                                error={getError(
+                                                    fieldPath(doc.documentsKey),
+                                                )}
+                                                onSelect={(file) => {
+                                                    const nextRows =
+                                                        sourceRows.length > 0
+                                                            ? [...sourceRows]
+                                                            : [
+                                                                  createEmptyDocumentEntry(),
+                                                              ];
+                                                    const targetIndex =
+                                                        actualIndex >= 0
+                                                            ? actualIndex
+                                                            : 0;
+
+                                                    nextRows[targetIndex] = {
+                                                        ...nextRows[
+                                                            targetIndex
+                                                        ],
+                                                        file,
+                                                        removed: false,
+                                                        file_name:
+                                                            nextRows[
+                                                                targetIndex
+                                                            ]?.file_name ??
+                                                            buildGeneratedFileName(
+                                                                doc.label,
+                                                            ),
+                                                    };
+
+                                                    onUpdateCustomer(
+                                                        doc.documentsKey,
+                                                        nextRows,
+                                                    );
+                                                    onUpdateCustomer(
+                                                        doc.legacyFileKey,
+                                                        null,
+                                                    );
+                                                    onUpdateCustomer(
+                                                        doc.legacyNameKey,
+                                                        null,
+                                                    );
+                                                    onUpdateCustomer(
+                                                        doc.legacyRemovedKey,
+                                                        false,
+                                                    );
+                                                    onUpdateCustomer(
+                                                        doc.legacyDocumentKey,
+                                                        null,
+                                                    );
+                                                }}
+                                                onFileNameChange={(
+                                                    fileName,
+                                                ) => {
+                                                    const nextRows =
+                                                        sourceRows.length > 0
+                                                            ? [...sourceRows]
+                                                            : [
+                                                                  createEmptyDocumentEntry(),
+                                                              ];
+                                                    const targetIndex =
+                                                        actualIndex >= 0
+                                                            ? actualIndex
+                                                            : 0;
+
+                                                    nextRows[targetIndex] = {
+                                                        ...nextRows[
+                                                            targetIndex
+                                                        ],
+                                                        file_name: fileName,
+                                                    };
+
+                                                    onUpdateCustomer(
+                                                        doc.documentsKey,
+                                                        nextRows,
+                                                    );
+                                                }}
+                                                onClear={() => {
+                                                    onUpdateCustomer(
+                                                        doc.documentsKey,
+                                                        removeDocumentEntryAtIndex(
+                                                            sourceRows,
+                                                            actualIndex,
+                                                        ),
+                                                    );
+                                                }}
+                                            />
+                                        </div>
                                     );
-                                } else if (!customer[doc.nameKey]) {
-                                    onUpdateCustomer(
-                                        doc.nameKey,
-                                        buildGeneratedFileName(doc.label),
-                                    );
-                                }
-                            }}
-                            onFileNameChange={(fileName) =>
-                                onUpdateCustomer(doc.nameKey, fileName)
-                            }
-                            onClear={() => {
-                                const hasExistingDocument = Boolean(
-                                    customer[doc.documentKey],
-                                );
+                                })}
 
-                                onUpdateCustomer(doc.fileKey, null);
-                                onUpdateCustomer(doc.nameKey, null);
-
-                                if (hasExistingDocument) {
-                                    onUpdateCustomer(doc.removedKey, true);
-                                    onUpdateCustomer(doc.documentKey, null);
-                                } else {
-                                    onUpdateCustomer(doc.removedKey, false);
-                                }
-                            }}
-                        />
-                    ))}
+                                {!disabled && (
+                                    <button
+                                        type="button"
+                                        className="rounded-md border px-3 py-2 text-sm"
+                                        onClick={() => {
+                                            onUpdateCustomer(doc.documentsKey, [
+                                                ...sourceRows,
+                                                createEmptyDocumentEntry(),
+                                            ]);
+                                        }}
+                                    >
+                                        Add {doc.label}
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
