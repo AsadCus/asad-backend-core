@@ -249,12 +249,6 @@ class CustomerConfirmationController extends Controller
             'photo_documents.*.file_name' => ['nullable', 'string', 'max:255'],
             'photo_documents.*.file_path' => ['nullable', 'string', 'max:255'],
             'photo_documents.*.removed' => ['nullable', 'boolean'],
-            'passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'passport_file_name' => ['nullable', 'string', 'max:255'],
-            'photo_file_name' => ['nullable', 'string', 'max:255'],
-            'passport_file_removed' => ['nullable', 'boolean'],
-            'photo_file_removed' => ['nullable', 'boolean'],
             'status' => ['required', 'string', 'in:pending_payment,partially_paid,fully_paid,overpaid,cancelled'],
             'sharing_plan' => ['nullable', 'string', 'in:single,double,triple,quad,child_with_bed,child_no_bed,infant'],
             'relationship' => ['nullable', 'string', 'max:255'],
@@ -264,10 +258,6 @@ class CustomerConfirmationController extends Controller
             'passport_documents.*.file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
             'photo_documents.*.file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
             'photo_documents.*.file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
-            'passport_file.mimes' => 'Passport attachment must be JPG, JPEG, PNG, or PDF.',
-            'passport_file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
-            'photo_file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
-            'photo_file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
         ]);
 
         $member = $this->customerConfirmationService->updateMemberDetails((int) $memberId, $validated);

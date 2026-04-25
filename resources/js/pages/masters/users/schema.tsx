@@ -1,3 +1,4 @@
+import type { CustomerDocumentItemSchema } from '@/pages/customer/schema';
 import { z } from 'zod';
 
 const baseUserSchema = z
@@ -34,10 +35,28 @@ const baseUserSchema = z
         first_time_umrah: z.boolean().nullable().optional(),
         has_chronic_disease: z.boolean().nullable().optional(),
         chronic_disease_details: z.string().nullable().optional(),
-        passport_file: z.file().optional(),
-        photo_file: z.file().optional(),
-        passport_path: z.string().nullable().optional(),
-        photo_path: z.string().nullable().optional(),
+        passport_documents: z
+            .array(
+                z.object({
+                    id: z.number().optional(),
+                    file_name: z.string().nullable().optional(),
+                    file_path: z.string().nullable().optional(),
+                    removed: z.boolean().optional(),
+                    file: z.any().optional(),
+                }),
+            )
+            .optional(),
+        photo_documents: z
+            .array(
+                z.object({
+                    id: z.number().optional(),
+                    file_name: z.string().nullable().optional(),
+                    file_path: z.string().nullable().optional(),
+                    removed: z.boolean().optional(),
+                    file: z.any().optional(),
+                }),
+            )
+            .optional(),
         commission: z.union([z.string(), z.number()]).nullable().optional(),
         handled_by: z.string().nullable().optional(),
         handler_name: z.string().optional(),
@@ -56,10 +75,14 @@ const baseUserSchema = z
         }
 
         const scopeMode = data.scope_mode ?? 'country';
-        const scopeIds = (data.scope_ids ?? []).filter((id) => id.trim().length > 0);
+        const scopeIds = (data.scope_ids ?? []).filter(
+            (id) => id.trim().length > 0,
+        );
 
         if (
-            (data.role === 'admin' || data.role === 'sales' || data.role === 'operations') &&
+            (data.role === 'admin' ||
+                data.role === 'sales' ||
+                data.role === 'operations') &&
             scopeIds.length === 0
         ) {
             ctx.addIssue({
@@ -76,6 +99,8 @@ const baseUserSchema = z
 export const userSchema = baseUserSchema;
 
 export type UserSchema = z.infer<typeof userSchema>;
+
+export type UserDocumentItemSchema = CustomerDocumentItemSchema;
 
 export type UserFormMode = 'create' | 'edit' | 'view';
 

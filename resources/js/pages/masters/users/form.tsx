@@ -14,7 +14,7 @@ import { type CustomerDocumentItemSchema } from '@/pages/customer/schema';
 import { OptionType, SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminFormFields } from './components/admin-form-fields';
 import { UserPasswordFields } from './components/password-fields';
 import { SalesFormFields } from './components/sales-form-fields';
@@ -22,6 +22,27 @@ import { UserSchema, validateUserData } from './schema';
 
 type UserFormData = UserSchema & {
     _method?: 'put';
+};
+
+type CustomerUserFormHandle = {
+    data: UserFormData;
+    setData: (
+        field: string | ((currentData: UserFormData) => UserFormData),
+        value?: unknown,
+    ) => void;
+    post: (
+        url: string,
+        options?: {
+            forceFormData?: boolean;
+            onError?: (validationErrors: Record<string, string>) => void;
+            onFinish?: () => void;
+        },
+    ) => void;
+    processing: boolean;
+    errors: Record<string, string | undefined>;
+    setError: (field: string | Record<string, string>, value?: string) => void;
+    clearErrors: (...fields: string[]) => void;
+    transform: (callback: (currentData: UserFormData) => UserFormData) => void;
 };
 
 interface UserFormProps {
@@ -99,10 +120,8 @@ export function UserForm({
         first_time_umrah: null,
         has_chronic_disease: false,
         chronic_disease_details: '',
-        passport_file: undefined,
-        photo_file: undefined,
-        passport_path: null,
-        photo_path: null,
+        passport_documents: [],
+        photo_documents: [],
         handled_by: '',
         registration_number: '',
     };
@@ -166,17 +185,17 @@ export function UserForm({
         defaultData = initialFormState;
     }
 
-    const form = useForm<UserFormData>(defaultData as UserFormData);
-    const {
-        data,
-        setData,
-        post,
-        processing,
-        errors,
-        setError,
-        clearErrors,
-        transform,
-    } = form;
+    const form = useForm(
+        defaultData as never,
+    ) as unknown as CustomerUserFormHandle;
+    const data = form.data;
+    const setData = form.setData;
+    const post = form.post;
+    const processing = form.processing;
+    const errors = useMemo(() => form.errors ?? {}, [form.errors]);
+    const setError = form.setError;
+    const clearErrors = form.clearErrors;
+    const transform = form.transform;
     const scopeOptions = resolvedScopeMode === 'branch' ? branches : countries;
     const selectedBranchId = data.branch_id;
     const filteredSalesList = salesList.filter(
@@ -356,12 +375,14 @@ export function UserForm({
         first_time_umrah: data.first_time_umrah ?? null,
         has_chronic_disease: data.has_chronic_disease ?? false,
         chronic_disease_details: data.chronic_disease_details ?? '',
-        passport_file: data.passport_file,
-        photo_file: data.photo_file,
-        passport_path: data.passport_path ?? null,
-        photo_path: data.photo_path ?? null,
-        passport_documents: [],
-        photo_documents: [],
+        passport_documents:
+            (data.passport_documents as
+                | CustomerDocumentItemSchema[]
+                | undefined) ?? [],
+        photo_documents:
+            (data.photo_documents as
+                | CustomerDocumentItemSchema[]
+                | undefined) ?? [],
     };
 
     const updateCustomerField = (
@@ -369,6 +390,11 @@ export function UserForm({
         value: string | boolean | File | null | CustomerDocumentItemSchema[],
     ) => {
         if (field === 'passport_documents' || field === 'photo_documents') {
+            setData(
+                field as 'passport_documents' | 'photo_documents',
+                Array.isArray(value) ? value : [],
+            );
+
             return;
         }
 

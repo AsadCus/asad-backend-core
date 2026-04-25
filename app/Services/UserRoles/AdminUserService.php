@@ -162,8 +162,6 @@ class AdminUserService
             'first_time_umrah' => false,
             'has_chronic_disease' => false,
             'chronic_disease_details' => '',
-            'passport_path' => null,
-            'photo_path' => null,
             'handled_by' => '',
             'password' => '',
             'password_confirmation' => '',

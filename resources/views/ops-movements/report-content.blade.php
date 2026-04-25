@@ -172,21 +172,21 @@
         <tr>
             <th>Location</th>
             <th>Hotel</th>
-            <th>Check In</th>
-            <th>Check Out</th>
             <th>Meal</th>
             <th>IC</th>
             <th>IC Contact</th>
+            <th>Check In</th>
+            <th>Check Out</th>
         </tr>
         @forelse ($accommodations as $accommodation)
             <tr>
                 <td>{{ $accommodation['location'] ?? '-' }}</td>
                 <td>{{ $accommodation['hotel_name'] ?? '-' }}</td>
-                <td>{{ $accommodation['check_in'] ?? '-' }}</td>
-                <td>{{ $accommodation['check_out'] ?? '-' }}</td>
                 <td>{{ $accommodation['type_of_meal'] ?? '-' }}</td>
                 <td>{{ $accommodation['ic'] ?? '-' }}</td>
                 <td>{{ $accommodation['ic_contact_number'] ?? '-' }}</td>
+                <td>{{ $accommodation['check_in'] ?? '-' }}</td>
+                <td>{{ $accommodation['check_out'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
@@ -225,8 +225,9 @@
             <th>Arrival</th>
             <th>Airline</th>
             <th>PNR</th>
-            <th>DOA By</th>
-            <th>DOA Datetime</th>
+            {{-- <th>DOA By</th>
+            <th>DOA Datetime</th> --}}
+            <th>IC</th>
             <th>Remarks</th>
         </tr>
         @forelse ($flights as $flight)
@@ -238,9 +239,10 @@
                 <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['airline'] ?? '-' }}</td>
                 <td>{{ $flight['pnr'] ?? '-' }}</td>
-                <td>{{ $opsMovement['doa_by'] ?? '-' }}</td>
-                <td>{{ $opsMovement['doa_datetime'] ?? '-' }}</td>
+                {{-- <td>{{ $opsMovement['doa_by'] ?? '-' }}</td>
+                <td>{{ $opsMovement['doa_datetime'] ?? '-' }}</td> --}}
                 <td>{{ $flight['ic'] ?? '-' }}</td>
+                <td>{{ $flight['remarks'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>

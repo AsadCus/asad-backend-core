@@ -1799,6 +1799,8 @@ class CustomerConfirmationService
                 $documentsByField = $customer ? $this->getCustomerDocumentsGroupedByField($customer) : collect();
                 $passportDocuments = $documentsByField->get('passport', collect());
                 $photoDocuments = $documentsByField->get('photo', collect());
+                $passportDocumentsPayload = $this->formatDocumentListPayload($passportDocuments);
+                $photoDocumentsPayload = $this->formatDocumentListPayload($photoDocuments);
 
                 return [
                     'value' => $user->id,
@@ -1821,10 +1823,10 @@ class CustomerConfirmationService
                     'has_chronic_disease' => $customer->has_chronic_disease ?? false,
                     'is_using_wheelchair' => $customer->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer->chronic_disease_details ?? '',
-                    'passport_document' => $this->formatDocumentPayload($passportDocuments->first()),
-                    'photo_document' => $this->formatDocumentPayload($photoDocuments->first()),
-                    'passport_documents' => $this->formatDocumentListPayload($passportDocuments),
-                    'photo_documents' => $this->formatDocumentListPayload($photoDocuments),
+                    'passport_document' => $passportDocumentsPayload[0] ?? null,
+                    'photo_document' => $photoDocumentsPayload[0] ?? null,
+                    'passport_documents' => $passportDocumentsPayload,
+                    'photo_documents' => $photoDocumentsPayload,
                 ];
             })
             ->all();
@@ -1860,6 +1862,8 @@ class CustomerConfirmationService
                 $documentsByField = $customer ? $this->getCustomerDocumentsGroupedByField($customer) : collect();
                 $passportDocuments = $documentsByField->get('passport', collect());
                 $photoDocuments = $documentsByField->get('photo', collect());
+                $passportDocumentsPayload = $this->formatDocumentListPayload($passportDocuments);
+                $photoDocumentsPayload = $this->formatDocumentListPayload($photoDocuments);
 
                 return [
                     'member_id' => $member->id,
@@ -1888,14 +1892,10 @@ class CustomerConfirmationService
                     'has_chronic_disease' => $customer?->has_chronic_disease ?? false,
                     'is_using_wheelchair' => $customer?->is_using_wheelchair ?? false,
                     'chronic_disease_details' => $customer?->chronic_disease_details ?? '',
-                    'passport_document' => $this->formatDocumentPayload($passportDocuments->first()),
-                    'photo_document' => $this->formatDocumentPayload($photoDocuments->first()),
-                    'passport_documents' => $this->formatDocumentListPayload($passportDocuments),
-                    'photo_documents' => $this->formatDocumentListPayload($photoDocuments),
-                    'passport_file_name' => $passportDocuments->first()?->file_name,
-                    'photo_file_name' => $photoDocuments->first()?->file_name,
-                    'passport_file_removed' => false,
-                    'photo_file_removed' => false,
+                    'passport_document' => $passportDocumentsPayload[0] ?? null,
+                    'photo_document' => $photoDocumentsPayload[0] ?? null,
+                    'passport_documents' => $passportDocumentsPayload,
+                    'photo_documents' => $photoDocumentsPayload,
                 ];
             })->all(),
         ];
@@ -2290,7 +2290,14 @@ class CustomerConfirmationService
 
             $member->refresh();
             $member->load('customer.user', 'customer.files');
-            $documents = $member->customer ? $this->getCustomerDocumentsByField($member->customer) : collect();
+            $customer = $member->customer;
+            $documentsByField = $customer ? $this->getCustomerDocumentsGroupedByField($customer) : collect();
+            $passportDocumentsPayload = $this->formatDocumentListPayload(
+                $documentsByField->get('passport', collect()),
+            );
+            $photoDocumentsPayload = $this->formatDocumentListPayload(
+                $documentsByField->get('photo', collect()),
+            );
 
             return [
                 'id' => $member->id,
@@ -2317,22 +2324,10 @@ class CustomerConfirmationService
                 'has_chronic_disease' => $member->customer?->has_chronic_disease ?? false,
                 'is_using_wheelchair' => $member->customer?->is_using_wheelchair ?? false,
                 'chronic_disease_details' => $member->customer?->chronic_disease_details ?? '',
-                'passport_document' => $this->formatDocumentPayload($documents->get('passport')),
-                'photo_document' => $this->formatDocumentPayload($documents->get('photo')),
-                'passport_documents' => $this->formatDocumentListPayload(
-                    $member->customer
-                        ? $this->getCustomerDocumentsGroupedByField($member->customer)->get('passport', collect())
-                        : collect(),
-                ),
-                'photo_documents' => $this->formatDocumentListPayload(
-                    $member->customer
-                        ? $this->getCustomerDocumentsGroupedByField($member->customer)->get('photo', collect())
-                        : collect(),
-                ),
-                'passport_file_name' => $documents->get('passport')?->file_name,
-                'photo_file_name' => $documents->get('photo')?->file_name,
-                'passport_file_removed' => false,
-                'photo_file_removed' => false,
+                'passport_document' => $passportDocumentsPayload[0] ?? null,
+                'photo_document' => $photoDocumentsPayload[0] ?? null,
+                'passport_documents' => $passportDocumentsPayload,
+                'photo_documents' => $photoDocumentsPayload,
             ];
         });
     }
@@ -4171,15 +4166,20 @@ class CustomerConfirmationService
             'has_chronic_disease' => $customer->has_chronic_disease,
             'is_using_wheelchair' => $customer->is_using_wheelchair,
             'chronic_disease_details' => $customer->chronic_disease_details,
-            'passport_path' => $this->resolveCustomerDocumentPath($customer, 'passport'),
-            'photo_path' => $this->resolveCustomerDocumentPath($customer, 'photo'),
         ]);
 
-        if ($isEligibleForAutoLink) {
-            $openManifestMembersCollection = $openManifestMembers
-                ->with('manifest')
-                ->get();
+        $openManifestMembersCollection = $openManifestMembers
+            ->with('manifest')
+            ->get();
 
+        foreach ($openManifestMembersCollection as $openManifestMember) {
+            $this->syncManifestMemberIdentityDocumentsFromCustomer(
+                $openManifestMember,
+                $customer,
+            );
+        }
+
+        if ($isEligibleForAutoLink) {
             foreach ($openManifestMembersCollection as $openManifestMember) {
                 if (! $openManifestMember->manifest) {
                     continue;
@@ -4338,7 +4338,7 @@ class CustomerConfirmationService
 
         $manifests = Manifest::query()
             ->whereIn('id', $manifestIds)
-            ->with(['members'])
+            ->with(['members.files'])
             ->get();
 
         foreach ($manifests as $manifest) {
@@ -4365,9 +4365,14 @@ class CustomerConfirmationService
         return $manifest->members
             ->values()
             ->map(function (ManifestMember $manifestMember, int $index) use ($field): ?array {
-                $path = $field === 'passport'
-                    ? $this->normalizeNullableString($manifestMember->passport_path)
-                    : $this->normalizeNullableString($manifestMember->photo_path);
+                $matchingFile = $manifestMember->files
+                    ->firstWhere('field', $field);
+
+                if (! $matchingFile instanceof ModelFile) {
+                    return null;
+                }
+
+                $path = $this->normalizeNullableString($matchingFile->file_path);
 
                 if (! $path) {
                     return null;
@@ -4390,6 +4395,47 @@ class CustomerConfirmationService
             ->all();
     }
 
+    private function syncManifestMemberIdentityDocumentsFromCustomer(
+        ManifestMember $manifestMember,
+        Customer $customer,
+    ): void {
+        $customerFiles = $customer->relationLoaded('files')
+            ? $customer->files
+            : $customer->files()->get();
+
+        foreach (['passport', 'photo'] as $field) {
+            $rowsToPersist = $customerFiles
+                ->where('field', $field)
+                ->map(function (ModelFile $file): array {
+                    return [
+                        'field' => $file->field,
+                        'file_name' => $file->file_name,
+                        'file_path' => $file->file_path,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $existingFiles = $manifestMember->files()->where('field', $field)->get();
+            $preservedPaths = collect($rowsToPersist)
+                ->pluck('file_path')
+                ->filter(fn ($path) => is_string($path) && $path !== '')
+                ->all();
+
+            foreach ($existingFiles as $existingFile) {
+                if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                    Storage::disk('public')->delete($existingFile->file_path);
+                }
+            }
+
+            $manifestMember->files()->where('field', $field)->delete();
+
+            foreach ($rowsToPersist as $row) {
+                $manifestMember->files()->create($row);
+            }
+        }
+    }
+
     /** Store one uploaded file and return its hashed path. */
     private function handleFileUpload(mixed $file, string $field): ?string
     {
@@ -4407,50 +4453,40 @@ class CustomerConfirmationService
             [
                 'field' => 'passport',
                 'documents_key' => 'passport_documents',
-                'file_key' => 'passport_file',
-                'name_key' => 'passport_file_name',
-                'removed_key' => 'passport_file_removed',
             ],
             [
                 'field' => 'photo',
                 'documents_key' => 'photo_documents',
-                'file_key' => 'photo_file',
-                'name_key' => 'photo_file_name',
-                'removed_key' => 'photo_file_removed',
             ],
         ];
 
         $customerName = $customer->user?->name ?? 'customer';
-        $customerPathUpdates = [];
 
         foreach ($documentConfigs as $documentConfig) {
             $field = $documentConfig['field'];
             $documentsKey = $documentConfig['documents_key'];
-            $fileKey = $documentConfig['file_key'];
-            $nameKey = $documentConfig['name_key'];
-            $removedKey = $documentConfig['removed_key'];
+
+            $hasDocumentPayload = array_key_exists($documentsKey, $memberData);
+
+            if (! $hasDocumentPayload) {
+                continue;
+            }
 
             $documents = $this->normalizeMemberDocumentPayload(
                 $memberData,
                 $documentsKey,
-                $fileKey,
-                $nameKey,
-                $removedKey,
             );
 
-            $primaryPath = $this->persistCustomerDocuments(
+            $this->persistCustomerDocuments(
                 $customer,
                 $field,
                 $documents,
                 $customerName,
             );
-
-            $customerPathUpdates[$field.'_path'] = $primaryPath;
         }
 
-        if ($customerPathUpdates !== []) {
-            $customer->update($customerPathUpdates);
-        }
+        $customer->unsetRelation('files');
+        $customer->load('files');
     }
 
     /**
@@ -4459,9 +4495,6 @@ class CustomerConfirmationService
     private function normalizeMemberDocumentPayload(
         array $memberData,
         string $documentsKey,
-        string $fileKey,
-        string $nameKey,
-        string $removedKey,
     ): array {
         $documents = $memberData[$documentsKey] ?? null;
 
@@ -4469,12 +4502,7 @@ class CustomerConfirmationService
             return array_values(array_filter($documents, fn ($row) => is_array($row)));
         }
 
-        return [[
-            'file' => $memberData[$fileKey] ?? null,
-            'file_name' => $memberData[$nameKey] ?? null,
-            'file_path' => null,
-            'removed' => (bool) ($memberData[$removedKey] ?? false),
-        ]];
+        return [];
     }
 
     /**
@@ -4521,7 +4549,10 @@ class CustomerConfirmationService
 
         foreach ($existingFiles as $existingFile) {
             if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
-                Storage::disk('public')->delete($existingFile->file_path);
+                $this->deleteStoredFileIfUnreferenced(
+                    $existingFile->file_path,
+                    (int) $existingFile->id,
+                );
             }
         }
 
@@ -4534,35 +4565,22 @@ class CustomerConfirmationService
         return $rowsToPersist[0]['file_path'] ?? null;
     }
 
-    private function resolveCustomerDocumentPath(Customer $customer, string $field): ?string
+    private function deleteStoredFileIfUnreferenced(string $filePath, int $excludedModelFileId): void
     {
-        $column = match ($field) {
-            'passport' => 'passport_path',
-            'photo' => 'photo_path',
-            default => null,
-        };
+        $normalizedPath = trim($filePath);
 
-        if ($column === null) {
-            return null;
+        if ($normalizedPath === '') {
+            return;
         }
 
-        $columnPath = $this->normalizeNullableString($customer->{$column});
+        $isReferencedElsewhere = ModelFile::query()
+            ->where('file_path', $normalizedPath)
+            ->where('id', '!=', $excludedModelFileId)
+            ->exists();
 
-        if ($columnPath !== null) {
-            return $columnPath;
+        if (! $isReferencedElsewhere) {
+            Storage::disk('public')->delete($normalizedPath);
         }
-
-        $files = $customer->relationLoaded('files')
-            ? $customer->files
-            : $customer->files()->get();
-
-        $matchingFile = $files->firstWhere('field', $field);
-
-        if (! $matchingFile instanceof ModelFile) {
-            return null;
-        }
-
-        return $this->normalizeNullableString($matchingFile->file_path);
     }
 
     private function buildDefaultDocumentName(string $field, string $customerName, UploadedFile $file): string

@@ -79,6 +79,37 @@ import {
     type LinkedPackageInfo,
 } from './schema';
 
+type CustomerConfirmationFormHandle = {
+    data: CustomerConfirmationFormData;
+    setData: (
+        field:
+            | string
+            | ((
+                  currentData: CustomerConfirmationFormData,
+              ) => CustomerConfirmationFormData),
+        value?: unknown,
+    ) => void;
+    post: (
+        url: string,
+        options?: {
+            forceFormData?: boolean;
+            preserveScroll?: boolean;
+            onSuccess?: () => void;
+            onError?: (validationErrors: Record<string, string>) => void;
+            onFinish?: () => void;
+        },
+    ) => void;
+    processing: boolean;
+    clearErrors: (...fields: string[]) => void;
+    setError: (field: string | Record<string, string>, value?: string) => void;
+    errors: Record<string, string | undefined>;
+    transform: (
+        callback: (
+            currentData: CustomerConfirmationFormData,
+        ) => CustomerConfirmationFormData,
+    ) => void;
+};
+
 export default function CustomerConfirmationForm({
     mode = 'create',
     enquiryId,
@@ -125,6 +156,8 @@ export default function CustomerConfirmationForm({
     const [hasReachedTermsBottom, setHasReachedTermsBottom] = useState(false);
     const errorAlertRef = useRef<HTMLDivElement | null>(null);
     const termsScrollRef = useRef<HTMLDivElement | null>(null);
+    const enquiryDetailsId = enquiryDetails?.id ?? null;
+    const linkedEnquiryInfoId = linkedEnquiryInfo?.id ?? null;
 
     const loadPackageInfo = useCallback(async (packageId: number) => {
         setIsLoadingLinkedPackage(true);
@@ -202,7 +235,7 @@ export default function CustomerConfirmationForm({
         if (!enquiryDialogOpen) return;
         if (linkedEnquiryChild) return;
 
-        const enquiryId = enquiryDetails?.id ?? linkedEnquiryInfo?.id ?? null;
+        const enquiryId = enquiryDetailsId ?? linkedEnquiryInfoId;
         if (!enquiryId) return;
 
         setIsLoadingEnquiryChild(true);
@@ -213,8 +246,8 @@ export default function CustomerConfirmationForm({
             .finally(() => setIsLoadingEnquiryChild(false));
     }, [
         enquiryDialogOpen,
-        enquiryDetails?.id,
-        linkedEnquiryInfo?.id,
+        enquiryDetailsId,
+        linkedEnquiryInfoId,
         linkedEnquiryChild,
     ]);
 
@@ -237,9 +270,16 @@ export default function CustomerConfirmationForm({
         terms_accepted: isPublic && isEdit ? true : !isPublic,
     }) as CustomerConfirmationFormData;
 
-    const form = useForm<CustomerConfirmationFormData>(defaultData);
-    const { data, setData, post, processing, clearErrors, setError } = form;
-    const errors: Record<string, string | undefined> = form.errors;
+    const form = useForm(
+        defaultData as never,
+    ) as unknown as CustomerConfirmationFormHandle;
+    const data = form.data;
+    const setData = form.setData;
+    const post = form.post;
+    const processing = form.processing;
+    const clearErrors = form.clearErrors;
+    const setError = form.setError;
+    const errors = form.errors;
     const normalizedPackageOptions =
         packageOptions as CustomerConfirmationPackageOption[];
     const effectiveLinkedEnquiry = enquiryDetails ?? linkedEnquiryInfo;
@@ -703,11 +743,6 @@ export default function CustomerConfirmationForm({
                 photo_document: customer.photo_document ?? null,
                 passport_documents: customer.passport_documents ?? [],
                 photo_documents: customer.photo_documents ?? [],
-                passport_file_name:
-                    customer.passport_document?.file_name ?? null,
-                photo_file_name: customer.photo_document?.file_name ?? null,
-                passport_file_removed: false,
-                photo_file_removed: false,
             });
         }
 
@@ -1520,7 +1555,6 @@ export default function CustomerConfirmationForm({
                                                     <CustomerFormFields
                                                         customer={customer}
                                                         index={idx}
-                                                        useGeneratedDocumentName
                                                         isView={isView}
                                                         processing={processing}
                                                         showUseMainAddressButton={

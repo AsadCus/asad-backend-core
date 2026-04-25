@@ -43,13 +43,6 @@ export const customerSchema = z.object({
     status: z.string().optional(),
     sharing_plan: z.string().nullable().optional(),
     relationship: z.string().nullable().optional(),
-    // Image uploads (File on submit, string path from server)
-    passport_file: z.any().optional(),
-    photo_file: z.any().optional(),
-    passport_file_name: z.string().nullable().optional(),
-    photo_file_name: z.string().nullable().optional(),
-    passport_file_removed: z.boolean().optional(),
-    photo_file_removed: z.boolean().optional(),
     passport_document: z
         .object({
             field: z.string(),
@@ -109,12 +102,7 @@ export type CustomerConfirmationFormSchema = z.infer<
     typeof customerConfirmationFormSchema
 >;
 
-export type CustomerMemberFormData = Omit<
-    CustomerSchema,
-    'passport_file' | 'photo_file'
-> & {
-    passport_file?: File | null;
-    photo_file?: File | null;
+export type CustomerMemberFormData = Omit<CustomerSchema, never> & {
     passport_documents?: CustomerDocumentItemSchema[];
     photo_documents?: CustomerDocumentItemSchema[];
 };
@@ -276,12 +264,6 @@ export const emptyMember = (isLeader = false): CustomerSchema => ({
     status: 'pending_payment',
     sharing_plan: null,
     relationship: null,
-    passport_file: undefined,
-    photo_file: undefined,
-    passport_file_name: null,
-    photo_file_name: null,
-    passport_file_removed: false,
-    photo_file_removed: false,
     passport_document: null,
     photo_document: null,
     passport_documents: [],

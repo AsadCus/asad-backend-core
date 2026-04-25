@@ -3,24 +3,20 @@
 namespace App\Services\UserRoles;
 
 use App\Models\Customer;
+use App\Models\ModelFile;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\NumberingService;
-use App\Services\UserRoleFileUploadService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 
 class CustomerUserService
 {
-    private const CUSTOMER_FILE_KEY_MAP = [
-        'passport_file' => 'passport_path',
-        'photo_file' => 'photo_path',
-    ];
-
     public function __construct(
         protected NotificationService $notificationService,
-        protected UserRoleFileUploadService $userRoleFileUploadService,
         protected NumberingService $numberingService,
     ) {}
 
@@ -29,7 +25,7 @@ class CustomerUserService
         return User::query()
             ->whereDoesntHave('ghostUser')
             ->role('customer')
-            ->with('roles', 'customer')
+            ->with('roles', 'customer.files')
             ->get()
             ->map(function ($user) {
                 $user->role = 'customer';
@@ -51,8 +47,10 @@ class CustomerUserService
                     $user->has_chronic_disease = $user->customer->has_chronic_disease ?? false;
                     $user->is_using_wheelchair = $user->customer->is_using_wheelchair ?? false;
                     $user->chronic_disease_details = $user->customer->chronic_disease_details ?? '';
-                    $user->passport_path = $user->customer->passport_path;
-                    $user->photo_path = $user->customer->photo_path;
+                    $user->passport_document = $user->customer->files?->firstWhere('field', 'passport') ? $this->formatDocumentPayload($user->customer->files->firstWhere('field', 'passport')) : null;
+                    $user->photo_document = $user->customer->files?->firstWhere('field', 'photo') ? $this->formatDocumentPayload($user->customer->files->firstWhere('field', 'photo')) : null;
+                    $user->passport_documents = $this->formatDocumentListPayload($user->customer->files?->where('field', 'passport') ?? collect());
+                    $user->photo_documents = $this->formatDocumentListPayload($user->customer->files?->where('field', 'photo') ?? collect());
                 }
 
                 return $user;
@@ -97,13 +95,13 @@ class CustomerUserService
                 'last_login' => null,
             ]);
 
-            $this->userRoleFileUploadService->processUploads(
-                model: $customer,
-                data: $data,
-                fileKeyMap: self::CUSTOMER_FILE_KEY_MAP,
-                baseDirectory: 'customers',
-                entityName: $user->name,
-            );
+            if (array_key_exists('passport_documents', $data)) {
+                $this->persistCustomerDocuments($customer, 'passport', $data['passport_documents'] ?? [], $user->name);
+            }
+
+            if (array_key_exists('photo_documents', $data)) {
+                $this->persistCustomerDocuments($customer, 'photo', $data['photo_documents'] ?? [], $user->name);
+            }
 
             $this->notificationService->createNotification([
                 'title' => 'New Customer Created',
@@ -154,7 +152,7 @@ class CustomerUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('customer')->with('customer')->findOrFail($id);
+        $user = User::role('customer')->with('customer.files')->findOrFail($id);
 
         return [
             'id' => $user->id,
@@ -180,8 +178,10 @@ class CustomerUserService
             'has_chronic_disease' => $user->customer->has_chronic_disease ?? false,
             'is_using_wheelchair' => $user->customer->is_using_wheelchair ?? false,
             'chronic_disease_details' => $user->customer->chronic_disease_details ?? '',
-            'passport_path' => $user->customer->passport_path,
-            'photo_path' => $user->customer->photo_path,
+            'passport_document' => $user->customer->files?->firstWhere('field', 'passport') ? $this->formatDocumentPayload($user->customer->files->firstWhere('field', 'passport')) : null,
+            'photo_document' => $user->customer->files?->firstWhere('field', 'photo') ? $this->formatDocumentPayload($user->customer->files->firstWhere('field', 'photo')) : null,
+            'passport_documents' => $this->formatDocumentListPayload($user->customer->files?->where('field', 'passport') ?? collect()),
+            'photo_documents' => $this->formatDocumentListPayload($user->customer->files?->where('field', 'photo') ?? collect()),
             'password' => '',
             'password_confirmation' => '',
         ];
@@ -190,7 +190,7 @@ class CustomerUserService
     public function update(array $data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
-            $user = User::role('customer')->with('customer')->findOrFail($id);
+            $user = User::role('customer')->with('customer.files')->findOrFail($id);
 
             $user->update([
                 'name' => $data['name'],
@@ -228,13 +228,13 @@ class CustomerUserService
                     'chronic_disease_details' => $data['chronic_disease_details'] ?? null,
                 ]);
 
-                $this->userRoleFileUploadService->processUploads(
-                    model: $user->customer,
-                    data: $data,
-                    fileKeyMap: self::CUSTOMER_FILE_KEY_MAP,
-                    baseDirectory: 'customers',
-                    entityName: $user->name,
-                );
+                if (array_key_exists('passport_documents', $data)) {
+                    $this->persistCustomerDocuments($user->customer, 'passport', $data['passport_documents'] ?? [], $user->name);
+                }
+
+                if (array_key_exists('photo_documents', $data)) {
+                    $this->persistCustomerDocuments($user->customer, 'photo', $data['photo_documents'] ?? [], $user->name);
+                }
             }
 
             activity()
@@ -244,5 +244,142 @@ class CustomerUserService
 
             return $user;
         });
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $documents
+     */
+    private function persistCustomerDocuments(Customer $customer, string $field, array $documents, string $customerName): void
+    {
+        $rowsToPersist = [];
+
+        foreach ($documents as $document) {
+            if (! is_array($document)) {
+                continue;
+            }
+
+            if ((bool) ($document['removed'] ?? false)) {
+                continue;
+            }
+
+            $uploadedPath = $this->storeUploadedFile($document['file'] ?? null, $field);
+            $requestedName = $this->normalizeNullableString($document['file_name'] ?? null);
+            $defaultFileName = $this->buildDefaultDocumentName($field, $customerName, $document['file'] ?? null);
+            $existingPath = $this->normalizeNullableString($document['file_path'] ?? null);
+            $filePath = $uploadedPath ?? $existingPath;
+
+            if (! $filePath) {
+                continue;
+            }
+
+            $rowsToPersist[] = [
+                'field' => $field,
+                'file_name' => $requestedName ?? $defaultFileName ?? $field,
+                'file_path' => $filePath,
+            ];
+        }
+
+        $existingFiles = $customer->files()->where('field', $field)->get();
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                $this->deleteStoredFileIfUnreferenced(
+                    $existingFile->file_path,
+                    (int) $existingFile->id,
+                );
+            }
+        }
+
+        $customer->files()->where('field', $field)->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $customer->files()->create($row);
+        }
+    }
+
+    private function storeUploadedFile(mixed $file, string $field): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        return $file->store("customers/{$field}", 'public');
+    }
+
+    private function buildDefaultDocumentName(string $field, string $customerName, mixed $file): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        $extension = $file->getClientOriginalExtension();
+        $safeCustomerName = trim($customerName) !== '' ? trim($customerName) : 'Customer';
+
+        return ucfirst($field).' '.$safeCustomerName.($extension !== '' ? '.'.$extension : '');
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ModelFile>  $rows
+     * @return array<int, array{id:int,field:string,file_name:string,file_path:string}>
+     */
+    private function formatDocumentListPayload($rows): array
+    {
+        return $rows
+            ->map(function (ModelFile $row): array {
+                return [
+                    'id' => $row->id,
+                    'field' => $row->field,
+                    'file_name' => $row->file_name,
+                    'file_path' => $row->file_path,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatDocumentPayload(?ModelFile $modelFile): ?array
+    {
+        if (! $modelFile) {
+            return null;
+        }
+
+        return [
+            'field' => $modelFile->field,
+            'file_name' => $modelFile->file_name,
+            'file_path' => $modelFile->file_path,
+        ];
+    }
+
+    private function deleteStoredFileIfUnreferenced(string $filePath, int $excludedModelFileId): void
+    {
+        $normalizedPath = trim($filePath);
+
+        if ($normalizedPath === '') {
+            return;
+        }
+
+        $isReferencedElsewhere = ModelFile::query()
+            ->where('file_path', $normalizedPath)
+            ->where('id', '!=', $excludedModelFileId)
+            ->exists();
+
+        if (! $isReferencedElsewhere) {
+            Storage::disk('public')->delete($normalizedPath);
+        }
     }
 }

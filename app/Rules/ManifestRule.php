@@ -79,8 +79,6 @@ class ManifestRule
             'members.*.has_chronic_disease' => ['nullable', 'boolean'],
             'members.*.is_using_wheelchair' => ['nullable', 'boolean'],
             'members.*.chronic_disease_details' => ['nullable', 'string'],
-            'members.*.passport_path' => ['nullable', 'string', 'max:255'],
-            'members.*.photo_path' => ['nullable', 'string', 'max:255'],
             'members.*.remarks' => ['nullable', 'string'],
             'members.*.status' => ['nullable', 'string', 'in:pending_payment,partially_paid,fully_paid,overpaid,cancelled'],
             'members.*.sharing_group_key' => ['nullable', 'string', 'max:255'],

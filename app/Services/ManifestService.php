@@ -285,12 +285,6 @@ class ManifestService
                     'has_chronic_disease' => $member->has_chronic_disease ?? $customer?->has_chronic_disease,
                     'is_using_wheelchair' => $member->is_using_wheelchair ?? $customer?->is_using_wheelchair,
                     'chronic_disease_details' => $member->chronic_disease_details ?? $customer?->chronic_disease_details,
-                    'passport_path' => $member->passport_path
-                        ?? $passportFiles->first()?->file_path
-                        ?? $this->resolveCustomerDocumentPath($customer, 'passport'),
-                    'photo_path' => $member->photo_path
-                        ?? $photoFiles->first()?->file_path
-                        ?? $this->resolveCustomerDocumentPath($customer, 'photo'),
                     'passport_file_name' => $customerDocuments->get('passport')?->file_name,
                     'photo_file_name' => $customerDocuments->get('photo')?->file_name,
                     'remarks' => $member->remarks,
@@ -887,8 +881,6 @@ class ManifestService
                             'passport_place_of_issue' => $customer?->passport_place_of_issue ?? '',
                             'date_of_birth' => $customer?->date_of_birth_formatted ?? '',
                             'age' => $customer?->date_of_birth ? $customer->date_of_birth->age : null,
-                            'passport_path' => $this->resolveCustomerDocumentPath($customer, 'passport'),
-                            'photo_path' => $this->resolveCustomerDocumentPath($customer, 'photo'),
                             'passport_file_name' => $customer?->files?->firstWhere('field', 'passport')?->file_name,
                             'photo_file_name' => $customer?->files?->firstWhere('field', 'photo')?->file_name,
                         ];
@@ -1196,10 +1188,14 @@ class ManifestService
 
                 if (array_key_exists('passport_documents', $memberPayload) && is_array($memberPayload['passport_documents'])) {
                     $this->persistMemberIdentityDocuments($savedMember, $memberPayload['passport_documents'], 'passport');
+                } else {
+                    $this->syncMemberIdentityDocumentsFromCustomer($savedMember, $confirmationMember?->customer, 'passport');
                 }
 
                 if (array_key_exists('photo_documents', $memberPayload) && is_array($memberPayload['photo_documents'])) {
                     $this->persistMemberIdentityDocuments($savedMember, $memberPayload['photo_documents'], 'photo');
+                } else {
+                    $this->syncMemberIdentityDocumentsFromCustomer($savedMember, $confirmationMember?->customer, 'photo');
                 }
 
                 $savedMember->collectionItem()->updateOrCreate(
@@ -1839,14 +1835,6 @@ class ManifestService
             $customerUpdates['chronic_disease_details'] = $memberPayload['chronic_disease_details'] ?: null;
         }
 
-        if (array_key_exists('passport_path', $memberPayload)) {
-            $customerUpdates['passport_path'] = $memberPayload['passport_path'] ?: null;
-        }
-
-        if (array_key_exists('photo_path', $memberPayload)) {
-            $customerUpdates['photo_path'] = $memberPayload['photo_path'] ?: null;
-        }
-
         if ($customerUpdates !== []) {
             $customer->update($customerUpdates);
         }
@@ -1890,45 +1878,7 @@ class ManifestService
             'has_chronic_disease' => $memberPayload['has_chronic_disease'] ?? $customer?->has_chronic_disease,
             'is_using_wheelchair' => $memberPayload['is_using_wheelchair'] ?? $customer?->is_using_wheelchair,
             'chronic_disease_details' => $memberPayload['chronic_disease_details'] ?? $customer?->chronic_disease_details,
-            'passport_path' => $memberPayload['passport_path'] ?? $this->resolveCustomerDocumentPath($customer, 'passport'),
-            'photo_path' => $memberPayload['photo_path'] ?? $this->resolveCustomerDocumentPath($customer, 'photo'),
         ];
-    }
-
-    private function resolveCustomerDocumentPath(?Customer $customer, string $field): ?string
-    {
-        if (! $customer) {
-            return null;
-        }
-
-        $column = match ($field) {
-            'passport' => 'passport_path',
-            'photo' => 'photo_path',
-            default => null,
-        };
-
-        if ($column === null) {
-            return null;
-        }
-
-        $columnPath = trim((string) ($customer->{$column} ?? ''));
-
-        if ($columnPath !== '') {
-            return $columnPath;
-        }
-
-        $files = $customer->relationLoaded('files')
-            ? $customer->files
-            : $customer->files()->get();
-        $matchingFile = $files->firstWhere('field', $field);
-
-        if (! $matchingFile instanceof ModelFile) {
-            return null;
-        }
-
-        $filePath = trim((string) ($matchingFile->file_path ?? ''));
-
-        return $filePath !== '' ? $filePath : null;
     }
 
     /**
@@ -2793,7 +2743,7 @@ class ManifestService
      */
     private function buildIdentityDocumentRowsForManifest(Manifest $manifest): array
     {
-        $manifestMembers = $manifest->members()->get();
+        $manifestMembers = $manifest->members()->with('files')->get();
 
         return $manifestMembers
             ->values()
@@ -2802,20 +2752,22 @@ class ManifestService
                 $memberName = trim((string) ($member->name ?? ''));
                 $resolvedMemberName = $memberName !== '' ? $memberName : 'Member '.($index + 1);
 
-                $passportPath = trim((string) ($member->passport_path ?? ''));
+                $passportFile = $member->files->firstWhere('field', 'passport');
+                $passportPath = trim((string) ($passportFile?->file_path ?? ''));
                 if ($passportPath !== '') {
                     $rows[] = [
                         'field' => 'passport',
-                        'file_name' => $resolvedMemberName.' Passport',
+                        'file_name' => $passportFile?->file_name ?? $resolvedMemberName.' Passport',
                         'file_path' => $passportPath,
                     ];
                 }
 
-                $photoPath = trim((string) ($member->photo_path ?? ''));
+                $photoFile = $member->files->firstWhere('field', 'photo');
+                $photoPath = trim((string) ($photoFile?->file_path ?? ''));
                 if ($photoPath !== '') {
                     $rows[] = [
                         'field' => 'photo',
-                        'file_name' => $resolvedMemberName.' Photo',
+                        'file_name' => $photoFile?->file_name ?? $resolvedMemberName.' Photo',
                         'file_path' => $photoPath,
                     ];
                 }
@@ -2934,6 +2886,87 @@ class ManifestService
         foreach ($rowsToPersist as $row) {
             $manifestMember->files()->create($row);
         }
+
+        $this->syncCustomerIdentityDocumentsFromManifestMember(
+            $manifestMember,
+            $field,
+            $rowsToPersist,
+        );
+    }
+
+    /**
+     * @param  array<int, array{field: string, file_name: string, file_path: string}>  $rowsToPersist
+     */
+    private function syncCustomerIdentityDocumentsFromManifestMember(
+        ManifestMember $manifestMember,
+        string $field,
+        array $rowsToPersist,
+    ): void {
+        if ($rowsToPersist === []) {
+            return;
+        }
+
+        $confirmationMember = $manifestMember->relationLoaded('confirmationMember')
+            ? $manifestMember->confirmationMember
+            : $manifestMember->confirmationMember()->with('customer')->first();
+
+        $customer = $confirmationMember?->customer;
+
+        if (! $customer) {
+            return;
+        }
+
+        $existingFiles = $customer->files()->where('field', $field)->get();
+        $preservedPaths = collect($rowsToPersist)
+            ->pluck('file_path')
+            ->filter(fn ($path) => is_string($path) && $path !== '')
+            ->all();
+
+        foreach ($existingFiles as $existingFile) {
+            if (! in_array($existingFile->file_path, $preservedPaths, true) && $existingFile->file_path) {
+                Storage::disk('public')->delete($existingFile->file_path);
+            }
+        }
+
+        $customer->files()->where('field', $field)->delete();
+
+        foreach ($rowsToPersist as $row) {
+            $customer->files()->create($row);
+        }
+
+    }
+
+    private function syncMemberIdentityDocumentsFromCustomer(
+        ManifestMember $manifestMember,
+        ?Customer $customer,
+        string $field,
+    ): void {
+        if (! $customer) {
+            return;
+        }
+
+        $customerFiles = $customer->relationLoaded('files')
+            ? $customer->files
+            : $customer->files()->get();
+
+        $documents = $customerFiles
+            ->where('field', $field)
+            ->map(function (ModelFile $file): array {
+                return [
+                    'file' => null,
+                    'file_name' => $file->file_name,
+                    'file_path' => $file->file_path,
+                    'removed' => false,
+                ];
+            })
+            ->values()
+            ->all();
+
+        if ($documents === []) {
+            return;
+        }
+
+        $this->persistMemberIdentityDocuments($manifestMember, $documents, $field);
     }
 
     /**

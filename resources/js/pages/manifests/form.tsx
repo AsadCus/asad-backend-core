@@ -270,28 +270,10 @@ function toMemberWithUI(
             : [createEmptyDocumentEntry()],
         passport_documents: Array.isArray(row.passport_documents)
             ? (row.passport_documents as ManifestDocumentItem[])
-            : String(row.passport_path ?? '').trim().length > 0
-              ? [
-                    {
-                        file: null,
-                        file_name: null,
-                        file_path: String(row.passport_path ?? ''),
-                        removed: false,
-                    },
-                ]
-              : [],
+            : [],
         photo_documents: Array.isArray(row.photo_documents)
             ? (row.photo_documents as ManifestDocumentItem[])
-            : String(row.photo_path ?? '').trim().length > 0
-              ? [
-                    {
-                        file: null,
-                        file_name: null,
-                        file_path: String(row.photo_path ?? ''),
-                        removed: false,
-                    },
-                ]
-              : [],
+            : [],
         row_key:
             typeof row.row_key === 'string' && row.row_key.trim().length > 0
                 ? row.row_key
@@ -1322,8 +1304,6 @@ function toMemberSubmitRow(
         'has_chronic_disease',
         'is_using_wheelchair',
         'chronic_disease_details',
-        'passport_path',
-        'photo_path',
         'course_1',
         'course_2',
         'lanyard',
@@ -1481,8 +1461,6 @@ function buildCanonicalSharingGroupsFromMembers(
             'has_chronic_disease',
             'is_using_wheelchair',
             'chronic_disease_details',
-            'passport_path',
-            'photo_path',
             'course_1',
             'course_2',
             'lanyard',
@@ -1722,8 +1700,6 @@ function validateRoomCapacityOnSubmit(
 }
 
 function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
-    const passportPath = String(member.passport_path ?? '').trim();
-    const photoPath = String(member.photo_path ?? '').trim();
     const passportDocuments = Array.isArray(member.passport_documents)
         ? member.passport_documents
         : [];
@@ -1770,20 +1746,15 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
         status: String(member.status ?? 'pending_payment'),
         sharing_plan: member.sharing_plan ? String(member.sharing_plan) : null,
         relationship: member.relationship ? String(member.relationship) : null,
-        passport_file: undefined,
-        photo_file: undefined,
-        passport_file_name: null,
-        photo_file_name: null,
-        passport_file_removed: false,
-        photo_file_removed: false,
-        passport_document:
-            passportPath.length > 0
-                ? {
-                      field: 'passport',
-                      file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Passport`,
-                      file_path: passportPath,
-                  }
-                : null,
+        passport_document: passportDocuments[0]
+            ? {
+                  field: 'passport',
+                  file_name:
+                      passportDocuments[0].file_name ??
+                      `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Passport`,
+                  file_path: passportDocuments[0].file_path ?? '',
+              }
+            : null,
         passport_documents:
             passportDocuments.length > 0
                 ? passportDocuments.map((document) => ({
@@ -1793,24 +1764,16 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
                       file_path: document.file_path ?? null,
                       removed: Boolean(document.removed),
                   }))
-                : passportPath.length > 0
-                  ? [
-                        {
-                            file: null,
-                            file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Passport`,
-                            file_path: passportPath,
-                            removed: false,
-                        },
-                    ]
-                  : [],
-        photo_document:
-            photoPath.length > 0
-                ? {
-                      field: 'photo',
-                      file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Photo`,
-                      file_path: photoPath,
-                  }
-                : null,
+                : [],
+        photo_document: photoDocuments[0]
+            ? {
+                  field: 'photo',
+                  file_name:
+                      photoDocuments[0].file_name ??
+                      `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Photo`,
+                  file_path: photoDocuments[0].file_path ?? '',
+              }
+            : null,
         photo_documents:
             photoDocuments.length > 0
                 ? photoDocuments.map((document) => ({
@@ -1820,16 +1783,7 @@ function mapMemberToCustomerSchema(member: MemberWithUI): CustomerSchema {
                       file_path: document.file_path ?? null,
                       removed: Boolean(document.removed),
                   }))
-                : photoPath.length > 0
-                  ? [
-                        {
-                            file: null,
-                            file_name: `${String(member.name_as_per_passport ?? member.customer_name ?? 'Member').trim() || 'Member'} Photo`,
-                            file_path: photoPath,
-                            removed: false,
-                        },
-                    ]
-                  : [],
+                : [],
     };
 }
 
@@ -4217,14 +4171,14 @@ export default function ManifestForm({
                                             <h3 className="text-lg font-semibold">
                                                 {tab.label} Documents
                                             </h3>
-                                            <p className="text-sm text-muted-foreground">
+                                            <p className="text-muted-foreground">
                                                 Upload {tab.label.toLowerCase()}{' '}
                                                 files for each member.
                                             </p>
                                         </div>
 
                                         <div className="overflow-hidden rounded-xl border border-border/70">
-                                            <table className="w-full text-sm">
+                                            <table className="w-full">
                                                 <thead className="bg-muted/40 text-left">
                                                     <tr>
                                                         <th className="px-4 py-3 font-semibold">
@@ -4307,7 +4261,7 @@ export default function ManifestForm({
                                                                                 ''
                                                                             }
                                                                             disabled
-                                                                            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                                                                            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground"
                                                                         />
                                                                     </td>
                                                                     <td className="px-4 py-3">
@@ -4525,7 +4479,7 @@ export default function ManifestForm({
                                                                                 <div>
                                                                                     <Button
                                                                                         type="button"
-                                                                                        variant="outline"
+                                                                                        variant="default"
                                                                                         onClick={() => {
                                                                                             const nextRows =
                                                                                                 [
@@ -4573,14 +4527,14 @@ export default function ManifestForm({
                                                 <h3 className="text-lg font-semibold">
                                                     {tab.label} Documents
                                                 </h3>
-                                                <p className="text-sm text-muted-foreground">
+                                                <p className="text-muted-foreground">
                                                     {tab.hint}
                                                 </p>
                                             </div>
                                             {!isView && (
                                                 <Button
                                                     type="button"
-                                                    variant="outline"
+                                                    variant="default"
                                                     onClick={() => {
                                                         updateManifestDocuments(
                                                             tab.key,
@@ -4751,6 +4705,16 @@ export default function ManifestForm({
 
                     <TabsContent value="arabic-names" className="space-y-4">
                         <div className="rounded-xl border border-border/70 p-4">
+                            <h3 className="text-lg font-semibold">
+                                Arabic Names
+                            </h3>
+                            <p className="text-muted-foreground">
+                                Review and refine Arabic names for active
+                                members before export.
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-border/70 p-4">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <FormField
                                     label="Official In Charge"
@@ -4844,7 +4808,7 @@ export default function ManifestForm({
                         </div>
 
                         <div className="overflow-hidden rounded-xl border border-border/70">
-                            <table className="w-full text-sm">
+                            <table className="w-full">
                                 <thead className="bg-muted/40 text-left">
                                     <tr>
                                         <th className="px-4 py-3 font-semibold">
@@ -4918,269 +4882,288 @@ export default function ManifestForm({
                     </TabsContent>
 
                     <TabsContent value="receipt" className="space-y-4">
-                        <div className="overflow-hidden rounded-xl border border-border/70">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/40 text-left">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold">
-                                            No
-                                        </th>
-                                        <th className="px-4 py-3 font-semibold">
-                                            Name
-                                        </th>
-                                        <th className="px-4 py-3 font-semibold">
-                                            Receipt
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {nonCancelledNonOfficialMembers.map(
-                                        (member, index) => {
-                                            const sourceRows =
-                                                member.receipt_documents ?? [];
-                                            const visibleRowIndexes = sourceRows
-                                                .map((row, rowIndex) =>
-                                                    row.removed
-                                                        ? null
-                                                        : rowIndex,
-                                                )
-                                                .filter(
-                                                    (
-                                                        rowIndex,
-                                                    ): rowIndex is number =>
-                                                        rowIndex !== null,
-                                                );
-                                            const rowsToRender =
-                                                visibleRowIndexes.length > 0
-                                                    ? visibleRowIndexes.map(
-                                                          (
-                                                              actualIndex,
-                                                              visibleIndex,
-                                                          ) => ({
-                                                              row: sourceRows[
-                                                                  actualIndex
-                                                              ],
-                                                              actualIndex,
-                                                              visibleIndex,
-                                                          }),
-                                                      )
-                                                    : [
-                                                          {
-                                                              row: createEmptyDocumentEntry(),
-                                                              actualIndex: -1,
-                                                              visibleIndex: 0,
-                                                          },
-                                                      ];
+                        <div className="rounded-xl border border-border/70 p-4">
+                            <div className="mb-4">
+                                <h3 className="text-lg font-semibold">
+                                    Receipt Documents
+                                </h3>
+                                <p className="text-muted-foreground">
+                                    Upload receipt evidence for each member.
+                                    This is used for record-keeping and
+                                    reimbursement purposes.
+                                </p>
+                            </div>
+                            <div className="overflow-hidden rounded-xl border border-border/70">
+                                <table className="w-full">
+                                    <thead className="bg-muted/40 text-left">
+                                        <tr>
+                                            <th className="px-4 py-3 font-semibold">
+                                                No
+                                            </th>
+                                            <th className="px-4 py-3 font-semibold">
+                                                Name
+                                            </th>
+                                            <th className="px-4 py-3 font-semibold">
+                                                Receipt
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {nonCancelledNonOfficialMembers.map(
+                                            (member, index) => {
+                                                const sourceRows =
+                                                    member.receipt_documents ??
+                                                    [];
+                                                const visibleRowIndexes =
+                                                    sourceRows
+                                                        .map((row, rowIndex) =>
+                                                            row.removed
+                                                                ? null
+                                                                : rowIndex,
+                                                        )
+                                                        .filter(
+                                                            (
+                                                                rowIndex,
+                                                            ): rowIndex is number =>
+                                                                rowIndex !==
+                                                                null,
+                                                        );
+                                                const rowsToRender =
+                                                    visibleRowIndexes.length > 0
+                                                        ? visibleRowIndexes.map(
+                                                              (
+                                                                  actualIndex,
+                                                                  visibleIndex,
+                                                              ) => ({
+                                                                  row: sourceRows[
+                                                                      actualIndex
+                                                                  ],
+                                                                  actualIndex,
+                                                                  visibleIndex,
+                                                              }),
+                                                          )
+                                                        : [
+                                                              {
+                                                                  row: createEmptyDocumentEntry(),
+                                                                  actualIndex:
+                                                                      -1,
+                                                                  visibleIndex: 0,
+                                                              },
+                                                          ];
 
-                                            return (
-                                                <tr
-                                                    key={`${memberIdentityKey(member, index)}-receipt`}
-                                                    className="border-t"
-                                                >
-                                                    <td className="px-4 py-3 align-top">
-                                                        {index + 1}
-                                                    </td>
-                                                    <td className="px-4 py-3 align-top">
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                member.name_as_per_passport ??
-                                                                ''
-                                                            }
-                                                            disabled
-                                                            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="space-y-3">
-                                                            {rowsToRender.map(
-                                                                (renderRow) => {
-                                                                    const {
-                                                                        row,
-                                                                        actualIndex,
-                                                                        visibleIndex,
-                                                                    } =
-                                                                        renderRow;
+                                                return (
+                                                    <tr
+                                                        key={`${memberIdentityKey(member, index)}-receipt`}
+                                                        className="border-t"
+                                                    >
+                                                        <td className="px-4 py-3 align-top">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="px-4 py-3 align-top">
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    member.name_as_per_passport ??
+                                                                    ''
+                                                                }
+                                                                disabled
+                                                                className="w-full rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground"
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="space-y-3">
+                                                                {rowsToRender.map(
+                                                                    (
+                                                                        renderRow,
+                                                                    ) => {
+                                                                        const {
+                                                                            row,
+                                                                            actualIndex,
+                                                                            visibleIndex,
+                                                                        } =
+                                                                            renderRow;
 
-                                                                    return (
-                                                                        <div
-                                                                            key={`${memberIdentityKey(member, index)}-receipt-doc-${row.id ?? visibleIndex}`}
-                                                                            className="rounded-lg border p-3"
-                                                                        >
-                                                                            {!isView &&
-                                                                                actualIndex >=
-                                                                                    0 && (
-                                                                                    <div className="mb-3 flex justify-end">
-                                                                                        <Button
-                                                                                            type="button"
-                                                                                            variant="ghost"
-                                                                                            size="sm"
-                                                                                            className="h-8 px-2 text-destructive hover:text-destructive"
-                                                                                            onClick={() => {
-                                                                                                updateMemberReceiptDocuments(
-                                                                                                    member,
-                                                                                                    removeDocumentEntryAtIndex(
-                                                                                                        sourceRows,
-                                                                                                        actualIndex,
-                                                                                                    ),
-                                                                                                );
-                                                                                            }}
-                                                                                        >
-                                                                                            Remove
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                )}
+                                                                        return (
+                                                                            <div
+                                                                                key={`${memberIdentityKey(member, index)}-receipt-doc-${row.id ?? visibleIndex}`}
+                                                                                className="rounded-lg border p-3"
+                                                                            >
+                                                                                {!isView &&
+                                                                                    actualIndex >=
+                                                                                        0 && (
+                                                                                        <div className="mb-3 flex justify-end">
+                                                                                            <Button
+                                                                                                type="button"
+                                                                                                variant="ghost"
+                                                                                                size="sm"
+                                                                                                className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                                                onClick={() => {
+                                                                                                    updateMemberReceiptDocuments(
+                                                                                                        member,
+                                                                                                        removeDocumentEntryAtIndex(
+                                                                                                            sourceRows,
+                                                                                                            actualIndex,
+                                                                                                        ),
+                                                                                                    );
+                                                                                                }}
+                                                                                            >
+                                                                                                Remove
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    )}
 
-                                                                            <DocumentField
-                                                                                label={`Receipt #${visibleIndex + 1}`}
-                                                                                hint="Upload receipt evidence for this member."
-                                                                                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
-                                                                                fileValue={
-                                                                                    row.file ??
-                                                                                    undefined
-                                                                                }
-                                                                                existingPath={
-                                                                                    row.file_path ??
-                                                                                    undefined
-                                                                                }
-                                                                                existingFileName={
-                                                                                    row.file_name ??
-                                                                                    undefined
-                                                                                }
-                                                                                useFileNameInput
-                                                                                fileNameValue={
-                                                                                    row.file_name ??
-                                                                                    null
-                                                                                }
-                                                                                isView={
-                                                                                    isView
-                                                                                }
-                                                                                disabled={
-                                                                                    isView
-                                                                                }
-                                                                                onSelect={(
-                                                                                    file,
-                                                                                ) => {
-                                                                                    const nextRows =
-                                                                                        sourceRows.length >
-                                                                                        0
-                                                                                            ? [
-                                                                                                  ...sourceRows,
-                                                                                              ]
-                                                                                            : [
-                                                                                                  createEmptyDocumentEntry(),
-                                                                                              ];
-                                                                                    const targetIndex =
-                                                                                        actualIndex >=
-                                                                                        0
-                                                                                            ? actualIndex
-                                                                                            : 0;
-                                                                                    nextRows[
-                                                                                        targetIndex
-                                                                                    ] =
-                                                                                        {
-                                                                                            ...nextRows[
-                                                                                                targetIndex
-                                                                                            ],
-                                                                                            file,
-                                                                                            removed: false,
-                                                                                            file_name:
-                                                                                                nextRows[
+                                                                                <DocumentField
+                                                                                    label={`Receipt #${visibleIndex + 1}`}
+                                                                                    hint="Upload receipt evidence for this member."
+                                                                                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                                                                                    fileValue={
+                                                                                        row.file ??
+                                                                                        undefined
+                                                                                    }
+                                                                                    existingPath={
+                                                                                        row.file_path ??
+                                                                                        undefined
+                                                                                    }
+                                                                                    existingFileName={
+                                                                                        row.file_name ??
+                                                                                        undefined
+                                                                                    }
+                                                                                    useFileNameInput
+                                                                                    fileNameValue={
+                                                                                        row.file_name ??
+                                                                                        null
+                                                                                    }
+                                                                                    isView={
+                                                                                        isView
+                                                                                    }
+                                                                                    disabled={
+                                                                                        isView
+                                                                                    }
+                                                                                    onSelect={(
+                                                                                        file,
+                                                                                    ) => {
+                                                                                        const nextRows =
+                                                                                            sourceRows.length >
+                                                                                            0
+                                                                                                ? [
+                                                                                                      ...sourceRows,
+                                                                                                  ]
+                                                                                                : [
+                                                                                                      createEmptyDocumentEntry(),
+                                                                                                  ];
+                                                                                        const targetIndex =
+                                                                                            actualIndex >=
+                                                                                            0
+                                                                                                ? actualIndex
+                                                                                                : 0;
+                                                                                        nextRows[
+                                                                                            targetIndex
+                                                                                        ] =
+                                                                                            {
+                                                                                                ...nextRows[
                                                                                                     targetIndex
-                                                                                                ]
-                                                                                                    ?.file_name ??
-                                                                                                buildManifestDocumentFileName(
-                                                                                                    'Receipt',
-                                                                                                    visibleIndex +
-                                                                                                        1,
-                                                                                                    data.manifest_number,
-                                                                                                ),
-                                                                                        };
-                                                                                    updateMemberReceiptDocuments(
-                                                                                        member,
-                                                                                        nextRows,
-                                                                                    );
-                                                                                }}
-                                                                                onFileNameChange={(
-                                                                                    fileName,
-                                                                                ) => {
-                                                                                    const nextRows =
-                                                                                        sourceRows.length >
-                                                                                        0
-                                                                                            ? [
-                                                                                                  ...sourceRows,
-                                                                                              ]
-                                                                                            : [
-                                                                                                  createEmptyDocumentEntry(),
-                                                                                              ];
-                                                                                    const targetIndex =
-                                                                                        actualIndex >=
-                                                                                        0
-                                                                                            ? actualIndex
-                                                                                            : 0;
-                                                                                    nextRows[
-                                                                                        targetIndex
-                                                                                    ] =
-                                                                                        {
-                                                                                            ...nextRows[
-                                                                                                targetIndex
-                                                                                            ],
-                                                                                            file_name:
-                                                                                                fileName,
-                                                                                        };
-                                                                                    updateMemberReceiptDocuments(
-                                                                                        member,
-                                                                                        nextRows,
-                                                                                    );
-                                                                                }}
-                                                                                onClear={() => {
-                                                                                    updateMemberReceiptDocuments(
-                                                                                        member,
-                                                                                        removeDocumentEntryAtIndex(
-                                                                                            sourceRows,
-                                                                                            actualIndex,
-                                                                                        ),
-                                                                                    );
-                                                                                }}
-                                                                            />
-                                                                        </div>
-                                                                    );
-                                                                },
-                                                            )}
-
-                                                            {!isView && (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        const baseRows =
-                                                                            sourceRows.length >
-                                                                            0
-                                                                                ? sourceRows
-                                                                                : [
-                                                                                      createEmptyDocumentEntry(),
-                                                                                  ];
-
-                                                                        updateMemberReceiptDocuments(
-                                                                            member,
-                                                                            [
-                                                                                ...baseRows,
-                                                                                createEmptyDocumentEntry(),
-                                                                            ],
+                                                                                                ],
+                                                                                                file,
+                                                                                                removed: false,
+                                                                                                file_name:
+                                                                                                    nextRows[
+                                                                                                        targetIndex
+                                                                                                    ]
+                                                                                                        ?.file_name ??
+                                                                                                    buildManifestDocumentFileName(
+                                                                                                        'Receipt',
+                                                                                                        visibleIndex +
+                                                                                                            1,
+                                                                                                        data.manifest_number,
+                                                                                                    ),
+                                                                                            };
+                                                                                        updateMemberReceiptDocuments(
+                                                                                            member,
+                                                                                            nextRows,
+                                                                                        );
+                                                                                    }}
+                                                                                    onFileNameChange={(
+                                                                                        fileName,
+                                                                                    ) => {
+                                                                                        const nextRows =
+                                                                                            sourceRows.length >
+                                                                                            0
+                                                                                                ? [
+                                                                                                      ...sourceRows,
+                                                                                                  ]
+                                                                                                : [
+                                                                                                      createEmptyDocumentEntry(),
+                                                                                                  ];
+                                                                                        const targetIndex =
+                                                                                            actualIndex >=
+                                                                                            0
+                                                                                                ? actualIndex
+                                                                                                : 0;
+                                                                                        nextRows[
+                                                                                            targetIndex
+                                                                                        ] =
+                                                                                            {
+                                                                                                ...nextRows[
+                                                                                                    targetIndex
+                                                                                                ],
+                                                                                                file_name:
+                                                                                                    fileName,
+                                                                                            };
+                                                                                        updateMemberReceiptDocuments(
+                                                                                            member,
+                                                                                            nextRows,
+                                                                                        );
+                                                                                    }}
+                                                                                    onClear={() => {
+                                                                                        updateMemberReceiptDocuments(
+                                                                                            member,
+                                                                                            removeDocumentEntryAtIndex(
+                                                                                                sourceRows,
+                                                                                                actualIndex,
+                                                                                            ),
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
                                                                         );
-                                                                    }}
-                                                                >
-                                                                    Add Receipt
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        },
-                                    )}
-                                </tbody>
-                            </table>
+                                                                    },
+                                                                )}
+
+                                                                {!isView && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="default"
+                                                                        onClick={() => {
+                                                                            const baseRows =
+                                                                                sourceRows.length >
+                                                                                0
+                                                                                    ? sourceRows
+                                                                                    : [
+                                                                                          createEmptyDocumentEntry(),
+                                                                                      ];
+
+                                                                            updateMemberReceiptDocuments(
+                                                                                member,
+                                                                                [
+                                                                                    ...baseRows,
+                                                                                    createEmptyDocumentEntry(),
+                                                                                ],
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        Add
+                                                                        Receipt
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            },
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>

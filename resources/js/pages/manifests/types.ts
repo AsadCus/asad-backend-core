@@ -132,8 +132,6 @@ export interface CanonicalManifestSharingGroupMemberPatch {
     has_chronic_disease?: boolean | null;
     is_using_wheelchair?: boolean | null;
     chronic_disease_details?: string | null;
-    passport_path?: string | null;
-    photo_path?: string | null;
     status?: string | null;
 }
 

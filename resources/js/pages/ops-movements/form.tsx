@@ -655,6 +655,7 @@ export default function OpsMovementForm({
                 (accommodation) => ({
                     id: accommodation.id,
                     ic: accommodation.ic ?? null,
+                    ic_contact_number: accommodation.ic_contact_number ?? null,
                     remarks: accommodation.remarks ?? null,
                 }),
             ),
@@ -1507,54 +1508,77 @@ export default function OpsMovementForm({
                                 (accommodation, index) => (
                                     <div
                                         key={accommodation.id}
-                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-6"
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4"
                                     >
-                                        <FormField label="Location">
-                                            <CopyableText
-                                                value={accommodation.location}
-                                            />
-                                        </FormField>
-                                        <FormField label="Hotel Name">
-                                            <CopyableText
-                                                value={accommodation.hotel_name}
-                                            />
-                                        </FormField>
-                                        <FormField label="Meal">
-                                            <CopyableText
-                                                value={
-                                                    accommodation.type_of_meal
-                                                }
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="IC"
-                                            error={getError(
-                                                `accommodations.${index}.ic`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={accommodation.ic ?? ''}
-                                                disabled={processing}
-                                                onCommit={(value) =>
-                                                    updateAccommodation(
-                                                        index,
-                                                        'ic',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Enter IC"
-                                            />
-                                        </FormField>
-                                        <FormField label="Check In">
-                                            <CopyableText
-                                                value={accommodation.check_in}
-                                            />
-                                        </FormField>
-                                        <FormField label="Check Out">
-                                            <CopyableText
-                                                value={accommodation.check_out}
-                                            />
-                                        </FormField>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                            <FormField label="Location">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.location
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Hotel Name">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.hotel_name
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Meal">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.type_of_meal
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                            <FormField
+                                                label="In Charge"
+                                                error={getError(
+                                                    `accommodations.${index}.ic`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.ic ?? ''
+                                                    }
+                                                    disabled
+                                                    onCommit={(value) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'ic',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter in charge"
+                                                />
+                                            </FormField>
+                                            <FormField label="IC Contact Number">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.ic_contact_number
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                            <FormField label="Check In">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.check_in
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Check Out">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.check_out
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
                                     </div>
                                 ),
                             )}
@@ -1693,7 +1717,7 @@ export default function OpsMovementForm({
                                         <FormField label="Flight No">
                                             <CopyableText value={flight.pnr} />
                                         </FormField>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                             <FormField label="From">
                                                 <CopyableText
                                                     value={flight.from}
@@ -1719,14 +1743,14 @@ export default function OpsMovementForm({
                                                 />
                                             </FormField>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField label="Airline">
                                                 <CopyableText
                                                     value={flight.airline}
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="Remarks"
+                                                label="In Charge"
                                                 error={getError(
                                                     `flights.${index}.ic`,
                                                 )}
@@ -1738,6 +1762,28 @@ export default function OpsMovementForm({
                                                         updateFlight(
                                                             index,
                                                             'ic',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter in charge"
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4">
+                                            <FormField
+                                                label="Remarks"
+                                                error={getError(
+                                                    `flights.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={flight.remarks ?? ''}
+                                                    disabled={processing}
+                                                    textarea
+                                                    onCommit={(value) =>
+                                                        updateFlight(
+                                                            index,
+                                                            'remarks',
                                                             value,
                                                         )
                                                     }
@@ -2672,29 +2718,16 @@ export default function OpsMovementForm({
                 <TabsContent value="pif" className="space-y-6">
                     <Card>
                         <CardHeader className="gap-0">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <CardTitle className="text-xl">
-                                        Passenger Details & Tour Leader
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Passenger breakdown and assigned tour
-                                        leader details for the linked manifest.
-                                    </CardDescription>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={processing || !canEdit}
-                                    onClick={addTourLeader}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Tour Leader
-                                </Button>
-                            </div>
+                            <CardTitle className="text-xl">
+                                Passenger Details
+                            </CardTitle>
+                            <CardDescription>
+                                Passenger breakdown details for the linked
+                                manifest.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                            <div className="grid grid-cols-2 items-start gap-4 md:grid-cols-4">
                                 <FormField
                                     label="Adult"
                                     fieldRequirementsProps={{
@@ -2744,7 +2777,32 @@ export default function OpsMovementForm({
                                     />
                                 </FormField>
                             </div>
-                            <div className="border-t" />
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="gap-0">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-xl">
+                                        Tour Leader
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Assigned tour leader details for the
+                                        linked manifest.
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={processing || !canEdit}
+                                    onClick={addTourLeader}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add Tour Leader
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
                             {(data.pif?.tour_leaders ?? []).map(
                                 (tourLeader, index) => (
                                     <div

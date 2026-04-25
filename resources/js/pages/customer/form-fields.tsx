@@ -5,6 +5,7 @@ import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import TextLink from '@/components/text-link';
+import { Button } from '@/components/ui/button';
 import { parseDisplayDate } from '@/lib/utils';
 import {
     genderOptions,
@@ -17,7 +18,6 @@ interface CustomerFormFieldsProps {
     customer: CustomerSchema;
     index?: number;
     fieldPrefix?: string;
-    useGeneratedDocumentName?: boolean;
     isView: boolean;
     processing: boolean;
     showUseMainAddressButton?: boolean;
@@ -33,10 +33,6 @@ const DOCUMENT_FIELDS = [
     {
         key: 'passport' as const,
         documentsKey: 'passport_documents' as const,
-        legacyFileKey: 'passport_file' as const,
-        legacyNameKey: 'passport_file_name' as const,
-        legacyRemovedKey: 'passport_file_removed' as const,
-        legacyDocumentKey: 'passport_document' as const,
         label: 'Passport',
         accept: '.jpg,.jpeg,.png,.pdf',
         acceptedFileTypesLabel: 'JPG, JPEG, PNG, PDF',
@@ -46,10 +42,6 @@ const DOCUMENT_FIELDS = [
     {
         key: 'photo' as const,
         documentsKey: 'photo_documents' as const,
-        legacyFileKey: 'photo_file' as const,
-        legacyNameKey: 'photo_file_name' as const,
-        legacyRemovedKey: 'photo_file_removed' as const,
-        legacyDocumentKey: 'photo_document' as const,
         label: 'Photo',
         accept: '.jpg,.jpeg,.png',
         acceptedFileTypesLabel: 'JPG, JPEG, PNG',
@@ -103,7 +95,6 @@ export default function CustomerFormFields({
     customer,
     index,
     fieldPrefix,
-    useGeneratedDocumentName = false,
     isView,
     processing,
     showUseMainAddressButton = false,
@@ -569,21 +560,7 @@ export default function CustomerFormFields({
                         const sourceRows =
                             (customer[doc.documentsKey] as
                                 | CustomerDocumentItemSchema[]
-                                | undefined) ??
-                            (customer[doc.legacyDocumentKey]
-                                ? [
-                                      {
-                                          file: null,
-                                          file_name:
-                                              customer[doc.legacyDocumentKey]
-                                                  ?.file_name ?? null,
-                                          file_path:
-                                              customer[doc.legacyDocumentKey]
-                                                  ?.file_path ?? null,
-                                          removed: false,
-                                      },
-                                  ]
-                                : []);
+                                | undefined) ?? [];
 
                         const visibleIndexes = sourceRows
                             .map((row, rowIndex) =>
@@ -625,7 +602,7 @@ export default function CustomerFormFields({
                                                 <div className="mb-3 flex justify-end">
                                                     <button
                                                         type="button"
-                                                        className="h-8 px-2 text-sm text-destructive hover:text-destructive"
+                                                        className="h-8 px-2 text-destructive hover:text-destructive"
                                                         onClick={() => {
                                                             onUpdateCustomer(
                                                                 doc.documentsKey,
@@ -700,22 +677,6 @@ export default function CustomerFormFields({
                                                         doc.documentsKey,
                                                         nextRows,
                                                     );
-                                                    onUpdateCustomer(
-                                                        doc.legacyFileKey,
-                                                        null,
-                                                    );
-                                                    onUpdateCustomer(
-                                                        doc.legacyNameKey,
-                                                        null,
-                                                    );
-                                                    onUpdateCustomer(
-                                                        doc.legacyRemovedKey,
-                                                        false,
-                                                    );
-                                                    onUpdateCustomer(
-                                                        doc.legacyDocumentKey,
-                                                        null,
-                                                    );
                                                 }}
                                                 onFileNameChange={(
                                                     fileName,
@@ -758,18 +719,23 @@ export default function CustomerFormFields({
                                 })}
 
                                 {!disabled && (
-                                    <button
-                                        type="button"
-                                        className="rounded-md border px-3 py-2 text-sm"
-                                        onClick={() => {
-                                            onUpdateCustomer(doc.documentsKey, [
-                                                ...sourceRows,
-                                                createEmptyDocumentEntry(),
-                                            ]);
-                                        }}
-                                    >
-                                        Add {doc.label}
-                                    </button>
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="default"
+                                            onClick={() => {
+                                                onUpdateCustomer(
+                                                    doc.documentsKey,
+                                                    [
+                                                        ...sourceRows,
+                                                        createEmptyDocumentEntry(),
+                                                    ],
+                                                );
+                                            }}
+                                        >
+                                            Add {doc.label}
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         );

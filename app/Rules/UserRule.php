@@ -57,10 +57,20 @@ class UserRule
             $rules['has_chronic_disease'] = 'nullable|boolean';
             $rules['is_using_wheelchair'] = 'nullable|boolean';
             $rules['chronic_disease_details'] = 'nullable|string|max:1000';
-            $rules['passport_file'] = 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120';
-            $rules['photo_file'] = 'nullable|file|mimes:jpg,jpeg,png|max:5120';
-            $rules['passport_path'] = 'nullable|string';
-            $rules['photo_path'] = 'nullable|string';
+
+            $rules['passport_documents'] = ['nullable', 'array'];
+            $rules['passport_documents.*.id'] = ['nullable', 'integer'];
+            $rules['passport_documents.*.file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'];
+            $rules['passport_documents.*.file_name'] = ['nullable', 'string', 'max:255'];
+            $rules['passport_documents.*.file_path'] = ['nullable', 'string', 'max:255'];
+            $rules['passport_documents.*.removed'] = ['nullable', 'boolean'];
+            $rules['photo_documents'] = ['nullable', 'array'];
+            $rules['photo_documents.*.id'] = ['nullable', 'integer'];
+            $rules['photo_documents.*.file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'];
+            $rules['photo_documents.*.file_name'] = ['nullable', 'string', 'max:255'];
+            $rules['photo_documents.*.file_path'] = ['nullable', 'string', 'max:255'];
+            $rules['photo_documents.*.removed'] = ['nullable', 'boolean'];
+
             $rules['scope_ids'] = 'nullable|array';
             $rules['scope_ids.*'] = 'nullable|integer';
         }

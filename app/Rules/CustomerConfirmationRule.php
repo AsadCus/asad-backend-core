@@ -45,12 +45,18 @@ class CustomerConfirmationRule
             'members.*.chronic_disease_details' => ['nullable', 'string', 'max:1000'],
 
             // Image uploads per member
-            'members.*.passport_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'members.*.photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'members.*.passport_file_name' => ['nullable', 'string', 'max:255'],
-            'members.*.photo_file_name' => ['nullable', 'string', 'max:255'],
-            'members.*.passport_file_removed' => ['nullable', 'boolean'],
-            'members.*.photo_file_removed' => ['nullable', 'boolean'],
+            'members.*.passport_documents' => ['nullable', 'array'],
+            'members.*.passport_documents.*.id' => ['nullable', 'integer'],
+            'members.*.passport_documents.*.file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'members.*.passport_documents.*.file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.passport_documents.*.file_path' => ['nullable', 'string', 'max:255'],
+            'members.*.passport_documents.*.removed' => ['nullable', 'boolean'],
+            'members.*.photo_documents' => ['nullable', 'array'],
+            'members.*.photo_documents.*.id' => ['nullable', 'integer'],
+            'members.*.photo_documents.*.file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'members.*.photo_documents.*.file_name' => ['nullable', 'string', 'max:255'],
+            'members.*.photo_documents.*.file_path' => ['nullable', 'string', 'max:255'],
+            'members.*.photo_documents.*.removed' => ['nullable', 'boolean'],
         ];
 
         if ($requireEnquiry) {
@@ -71,10 +77,10 @@ class CustomerConfirmationRule
             'members.required' => 'At least one member is required.',
             'members.min' => 'At least one member is required.',
             'date_of_application.required' => 'The date of application is required.',
-            'members.*.passport_file.mimes' => 'Passport attachment must be JPG, JPEG, PNG, or PDF.',
-            'members.*.passport_file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
-            'members.*.photo_file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
-            'members.*.photo_file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
+            'members.*.passport_documents.*.file.mimes' => 'Passport attachment must be JPG, JPEG, PNG, or PDF.',
+            'members.*.passport_documents.*.file.max' => 'Passport attachment file must not be more than 5000KB (5MB).',
+            'members.*.photo_documents.*.file.mimes' => 'Photo attachment must be JPG, JPEG, or PNG.',
+            'members.*.photo_documents.*.file.max' => 'Photo attachment file must not be more than 5000KB (5MB).',
         ];
     }
 }

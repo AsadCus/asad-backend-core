@@ -264,8 +264,6 @@ class ManifestWorkflowTest extends TestCase
             'address' => 'Jalan Bukit Bintang, Kuala Lumpur',
             'first_time_umrah' => true,
             'has_chronic_disease' => false,
-            'passport_path' => 'passports/customer-001.pdf',
-            'photo_path' => 'photos/customer-001.jpg',
             'is_active' => true,
         ]);
 
@@ -328,8 +326,6 @@ class ManifestWorkflowTest extends TestCase
             'address' => 'Jalan Bukit Bintang, Kuala Lumpur',
             'first_time_umrah' => 1,
             'has_chronic_disease' => 0,
-            'passport_path' => 'passports/customer-001.pdf',
-            'photo_path' => 'photos/customer-001.jpg',
         ]);
 
         $manifestMemberDob = ManifestMember::query()
@@ -392,8 +388,6 @@ class ManifestWorkflowTest extends TestCase
             'address' => 'Jalan Ampang, Kuala Lumpur',
             'first_time_umrah' => true,
             'has_chronic_disease' => false,
-            'passport_path' => 'passports/canonical.pdf',
-            'photo_path' => 'photos/canonical.jpg',
             'is_active' => true,
         ]);
 

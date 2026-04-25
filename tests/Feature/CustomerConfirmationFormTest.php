@@ -745,8 +745,12 @@ class CustomerConfirmationFormTest extends TestCase
             'email' => 'doc-upload-member@test.com',
             'contact_number' => '0128888000',
             'status' => 'pending_payment',
-            'passport_file' => $passportFile,
-            'passport_file_name' => 'Member Passport Final.pdf',
+            'passport_documents' => [
+                [
+                    'file' => $passportFile,
+                    'file_name' => 'Member Passport Final.pdf',
+                ],
+            ],
         ]);
 
         $response->assertRedirect();
@@ -801,8 +805,12 @@ class CustomerConfirmationFormTest extends TestCase
             'email' => 'passport-png-member@test.com',
             'contact_number' => '0128899000',
             'status' => 'pending_payment',
-            'passport_file' => $passportFile,
-            'passport_file_name' => 'Passport PNG Member.png',
+            'passport_documents' => [
+                [
+                    'file' => $passportFile,
+                    'file_name' => 'Passport PNG Member.png',
+                ],
+            ],
         ]);
 
         $response->assertRedirect();
@@ -865,13 +873,17 @@ class CustomerConfirmationFormTest extends TestCase
                 'email' => 'large-upload-member@test.com',
                 'contact_number' => '0128000001',
                 'status' => 'pending_payment',
-                'passport_file' => $oversizedPassport,
+                'passport_documents' => [
+                    [
+                        'file' => $oversizedPassport,
+                    ],
+                ],
             ],
         );
 
         $response->assertRedirect('/customer-confirmations');
         $response->assertSessionHasErrors([
-            'passport_file' => 'Passport attachment file must not be more than 5000KB (5MB).',
+            'passport_documents.0.file' => 'Passport attachment file must not be more than 5000KB (5MB).',
         ]);
     }
 
@@ -915,7 +927,11 @@ class CustomerConfirmationFormTest extends TestCase
             'email' => 'formatted-name-member@test.com',
             'contact_number' => '0128777000',
             'status' => 'pending_payment',
-            'photo_file' => $photoFile,
+            'photo_documents' => [
+                [
+                    'file' => $photoFile,
+                ],
+            ],
         ]);
 
         $response->assertRedirect();
@@ -974,9 +990,13 @@ class CustomerConfirmationFormTest extends TestCase
                     'name' => 'Group Upload Member',
                     'email' => 'group-upload-member@test.com',
                     'is_leader' => true,
-                    'photo_file' => $photoFile,
-                    'photo_file_name' => 'Photo Group Upload Member.png',
-                    'photo_file_removed' => false,
+                    'photo_documents' => [
+                        [
+                            'file' => $photoFile,
+                            'file_name' => 'Photo Group Upload Member.png',
+                            'removed' => false,
+                        ],
+                    ],
                 ]),
             ],
         ]);

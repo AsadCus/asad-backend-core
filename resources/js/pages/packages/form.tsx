@@ -1706,11 +1706,9 @@ export default function PackageForm({
                 {/* Visa & Vehicle */}
                 <Card>
                     <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">
-                            Visa & Vehicle
-                        </CardTitle>
+                        <CardTitle className="text-xl">Visa</CardTitle>
                         <CardDescription>
-                            Capture travel support and transport setup.
+                            Capture visa details for this package.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -1734,6 +1732,16 @@ export default function PackageForm({
                                 />
                             </FormField>
                         </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-xl">Vehicle</CardTitle>
+                        <CardDescription>
+                            Capture vehicle details for this package.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                             <FormField
                                 label="Vehicle Type"
@@ -2082,7 +2090,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Location"
                                                     htmlFor={`accommodations_${index}_location`}
@@ -2144,33 +2152,6 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
-                                                    label="IC"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Free-text in charge reference',
-                                                    }}
-                                                    error={getError(
-                                                        `accommodations.${index}.ic`,
-                                                    )}
-                                                >
-                                                    <ProperInput
-                                                        value={
-                                                            accommodation.ic ??
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'ic',
-                                                                v,
-                                                            )
-                                                        }
-                                                        placeholder="Enter IC"
-                                                    />
-                                                </FormField>
-                                                <FormField
                                                     label="Meal Type"
                                                     fieldRequirementsProps={{
                                                         hint: 'Enter meal type',
@@ -2198,6 +2179,63 @@ export default function PackageForm({
                                                             )
                                                         }
                                                         placeholder="Select meal plan"
+                                                    />
+                                                </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="In Charge"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Free-text in charge reference',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.ic`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.ic ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'ic',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="Enter IC"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="IC Contact Number"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Contact number for this in charge',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.ic_contact_number`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.ic_contact_number ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'ic_contact_number',
+                                                                v,
+                                                            )
+                                                        }
+                                                        placeholder="Enter IC contact number"
                                                     />
                                                 </FormField>
                                             </div>
@@ -2424,7 +2462,8 @@ export default function PackageForm({
                                         const menCount = Number(
                                             tasreeh.men_passengers ?? 0,
                                         );
-                                        const totalCount = womenCount + menCount;
+                                        const totalCount =
+                                            womenCount + menCount;
 
                                         return (
                                             <div
@@ -2676,45 +2715,37 @@ export default function PackageForm({
                     </CardContent>
                 </Card>
 
-                {/* Visa */}
+                {/* Officials */}
                 <Card>
                     <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <CardTitle className="text-xl">Visa</CardTitle>
+                        <div>
+                            <CardTitle className="text-xl">Officials</CardTitle>
+                            <CardDescription>
                                 Assign officials for this package.
-                            Capture visa setup for this package.
+                            </CardDescription>
                         </div>
                         {!isView && (
-                    <CardContent>
-                        <FormField
-                            label="Visa Type"
-                            htmlFor="visa_type"
-                            fieldRequirementsProps={{
-                                hint: 'Enter visa type',
-                            }}
-                            error={getError('visa_type')}
-                        >
-                            <ProperInput
-                                id="visa_type"
-                                value={data.visa_type || ''}
-                                disabled={isView || processing}
-                                onCommit={(v) =>
-                                    setData('visa_type', v || null)
-                                }
-                                placeholder="e.g., Umrah Visa"
-                            />
-                        </FormField>
-                    </CardContent>
-                </Card>
-
-                {/* Vehicle */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">Vehicle</CardTitle>
-                        <CardDescription>
-                            Capture transport setup for this package.
-                        </CardDescription>
+                            <Button
+                                type="button"
+                                variant="default"
+                                className="w-full sm:w-auto"
+                                onClick={addOfficial}
+                                disabled={processing}
+                            >
+                                <Plus className="mr-1 h-4 w-4" />
+                                Add Official
+                            </Button>
+                        )}
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent>
+                        {(data.officials || []).length === 0 ? (
+                            <p className="text-base text-muted-foreground">
+                                No officials added yet. Click "Add Official" to
+                                assign officials.
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {(data.officials || []).map(
                                     (official, index) => (
                                         <div
                                             key={index}
@@ -2889,36 +2920,6 @@ export default function PackageForm({
                                                         placeholder="Enter passport number"
                                                     />
                                                 </FormField>
-                                                    label="Meal Type"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Enter meal type',
-                                                    }}
-                                                    error={getError(
-                                                        `accommodations.${index}.type_of_meal`,
-                                                    )}
-                                                >
-                                                    <ProperInputSelect
-                                                        options={
-                                                            packageMealPlanOptions
-                                                        }
-                                                        value={
-                                                            accommodation.type_of_meal ??
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onValueChange={(v) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'type_of_meal',
-                                                                String(v || ''),
-                                                            )
-                                                        }
-                                                        placeholder="Select meal plan"
-                                                    />
-                                                </FormField>
-                                                <FormField
                                                 <FormField
                                                     label="Gender"
                                                     htmlFor={`officials_${index}_gender`}
@@ -2951,30 +2952,33 @@ export default function PackageForm({
                                                     />
                                                 </FormField>
                                                 <FormField
-                                                    label="IC Contact Number"
+                                                    label="Date of Birth"
                                                     fieldRequirementsProps={{
-                                                        hint: 'Enter IC contact number',
+                                                        hint: 'Official date of birth',
                                                     }}
                                                     error={getError(
-                                                        `accommodations.${index}.ic_contact_number`,
+                                                        `officials.${index}.date_of_birth`,
                                                     )}
                                                 >
-                                                    <ProperInput
+                                                    <DatePickerField
+                                                        id={`official_dob_${index}`}
+                                                        key={`official_dob_${index}`}
+                                                        value={
                                                             official.date_of_birth ||
-                                                            accommodation.ic_contact_number ??
+                                                            ''
                                                         }
                                                         disabled={
                                                             isView || processing
                                                         }
                                                         fromYear={
-                                                        onCommit={(v) =>
+                                                            new Date().getFullYear() -
                                                             100
                                                         }
-                                                                'ic_contact_number',
-                                                                v,
+                                                        toYear={new Date().getFullYear()}
+                                                        onChange={(v) =>
                                                             updateOfficial(
                                                                 index,
-                                                        placeholder="Enter IC contact number"
+                                                                'date_of_birth',
                                                                 v || null,
                                                             )
                                                         }

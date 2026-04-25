@@ -35,8 +35,6 @@ class ManifestMember extends Model
         'has_chronic_disease',
         'is_using_wheelchair',
         'chronic_disease_details',
-        'passport_path',
-        'photo_path',
         'sort_order',
         'remarks',
     ];

@@ -17,6 +17,8 @@ use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use App\Services\ManifestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
@@ -228,8 +230,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'customer_number' => 'CUST-SYNC-001',
             'passport_number' => 'OLD-PASSPORT',
             'nationality' => 'Malaysia',
-            'passport_path' => 'customers/passport/passport-sync-member.pdf',
-            'photo_path' => 'customers/photo/photo-sync-member.jpg',
         ]);
 
         $customer->files()->create([
@@ -340,6 +340,13 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $this->assertSame('double', (string) $openManifestMember->sharing_plan);
         $this->assertSame('Brother', (string) $openManifestMember->relationship);
 
+        $openPassportMemberFile = $openManifestMember->files()
+            ->where('field', 'passport')
+            ->first();
+        $openPhotoMemberFile = $openManifestMember->files()
+            ->where('field', 'photo')
+            ->first();
+
         $openPassportFile = $openManifest->files()
             ->where('field', 'passport')
             ->first();
@@ -347,8 +354,18 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             ->where('field', 'photo')
             ->first();
 
+        $this->assertNotNull($openPassportMemberFile);
+        $this->assertNotNull($openPhotoMemberFile);
         $this->assertNotNull($openPassportFile);
         $this->assertNotNull($openPhotoFile);
+        $this->assertSame(
+            'customers/passport/passport-sync-member.pdf',
+            (string) $openPassportMemberFile?->file_path,
+        );
+        $this->assertSame(
+            'customers/photo/photo-sync-member.jpg',
+            (string) $openPhotoMemberFile?->file_path,
+        );
         $this->assertSame(
             'customers/passport/passport-sync-member.pdf',
             (string) $openPassportFile?->file_path,
@@ -382,8 +399,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $customer = Customer::create([
             'user_id' => $customerUser->id,
             'customer_number' => 'CUST-FILE-FALLBACK-001',
-            'passport_path' => null,
-            'photo_path' => null,
         ]);
 
         $customer->files()->create([
@@ -426,8 +441,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'manifest_id' => $manifest->id,
             'customer_confirmation_member_id' => $member->id,
             'name' => 'File Path Fallback Member',
-            'passport_path' => null,
-            'photo_path' => null,
             'sharing_plan' => 'single',
             'relationship' => 'Self',
         ]);
@@ -443,13 +456,22 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
 
         $manifestMember->refresh();
 
+        $manifestPassportFile = $manifestMember->files()
+            ->where('field', 'passport')
+            ->first();
+        $manifestPhotoFile = $manifestMember->files()
+            ->where('field', 'photo')
+            ->first();
+
+        $this->assertNotNull($manifestPassportFile);
+        $this->assertNotNull($manifestPhotoFile);
         $this->assertSame(
             'customers/passport/fallback-passport.pdf',
-            (string) $manifestMember->passport_path,
+            (string) $manifestPassportFile?->file_path,
         );
         $this->assertSame(
             'customers/photo/fallback-photo.jpg',
-            (string) $manifestMember->photo_path,
+            (string) $manifestPhotoFile?->file_path,
         );
 
         $this->assertDatabaseHas('model_files', [
@@ -1148,8 +1170,18 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $customer = Customer::create([
             'user_id' => $customerUser->id,
             'customer_number' => 'CUST-MANIFEST-AUTO-001',
-            'passport_path' => 'customers/passport/manifest-auto-passport.pdf',
-            'photo_path' => 'customers/photo/manifest-auto-photo.jpg',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'passport',
+            'file_name' => 'Manifest Auto Passport.pdf',
+            'file_path' => 'customers/passport/manifest-auto-passport.pdf',
+        ]);
+
+        $customer->files()->create([
+            'field' => 'photo',
+            'file_name' => 'Manifest Auto Photo.jpg',
+            'file_path' => 'customers/photo/manifest-auto-photo.jpg',
         ]);
 
         $group = CustomerConfirmation::create([
@@ -1203,6 +1235,101 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         ]);
     }
 
+    public function test_update_member_details_refreshes_documents_before_syncing_open_manifest_member(): void
+    {
+        Storage::fake('public');
+
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create([
+            'name' => 'Manifest Sync Update Member',
+            'email' => 'manifest-sync-update@example.com',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-MANIFEST-SYNC-UPDATE-001',
+        ]);
+
+        $group = CustomerConfirmation::create([
+            'date_of_application' => now()->format('Y-m-d'),
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $group->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-MANIFEST-SYNC-UPDATE-001',
+            'name' => 'Manifest Sync Update Package',
+            'status' => 'open',
+        ]);
+
+        $manifest = Manifest::create([
+            'package_id' => $package->id,
+            'manifest_number' => 'MNF-MANIFEST-SYNC-UPDATE-001',
+        ]);
+
+        $manifestMember = ManifestMember::create([
+            'manifest_id' => $manifest->id,
+            'customer_confirmation_member_id' => $member->id,
+            'sharing_plan' => 'single',
+            'sort_order' => 1,
+        ]);
+
+        app(CustomerConfirmationService::class)->updateMemberDetails((int) $member->id, [
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+            'relationship' => 'Self',
+            'passport_documents' => [
+                [
+                    'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+                    'file_name' => 'Updated Passport',
+                ],
+            ],
+            'photo_documents' => [
+                [
+                    'file' => UploadedFile::fake()->create('photo.jpg', 100, 'image/jpeg'),
+                    'file_name' => 'Updated Photo',
+                ],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Customer::class,
+            'fileable_id' => $customer->id,
+            'field' => 'passport',
+            'file_name' => 'Updated Passport',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => Customer::class,
+            'fileable_id' => $customer->id,
+            'field' => 'photo',
+            'file_name' => 'Updated Photo',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'passport',
+            'file_name' => 'Updated Passport',
+        ]);
+
+        $this->assertDatabaseHas('model_files', [
+            'fileable_type' => ManifestMember::class,
+            'fileable_id' => $manifestMember->id,
+            'field' => 'photo',
+            'file_name' => 'Updated Photo',
+        ]);
+    }
+
     public function test_manifest_edit_payload_includes_stored_customer_document_file_names(): void
     {
         $authUser = User::factory()->create();
@@ -1216,8 +1343,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $customer = Customer::create([
             'user_id' => $customerUser->id,
             'customer_number' => 'CUST-MANIFEST-NAME-001',
-            'passport_path' => 'customers/passport/name-sync-passport.pdf',
-            'photo_path' => 'customers/photo/name-sync-photo.jpg',
         ]);
 
         $customer->files()->create([
@@ -1262,8 +1387,6 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
             'name' => 'Manifest Name Sync Member',
             'sharing_plan' => 'single',
             'relationship' => 'Self',
-            'passport_path' => 'customers/passport/name-sync-passport.pdf',
-            'photo_path' => 'customers/photo/name-sync-photo.jpg',
         ]);
 
         $payload = app(ManifestService::class)->getForEditShow((int) $manifest->id);

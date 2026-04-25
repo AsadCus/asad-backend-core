@@ -20,8 +20,6 @@ class Customer extends Model
         'marital_status',
         'place_of_birth',
         'chronic_disease_details',
-        'passport_path',
-        'photo_path',
     ];
 
     protected $fillable = [
@@ -42,8 +40,6 @@ class Customer extends Model
         'has_chronic_disease',
         'is_using_wheelchair',
         'chronic_disease_details',
-        'passport_path',
-        'photo_path',
         'last_login',
         'is_active',
     ];

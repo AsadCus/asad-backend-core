@@ -1255,33 +1255,52 @@ export default function ConfirmedCustomerIndex({
             'relationship',
             String(latestMemberDialogData.relationship ?? ''),
         );
-        appendValue(
-            'passport_file_name',
-            latestMemberDialogData.passport_file_name ?? '',
-        );
-        appendValue(
-            'photo_file_name',
-            latestMemberDialogData.photo_file_name ?? '',
-        );
-        appendValue(
-            'passport_file_removed',
-            Boolean(latestMemberDialogData.passport_file_removed),
-        );
-        appendValue(
-            'photo_file_removed',
-            Boolean(latestMemberDialogData.photo_file_removed),
-        );
 
-        if (latestMemberDialogData.passport_file instanceof File) {
-            payload.append(
-                'passport_file',
-                latestMemberDialogData.passport_file,
-            );
-        }
+        const appendDocumentRows = (
+            key: 'passport_documents' | 'photo_documents',
+            rows: CustomerDocumentItemSchema[] | null | undefined,
+        ) => {
+            if (!Array.isArray(rows)) {
+                return;
+            }
 
-        if (latestMemberDialogData.photo_file instanceof File) {
-            payload.append('photo_file', latestMemberDialogData.photo_file);
-        }
+            rows.forEach((row, index) => {
+                const baseKey = `${key}[${index}]`;
+
+                if (typeof row.id === 'number') {
+                    payload.append(`${baseKey}[id]`, String(row.id));
+                }
+
+                if (row.file instanceof File) {
+                    payload.append(`${baseKey}[file]`, row.file);
+                }
+
+                if (
+                    typeof row.file_name === 'string' &&
+                    row.file_name.trim() !== ''
+                ) {
+                    payload.append(`${baseKey}[file_name]`, row.file_name);
+                }
+
+                if (
+                    typeof row.file_path === 'string' &&
+                    row.file_path.trim() !== ''
+                ) {
+                    payload.append(`${baseKey}[file_path]`, row.file_path);
+                }
+
+                payload.append(`${baseKey}[removed]`, row.removed ? '1' : '0');
+            });
+        };
+
+        appendDocumentRows(
+            'passport_documents',
+            latestMemberDialogData.passport_documents,
+        );
+        appendDocumentRows(
+            'photo_documents',
+            latestMemberDialogData.photo_documents,
+        );
 
         router.post(
             `/customer-confirmations/members/${memberDialogMemberId}`,
@@ -2426,7 +2445,6 @@ export default function ConfirmedCustomerIndex({
                                     <CardContent>
                                         <CustomerFormFields
                                             customer={memberDialogData}
-                                            useGeneratedDocumentName
                                             isView={isMemberView}
                                             processing={isSavingMember}
                                             getError={(path) =>
