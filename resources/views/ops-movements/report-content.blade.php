@@ -181,25 +181,56 @@
         @endforelse
     </table>
 
+    @php
+        $officialLocations = collect($officials)
+            ->flatMap(fn($o) => collect($o['hotels_by_location'] ?? [])->pluck('location'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($officialLocations->isEmpty()) {
+            $officialLocations = collect(['Makkah', 'Madinah']);
+        }
+    @endphp
+
     <div class="section-title">Officials</div>
     <table class="section-table">
         <tr>
             <th>Name</th>
-            <th>Hotel</th>
+            @foreach($officialLocations as $loc)
+                <th>{{ $loc }} Hotel</th>
+            @endforeach
         </tr>
         @forelse ($officials as $official)
             <tr>
                 <td>{{ $official['name'] ?? '-' }}</td>
-                <td>{{ $official['hotel'] ?? '-' }}</td>
+                @foreach($officialLocations as $loc)
+                    @php
+                        $locHotel = collect($official['hotels_by_location'] ?? [])
+                            ->first(fn($h) => strtolower($h['location'] ?? '') === strtolower($loc))['hotel'] ?? null;
+                    @endphp
+                    <td>{{ $locHotel ?: '-' }}</td>
+                @endforeach
             </tr>
         @empty
             <tr>
-                <td colspan="2" class="text-center">No official data.</td>
+                <td colspan="{{ $officialLocations->count() + 1 }}" class="text-center">No official data.</td>
             </tr>
         @endforelse
     </table>
 
     <div class="section-title">Flight Info</div>
+    <table class="summary-grid">
+        <tr>
+            <th style="width: 12%;">Location</th>
+            <td style="width: 21%;">{{ $opsMovement['location'] ?? '-' }}</td>
+            <th style="width: 12%;">DOA By</th>
+            <td style="width: 21%;">{{ $opsMovement['doa_by'] ?? '-' }}</td>
+            <th style="width: 12%;">DOA Datetime</th>
+            <td style="width: 22%;">{{ $opsMovement['doa_datetime'] ?? '-' }}</td>
+        </tr>
+    </table>
+
     <table class="section-table">
         <tr>
             <th>Description</th>

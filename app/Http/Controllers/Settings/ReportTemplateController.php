@@ -652,6 +652,9 @@ class ReportTemplateController extends Controller
             'first_hotel_name' => 'Sample Hotel',
             'ops_base' => 'Makkah Desk',
             'infotech_ref' => 'INFO-1234',
+            'location' => 'Jeddah',
+            'doa_by' => 'Ustadz Fulan',
+            'doa_datetime' => date('d/m/Y H:i', strtotime('+1 days 06:30')),
             'vehicle_type' => 'Bus',
             'vehicle_driver_name' => 'Sample Driver',
             'vehicle_driver_contact_number' => '+60123456789',
@@ -701,7 +704,14 @@ class ReportTemplateController extends Controller
                 ],
             ],
             'officials' => [
-                ['name' => 'Official A', 'hotel' => 'Sample Makkah Hotel'],
+                [
+                    'name' => 'Official A',
+                    'hotel' => 'Sample Makkah Hotel',
+                    'hotels_by_location' => [
+                        ['location' => 'Makkah', 'hotel' => 'Sample Makkah Hotel'],
+                        ['location' => 'Madinah', 'hotel' => 'Sample Madinah Hotel'],
+                    ]
+                ],
             ],
             'flights' => [
                 [

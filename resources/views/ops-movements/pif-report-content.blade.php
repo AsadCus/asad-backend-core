@@ -192,13 +192,13 @@
     <div class="section-title">Flight Schedule</div>
     <table class="section-table">
         <tr>
-            <th style="width: 10%;">Carrier</th>
-            <th style="width: 9%;" class="text-center">From</th>
-            <th style="width: 9%;" class="text-center">To</th>
-            <th style="width: 16%;" class="text-center">Date</th>
+            <th style="width: 18%;">Carrier</th>
+            <th style="width: 12%;" class="text-center">From</th>
+            <th style="width: 12%;" class="text-center">To</th>
+            <th style="width: 14%;" class="text-center">Date</th>
             <th style="width: 8%;" class="text-center">ETD</th>
             <th style="width: 8%;" class="text-center">ETA</th>
-            <th>Remarks</th>
+            <th style="width: 28%;">Remarks</th>
         </tr>
         @forelse ($flights as $flight)
             @php
@@ -234,15 +234,15 @@
     <div class="section-title">Accommodation</div>
     <table class="section-table">
         <tr>
-            <th style="width: 8%;">City</th>
-            <th style="width: 15%;">Hotel Name</th>
-            <th style="width: 7%;" class="text-center">Check In</th>
-            <th style="width: 7%;" class="text-center">Check Out</th>
-            <th style="width: 5%;" class="text-right">Nights</th>
-            <th style="width: 5%;" class="text-right">Single</th>
-            <th style="width: 5%;" class="text-right">DBL</th>
-            <th style="width: 5%;" class="text-right">TRP</th>
-            <th style="width: 5%;" class="text-right">Quad</th>
+            <th style="width: 10%;">City</th>
+            <th style="width: 18%;">Hotel Name</th>
+            <th style="width: 12%;" class="text-center">Check In</th>
+            <th style="width: 12%;" class="text-center">Check Out</th>
+            <th style="width: 6%;" class="text-right">Nights</th>
+            <th style="width: 7%;" class="text-right">Single</th>
+            <th style="width: 6%;" class="text-right">DBL</th>
+            <th style="width: 6%;" class="text-right">TRP</th>
+            <th style="width: 6%;" class="text-right">Quad</th>
             <th style="width: 5%;" class="text-right">Inf</th>
             <th>Remarks</th>
         </tr>
@@ -277,12 +277,12 @@
     <div class="section-title">Rawdah Tasreeh</div>
     <table class="section-table">
         <tr>
-            <th style="width: 13%;">Date<br><span style="font-weight:400; font-size:8px;">(if Available)</span></th>
-            <th style="width: 9%;" class="text-right">Women Pax</th>
-            <th style="width: 10%;" class="text-center">Women Time</th>
-            <th style="width: 9%;" class="text-right">Men Pax</th>
-            <th style="width: 10%;" class="text-center">Men Time</th>
-            <th style="width: 9%;" class="text-right">Total</th>
+            <th style="width: 15%;">Date</th>
+            <th style="width: 11%;" class="text-right">Women Pax</th>
+            <th style="width: 12%;" class="text-center">Women Time</th>
+            <th style="width: 11%;" class="text-right">Men Pax</th>
+            <th style="width: 12%;" class="text-center">Men Time</th>
+            <th style="width: 8%;" class="text-right">Total</th>
             <th>Remarks (Blocked dates)</th>
         </tr>
         @forelse ($rawdahRows as $row)
