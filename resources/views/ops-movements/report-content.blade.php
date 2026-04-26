@@ -80,10 +80,6 @@
             text-align: center !important;
         }
 
-        .text-right {
-            text-align: right !important;
-        }
-
         .footer-section {
             margin-top: {{ $moduleSpacing['block'] }};
             font-size: 11px;
@@ -105,7 +101,7 @@
         $flights = collect($opsMovement['flights'] ?? []);
     @endphp
 
-    {{-- Summary Header --}}
+    <div class="section-title">Ops Movement Info</div>
     <table class="summary-grid">
         <tr>
             <th style="width: 12%;">Package Number</th>
@@ -120,29 +116,20 @@
             <td>{{ $opsMovement['name'] ?? '-' }}</td>
             <th>Date Range</th>
             <td>{{ $opsMovement['departure_return_range'] ?? '-' }}</td>
-            <th>Visa Type</th>
-            <td>{{ $opsMovement['visa_type'] ?? '-' }}</td>
-        </tr>
-        <tr>
-            <th>First Hotel</th>
-            <td>{{ $opsMovement['first_hotel_name'] ?? '-' }}</td>
             <th>Ops Base</th>
             <td>{{ $opsMovement['ops_base'] ?? '-' }}</td>
-            <th>Infotech Ref</th>
-            <td>{{ $opsMovement['infotech_ref'] ?? '-' }}</td>
         </tr>
         <tr>
-            <th>Visa Submitted (Z Umrah)</th>
-            <td>{{ !empty($opsMovement['visa_submitted_to_z_umrah']) ? 'Yes' : 'No' }}</td>
-            <th>Visa Approved</th>
-            <td>{{ !empty($opsMovement['visa_approved']) ? 'Yes' : 'No' }}</td>
+            <th>Infotech Ref</th>
+            <td>{{ $opsMovement['infotech_ref'] ?? '-' }}</td>
+            <th></th>
+            <td></td>
             <th></th>
             <td></td>
         </tr>
     </table>
 
-    {{-- PAX / Passengers Summary --}}
-    <div class="section-title">PAX / PASSENGERS SUMMARY</div>
+    <div class="section-title">Pax / Passengers</div>
     <table class="section-table">
         <tr>
             <th>Adult (M/F)</th>
@@ -166,8 +153,7 @@
         </tr>
     </table>
 
-    {{-- Accommodation --}}
-    <div class="section-title">ACCOMMODATION</div>
+    <div class="section-title">Hotels</div>
     <table class="section-table">
         <tr>
             <th>Location</th>
@@ -195,8 +181,7 @@
         @endforelse
     </table>
 
-    {{-- Officials --}}
-    <div class="section-title">OFFICIALS</div>
+    <div class="section-title">Officials</div>
     <table class="section-table">
         <tr>
             <th>Name</th>
@@ -214,8 +199,7 @@
         @endforelse
     </table>
 
-    {{-- Flight Ticket --}}
-    <div class="section-title">FLIGHT TICKET</div>
+    <div class="section-title">Flight Info</div>
     <table class="section-table">
         <tr>
             <th>Description</th>
@@ -225,8 +209,6 @@
             <th>Arrival</th>
             <th>Airline</th>
             <th>PNR</th>
-            {{-- <th>DOA By</th>
-            <th>DOA Datetime</th> --}}
             <th>IC</th>
             <th>Remarks</th>
         </tr>
@@ -239,32 +221,51 @@
                 <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
                 <td>{{ $flight['airline'] ?? '-' }}</td>
                 <td>{{ $flight['pnr'] ?? '-' }}</td>
-                {{-- <td>{{ $opsMovement['doa_by'] ?? '-' }}</td>
-                <td>{{ $opsMovement['doa_datetime'] ?? '-' }}</td> --}}
                 <td>{{ $flight['ic'] ?? '-' }}</td>
                 <td>{{ $flight['remarks'] ?? '-' }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="10" class="text-center">No flight data.</td>
+                <td colspan="9" class="text-center">No flight data.</td>
             </tr>
         @endforelse
     </table>
 
-    {{-- Vehicle / Train --}}
-    <div class="section-title">VEHICLE / TRAIN</div>
+    <div class="section-title">Bus / Vehicle</div>
     <table class="section-table">
         <tr>
             <th>Vehicle Type</th>
             <th>Driver Name</th>
             <th>Driver Contact</th>
-            <th>Train Description</th>
         </tr>
         <tr>
             <td>{{ $opsMovement['vehicle_type'] ?? '-' }}</td>
             <td>{{ $opsMovement['vehicle_driver_name'] ?? '-' }}</td>
             <td>{{ $opsMovement['vehicle_driver_contact_number'] ?? '-' }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Train</div>
+    <table class="section-table">
+        <tr>
+            <th>Description</th>
+        </tr>
+        <tr>
             <td>{{ $opsMovement['train_description'] ?? '-' }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Visa</div>
+    <table class="section-table">
+        <tr>
+            <th>Visa Type</th>
+            <th>PP Submitted for Visa Application</th>
+            <th>Visa Approved</th>
+        </tr>
+        <tr>
+            <td>{{ $opsMovement['visa_type'] ?? '-' }}</td>
+            <td>{{ !empty($opsMovement['visa_submitted_to_z_umrah']) ? 'Yes' : 'No' }}</td>
+            <td>{{ !empty($opsMovement['visa_approved']) ? 'Yes' : 'No' }}</td>
         </tr>
     </table>
 

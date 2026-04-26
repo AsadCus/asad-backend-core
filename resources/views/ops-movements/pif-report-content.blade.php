@@ -150,10 +150,8 @@
     <div class="section-title">Passenger Details</div>
     <table class="section-table">
         <tr>
-            <th style="width: 20%;" rowspan="2">Company Name</th>
             <th style="width: 14%;" rowspan="2" class="text-center">No of Mutawif<br>&amp; Official</th>
             <th colspan="4" class="text-center" style="width: 32%;">No of Pax</th>
-            <th style="width: 34%;" rowspan="2">Tour Leader<br><span style="font-weight:400;">(Name, Mobile)</span></th>
         </tr>
         <tr>
             <th class="text-center" style="width: 8%;">Adult</th>
@@ -162,24 +160,32 @@
             <th class="text-center" style="width: 8%;">Total</th>
         </tr>
         <tr>
-            <td>{{ data_get($branding, 'company_name', '-') }}</td>
             <td class="text-center">{{ $officialTotal }}</td>
             <td class="text-center">{{ $adultTotal }}</td>
             <td class="text-center">{{ $childTotal }}</td>
             <td class="text-center">{{ $infantTotal }}</td>
             <td class="text-center">{{ $grandTotal }}</td>
-            <td>
-                @forelse ($displayTourLeaders as $leader)
-                    {{ $leader['type'] }}: {{ $leader['name'] }}<br>
-                    Contact No: {{ $leader['contact_number'] }}
-                    @if (!$loop->last)
-                        <br>
-                    @endif
-                @empty
-                    -
-                @endforelse
-            </td>
         </tr>
+    </table>
+
+    <div class="section-title">Tour Leader</div>
+    <table class="section-table">
+        <tr>
+            <th>Official Location</th>
+            <th>Official Name</th>
+            <th>Contact Number</th>
+        </tr>
+        @forelse ($displayTourLeaders as $leader)
+            <tr>
+                <td>{{ $leader['type'] }}</td>
+                <td>{{ $leader['name'] }}</td>
+                <td>{{ $leader['contact_number'] }}</td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="3" class="text-center">No tour leader rows available.</td>
+            </tr>
+        @endforelse
     </table>
 
     {{-- FLIGHT SCHEDULE --}}

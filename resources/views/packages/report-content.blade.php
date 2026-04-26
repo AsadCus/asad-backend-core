@@ -103,18 +103,13 @@
 
 @section('report-content')
     <div class="content-wrapper">
+        <div class="section-title">Package Information</div>
         <table class="meta-table">
             <tr>
                 <td class="meta-label">Package No.</td>
                 <td>{{ $data['package_number'] ?? '-' }}</td>
-                <td class="meta-label">Status</td>
-                <td>{{ ucfirst($data['status'] ?? '-') }}</td>
-            </tr>
-            <tr>
                 <td class="meta-label">Package Name</td>
                 <td>{{ $data['name'] ?? '-' }}</td>
-                <td class="meta-label">Ticket Type</td>
-                <td>{{ $data['ticket_type'] ? str_replace('_', ' ', ucfirst($data['ticket_type'])) : '-' }}</td>
             </tr>
             <tr>
                 <td class="meta-label">Departure Date</td>
@@ -129,22 +124,8 @@
                 <td>{{ $data['seats_left'] ?? '-' }}</td>
             </tr>
             <tr>
-                <td class="meta-label">Visa Type</td>
-                <td>{{ $data['visa_type'] ?? '-' }}</td>
-            </tr>
-        </table>
-
-        <div class="section-title">Vehicle</div>
-        <table class="meta-table">
-            <tr>
-                <td class="meta-label">Vehicle Type</td>
-                <td>{{ $data['vehicle_type'] ?? '-' }}</td>
-                <td class="meta-label">Driver</td>
-                <td>{{ $data['vehicle_driver_name'] ?? '-' }}</td>
-            </tr>
-            <tr>
-                <td class="meta-label">Driver Contact</td>
-                <td colspan="3">{{ $data['vehicle_driver_contact_number'] ?? '-' }}</td>
+                <td class="meta-label">Status</td>
+                <td colspan="3">{{ ucfirst($data['status'] ?? '-') }}</td>
             </tr>
         </table>
 
@@ -173,6 +154,130 @@
                 <td colspan="3">{{ $data['infant_price'] ?? '-' }}</td>
             </tr>
         </table>
+
+        <div class="section-title">Flight Details</div>
+        @if (!empty($data['flights']))
+            <table class="section-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Route</th>
+                        <th>Description</th>
+                        <th>Airline</th>
+                        <th>PNR</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data['flights'] as $index => $flight)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ ($flight['from'] ?? '-') . '->' . ($flight['to'] ?? '-') }}</td>
+                            <td>{{ $flight['description'] ?? '-' }}</td>
+                            <td>{{ $flight['airline'] ?? '-' }}</td>
+                            <td>{{ $flight['pnr'] ?? '-' }}</td>
+                            <td>{{ $flight['departure_datetime'] ?? '-' }}</td>
+                            <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div class="muted">No flights added.</div>
+        @endif
+
+        <div class="section-title">Transportation Plan</div>
+        @if (!empty($data['transportation_plans']))
+            <table class="section-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data['transportation_plans'] as $index => $plan)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $plan['from'] ?? '-' }}</td>
+                            <td>{{ $plan['to'] ?? '-' }}</td>
+                            <td>{{ $plan['travel_date'] ?? '-' }}</td>
+                            <td>{{ $plan['travel_time'] ?? '-' }}</td>
+                            <td>{{ $plan['remarks'] ?? '-' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div class="muted">No transportation plans added.</div>
+        @endif
+
+        <div class="section-title">Visa</div>
+        <table class="meta-table">
+            <tr>
+                <td class="meta-label">Visa Type</td>
+                <td>{{ $data['visa_type'] ?? '-' }}</td>
+            </tr>
+        </table>
+
+        <div class="section-title">Vehicle</div>
+        <table class="meta-table">
+            <tr>
+                <td class="meta-label">Vehicle Type</td>
+                <td>{{ $data['vehicle_type'] ?? '-' }}</td>
+                <td class="meta-label">Driver</td>
+                <td>{{ $data['vehicle_driver_name'] ?? '-' }}</td>
+            </tr>
+            <tr>
+                <td class="meta-label">Driver Contact</td>
+                <td colspan="3">{{ $data['vehicle_driver_contact_number'] ?? '-' }}</td>
+            </tr>
+        </table>
+
+        <div class="section-title">Train Ticket Details</div>
+        <table class="meta-table">
+            <tr>
+                <td class="meta-label">Train Ticket Type</td>
+                <td>{{ $data['ticket_type'] ? str_replace('_', ' ', ucfirst($data['ticket_type'])) : '-' }}</td>
+            </tr>
+            <tr>
+                <td class="meta-label">Train Description</td>
+                <td>{{ $data['train_description'] ?? '-' }}</td>
+            </tr>
+        </table>
+        @if (!empty($data['train_tickets']))
+            <table class="section-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data['train_tickets'] as $index => $ticket)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $ticket['from'] ?? '-' }}</td>
+                            <td>{{ $ticket['to'] ?? '-' }}</td>
+                            <td>{{ $ticket['travel_date'] ?? '-' }}</td>
+                            <td>{{ $ticket['travel_time'] ?? '-' }}</td>
+                            <td>{{ $ticket['remarks'] ?? '-' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div class="muted">No train tickets added.</div>
+        @endif
 
         <div class="section-title">Accommodations</div>
         @if (!empty($data['accommodations']))
@@ -206,98 +311,6 @@
             </table>
         @else
             <div class="muted">No accommodations added.</div>
-        @endif
-
-        <div class="section-title">Flights</div>
-        @if (!empty($data['flights']))
-            <table class="section-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Route</th>
-                        <th>Description</th>
-                        <th>Airline</th>
-                        <th>PNR</th>
-                        <th>Departure</th>
-                        <th>Arrival</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($data['flights'] as $index => $flight)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ ($flight['from'] ?? '-') . '->' . ($flight['to'] ?? '-') }}</td>
-                            <td>{{ $flight['description'] ?? '-' }}</td>
-                            <td>{{ $flight['airline'] ?? '-' }}</td>
-                            <td>{{ $flight['pnr'] ?? '-' }}</td>
-                            <td>{{ $flight['departure_datetime'] ?? '-' }}</td>
-                            <td>{{ $flight['arrival_datetime'] ?? '-' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <div class="muted">No flights added.</div>
-        @endif
-
-        <div class="section-title">Train Tickets</div>
-        @if (!empty($data['train_tickets']))
-            <table class="section-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($data['train_tickets'] as $index => $ticket)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $ticket['from'] ?? '-' }}</td>
-                            <td>{{ $ticket['to'] ?? '-' }}</td>
-                            <td>{{ $ticket['travel_date'] ?? '-' }}</td>
-                            <td>{{ $ticket['travel_time'] ?? '-' }}</td>
-                            <td>{{ $ticket['remarks'] ?? '-' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <div class="muted">No train tickets added.</div>
-        @endif
-
-        <div class="section-title">Transportation Plans</div>
-        @if (!empty($data['transportation_plans']))
-            <table class="section-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($data['transportation_plans'] as $index => $plan)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $plan['from'] ?? '-' }}</td>
-                            <td>{{ $plan['to'] ?? '-' }}</td>
-                            <td>{{ $plan['travel_date'] ?? '-' }}</td>
-                            <td>{{ $plan['travel_time'] ?? '-' }}</td>
-                            <td>{{ $plan['remarks'] ?? '-' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <div class="muted">No transportation plans added.</div>
         @endif
 
         <div class="section-title">Rawdah Tasreehs</div>
@@ -362,7 +375,7 @@
             <div class="muted">No officials added.</div>
         @endif
 
-        <div class="section-title">Additional Notes</div>
+        <div class="section-title">Package Inclusions</div>
         <table class="meta-table">
             <tr>
                 <td class="meta-label">Included</td>
@@ -376,15 +389,17 @@
                 <td class="meta-label">Offer</td>
                 <td>{{ $data['offer'] ?? '-' }}</td>
             </tr>
+        </table>
+
+        <div class="section-title">Remarks</div>
+        <table class="meta-table">
             <tr>
                 <td class="meta-label">Remarks</td>
                 <td>{{ $data['remarks'] ?? '-' }}</td>
             </tr>
         </table>
 
-        {{-- ── FOOTER ── --}}
         <div class="footer-section">
-            {{-- Notes: always shown above footer if description is filled --}}
             @php
                 $activeNotes = collect($data['notes'] ?? [])
                     ->filter(fn($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
@@ -393,13 +408,11 @@
             @endphp
             @include('partials.report-notes')
 
-            {{-- Module footer text from Report Template Settings --}}
             @if (!empty($branding['footer_text']))
                 <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
             @endif
 
             @include('partials.report-signature-stamp')
         </div>
-
     </div>
 @endsection
