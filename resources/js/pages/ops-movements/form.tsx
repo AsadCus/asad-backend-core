@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useForm } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { useForm, usePage } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -564,6 +565,10 @@ export default function OpsMovementForm({
     canManageBudget = false,
     onBudgetSnapshotChange,
 }: OpsMovementFormProps) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdminUser = auth?.roles?.includes('admin') ?? false;
+    const canEditOpsAndPif = canEdit && isAdminUser;
+
     const [activeTab, setActiveTab] = useState('ops-movement');
     const [budgetExtensionEditor, setBudgetExtensionEditor] =
         useState<BudgetExtensionEditorState | null>(null);
@@ -1394,7 +1399,7 @@ export default function OpsMovementForm({
                             >
                                 <ProperInput
                                     value={data.ops_base ?? ''}
-                                    disabled={processing}
+                                    disabled={processing || !canEditOpsAndPif}
                                     onCommit={(value) =>
                                         setFormData('ops_base', value)
                                     }
@@ -1428,7 +1433,7 @@ export default function OpsMovementForm({
                             >
                                 <ProperInput
                                     value={data.infotech_ref ?? ''}
-                                    disabled={processing}
+                                    disabled={processing || !canEditOpsAndPif}
                                     onCommit={(value) =>
                                         setFormData('infotech_ref', value)
                                     }
@@ -1622,7 +1627,10 @@ export default function OpsMovementForm({
                                             >
                                                 <ProperInput
                                                     value={hotelRow.hotel}
-                                                    disabled={processing}
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
                                                     onCommit={(value) =>
                                                         updateOfficialHotelByLocation(
                                                             index,
@@ -1659,7 +1667,9 @@ export default function OpsMovementForm({
                                 >
                                     <ProperInput
                                         value={data.location ?? ''}
-                                        disabled={processing}
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
                                         textarea
                                         onCommit={(value) =>
                                             setFormData('location', value)
@@ -1673,7 +1683,9 @@ export default function OpsMovementForm({
                                 >
                                     <ProperInput
                                         value={data.doa_by ?? ''}
-                                        disabled={processing}
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
                                         onCommit={(value) =>
                                             setFormData('doa_by', value)
                                         }
@@ -1689,7 +1701,9 @@ export default function OpsMovementForm({
                                         value={data.doa_datetime || ''}
                                         fromYear={new Date().getFullYear() - 2}
                                         toYear={new Date().getFullYear() + 5}
-                                        disabled={processing}
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
                                         useTime
                                         onChange={(value) =>
                                             setFormData(
@@ -1757,7 +1771,10 @@ export default function OpsMovementForm({
                                             >
                                                 <ProperInput
                                                     value={flight.ic ?? ''}
-                                                    disabled={processing}
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
                                                     onCommit={(value) =>
                                                         updateFlight(
                                                             index,
@@ -1778,7 +1795,10 @@ export default function OpsMovementForm({
                                             >
                                                 <ProperInput
                                                     value={flight.remarks ?? ''}
-                                                    disabled={processing}
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
                                                     textarea
                                                     onCommit={(value) =>
                                                         updateFlight(
@@ -1799,9 +1819,7 @@ export default function OpsMovementForm({
 
                     <Card>
                         <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Bus / Vehicle
-                            </CardTitle>
+                            <CardTitle className="text-xl">Vehicle</CardTitle>
                             <CardDescription>
                                 Ground transport details for the movement,
                                 including driver assignment info.
@@ -1913,7 +1931,7 @@ export default function OpsMovementForm({
                                             ? 'yes'
                                             : 'no'
                                     }
-                                    disabled={processing}
+                                    disabled={processing || !canEditOpsAndPif}
                                     onValueChange={(value) =>
                                         setFormData(
                                             'visa_submitted_to_z_umrah',
@@ -1931,7 +1949,7 @@ export default function OpsMovementForm({
                                     mode="classic"
                                     options={YES_NO_OPTIONS}
                                     value={data.visa_approved ? 'yes' : 'no'}
-                                    disabled={processing}
+                                    disabled={processing || !canEditOpsAndPif}
                                     onValueChange={(value) =>
                                         setFormData(
                                             'visa_approved',
@@ -2794,7 +2812,7 @@ export default function OpsMovementForm({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    disabled={processing || !canEdit}
+                                    disabled={processing || !canEditOpsAndPif}
                                     onClick={addTourLeader}
                                 >
                                     <Plus className="h-4 w-4" />
@@ -2822,7 +2840,8 @@ export default function OpsMovementForm({
                                             <ProperInput
                                                 value={tourLeader.type ?? ''}
                                                 disabled={
-                                                    processing || !canEdit
+                                                    processing ||
+                                                    !canEditOpsAndPif
                                                 }
                                                 onCommit={(value) =>
                                                     updateTourLeader(
@@ -2846,7 +2865,8 @@ export default function OpsMovementForm({
                                             <ProperInput
                                                 value={tourLeader.name ?? ''}
                                                 disabled={
-                                                    processing || !canEdit
+                                                    processing ||
+                                                    !canEditOpsAndPif
                                                 }
                                                 onCommit={(value) =>
                                                     updateTourLeader(
@@ -2874,7 +2894,8 @@ export default function OpsMovementForm({
                                                     ''
                                                 }
                                                 disabled={
-                                                    processing || !canEdit
+                                                    processing ||
+                                                    !canEditOpsAndPif
                                                 }
                                                 onCommit={(value) =>
                                                     updateTourLeader(
@@ -2890,7 +2911,9 @@ export default function OpsMovementForm({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            disabled={processing || !canEdit}
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
                                             onClick={() =>
                                                 removeTourLeader(index)
                                             }
@@ -2992,7 +3015,9 @@ export default function OpsMovementForm({
                                     >
                                         <ProperInput
                                             value={flight.remarks ?? ''}
-                                            disabled={processing || !canEdit}
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
                                             textarea
                                             onCommit={(value) =>
                                                 updatePifFlightRemarks(
@@ -3174,7 +3199,8 @@ export default function OpsMovementForm({
                                                     accommodation.remarks ?? ''
                                                 }
                                                 disabled={
-                                                    processing || !canEdit
+                                                    processing ||
+                                                    !canEditOpsAndPif
                                                 }
                                                 textarea
                                                 onCommit={(value) =>
@@ -3304,7 +3330,9 @@ export default function OpsMovementForm({
                                     >
                                         <ProperInput
                                             value={row.remarks ?? ''}
-                                            disabled={processing || !canEdit}
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
                                             textarea
                                             onCommit={(value) =>
                                                 updatePifRawdahRemarks(
@@ -3397,7 +3425,8 @@ export default function OpsMovementForm({
                                             <ProperInput
                                                 value={row.remarks ?? ''}
                                                 disabled={
-                                                    processing || !canEdit
+                                                    processing ||
+                                                    !canEditOpsAndPif
                                                 }
                                                 textarea
                                                 onCommit={(value) =>

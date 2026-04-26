@@ -231,7 +231,7 @@
         @endforelse
     </table>
 
-    <div class="section-title">Bus / Vehicle</div>
+    <div class="section-title">Vehicle</div>
     <table class="section-table">
         <tr>
             <th>Vehicle Type</th>

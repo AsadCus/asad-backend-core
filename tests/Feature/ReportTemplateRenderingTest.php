@@ -224,7 +224,7 @@ class ReportTemplateRenderingTest extends TestCase
             'Hotels',
             'Officials',
             'Flight Info',
-            'Bus / Vehicle',
+            'Vehicle',
             'Train',
             'Visa',
         ]);
