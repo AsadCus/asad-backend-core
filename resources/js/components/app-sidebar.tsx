@@ -69,6 +69,7 @@ export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
+    const canViewDocumentation = Boolean(auth?.can_view_documentation);
     const scopeMode = String(auth?.scope_mode ?? 'country').toLowerCase();
     const isSalesOnlyRole = roles.includes('sales') && !roles.includes('admin');
     const isOperationsOnlyRole =
@@ -335,21 +336,15 @@ export function AppSidebar() {
           ];
 
     const footerNavItems: NavItem[] = [
-        {
-            title: 'Documentation V1',
-            href: '/documentations/v1',
-            icon: BookOpen,
-        },
-        {
-            title: 'Documentation V2',
-            href: '/documentations/v2',
-            icon: BookOpen,
-        },
-        {
-            title: 'Documentation V3',
-            href: '/documentations/v3',
-            icon: BookOpen,
-        },
+        ...(canViewDocumentation
+            ? [
+                  {
+                      title: 'Documentation',
+                      href: '/documentations',
+                      icon: BookOpen,
+                  },
+              ]
+            : []),
     ];
 
     return (

@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $user?->getRoleNames(),
                 'permissions' => $user?->getAllPermissions()->pluck('name'),
                 'is_ghost_user' => $user?->isGhostUser() ?? false,
+                'can_view_documentation' => (bool) config('documentation.visible_to_all_users') || ($user?->isGhostUser() ?? false),
                 'notifications' => $user
                     ? $this->notificationService->getUserNotifications($user->id)
                     : [],

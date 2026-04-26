@@ -25,9 +25,9 @@ class DocumentationPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('documentations.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('documentations/v1/index')
+                ->component('documentations/v3/index')
                 ->has('documentation', fn (Assert $documentation) => $documentation
-                    ->where('manual.title', 'Documentation V1 - Travel Management System Manual')
+                    ->where('manual.title', 'Documentation - Travel Management System Manual')
                     ->hasAll([
                         'introduction',
                         'menuGroups',
@@ -61,52 +61,20 @@ class DocumentationPageTest extends TestCase
             );
     }
 
-    public function test_authenticated_user_can_open_documentation_v2_page(): void
+    public function test_documentation_route_is_versionless(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('documentations.index', ['version' => 'v2']))
+            ->get('/documentations/v1')
             ->assertInertia(fn (Assert $page) => $page
-                ->component('documentations/v2/index')
-                ->has('documentation', fn (Assert $documentation) => $documentation
-                    ->where('manual.title', 'Documentation V2 - Travel Management System Manual')
-                    ->etc()
-                )
+                ->component('error/notfound')
             );
-    }
-
-    public function test_authenticated_user_can_open_documentation_v3_page(): void
-    {
-        $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('documentations.index', ['version' => 'v3']))
+            ->get('/documentations/v2')
             ->assertInertia(fn (Assert $page) => $page
-                ->component('documentations/v3/index')
-                ->has('documentation', fn (Assert $documentation) => $documentation
-                    ->where('manual.title', 'Documentation V3 - Travel Management System Manual')
-                    ->hasAll([
-                        'introduction',
-                        'menuGroups',
-                        'coreWorkflows',
-                        'howToGuides',
-                        'commonStatuses',
-                        'tips',
-                    ])
-                    ->has('menuGroups.0', fn (Assert $group) => $group
-                        ->hasAll([
-                            'menu',
-                            'route_path',
-                            'module',
-                            'purpose',
-                            'features',
-                            'how_to',
-                        ])
-                        ->etc()
-                    )
-                    ->etc()
-                )
+                ->component('error/notfound')
             );
     }
 }

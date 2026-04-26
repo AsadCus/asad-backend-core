@@ -7,17 +7,11 @@ class DocumentationService
     /**
      * @return array<string, mixed>
      */
-    public function getIndexData(string $documentationVersion = 'v1'): array
+    public function getIndexData(): array
     {
-        $manualTitle = match ($documentationVersion) {
-            'v2' => 'Documentation V2 - Travel Management System Manual',
-            'v3' => 'Documentation V3 - Travel Management System Manual',
-            default => 'Documentation V1 - Travel Management System Manual',
-        };
-
         return [
             'manual' => [
-                'title' => $manualTitle,
+                'title' => 'Documentation - Travel Management System Manual',
                 'version' => '1.1',
                 'date' => '11 April 2026',
                 'author' => 'Kherman',

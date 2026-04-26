@@ -22,8 +22,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Documentation V3',
-        href: '/documentations/v3',
+        title: 'Documentation',
+        href: '/documentations',
     },
 ];
 

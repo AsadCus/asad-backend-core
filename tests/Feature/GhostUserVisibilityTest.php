@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\UserRoles\AdminUserService;
 use App\Services\UserService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
@@ -116,5 +117,42 @@ class GhostUserVisibilityTest extends TestCase
         GhostUser::create([
             'user_id' => (int) $salesUser->id,
         ]);
+    }
+
+    public function test_documentation_visibility_follows_config_and_ghost_status(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        Config::set('documentation.visible_to_all_users', false);
+
+        $ghostAdmin = User::factory()->create();
+        $ghostAdmin->assignRole('admin');
+
+        GhostUser::create([
+            'user_id' => (int) $ghostAdmin->id,
+        ]);
+
+        $regularAdmin = User::factory()->create();
+        $regularAdmin->assignRole('admin');
+
+        $this->actingAs($ghostAdmin)
+            ->get(route('documentations.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.can_view_documentation', true)
+            );
+
+        $this->actingAs($regularAdmin)
+            ->get(route('documentations.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.can_view_documentation', false)
+            );
+
+        Config::set('documentation.visible_to_all_users', true);
+
+        $this->actingAs($regularAdmin)
+            ->get(route('documentations.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.can_view_documentation', true)
+            );
     }
 }

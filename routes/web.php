@@ -75,9 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Documentation
-    Route::get('documentations/{version?}', [DocumentationController::class, 'index'])
-        ->where('version', 'v1|v2|v3')
-        ->defaults('version', 'v1')
+    Route::get('documentations', [DocumentationController::class, 'index'])
         ->name('documentations.index');
 
     // Masters
