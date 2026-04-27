@@ -309,7 +309,7 @@ class CustomerConfirmationService
             'members.quotationItems.quotation.order.invoices.quotationItems',
             'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
             'enquiry.handledBy:id,name',
-            'package',
+            'package.country',
         ])
             ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
@@ -355,6 +355,7 @@ class CustomerConfirmationService
                     'enquiry_id' => $group->enquiry_id,
                     'package_id' => $group->package_id,
                     'package_name' => $group->package?->name ?? '-',
+                    'package_country' => $group->package?->country?->name ?? '-',
                     'package_status' => $group->package?->status,
                     'is_holding' => (bool) $group->is_holding,
                     'date_of_application' => $group->date_of_application_formatted,
@@ -427,7 +428,7 @@ class CustomerConfirmationService
             'members.quotationItems.quotation.order.invoices.quotationItems',
             'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
             'enquiry.handledBy:id,name',
-            'package',
+            'package.country',
         ])
             ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
@@ -468,6 +469,7 @@ class CustomerConfirmationService
                     'enquiry_id' => $group->enquiry_id,
                     'package_id' => $group->package_id,
                     'package_name' => $group->package?->name ?? '-',
+                    'package_country' => $group->package?->country?->name ?? '-',
                     'package_status' => $group->package?->status,
                     'date_of_application' => $group->date_of_application_formatted,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,
@@ -545,7 +547,7 @@ class CustomerConfirmationService
             'members.quotationItems.quotation.order.invoices.quotationItems',
             'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
             'enquiry.handledBy:id,name',
-            'package',
+            'package.country',
         ])
             ->when(DataScope::shouldScopeEnquiryAndConfirmation(), function ($query) {
                 $this->applySalesEnquiryScopeToConfirmationQuery($query);
@@ -585,6 +587,7 @@ class CustomerConfirmationService
                     'enquiry_id' => $group->enquiry_id,
                     'package_id' => $group->package_id,
                     'package_name' => $group->package?->name ?? '-',
+                    'package_country' => $group->package?->country?->name ?? '-',
                     'package_status' => $group->package?->status,
                     'date_of_application' => $group->date_of_application_formatted,
                     'enquiry_type' => $group->enquiry?->type ? ucfirst($group->enquiry->type) : null,

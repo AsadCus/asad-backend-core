@@ -129,9 +129,14 @@ export default function Customer({ data }: CustomerProps) {
                 <Head title="List of Customers" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">
-                            List of Customers
-                        </h2>
+                        <div className="flex gap-2">
+                            <h2 className="text-lg font-semibold">
+                                List of Customers
+                            </h2>
+                            <Badge variant="default" className="py-0 text-base">
+                                Total Customer: {data.length}
+                            </Badge>
+                        </div>
                     </div>
 
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">

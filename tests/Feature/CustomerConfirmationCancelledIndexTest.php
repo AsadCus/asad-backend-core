@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -24,11 +25,16 @@ class CustomerConfirmationCancelledIndexTest extends TestCase
 
         $this->actingAs($user);
 
+        $country = Country::factory()->create([
+            'name' => 'Malaysia',
+        ]);
+
         $openPackage = Package::create([
             'package_number' => 'PKG-CANCELLED-INDEX-001',
             'name' => 'Cancelled Index Package',
             'status' => 'open',
             'price_single' => 3500,
+            'country_id' => $country->id,
         ]);
 
         $cancelledNonHoldingGroup = CustomerConfirmation::create([
@@ -82,6 +88,7 @@ class CustomerConfirmationCancelledIndexTest extends TestCase
                 ->where('indexUrl', route('cancelled-customer.index'))
                 ->has('dataGroups', 1)
                 ->where('dataGroups.0.id', $cancelledNonHoldingGroup->id)
+                ->where('dataGroups.0.package_country', 'Malaysia')
                 ->where('dataGroups.0.refund_cancel_date', '12 April 2026')
             );
     }

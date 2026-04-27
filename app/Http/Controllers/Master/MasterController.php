@@ -15,8 +15,19 @@ class MasterController extends Controller
 {
     public function index()
     {
+        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
+
+        $userCountQuery = User::query()
+            ->whereDoesntHave('ghostUser');
+
+        if ($hideCustomerFromMaster) {
+            $userCountQuery->whereDoesntHave('roles', function ($query) {
+                $query->where('name', 'customer');
+            });
+        }
+
         $stats = [
-            'users' => User::count(),
+            'users' => $userCountQuery->count(),
             'countries' => Country::count(),
             'branches' => Branch::count(),
             'fiscalYears' => FinancialYear::count(),
@@ -26,6 +37,7 @@ class MasterController extends Controller
 
         return Inertia::render('masters/index', [
             'stats' => $stats,
+            'hideCustomerFromMaster' => $hideCustomerFromMaster,
         ]);
     }
 }

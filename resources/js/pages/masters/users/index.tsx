@@ -7,6 +7,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 import { index as masterIndex } from '@/routes/master';
 import { index } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
@@ -51,6 +52,7 @@ interface MasterUserProps {
             breakdown: Array<{ country: string; count: number }>;
         };
     };
+    hideCustomerFromMaster?: boolean;
 }
 
 export default function MasterUser({
@@ -58,6 +60,7 @@ export default function MasterUser({
     // dataRole,
     roleStats,
     // countryStats,
+    hideCustomerFromMaster = false,
 }: MasterUserProps) {
     // const countrySummary = (
     //     entries: Array<{ country: string; count: number }>,
@@ -77,6 +80,7 @@ export default function MasterUser({
             title: 'Administrator',
             // description: `Assigned countries: ${countryStats.admin.totalCountries} (${countrySummary(countryStats.admin.breakdown)})`,
             description: 'Admin accounts',
+            hidden: false,
             icon: Shield,
             count: roleStats.admin,
             href: masterAdmin.index.url(),
@@ -87,6 +91,7 @@ export default function MasterUser({
             title: 'Sales',
             // description: `Assigned countries: ${countryStats.sales.totalCountries} (${countrySummary(countryStats.sales.breakdown)})`,
             description: 'Sales accounts',
+            hidden: false,
             icon: TrendingUp,
             count: roleStats.sales,
             href: masterSales.index.url(),
@@ -96,6 +101,7 @@ export default function MasterUser({
         {
             title: 'Customer',
             description: 'Customer accounts',
+            hidden: hideCustomerFromMaster,
             icon: Users,
             count: roleStats.customer,
             href: masterCustomer.index.url(),
@@ -106,6 +112,7 @@ export default function MasterUser({
             title: 'Operations',
             // description: `Assigned countries: ${countryStats.operations.totalCountries} (${countrySummary(countryStats.operations.breakdown)})`,
             description: 'Operations accounts',
+            hidden: false,
             icon: Route,
             count: roleStats.operations,
             href: masterOperations.index.url(),
@@ -127,7 +134,10 @@ export default function MasterUser({
                         return (
                             <Card
                                 key={role.title}
-                                className="cursor-pointer transition-shadow hover:shadow-md"
+                                className={cn(
+                                    'cursor-pointer transition-shadow hover:shadow-md',
+                                    role.hidden ? 'hidden' : '',
+                                )}
                                 onClick={() => router.get(role.href)}
                             >
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

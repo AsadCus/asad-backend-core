@@ -7,6 +7,7 @@ export interface Auth {
     roles: string[];
     permissions: string[];
     is_ghost_user?: boolean;
+    hide_customer_from_user_management: boolean;
     can_view_documentation?: boolean;
     notifications: NotificationItem[];
     scope_mode?: 'country' | 'branch' | string;

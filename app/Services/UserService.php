@@ -59,9 +59,15 @@ class UserService
             ->values();
     }
 
-    public function getRoleForFilter()
+    public function getRoleForFilter(bool $excludeCustomer = false)
     {
-        $data = Role::get()->map(function ($q) {
+        $roleQuery = Role::query();
+
+        if ($excludeCustomer) {
+            $roleQuery->where('name', '!=', 'customer');
+        }
+
+        $data = $roleQuery->get()->map(function ($q) {
             return [
                 'value' => $q->name,
                 'label' => ucwords($q->name),

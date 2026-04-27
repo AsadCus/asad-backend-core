@@ -39,6 +39,7 @@ interface MasterProps {
         productsAndServices: number;
         scopeMode: string;
     };
+    hideCustomerFromMaster?: boolean;
 }
 
 export default function Master({ stats }: MasterProps) {

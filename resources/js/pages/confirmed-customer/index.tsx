@@ -159,6 +159,11 @@ const resolvePaymentIssueBreakdown = (
 const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     createSelectColumn<CustomerConfirmationDatatableSchema>(),
     {
+        accessorKey: 'id',
+        header: 'Id',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'customer_name',
         header: 'Customer Name',
         meta: { exportable: true },
@@ -270,6 +275,21 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
         accessorKey: 'package_name',
         header: 'Package',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'package_country',
+        header: 'Country',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const country = row.original.package_country;
+
+            if (!country || String(country).trim().length === 0) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return <span>{country}</span>;
+        },
+        filterFn: 'includesValue',
     },
     {
         accessorKey: 'refund_cancel_date',
@@ -679,6 +699,7 @@ export default function ConfirmedCustomerIndex({
 }: ConfirmedCustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
+    const isAdmin = auth.roles.includes('admin');
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const isHoldingIndex = indexUrl.includes('/customer-holding');
     const isCompletedIndex = indexUrl.includes('/completed-customer');
@@ -692,6 +713,10 @@ export default function ConfirmedCustomerIndex({
                     ? String(column.accessorKey ?? '')
                     : String(column.id ?? '');
 
+            if (columnKey === 'package_country' && !isAdmin) {
+                return false;
+            }
+
             if (isCancelledIndex) {
                 return columnKey !== 'paid_amount';
             }
@@ -701,7 +726,7 @@ export default function ConfirmedCustomerIndex({
                 columnKey !== 'refund_cancel_date'
             );
         });
-    }, [isCancelledIndex]);
+    }, [isAdmin, isCancelledIndex]);
 
     const memberTableColumns = useMemo(() => {
         return memberColumns.filter((column) => {
@@ -822,6 +847,21 @@ export default function ConfirmedCustomerIndex({
             href: indexUrl,
         },
     ];
+
+    const packageCountryFilterOptions = useMemo(() => {
+        return Array.from(
+            new Set(
+                dataGroups
+                    .map((group) => String(group.package_country ?? '').trim())
+                    .filter((country) => country.length > 0 && country !== '-'),
+            ),
+        )
+            .sort((left, right) => left.localeCompare(right))
+            .map((country) => ({
+                label: country,
+                value: country,
+            }));
+    }, [dataGroups]);
 
     const buildSharingPlanOptions = (
         packageData:
@@ -2102,12 +2142,14 @@ export default function ConfirmedCustomerIndex({
                             }}
                             initialState={{
                                 columnVisibility: {
+                                    id: false,
                                     customer_name: true,
                                     customer_number: false,
                                     enquiry_email: false,
                                     enquiry_contact: false,
                                     member_count: true,
                                     package_name: true,
+                                    package_country: isAdmin,
                                     paid_amount: !isCancelledIndex,
                                     refunded_paid_summary: isCancelledIndex,
                                     enquiry_type: true,
@@ -2124,21 +2166,35 @@ export default function ConfirmedCustomerIndex({
                                 },
                             }}
                             renderFilter={(table) => (
-                                <ColumnFilter
-                                    table={table}
-                                    columnId="enquiry_type"
-                                    title="Enquiry Type"
-                                    options={[
-                                        {
-                                            label: 'General',
-                                            value: 'General',
-                                        },
-                                        {
-                                            label: 'Private',
-                                            value: 'Private',
-                                        },
-                                    ]}
-                                />
+                                <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="enquiry_type"
+                                        title="Enquiry Type"
+                                        options={[
+                                            {
+                                                label: 'General',
+                                                value: 'General',
+                                            },
+                                            {
+                                                label: 'Private',
+                                                value: 'Private',
+                                            },
+                                        ]}
+                                    />
+                                    {isAdmin &&
+                                        packageCountryFilterOptions.length >
+                                            0 && (
+                                            <ColumnFilter
+                                                table={table}
+                                                columnId="package_country"
+                                                title="Country"
+                                                options={
+                                                    packageCountryFilterOptions
+                                                }
+                                            />
+                                        )}
+                                </>
                             )}
                         />
                     </div>

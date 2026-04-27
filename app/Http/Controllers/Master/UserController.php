@@ -37,6 +37,8 @@ class UserController extends Controller
      */
     public function index()
     {
+        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
+
         // $dataUser = $this->userService->getForDataTable();
         // $dataRole = $this->userService->getRoleForFilter();
         // $dataBranch = $this->branchService->getForFilter();
@@ -65,6 +67,7 @@ class UserController extends Controller
             // 'dataSales' => $dataSales,
             'roleStats' => $roleStats,
             'countryStats' => $countryStats,
+            'hideCustomerFromMaster' => $hideCustomerFromMaster,
             'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
@@ -74,7 +77,9 @@ class UserController extends Controller
      */
     public function create()
     {
-        $dataRole = $this->userService->getRoleForFilter();
+        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
+
+        $dataRole = $this->userService->getRoleForFilter($hideCustomerFromMaster);
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
@@ -108,7 +113,9 @@ class UserController extends Controller
     public function show(string $id)
     {
         $data = $this->userService->getForEditShow($id);
-        $dataRole = $this->userService->getRoleForFilter();
+        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
+
+        $dataRole = $this->userService->getRoleForFilter($hideCustomerFromMaster);
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
@@ -129,7 +136,9 @@ class UserController extends Controller
     public function edit(string $id)
     {
         $data = $this->userService->getForEditShow($id);
-        $dataRole = $this->userService->getRoleForFilter();
+        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
+
+        $dataRole = $this->userService->getRoleForFilter($hideCustomerFromMaster);
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();

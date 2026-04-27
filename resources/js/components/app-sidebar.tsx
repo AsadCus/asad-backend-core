@@ -70,6 +70,9 @@ export function AppSidebar() {
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
     const canViewDocumentation = Boolean(auth?.can_view_documentation);
+    const hideCustomerFromUserManagement = Boolean(
+        auth?.hide_customer_from_user_management,
+    );
     const scopeMode = String(auth?.scope_mode ?? 'country').toLowerCase();
     const isSalesOnlyRole = roles.includes('sales') && !roles.includes('admin');
     const isOperationsOnlyRole =
@@ -127,11 +130,14 @@ export function AppSidebar() {
                                             title: 'Operations',
                                             href: masterOperations.index.url(),
                                         },
-
-                                        {
-                                            title: 'Customer',
-                                            href: masterCustomer.index.url(),
-                                        },
+                                        ...(!hideCustomerFromUserManagement
+                                            ? [
+                                                  {
+                                                      title: 'Customer',
+                                                      href: masterCustomer.index.url(),
+                                                  },
+                                              ]
+                                            : []),
                                     ],
                                 },
                                 {
