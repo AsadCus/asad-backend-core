@@ -282,7 +282,7 @@ class ReportTemplateRenderingTest extends TestCase
             'Vehicle',
             'Train Ticket Details',
             'Accommodations',
-            'Rawdah Tasreehs',
+            'Rawdah Tasreeh',
             'Officials',
             'Package Inclusions',
             'Remarks',

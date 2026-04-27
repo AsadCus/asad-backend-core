@@ -558,6 +558,12 @@ const YES_NO_OPTIONS = [
     { label: 'No', value: 'no' },
 ];
 
+const FIRST_MEAL_OPTIONS = [
+    { label: 'Breakfast', value: 'breakfast' },
+    { label: 'Lunch', value: 'lunch' },
+    { label: 'Dinner', value: 'dinner' },
+];
+
 export default function OpsMovementForm({
     initialData,
     onCancel,
@@ -659,6 +665,15 @@ export default function OpsMovementForm({
             accommodations: (data.accommodations ?? []).map(
                 (accommodation) => ({
                     id: accommodation.id,
+                    first_meal: ['breakfast', 'lunch', 'dinner'].includes(
+                        String(accommodation.first_meal ?? '')
+                            .trim()
+                            .toLowerCase(),
+                    )
+                        ? String(accommodation.first_meal ?? '')
+                              .trim()
+                              .toLowerCase()
+                        : null,
                     ic: accommodation.ic ?? null,
                     ic_contact_number: accommodation.ic_contact_number ?? null,
                     remarks: accommodation.remarks ?? null,
@@ -754,7 +769,6 @@ export default function OpsMovementForm({
     const accommodationLocationTargets = useMemo(() => {
         const uniqueTargets: Array<{
             location: string;
-            fallbackHotel: string;
         }> = [];
 
         (data.accommodations ?? []).forEach((accommodation, index) => {
@@ -765,8 +779,6 @@ export default function OpsMovementForm({
                 normalizedLocation.length > 0
                     ? normalizedLocation
                     : `Location ${index + 1}`;
-            const fallbackHotel = String(accommodation.hotel_name ?? '').trim();
-
             if (
                 uniqueTargets.some(
                     (target) =>
@@ -777,7 +789,7 @@ export default function OpsMovementForm({
                 return;
             }
 
-            uniqueTargets.push({ location, fallbackHotel });
+            uniqueTargets.push({ location });
         });
 
         return uniqueTargets;
@@ -801,10 +813,7 @@ export default function OpsMovementForm({
 
                 return {
                     location,
-                    hotel:
-                        matched?.hotel ??
-                        (target.fallbackHotel ||
-                            String(official.hotel ?? '').trim()),
+                    hotel: matched?.hotel ?? '',
                 };
             });
         }
@@ -1530,13 +1539,39 @@ export default function OpsMovementForm({
                                                     }
                                                 />
                                             </FormField>
-                                            <FormField label="Meal">
+                                            <FormField
+                                                label="First Meal"
+                                                error={getError(
+                                                    `accommodations.${index}.first_meal`,
+                                                )}
+                                            >
+                                                <ProperInputSelect
+                                                    options={FIRST_MEAL_OPTIONS}
+                                                    value={
+                                                        accommodation.first_meal ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        !canEditOpsAndPif ||
+                                                        processing
+                                                    }
+                                                    onValueChange={(value) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'first_meal',
+                                                            String(value),
+                                                        )
+                                                    }
+                                                    placeholder="Select first meal"
+                                                />
+                                            </FormField>
+                                            {/* <FormField label="Meal">
                                                 <CopyableText
                                                     value={
                                                         accommodation.type_of_meal
                                                     }
                                                 />
-                                            </FormField>
+                                            </FormField> */}
                                         </div>
                                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField
@@ -3276,31 +3311,6 @@ export default function OpsMovementForm({
                                         </div>
                                         <div className="space-y-4">
                                             <FormField
-                                                label="Women Passengers"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of female passengers for this Rawdah slot.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        row.women_passengers ??
-                                                        0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Men Passengers"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of male passengers for this Rawdah slot.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        row.men_passengers ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
                                                 label="Total Passengers"
                                                 fieldRequirementsProps={{
                                                     hint: 'Total passengers (women + men) for this slot.',
@@ -3312,6 +3322,35 @@ export default function OpsMovementForm({
                                                             0) +
                                                         (row.men_passengers ??
                                                             0)
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Women Passengers"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of female passengers for this Rawdah slot.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        row.women_passengers ===
+                                                        0
+                                                            ? '-'
+                                                            : row.women_passengers
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Men Passengers"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Number of male passengers for this Rawdah slot.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        row.men_passengers === 0
+                                                            ? '-'
+                                                            : row.men_passengers
                                                     }
                                                 />
                                             </FormField>
@@ -3460,7 +3499,7 @@ export default function OpsMovementForm({
                 >
                     Back
                 </Button>
-                {canEdit && (
+                {canEditOpsAndPif && (
                     <Button type="submit" disabled={processing}>
                         {processing && (
                             <Loader2 className="h-4 w-4 animate-spin" />

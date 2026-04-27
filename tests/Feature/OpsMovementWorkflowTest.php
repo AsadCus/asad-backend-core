@@ -394,6 +394,7 @@ class OpsMovementWorkflowTest extends TestCase
             'accommodations' => [
                 [
                     'id' => $accommodation->id,
+                    'first_meal' => 'breakfast',
                     'ic' => 'IC-HOTEL-01',
                     'remarks' => 'Accommodation remark updated',
                 ],
@@ -503,6 +504,7 @@ class OpsMovementWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('package_accommodations', [
             'id' => $accommodation->id,
+            'type_of_meal' => 'Full Board',
             'ic' => 'IC-HOTEL-01',
             'remarks' => 'Accommodation remark updated',
         ]);
@@ -523,9 +525,8 @@ class OpsMovementWorkflowTest extends TestCase
         ]);
 
         $official->refresh();
-        $officialHotels = array_values((array) ($official->hotel ?? []));
-
-        $this->assertContains('Official Hotel A', $officialHotels);
+        $this->assertSame('Official Hotel A', data_get($official->hotel, 'location:makkah'));
+        $this->assertSame('Official Hotel A', data_get($official->hotel, (string) $accommodation->id));
 
         $manifest->refresh();
 
@@ -535,8 +536,7 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'doa_by'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_submitted_to_z_umrah'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_approved'));
-        $this->assertSame('Makkah', data_get($manifest->ops_movement_extension, 'officials.0.hotels_by_location.0.location'));
-        $this->assertSame('Official Hotel A', data_get($manifest->ops_movement_extension, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertSame('breakfast', data_get($manifest->ops_movement_extension, 'accommodations.0.first_meal'));
         $this->assertSame('IC-FLT-01', data_get($manifest->ops_movement_extension, 'flights.0.ic'));
         $this->assertSame('Transportation', data_get($manifest->ops_movement_extension, 'budget.0.title'));
         $this->assertSame(500.5, data_get($manifest->ops_movement_extension, 'budget.0.items.0.unit_price'));
@@ -567,6 +567,7 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame('mutawif', data_get($opsMovement, 'officials.0.type'));
         $this->assertSame('Makkah', data_get($opsMovement, 'officials.0.hotels_by_location.0.location'));
         $this->assertSame('Official Hotel A', data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertSame('breakfast', data_get($opsMovement, 'accommodations.0.first_meal'));
         $this->assertSame('IC-HOTEL-01', data_get($opsMovement, 'accommodations.0.ic'));
         $this->assertSame('Ops Itinerary.pdf', data_get($opsMovement, 'documents.itinerary.0.file_name'));
         $this->assertSame('Ops Booklet.pdf', data_get($opsMovement, 'documents.booklet.0.file_name'));
@@ -786,7 +787,7 @@ class OpsMovementWorkflowTest extends TestCase
         $this->assertSame(3, data_get($opsMovement, 'accommodations.0.room_counts.single'));
     }
 
-    public function test_ops_movement_official_hotel_rows_default_from_package_accommodation_hotels(): void
+    public function test_ops_movement_official_hotel_rows_do_not_fallback_to_package_accommodation_hotels(): void
     {
         $package = Package::create([
             'package_number' => 'PKG-OPS-HOTEL-FALLBACK-001',
@@ -822,9 +823,9 @@ class OpsMovementWorkflowTest extends TestCase
         $opsMovement = app(OpsMovementService::class)->getForShow($package->id);
 
         $this->assertSame('Makkah', data_get($opsMovement, 'officials.0.hotels_by_location.0.location'));
-        $this->assertSame('Makkah Main Hotel', data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertNull(data_get($opsMovement, 'officials.0.hotels_by_location.0.hotel'));
         $this->assertSame('Madinah', data_get($opsMovement, 'officials.0.hotels_by_location.1.location'));
-        $this->assertSame('Madinah Main Hotel', data_get($opsMovement, 'officials.0.hotels_by_location.1.hotel'));
+        $this->assertNull(data_get($opsMovement, 'officials.0.hotels_by_location.1.hotel'));
 
         $makkahAccommodation->update([
             'hotel_name' => 'Makkah Updated Hotel',
@@ -835,8 +836,8 @@ class OpsMovementWorkflowTest extends TestCase
 
         $opsMovementAfterAccommodationUpdate = app(OpsMovementService::class)->getForShow($package->id);
 
-        $this->assertSame('Makkah Updated Hotel', data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.0.hotel'));
-        $this->assertSame('Madinah Updated Hotel', data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.1.hotel'));
+        $this->assertNull(data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.0.hotel'));
+        $this->assertNull(data_get($opsMovementAfterAccommodationUpdate, 'officials.0.hotels_by_location.1.hotel'));
     }
 
     public function test_ops_movement_export_routes_return_pdf_responses(): void

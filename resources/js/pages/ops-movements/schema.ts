@@ -4,6 +4,7 @@ export const opsAccommodationSchema = z.object({
     id: z.number(),
     location: z.string().nullable().optional(),
     hotel_name: z.string().nullable().optional(),
+    first_meal: z.string().nullable().optional(),
     ic: z.string().nullable().optional(),
     ic_contact_number: z.string().nullable().optional(),
     type_of_meal: z.string().nullable().optional(),

@@ -106,8 +106,8 @@ class OpsMovementService
         $manifest = $package->manifests->sortByDesc('id')->first();
         $extension = $manifest?->ops_movement_extension ?? [];
         $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
-        $officialOpsMap = collect($extension['officials'] ?? [])
-            ->filter(fn ($official) => is_array($official) && isset($official['id']))
+        $accommodationOpsMap = collect($extension['accommodations'] ?? [])
+            ->filter(fn ($accommodation) => is_array($accommodation) && isset($accommodation['id']))
             ->keyBy('id');
         $accommodationTargets = $package->accommodations
             ->map(function ($accommodation, int $index): array {
@@ -200,7 +200,8 @@ class OpsMovementService
                 'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
                 'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
             ],
-            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomCountsByLocation, $manifest) {
+            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomCountsByLocation, $manifest, $accommodationOpsMap) {
+                $accommodationOps = $accommodationOpsMap->get((int) $accommodation->id, []);
                 $locationKey = $this->normalizeLocationKey($accommodation->location);
                 $locationRooms = collect($manifest?->rooms ?? [])
                     ->filter(function ($room) use ($locationKey): bool {
@@ -239,6 +240,7 @@ class OpsMovementService
                     'id' => $accommodation->id,
                     'location' => $accommodation->location,
                     'hotel_name' => $accommodation->hotel_name,
+                    'first_meal' => $this->normalizeFirstMeal($accommodationOps['first_meal'] ?? null),
                     'ic' => $accommodation->ic,
                     'ic_contact_number' => $accommodation->ic_contact_number,
                     'type_of_meal' => $accommodation->type_of_meal,
@@ -261,54 +263,27 @@ class OpsMovementService
                     'remarks' => $accommodation->remarks ?? null,
                 ];
             })->values()->toArray(),
-            'officials' => $package->officials->map(function ($official) use ($officialOpsMap, $accommodationTargets) {
-                $officialOps = $officialOpsMap->get((int) $official->id, []);
+            'officials' => $package->officials->map(function ($official) use ($accommodationTargets) {
                 $officialHotelMap = $this->normalizeOfficialHotelMap($official->hotel);
-                $storedHotelsByLocation = collect($officialOps['hotels_by_location'] ?? [])
-                    ->filter(fn ($row) => is_array($row))
-                    ->map(function ($row): array {
-                        return [
-                            'location' => $this->normalizeNullableString($row['location'] ?? null),
-                            'hotel' => $this->normalizeNullableString($row['hotel'] ?? null),
-                        ];
-                    })
-                    ->filter(fn ($row) => $row['location'] !== null)
-                    ->values();
-                $fallbackHotel = $this->normalizeNullableString($officialOps['hotel'] ?? null)
-                    ?? $this->resolvePrimaryOfficialHotel($official->hotel);
 
                 $hotelsByLocation = $accommodationTargets
-                    ->map(function (array $target) use ($storedHotelsByLocation, $fallbackHotel, $officialHotelMap): array {
+                    ->map(function (array $target) use ($officialHotelMap): array {
                         $location = (string) ($target['location'] ?? '');
-                        $hotelFromAccommodationMap = $officialHotelMap[(int) ($target['id'] ?? 0)] ?? null;
-                        $hotelFromAccommodation = $this->normalizeNullableString($target['hotel_name'] ?? null);
-                        $matched = $storedHotelsByLocation->first(function (array $row) use ($location): bool {
-                            return strtolower((string) $row['location']) === strtolower((string) $location);
-                        });
+                        $locationMapKey = 'location:'.strtolower(trim($location));
+                        $accommodationMapKey = (string) (int) ($target['id'] ?? 0);
+                        $hotelFromLocationMap = $officialHotelMap[$locationMapKey] ?? null;
 
                         return [
                             'location' => $location,
-                            'hotel' => $matched['hotel'] ?? $hotelFromAccommodationMap ?? $hotelFromAccommodation ?? $fallbackHotel,
+                            'hotel' => $hotelFromLocationMap ?? ($officialHotelMap[$accommodationMapKey] ?? null),
                         ];
                     })
                     ->values();
-
-                if ($hotelsByLocation->isEmpty() && $storedHotelsByLocation->isNotEmpty()) {
-                    $hotelsByLocation = $storedHotelsByLocation
-                        ->map(function (array $row): array {
-                            return [
-                                'location' => $row['location'],
-                                'hotel' => $row['hotel'],
-                            ];
-                        })
-                        ->values();
-                }
 
                 $primaryHotel = $hotelsByLocation
                     ->pluck('hotel')
                     ->map(fn ($hotel) => $this->normalizeNullableString($hotel))
-                    ->first(fn ($hotel) => $hotel !== null)
-                    ?? $fallbackHotel;
+                    ->first(fn ($hotel) => $hotel !== null);
 
                 return [
                     'id' => $official->id,
@@ -405,6 +380,8 @@ class OpsMovementService
                 'train_description' => $payload['train_description'] ?? $package->train_description,
             ]);
 
+            $accommodationExtensionRows = [];
+
             foreach (($payload['accommodations'] ?? []) as $accommodationPayload) {
                 if (empty($accommodationPayload['id'])) {
                     continue;
@@ -421,9 +398,12 @@ class OpsMovementService
                     'ic' => $accommodationPayload['ic'] ?? null,
                     'remarks' => $accommodationPayload['remarks'] ?? null,
                 ]);
-            }
 
-            $officialExtensionRows = [];
+                $accommodationExtensionRows[] = [
+                    'id' => (int) $accommodation->id,
+                    'first_meal' => $this->normalizeFirstMeal($accommodationPayload['first_meal'] ?? null),
+                ];
+            }
 
             foreach (($payload['officials'] ?? []) as $officialPayload) {
                 if (empty($officialPayload['id'])) {
@@ -448,56 +428,37 @@ class OpsMovementService
                     ->filter(fn ($row) => $row['location'] !== null)
                     ->values();
 
-                $primaryHotel = $this->normalizeNullableString($officialPayload['hotel'] ?? null)
-                    ?? $hotelsByLocation
-                        ->pluck('hotel')
-                        ->map(fn ($hotel) => $this->normalizeNullableString($hotel))
-                        ->first(fn ($hotel) => $hotel !== null);
+                $officialHotelMap = [];
+                foreach ($hotelsByLocation as $row) {
+                    $location = $this->normalizeNullableString($row['location'] ?? null);
+                    $hotel = $this->normalizeNullableString($row['hotel'] ?? null);
 
-                $accommodationHotelMap = [];
-                foreach ($package->accommodations as $accommodation) {
-                    $location = $this->normalizeNullableString($accommodation->location);
-
-                    if ($location === null) {
+                    if ($location === null || $hotel === null) {
                         continue;
                     }
 
-                    $matchedHotel = $hotelsByLocation
-                        ->first(function (array $row) use ($location): bool {
-                            return strtolower((string) ($row['location'] ?? '')) === strtolower($location);
+                    $locationMapKey = 'location:'.strtolower($location);
+                    $officialHotelMap[$locationMapKey] = $hotel;
+
+                    $matchingAccommodation = $package->accommodations
+                        ->first(function ($accommodation) use ($location): bool {
+                            $accommodationLocation = $this->normalizeNullableString($accommodation->location);
+
+                            if ($accommodationLocation === null) {
+                                return false;
+                            }
+
+                            return strtolower($accommodationLocation) === strtolower($location);
                         });
 
-                    $normalizedHotel = $this->normalizeNullableString($matchedHotel['hotel'] ?? null)
-                        ?? $primaryHotel;
-
-                    if ($normalizedHotel === null) {
-                        continue;
+                    if ($matchingAccommodation) {
+                        $officialHotelMap[(string) (int) $matchingAccommodation->id] = $hotel;
                     }
-
-                    $accommodationHotelMap[(string) (int) $accommodation->id] = $normalizedHotel;
-                }
-
-                if ($accommodationHotelMap === [] && $primaryHotel !== null) {
-                    $accommodationHotelMap['0'] = $primaryHotel;
                 }
 
                 $official->update([
-                    'hotel' => $accommodationHotelMap === [] ? null : $accommodationHotelMap,
+                    'hotel' => $officialHotelMap === [] ? null : $officialHotelMap,
                 ]);
-
-                $officialExtensionRows[] = [
-                    'id' => (int) $official->id,
-                    'hotel' => $primaryHotel,
-                    'hotels_by_location' => $hotelsByLocation
-                        ->map(function (array $row): array {
-                            return [
-                                'location' => $row['location'],
-                                'hotel' => $row['hotel'],
-                            ];
-                        })
-                        ->values()
-                        ->all(),
-                ];
             }
 
             $extension = $manifest->ops_movement_extension ?? [];
@@ -509,12 +470,12 @@ class OpsMovementService
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
 
-            if (array_key_exists('budget_currency', $payload)) {
-                $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null);
+            if (array_key_exists('accommodations', $payload) && is_array($payload['accommodations'])) {
+                $extension['accommodations'] = $accommodationExtensionRows;
             }
 
-            if (array_key_exists('officials', $payload) && is_array($payload['officials'])) {
-                $extension['officials'] = $officialExtensionRows;
+            if (array_key_exists('budget_currency', $payload)) {
+                $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null);
             }
             $extension['flights'] = collect($payload['flights'] ?? [])
                 ->filter(fn ($flightPayload) => ! empty($flightPayload['id']))
@@ -636,6 +597,18 @@ class OpsMovementService
         }
 
         return $departureDate->translatedFormat('j F Y').' - '.$returnDate->translatedFormat('j F Y');
+    }
+
+    private function normalizeFirstMeal(mixed $value): ?string
+    {
+        $normalizedValue = Str::of((string) ($value ?? ''))
+            ->trim()
+            ->lower()
+            ->value();
+
+        return in_array($normalizedValue, ['breakfast', 'lunch', 'dinner'], true)
+            ? $normalizedValue
+            : null;
     }
 
     private function buildOpsMovementNumber(Manifest $manifest): string
@@ -853,7 +826,7 @@ class OpsMovementService
     }
 
     /**
-     * @return array<int, string>
+     * @return array<string, string>
      */
     private function normalizeOfficialHotelMap(mixed $rawHotel): array
     {
@@ -871,10 +844,10 @@ class OpsMovementService
             }
 
             $normalizedKey = is_int($key) || ctype_digit((string) $key)
-                ? (int) $key
-                : null;
+                ? (string) (int) $key
+                : trim((string) $key);
 
-            if ($normalizedKey === null) {
+            if ($normalizedKey === '') {
                 continue;
             }
 

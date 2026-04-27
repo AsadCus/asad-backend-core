@@ -291,9 +291,9 @@
             @endphp
             <tr>
                 <td>{{ $row['date'] ?? '-' }}</td>
-                <td class="text-right">{{ (int) ($row['women_passengers'] ?? 0) }}</td>
+                <td class="text-right">{{ $row['women_passengers'] === 0 ? '-' : $row['women_passengers'] }}</td>
                 <td class="text-center">{{ $row['women_time'] ?? '-' }}</td>
-                <td class="text-right">{{ (int) ($row['men_passengers'] ?? 0) }}</td>
+                <td class="text-right">{{ $row['men_passengers'] === 0 ? '-' : $row['men_passengers'] }}</td>
                 <td class="text-center">{{ $row['men_time'] ?? '-' }}</td>
                 <td class="text-right">{{ $totalPax }}</td>
                 <td>{{ $row['remarks'] ?? '-' }}</td>
@@ -303,11 +303,11 @@
                 <td colspan="7" class="text-center">No rawdah tasreeh data.</td>
             </tr>
         @endforelse
-        <tr>
+        {{-- <tr>
             <td colspan="7" class="text-center legend-text">
                 (Preferred date and time is based on availability)
             </td>
-        </tr>
+        </tr> --}}
     </table>
 
     {{-- TRANSPORTATION PLAN --}}

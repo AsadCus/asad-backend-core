@@ -569,9 +569,78 @@ export default function PackageForm({
         field: keyof AccommodationSchema,
         value: string | number,
     ) => {
-        const current = [...(data.accommodations || [])];
-        current[index] = { ...current[index], [field]: value };
-        setData('accommodations', current);
+        setData((currentData) => {
+            const nextAccommodations = [...(currentData.accommodations || [])];
+            nextAccommodations[index] = {
+                ...nextAccommodations[index],
+                [field]: value,
+            };
+
+            if (field !== 'hotel_name') {
+                return {
+                    ...currentData,
+                    accommodations: nextAccommodations,
+                };
+            }
+
+            const changedAccommodation = nextAccommodations[index];
+            if (!changedAccommodation) {
+                return {
+                    ...currentData,
+                    accommodations: nextAccommodations,
+                };
+            }
+
+            const target = resolveAccommodationTarget(
+                changedAccommodation,
+                index,
+            );
+            if (target.hotelName.length === 0) {
+                return {
+                    ...currentData,
+                    accommodations: nextAccommodations,
+                };
+            }
+
+            const updatedOfficials = [...(currentData.officials || [])].map(
+                (official) => {
+                    const existingHotelMap = normalizeHotelMap(official);
+                    const hasValueForTarget = [target.locationKey, target.idKey]
+                        .filter((key): key is string => Boolean(key))
+                        .some(
+                            (key) =>
+                                String(existingHotelMap[key] ?? '').trim()
+                                    .length > 0,
+                        );
+
+                    if (hasValueForTarget) {
+                        return official;
+                    }
+
+                    const nextHotelMap = {
+                        ...existingHotelMap,
+                        [target.locationKey]: target.hotelName,
+                    };
+
+                    const primaryHotel =
+                        Object.values(nextHotelMap).find((hotel) => {
+                            return String(hotel).trim().length > 0;
+                        }) ?? '';
+
+                    return {
+                        ...official,
+                        hotel: primaryHotel || null,
+                        hotel_map: nextHotelMap,
+                    };
+                },
+            );
+
+            return {
+                ...currentData,
+                accommodations: nextAccommodations,
+                officials: updatedOfficials,
+            };
+        });
     };
 
     // --- Flight helpers ---
@@ -700,13 +769,21 @@ export default function PackageForm({
     // --- Official helpers ---
     const addOfficial = () => {
         const current = data.officials || [];
+        const initialHotelMap = buildInitialOfficialHotelMap(
+            data.accommodations || [],
+        );
+        const primaryHotel =
+            Object.values(initialHotelMap).find((hotel) => {
+                return String(hotel).trim().length > 0;
+            }) ?? '';
+
         setData('officials', [
             ...current,
             {
                 type: '',
                 name: '',
-                hotel: '',
-                hotel_map: {},
+                hotel: primaryHotel || null,
+                hotel_map: initialHotelMap,
                 contact_number: '',
                 nationality: '',
                 passport_number: '',
@@ -738,33 +815,72 @@ export default function PackageForm({
         setData('officials', current);
     };
 
+    const resolveAccommodationTarget = useCallback(
+        (accommodation: AccommodationSchema, index: number) => {
+            const normalizedLocation = String(
+                accommodation.location ?? '',
+            ).trim();
+            const locationKey = normalizedLocation
+                ? `location:${normalizedLocation.toLowerCase()}`
+                : `location:index-${index}`;
+            const idKey =
+                accommodation.id !== undefined && accommodation.id !== null
+                    ? String(accommodation.id)
+                    : null;
+            const hotelName = String(accommodation.hotel_name ?? '').trim();
+
+            return {
+                locationKey,
+                idKey,
+                hotelName,
+            };
+        },
+        [],
+    );
+
+    const buildInitialOfficialHotelMap = useCallback(
+        (accommodations: AccommodationSchema[]): Record<string, string> => {
+            return accommodations.reduce<Record<string, string>>(
+                (carry, accommodation, index) => {
+                    const target = resolveAccommodationTarget(
+                        accommodation,
+                        index,
+                    );
+
+                    if (target.hotelName.length === 0) {
+                        return carry;
+                    }
+
+                    carry[target.locationKey] = target.hotelName;
+
+                    return carry;
+                },
+                {},
+            );
+        },
+        [resolveAccommodationTarget],
+    );
+
     const accommodationHotelTargets = useMemo(() => {
         return (data.accommodations || []).map((accommodation, index) => {
             const normalizedLocation = String(
                 accommodation.location ?? '',
             ).trim();
-            const fallbackHotelName = String(
-                accommodation.hotel_name ?? '',
-            ).trim();
-            const idKey =
-                accommodation.id !== undefined && accommodation.id !== null
-                    ? String(accommodation.id)
-                    : null;
-            const locationKey = normalizedLocation
-                ? `location:${normalizedLocation.toLowerCase()}`
-                : `location:index-${index}`;
+            const target = resolveAccommodationTarget(accommodation, index);
 
             return {
                 label:
                     normalizedLocation.length > 0
                         ? normalizedLocation
                         : `Accommodation ${index + 1}`,
-                fallbackHotelName,
-                primaryKey: idKey ?? locationKey,
-                matchingKeys: idKey ? [idKey, locationKey] : [locationKey],
+                hotelName: target.hotelName,
+                primaryKey: target.locationKey,
+                matchingKeys: target.idKey
+                    ? [target.locationKey, target.idKey]
+                    : [target.locationKey],
             };
         });
-    }, [data.accommodations]);
+    }, [data.accommodations, resolveAccommodationTarget]);
 
     const normalizeHotelMap = useCallback(
         (official: OfficialSchema): Record<string, string> => {
@@ -796,11 +912,7 @@ export default function PackageForm({
     );
 
     const getOfficialHotelByTarget = useCallback(
-        (
-            official: OfficialSchema,
-            matchingKeys: string[],
-            fallbackHotelName: string,
-        ): string => {
+        (official: OfficialSchema, matchingKeys: string[]): string => {
             const hotelMap = normalizeHotelMap(official);
             const matchedKey = matchingKeys.find((key) => {
                 return String(key).trim().length > 0 && !!hotelMap[key];
@@ -810,11 +922,7 @@ export default function PackageForm({
                 return hotelMap[matchedKey] ?? '';
             }
 
-            if (matchingKeys.length === 1) {
-                return fallbackHotelName || official.hotel || '';
-            }
-
-            return fallbackHotelName || official.hotel || '';
+            return '';
         },
         [normalizeHotelMap],
     );
@@ -2400,7 +2508,7 @@ export default function PackageForm({
                                 disabled={processing}
                             >
                                 <Plus className="mr-1 h-4 w-4" />
-                                Add Rawdah
+                                Add
                             </Button>
                         )}
                     </CardHeader>
@@ -2593,6 +2701,21 @@ export default function PackageForm({
                                                     </div>
                                                     <div className="space-y-4">
                                                         <FormField
+                                                            label="Total Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Auto-calculated total',
+                                                            }}
+                                                        >
+                                                            <Input
+                                                                type="number"
+                                                                value={
+                                                                    totalCount
+                                                                }
+                                                                disabled={true}
+                                                                className="bg-muted"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
                                                             label="Women Passengers"
                                                             fieldRequirementsProps={{
                                                                 hint: 'Input women passenger count for this Rawdah slot.',
@@ -2604,7 +2727,10 @@ export default function PackageForm({
                                                             <ProperInput
                                                                 type="number"
                                                                 value={String(
-                                                                    womenCount,
+                                                                    womenCount ===
+                                                                        0
+                                                                        ? ''
+                                                                        : womenCount,
                                                                 )}
                                                                 disabled={
                                                                     isView ||
@@ -2624,6 +2750,7 @@ export default function PackageForm({
                                                                 inputProps={{
                                                                     min: '0',
                                                                 }}
+                                                                placeholder="0"
                                                             />
                                                         </FormField>
                                                         <FormField
@@ -2638,7 +2765,10 @@ export default function PackageForm({
                                                             <ProperInput
                                                                 type="number"
                                                                 value={String(
-                                                                    menCount,
+                                                                    menCount ===
+                                                                        0
+                                                                        ? ''
+                                                                        : menCount,
                                                                 )}
                                                                 disabled={
                                                                     isView ||
@@ -2658,21 +2788,7 @@ export default function PackageForm({
                                                                 inputProps={{
                                                                     min: '0',
                                                                 }}
-                                                            />
-                                                        </FormField>
-                                                        <FormField
-                                                            label="Total Passengers"
-                                                            fieldRequirementsProps={{
-                                                                hint: 'Auto-calculated total',
-                                                            }}
-                                                        >
-                                                            <Input
-                                                                type="number"
-                                                                value={
-                                                                    totalCount
-                                                                }
-                                                                disabled={true}
-                                                                className="bg-muted"
+                                                                placeholder="0"
                                                             />
                                                         </FormField>
                                                     </div>
@@ -2892,7 +3008,7 @@ export default function PackageForm({
                                                 </FormField>
                                             </div>
 
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField
                                                     label="Passport Number"
                                                     fieldRequirementsProps={{
@@ -2982,6 +3098,33 @@ export default function PackageForm({
                                                                 v || null,
                                                             )
                                                         }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Place of Birth"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'City of birth',
+                                                    }}
+                                                    error={getError(
+                                                        `officials.${index}.place_of_birth`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            official.place_of_birth ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onCommit={(v) =>
+                                                            updateOfficial(
+                                                                index,
+                                                                'place_of_birth',
+                                                                v || null,
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Johor Bahru"
                                                     />
                                                 </FormField>
                                             </div>
@@ -3089,34 +3232,6 @@ export default function PackageForm({
                                             </div>
 
                                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                                <FormField
-                                                    label="Place of Birth"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'City of birth',
-                                                    }}
-                                                    error={getError(
-                                                        `officials.${index}.place_of_birth`,
-                                                    )}
-                                                >
-                                                    <ProperInput
-                                                        value={
-                                                            official.place_of_birth ??
-                                                            ''
-                                                        }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
-                                                        onCommit={(v) =>
-                                                            updateOfficial(
-                                                                index,
-                                                                'place_of_birth',
-                                                                v || null,
-                                                            )
-                                                        }
-                                                        placeholder="e.g., Johor Bahru"
-                                                    />
-                                                </FormField>
-
                                                 {accommodationHotelTargets.length ===
                                                 0 ? (
                                                     <FormField
@@ -3149,7 +3264,7 @@ export default function PackageForm({
                                                     </FormField>
                                                 ) : (
                                                     <div className="space-y-3 rounded-md border border-dashed p-4 md:col-span-2">
-                                                        <p className="text-sm font-medium">
+                                                        <p className="text-base font-medium">
                                                             Hotel by Location
                                                         </p>
                                                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
@@ -3169,7 +3284,6 @@ export default function PackageForm({
                                                                             value={getOfficialHotelByTarget(
                                                                                 official,
                                                                                 target.matchingKeys,
-                                                                                target.fallbackHotelName,
                                                                             )}
                                                                             disabled={
                                                                                 isView ||

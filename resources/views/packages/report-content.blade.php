@@ -313,7 +313,7 @@
             <div class="muted">No accommodations added.</div>
         @endif
 
-        <div class="section-title">Rawdah Tasreehs</div>
+        <div class="section-title">Rawdah Tasreeh</div>
         @if (!empty($data['rawdah_tasreehs']))
             <table class="section-table">
                 <thead>
@@ -332,9 +332,9 @@
                         <tr>
                             <td>{{ $index + 1 }}</td>
                             <td>{{ $tasreeh['date'] ?? '-' }}</td>
-                            <td>{{ $tasreeh['women_passengers'] ?? '-' }}</td>
+                            <td>{{ $tasreeh['women_passengers'] === 0 ? '-' : $tasreeh['women_passengers'] }}</td>
                             <td>{{ $tasreeh['women_time'] ?? '-' }}</td>
-                            <td>{{ $tasreeh['men_passengers'] ?? '-' }}</td>
+                            <td>{{ $tasreeh['men_passengers'] === 0 ? '-' : $tasreeh['men_passengers'] }}</td>
                             <td>{{ $tasreeh['men_time'] ?? '-' }}</td>
                             <td>{{ $tasreeh['remarks'] ?? '-' }}</td>
                         </tr>
