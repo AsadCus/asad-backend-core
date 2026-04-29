@@ -1004,7 +1004,7 @@ class FinancialTransactionService
         ?string $timezone = null,
         ?string $rangeStartUtc = null,
         ?string $rangeEndUtc = null,
-        ?int $packageId = null,
+        ?array $packageIds = null,
     ): array {
         [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange(
             $period,
@@ -1028,12 +1028,12 @@ class FinancialTransactionService
             ->orderBy('receipt_date')
             ->orderBy('id');
 
-        if ($packageId !== null) {
-            // Package filter: only receipts whose quotation links to this package
-            $receiptsQuery->whereHas('invoice.order.quotation', function ($q) use ($packageId): void {
+        if (!empty($packageIds)) {
+            // Package filter: only receipts whose quotation links to these packages
+            $receiptsQuery->whereHas('invoice.order.quotation', function ($q) use ($packageIds): void {
                 $q->whereNotIn('status', ['cancelled', 'rejected', 'expired'])
-                    ->whereHas('customerConfirmation', function ($ccq) use ($packageId): void {
-                        $ccq->where('package_id', $packageId);
+                    ->whereHas('customerConfirmation', function ($ccq) use ($packageIds): void {
+                        $ccq->whereIn('package_id', $packageIds);
                     });
             });
         } else {
@@ -1210,13 +1210,21 @@ class FinancialTransactionService
 
         // Resolve package info for display in the report
         $packageInfo = null;
-        if ($packageId !== null) {
-            $pkg = \App\Models\Package::find($packageId);
-            if ($pkg) {
+        if (!empty($packageIds)) {
+            if (count($packageIds) === 1) {
+                $pkg = \App\Models\Package::find($packageIds[0]);
+                if ($pkg) {
+                    $packageInfo = [
+                        'id'             => $pkg->id,
+                        'package_number' => $pkg->package_number,
+                        'name'           => $pkg->name,
+                    ];
+                }
+            } else {
                 $packageInfo = [
-                    'id'             => $pkg->id,
-                    'package_number' => $pkg->package_number,
-                    'name'           => $pkg->name,
+                    'id'             => 'multiple',
+                    'package_number' => 'Multiple',
+                    'name'           => count($packageIds) . ' Packages Selected',
                 ];
             }
         }

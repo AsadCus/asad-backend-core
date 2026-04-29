@@ -298,7 +298,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
-        $packageId = $request->input('package_id');
+        $packageIds = $request->input('package_id');
+        if (is_string($packageIds)) {
+            $packageIds = explode(',', $packageIds);
+        }
+        if (is_array($packageIds)) {
+            $packageIds = array_map('intval', array_filter($packageIds));
+        }
 
         $data = $this->financialTransactionService->getPackageGroupPaymentSummary(
             $period,
@@ -306,7 +312,7 @@ class DashboardController extends Controller
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
-            $packageId ? (int) $packageId : null,
+            empty($packageIds) ? null : $packageIds,
         );
 
         return response()->json($data);
@@ -319,7 +325,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
-        $packageId = $request->input('package_id');
+        $packageIds = $request->input('package_id');
+        if (is_string($packageIds)) {
+            $packageIds = explode(',', $packageIds);
+        }
+        if (is_array($packageIds)) {
+            $packageIds = array_map('intval', array_filter($packageIds));
+        }
 
         $summary = $this->financialTransactionService->getPackageGroupPaymentSummary(
             $period,
@@ -327,7 +339,7 @@ class DashboardController extends Controller
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
-            $packageId ? (int) $packageId : null,
+            empty($packageIds) ? null : $packageIds,
         );
 
         $report = $this->reportTemplateService->build('package_group_report', $summary);

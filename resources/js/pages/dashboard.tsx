@@ -56,6 +56,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Download, Check, ChevronsUpDown } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { MultiSelect, type MultiSelectGroup } from '@/components/multi-select';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateRange } from 'react-day-picker';
@@ -247,7 +248,7 @@ export default function Dashboard({ data }: DashboardProps) {
     );
     const [groupMonthFrom, setGroupMonthFrom] = useState<string>(currentMonthStr);
     const [groupMonthTo, setGroupMonthTo]     = useState<string>(currentMonthStr);
-    const [groupPackageId, setGroupPackageId] = useState<number | null>(null);
+    const [groupPackageIds, setGroupPackageIds] = useState<string[]>([]);
     const [isGroupPopoverOpen, setIsGroupPopoverOpen]     = useState(false);
 
     const normalizedPackageOptions = (data.packageOptions ?? []) as GeneralEnquiryPackageOption[];
@@ -281,13 +282,13 @@ export default function Dashboard({ data }: DashboardProps) {
     );
 
     const groupedPackageOptions = useMemo(() => {
-        const selectedPackageId = Number(groupPackageId ?? 0);
+        const selectedPackageIds = groupPackageIds.map(Number).filter(id => id > 0);
 
         const options = normalizedPackageOptions
             .filter((option) => {
                 const optionId = Number(option.value ?? 0);
                 const isCurrentSelection =
-                    selectedPackageId > 0 && optionId === selectedPackageId;
+                    selectedPackageIds.length > 0 && selectedPackageIds.includes(optionId);
 
                 if (isCurrentSelection) {
                     return true;
@@ -314,8 +315,9 @@ export default function Dashboard({ data }: DashboardProps) {
                 return String(left.label).localeCompare(String(right.label));
             });
 
-        const grouped: GeneralEnquiryPackageOption[] = [];
+        const groups: MultiSelectGroup[] = [];
         let previousGroupKey = '';
+        let currentGroupOptions: any[] = [];
 
         options.forEach((option) => {
             const departureDate = parseDisplayDate(option.departure_date);
@@ -327,9 +329,10 @@ export default function Dashboard({ data }: DashboardProps) {
                 : 'No Departure Date';
 
             if (groupKey !== previousGroupKey) {
-                grouped.push({
-                    value: `__group__:${groupKey}`,
-                    label: groupKey,
+                currentGroupOptions = [];
+                groups.push({
+                    heading: groupKey,
+                    options: currentGroupOptions,
                 });
                 previousGroupKey = groupKey;
             }
@@ -340,19 +343,19 @@ export default function Dashboard({ data }: DashboardProps) {
                 : '';
             const optionId = Number(option.value ?? 0);
             const isCurrentSelection =
-                selectedPackageId > 0 && optionId === selectedPackageId;
+                selectedPackageIds.length > 0 && selectedPackageIds.includes(optionId);
             const selectable = isPackageSelectable(option);
             const lockedLabel =
                 isCurrentSelection && !selectable ? ' (Locked)' : '';
 
-            grouped.push({
-                ...option,
+            currentGroupOptions.push({
+                value: String(option.value),
                 label: `${option.label}${seatsLeftLabel}${lockedLabel}`.trim(),
             });
         });
 
-        return grouped;
-    }, [groupPackageId, isPackageSelectable, normalizedPackageOptions]);
+        return groups;
+    }, [groupPackageIds, isPackageSelectable, normalizedPackageOptions]);
 
     const groupSelectedRange: DateRange | undefined = groupDateRange.from
         ? {
@@ -365,7 +368,9 @@ export default function Dashboard({ data }: DashboardProps) {
         const params = new URLSearchParams({ period: groupPeriod });
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (userTimezone) params.set('timezone', userTimezone);
-        if (groupPackageId) params.set('package_id', String(groupPackageId));
+        if (groupPackageIds && groupPackageIds.length > 0) {
+            params.set('package_id', groupPackageIds.join(','));
+        }
 
         if (groupPeriod === 'monthly') {
             // month range: from first day of groupMonthFrom to last day of groupMonthTo
@@ -389,7 +394,7 @@ export default function Dashboard({ data }: DashboardProps) {
             params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
         }
         return params;
-    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageId]);
+    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageIds]);
 
     const handleExportGroupReportPdf = useCallback(() => {
         const params = buildGroupReportParams();
@@ -1085,19 +1090,12 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 {/* Package filter combobox */}
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium">Departure Group (Package)</p>
-                                                    <ProperInputSelect
+                                                    <MultiSelect
                                                         options={groupedPackageOptions}
-                                                        value={groupPackageId !== null ? String(groupPackageId) : ''}
-                                                        onValueChange={(v) => {
-                                                            if (!v) {
-                                                                setGroupPackageId(null);
-                                                            } else {
-                                                                setGroupPackageId(Number(v));
-                                                            }
-                                                        }}
-                                                        placeholder="Select package..."
-                                                        className="w-full justify-between"
-                                                        showClearAction
+                                                        onValueChange={setGroupPackageIds}
+                                                        defaultValue={groupPackageIds}
+                                                        placeholder="Select package(s)..."
+                                                        maxCount={3}
                                                     />
                                                 </div>
 
