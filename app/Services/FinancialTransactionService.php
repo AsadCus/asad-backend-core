@@ -989,4 +989,280 @@ class FinancialTransactionService
 
         return $position.'th Payment';
     }
+
+    /**
+     * Get package group payment summary (aggregated per date, not per item).
+     * Used for the Closing Report / Package Group Report on the dashboard.
+     *
+     * When $packageId is null → include all receipts (no package filter).
+     * When $packageId is set  → only receipts linked to that package via
+     *   invoice → order → quotation → customerConfirmation → package_id.
+     */
+    public function getPackageGroupPaymentSummary(
+        string $period = 'monthly',
+        ?int $financialYearId = null,
+        ?string $timezone = null,
+        ?string $rangeStartUtc = null,
+        ?string $rangeEndUtc = null,
+        ?int $packageId = null,
+    ): array {
+        [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange(
+            $period,
+            $financialYearId,
+            $timezone,
+            $rangeStartUtc,
+            $rangeEndUtc,
+        );
+
+        $receiptsQuery = Receipt::query()
+            ->with([
+                'invoice.quotationItems.taxes',
+                'invoice.quotationItems.parent.parent',
+                'invoice.quotationItems.confirmationMember.confirmation.package',
+                'invoice.order.invoices',
+                'invoice.order.quotation.createdBy',
+                'invoice.order.quotation.customerConfirmation.package',
+            ])
+            ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
+            ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
+            ->orderBy('receipt_date')
+            ->orderBy('id');
+
+        if ($packageId !== null) {
+            // Package filter: only receipts whose quotation links to this package
+            $receiptsQuery->whereHas('invoice.order.quotation', function ($q) use ($packageId): void {
+                $q->whereNotIn('status', ['cancelled', 'rejected', 'expired'])
+                    ->whereHas('customerConfirmation', function ($ccq) use ($packageId): void {
+                        $ccq->where('package_id', $packageId);
+                    });
+            });
+        } else {
+            // No package filter — include all receipts (standalone + invoiced non-cancelled)
+            $receiptsQuery->where(function ($query): void {
+                $query->whereNull('invoice_id')
+                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery): void {
+                        $quotationQuery->whereNotIn('status', ['cancelled', 'rejected', 'expired']);
+                    });
+            });
+        }
+
+        if (DataScope::shouldScopePaymentCreatorCountry()) {
+            $receiptsQuery->where(function ($query): void {
+                $query->whereNull('invoice_id')
+                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery): void {
+                        DataScope::applyPaymentCreatorCountryScopeToQuotations($quotationQuery);
+                    });
+            });
+        }
+
+        $receipts = $receiptsQuery->get();
+
+        // Per-date accumulator: [dateKey => [date, day_name, categories[], payment_methods[], total_sales]]
+        $dateBuckets = [];
+        $allCategoryKeys = [];   // [catKey => catLabel]
+        $allMethodKeys = [];     // [methodKey => true]
+        $totalAmount = 0.0;
+
+        $defaultPaymentMethods = ['cash', 'nets', 'visa', 'master', 'paynow'];
+        foreach ($defaultPaymentMethods as $m) {
+            $allMethodKeys[$m] = true;
+        }
+
+        foreach ($receipts as $receipt) {
+            $receiptAmount = (float) ($receipt->amount ?? 0);
+            $totalAmount += $receiptAmount;
+
+            $receiptDate = Carbon::parse($receipt->receipt_date);
+            $dateKey = $receiptDate->format('Y-m-d');
+            $dateLabel = $receiptDate->translatedFormat('d F Y');
+            $dayName = $receiptDate->translatedFormat('l');
+            $paymentMethodKey = $this->normalizePaymentMethodKey((string) ($receipt->payment_method ?? ''));
+            $allMethodKeys[$paymentMethodKey] = true;
+
+            if (! isset($dateBuckets[$dateKey])) {
+                $dateBuckets[$dateKey] = [
+                    'date_sort'       => $dateKey,
+                    'date'            => $dateLabel,
+                    'day_name'        => $dayName,
+                    'categories'      => [],
+                    'payment_methods' => [],
+                    'total_sales'     => 0.0,
+                ];
+            }
+
+            // Accumulate payment method total for the date
+            if (! isset($dateBuckets[$dateKey]['payment_methods'][$paymentMethodKey])) {
+                $dateBuckets[$dateKey]['payment_methods'][$paymentMethodKey] = 0.0;
+            }
+            $dateBuckets[$dateKey]['payment_methods'][$paymentMethodKey] += $receiptAmount;
+            $dateBuckets[$dateKey]['total_sales'] += $receiptAmount;
+
+            // Distribute receipt amount across categories (ratio-based, same as existing report)
+            $invoice = $receipt->invoice;
+
+            if (! $invoice) {
+                $this->addDateCategoryAmount($dateBuckets, $dateKey, 'Others');
+                $this->addDateCategoryAmountValue($dateBuckets, $dateKey, 'Others', $receiptAmount);
+                $allCategoryKeys[$this->toCategoryKey('Others')] = 'Others';
+                continue;
+            }
+
+            $quotation = $invoice->order?->quotation;
+            $items = $invoice->quotationItems
+                ->filter(fn (QuotationItem $item) => ! $item->is_header)
+                ->values();
+
+            if ($items->isEmpty()) {
+                $this->addDateCategoryAmount($dateBuckets, $dateKey, 'Others');
+                $this->addDateCategoryAmountValue($dateBuckets, $dateKey, 'Others', $receiptAmount);
+                $allCategoryKeys[$this->toCategoryKey('Others')] = 'Others';
+                continue;
+            }
+
+            // Build weighted gross amounts per item (same ratio logic as getPaymentCategorySummary)
+            $itemsWithBase = $items->map(function (QuotationItem $item): array {
+                $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+                $itemTaxAmount = collect($item->taxes ?? [])->reduce(function (float $carry, $tax) use ($lineAmount): float {
+                    $mode = (string) ($tax->calculation_mode ?? '');
+                    $value = (float) ($tax->calculation_value ?? 0);
+                    if (! in_array($mode, ['fixed', 'percentage'], true) || $value === 0.0) {
+                        return $carry;
+                    }
+
+                    return $carry + ($mode === 'percentage' ? ($lineAmount * $value) / 100 : $value);
+                }, 0.0);
+
+                return ['item' => $item, 'base' => $lineAmount, 'base_with_tax' => $lineAmount + $itemTaxAmount];
+            })->values();
+
+            $payerItemId = $this->resolvePayerItemId($items, (int) ($quotation?->customer_id ?? 0));
+            $negativeInvoiceExtensionTotal = $this->resolveNegativeInvoiceExtensionTotal($invoice);
+
+            $itemsWithGross = $itemsWithBase->map(function (array $row) use ($payerItemId, $negativeInvoiceExtensionTotal): array {
+                /** @var QuotationItem $item */
+                $item = $row['item'];
+                $gross = (float) ($row['base_with_tax'] ?? 0);
+                if ($payerItemId !== null && (int) ($item->id ?? 0) === $payerItemId) {
+                    $gross += $negativeInvoiceExtensionTotal;
+                }
+
+                return [...$row, 'gross' => max($gross, 0)];
+            })->values();
+
+            $grossTotal = (float) $itemsWithGross->sum('gross');
+            $allocated = 0.0;
+            $lastIndex = max(0, $itemsWithGross->count() - 1);
+
+            foreach ($itemsWithGross as $index => $row) {
+                /** @var QuotationItem $item */
+                $item = $row['item'];
+
+                if ($index === $lastIndex) {
+                    $allocatedAmount = round($receiptAmount - $allocated, 2);
+                } else {
+                    $ratio = $grossTotal > 0
+                        ? ((float) ($row['gross'] ?? 0) / $grossTotal)
+                        : (1 / max(1, $itemsWithGross->count()));
+                    $allocatedAmount = round($receiptAmount * $ratio, 2);
+                    $allocated += $allocatedAmount;
+                }
+
+                $categoryLabel = $this->resolveItemCategoryLabel($item);
+                $catKey = $this->toCategoryKey($categoryLabel);
+
+                $this->addDateCategoryAmount($dateBuckets, $dateKey, $categoryLabel);
+                $this->addDateCategoryAmountValue($dateBuckets, $dateKey, $categoryLabel, $allocatedAmount);
+                $allCategoryKeys[$catKey] = $categoryLabel;
+            }
+        }
+
+        // Sort date buckets chronologically
+        ksort($dateBuckets);
+
+        // Build ordered payment methods list
+        $extraPaymentMethods = collect(array_keys($allMethodKeys))
+            ->filter(fn (string $m): bool => ! in_array($m, $defaultPaymentMethods, true))
+            ->sort()
+            ->values()
+            ->all();
+        $paymentMethods = array_values(array_unique(array_merge($defaultPaymentMethods, $extraPaymentMethods)));
+
+        // Build flat rows with all category and payment-method keys
+        $rows = [];
+        foreach ($dateBuckets as $bucket) {
+            $row = [
+                'date_sort'   => $bucket['date_sort'],
+                'date'        => $bucket['date'],
+                'day_name'    => $bucket['day_name'],
+                'total_sales' => round($bucket['total_sales'], 2),
+            ];
+
+            foreach (array_keys($allCategoryKeys) as $catKey) {
+                $row[$catKey] = round($bucket['categories'][$catKey] ?? 0.0, 2);
+            }
+
+            foreach ($paymentMethods as $methodKey) {
+                $row[$methodKey] = round($bucket['payment_methods'][$methodKey] ?? 0.0, 2);
+            }
+
+            $rows[] = $row;
+        }
+
+        // Resolve package info for display in the report
+        $packageInfo = null;
+        if ($packageId !== null) {
+            $pkg = \App\Models\Package::find($packageId);
+            if ($pkg) {
+                $packageInfo = [
+                    'id'             => $pkg->id,
+                    'package_number' => $pkg->package_number,
+                    'name'           => $pkg->name,
+                ];
+            }
+        }
+
+        return [
+            'mode'             => $resolvedPeriod,
+            'period_label'     => $periodLabel,
+            'start_date'       => $startDate->toDateString(),
+            'end_date'         => $endDate->toDateString(),
+            'date_range_label' => $startDate->translatedFormat('d F Y').' - '.$endDate->translatedFormat('d F Y'),
+            'total_amount'     => round($totalAmount, 2),
+            'receipt_count'    => $receipts->count(),
+            'package'          => $packageInfo,
+            'categories'       => $allCategoryKeys,   // [catKey => catLabel]
+            'payment_methods'  => $paymentMethods,    // [methodKey, ...]
+            'rows'             => $rows,
+        ];
+    }
+
+    /**
+     * Initialise a category slot in the date bucket if it does not exist yet.
+     */
+    private function addDateCategoryAmount(array &$dateBuckets, string $dateKey, string $categoryLabel): void
+    {
+        $catKey = $this->toCategoryKey($categoryLabel);
+        if (! isset($dateBuckets[$dateKey]['categories'][$catKey])) {
+            $dateBuckets[$dateKey]['categories'][$catKey] = 0.0;
+        }
+    }
+
+    /**
+     * Accumulate an amount into a date-bucket's category total.
+     */
+    private function addDateCategoryAmountValue(array &$dateBuckets, string $dateKey, string $categoryLabel, float $amount): void
+    {
+        $catKey = $this->toCategoryKey($categoryLabel);
+        $dateBuckets[$dateKey]['categories'][$catKey] = ($dateBuckets[$dateKey]['categories'][$catKey] ?? 0.0) + $amount;
+    }
+
+    /**
+     * Convert a human-readable category label to a snake_case key.
+     */
+    private function toCategoryKey(string $label): string
+    {
+        $key = Str::slug(trim($label), '_');
+
+        return $key !== '' ? $key : 'others';
+    }
 }

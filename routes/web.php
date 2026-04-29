@@ -65,6 +65,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/income-by-month', [DashboardController::class, 'getIncomeByMonth'])->name('dashboard.income-by-month');
     Route::get('dashboard/payment-summary-by-period', [DashboardController::class, 'getPaymentSummaryByPeriod'])->name('dashboard.payment-summary-by-period');
     Route::get('dashboard/export-payment-summary-pdf', [DashboardController::class, 'exportPaymentSummaryPdf'])->name('dashboard.export-payment-summary-pdf');
+    Route::get('dashboard/package-group-payment-summary', [DashboardController::class, 'getPackageGroupPaymentSummary'])->name('dashboard.package-group-payment-summary');
+    Route::get('dashboard/export-package-group-report-pdf', [DashboardController::class, 'exportPackageGroupReportPdf'])->name('dashboard.export-package-group-report-pdf');
 
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

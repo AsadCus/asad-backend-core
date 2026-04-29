@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { ProperInputSelect } from '@/components/proper-input-select';
 
 import AppLayout from '@/layouts/app-layout';
 import {
@@ -53,9 +54,10 @@ import {
 } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Download } from 'lucide-react';
+import { Download, Check, ChevronsUpDown } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { DateTime } from 'luxon';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
@@ -119,6 +121,16 @@ interface EnquirySummaryType {
     confirmed: number;
 }
 
+interface GeneralEnquiryPackageOption {
+    value: string | number;
+    label: React.ReactNode | string;
+    is_private?: boolean;
+    is_selectable?: boolean;
+    status?: string;
+    seats_left?: number;
+    departure_date?: string;
+}
+
 interface DashboardProps {
     data: {
         widgets?: {
@@ -137,6 +149,7 @@ interface DashboardProps {
         nationality: [];
         religion: [];
         educationLevel: [];
+        packageOptions?: GeneralEnquiryPackageOption[];
         chartData?: {
             financial?: {
                 'this-year': Array<{
@@ -224,6 +237,181 @@ export default function Dashboard({ data }: DashboardProps) {
             to: toDate ? formatDateForDisplay(toDate) : undefined,
         });
     }, []);
+
+    // ── Group Report state ────────────────────────────────────────────
+    const nowDt = DateTime.now();
+    const currentMonthStr = nowDt.toFormat('yyyy-MM');          // e.g. '2026-04'
+    const [groupPeriod, setGroupPeriod] = useState<'daily' | 'monthly'>('monthly');
+    const [groupDateRange, setGroupDateRange] = useState<{ from?: string; to?: string }>(
+        { from: todayDisplayDate },
+    );
+    const [groupMonthFrom, setGroupMonthFrom] = useState<string>(currentMonthStr);
+    const [groupMonthTo, setGroupMonthTo]     = useState<string>(currentMonthStr);
+    const [groupPackageId, setGroupPackageId] = useState<number | null>(null);
+    const [isGroupPopoverOpen, setIsGroupPopoverOpen]     = useState(false);
+
+    const normalizedPackageOptions = (data.packageOptions ?? []) as GeneralEnquiryPackageOption[];
+
+    const isPackageSelectable = useCallback(
+        (option?: GeneralEnquiryPackageOption | null): boolean => {
+            if (!option) {
+                return false;
+            }
+
+            if (option.is_private) {
+                return false;
+            }
+
+            if (option.is_selectable !== undefined) {
+                return Boolean(option.is_selectable);
+            }
+
+            const status = String(option.status ?? '')
+                .trim()
+                .toLowerCase();
+
+            if (status !== 'open') {
+                return false;
+            }
+
+            const seatsLeft = Number(option.seats_left ?? NaN);
+            return Number.isFinite(seatsLeft) ? seatsLeft > 0 : true;
+        },
+        [],
+    );
+
+    const groupedPackageOptions = useMemo(() => {
+        const selectedPackageId = Number(groupPackageId ?? 0);
+
+        const options = normalizedPackageOptions
+            .filter((option) => {
+                const optionId = Number(option.value ?? 0);
+                const isCurrentSelection =
+                    selectedPackageId > 0 && optionId === selectedPackageId;
+
+                if (isCurrentSelection) {
+                    return true;
+                }
+
+                return isPackageSelectable(option);
+            })
+            .sort((left, right) => {
+                const leftDate = parseDisplayDate(left.departure_date);
+                const rightDate = parseDisplayDate(right.departure_date);
+
+                if (leftDate && rightDate) {
+                    return leftDate.getTime() - rightDate.getTime();
+                }
+
+                if (leftDate) {
+                    return -1;
+                }
+
+                if (rightDate) {
+                    return 1;
+                }
+
+                return String(left.label).localeCompare(String(right.label));
+            });
+
+        const grouped: GeneralEnquiryPackageOption[] = [];
+        let previousGroupKey = '';
+
+        options.forEach((option) => {
+            const departureDate = parseDisplayDate(option.departure_date);
+            const groupKey = departureDate
+                ? departureDate.toLocaleDateString('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                  })
+                : 'No Departure Date';
+
+            if (groupKey !== previousGroupKey) {
+                grouped.push({
+                    value: `__group__:${groupKey}`,
+                    label: groupKey,
+                });
+                previousGroupKey = groupKey;
+            }
+
+            const seatsLeft = Number(option.seats_left ?? NaN);
+            const seatsLeftLabel = Number.isFinite(seatsLeft)
+                ? ` (${seatsLeft} Seats Left)`
+                : '';
+            const optionId = Number(option.value ?? 0);
+            const isCurrentSelection =
+                selectedPackageId > 0 && optionId === selectedPackageId;
+            const selectable = isPackageSelectable(option);
+            const lockedLabel =
+                isCurrentSelection && !selectable ? ' (Locked)' : '';
+
+            grouped.push({
+                ...option,
+                label: `${option.label}${seatsLeftLabel}${lockedLabel}`.trim(),
+            });
+        });
+
+        return grouped;
+    }, [groupPackageId, isPackageSelectable, normalizedPackageOptions]);
+
+    const groupSelectedRange: DateRange | undefined = groupDateRange.from
+        ? {
+              from: parseDisplayDate(groupDateRange.from),
+              to: groupDateRange.to ? parseDisplayDate(groupDateRange.to) : undefined,
+          }
+        : undefined;
+
+    const buildGroupReportParams = useCallback(() => {
+        const params = new URLSearchParams({ period: groupPeriod });
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (userTimezone) params.set('timezone', userTimezone);
+        if (groupPackageId) params.set('package_id', String(groupPackageId));
+
+        if (groupPeriod === 'monthly') {
+            // month range: from first day of groupMonthFrom to last day of groupMonthTo
+            const fromDt = DateTime.fromFormat(groupMonthFrom, 'yyyy-MM', { zone: userTimezone || 'UTC' });
+            const toDt   = DateTime.fromFormat(groupMonthTo,   'yyyy-MM', { zone: userTimezone || 'UTC' });
+            const rangeStart = fromDt.isValid ? fromDt.startOf('month') : DateTime.now().setZone(userTimezone || 'UTC').startOf('month');
+            const rangeEnd   = toDt.isValid   ? toDt.endOf('month')     : rangeStart.endOf('month');
+            params.set('range_start_utc', rangeStart.toUTC().toISO() ?? '');
+            params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
+        } else {
+            // daily range
+            const fromDate = groupDateRange.from
+                ? DateTime.fromFormat(groupDateRange.from, 'dd MMMM yyyy', { zone: userTimezone || 'UTC', locale: 'en-GB' })
+                : null;
+            const toDate = groupDateRange.to
+                ? DateTime.fromFormat(groupDateRange.to, 'dd MMMM yyyy', { zone: userTimezone || 'UTC', locale: 'en-GB' })
+                : null;
+            const rangeStart = fromDate?.isValid ? fromDate.startOf('day') : DateTime.now().setZone(userTimezone || 'UTC').startOf('day');
+            const rangeEnd   = (toDate?.isValid ? toDate : fromDate)?.endOf('day') ?? rangeStart.endOf('day');
+            params.set('range_start_utc', rangeStart.toUTC().toISO() ?? '');
+            params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
+        }
+        return params;
+    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageId]);
+
+    const handleExportGroupReportPdf = useCallback(() => {
+        const params = buildGroupReportParams();
+        window.open(`/dashboard/export-package-group-report-pdf?${params.toString()}`, '_blank');
+        setIsGroupPopoverOpen(false);
+    }, [buildGroupReportParams]);
+
+    // Months list for month picker
+    const MONTHS = [
+        { value: '01', label: 'January' },  { value: '02', label: 'February' },
+        { value: '03', label: 'March' },     { value: '04', label: 'April' },
+        { value: '05', label: 'May' },       { value: '06', label: 'June' },
+        { value: '07', label: 'July' },      { value: '08', label: 'August' },
+        { value: '09', label: 'September' }, { value: '10', label: 'October' },
+        { value: '11', label: 'November' },  { value: '12', label: 'December' },
+    ];
+    const yearOptions = [
+        String(nowDt.year - 2), String(nowDt.year - 1),
+        String(nowDt.year),     String(nowDt.year + 1),
+    ];
+    const splitYearMonth = (ym: string) => ({ year: ym.slice(0, 4), month: ym.slice(5, 7) });
+    const joinYearMonth  = (y: string, m: string) => `${y}-${m}`;
 
     const buildPaymentSummaryParams = useCallback(
         (
@@ -759,6 +947,174 @@ export default function Dashboard({ data }: DashboardProps) {
                                             </CardContent>
                                         </Card>
                                     )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Admin: Package Group / Closing Report */}
+                    {isAdmin && (
+                        <div>
+                            <div className="mb-3 flex flex-col gap-3">
+                                <div>
+                                    <h2 className="text-lg font-semibold">Closing Report</h2>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Popover open={isGroupPopoverOpen} onOpenChange={setIsGroupPopoverOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="default">
+                                                <Download className="h-4 w-4" />
+                                                Export Closing Report
+                                            </Button>
+                                        </PopoverTrigger>
+
+                                        <PopoverContent className="w-auto p-4" align="start" side="bottom" sideOffset={4}>
+                                            <div className="flex flex-col gap-4 min-w-[260px]">
+
+                                                {/* Period toggle */}
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-medium">Period</p>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant={groupPeriod === 'daily' ? 'default' : 'outline'}
+                                                            onClick={() => setGroupPeriod('daily')}
+                                                        >
+                                                            Daily
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant={groupPeriod === 'monthly' ? 'default' : 'outline'}
+                                                            onClick={() => setGroupPeriod('monthly')}
+                                                        >
+                                                            Monthly
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Date / Month picker */}
+                                                {groupPeriod === 'daily' ? (
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-medium">Date Range</p>
+                                                        <Calendar
+                                                            mode="range"
+                                                            numberOfMonths={1}
+                                                            selected={groupSelectedRange}
+                                                            defaultMonth={groupSelectedRange?.from}
+                                                            onSelect={(range) => {
+                                                                if (!range?.from) {
+                                                                    setGroupDateRange({ from: todayDisplayDate, to: undefined });
+                                                                    return;
+                                                                }
+                                                                setGroupDateRange({
+                                                                    from: formatDateForDisplay(range.from),
+                                                                    to: range.to ? formatDateForDisplay(range.to) : undefined,
+                                                                });
+                                                            }}
+                                                            className="rounded-lg border shadow-sm"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        <p className="text-sm font-medium">Month Range</p>
+                                                        {/* From month */}
+                                                        <div className="flex gap-2 items-center">
+                                                            <span className="text-xs text-muted-foreground w-8">From</span>
+                                                            <Select
+                                                                value={splitYearMonth(groupMonthFrom).month}
+                                                                onValueChange={(m) => setGroupMonthFrom(joinYearMonth(splitYearMonth(groupMonthFrom).year, m))}
+                                                            >
+                                                                <SelectTrigger className="w-[130px] h-8 text-sm">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {MONTHS.map(m => (
+                                                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <Select
+                                                                value={splitYearMonth(groupMonthFrom).year}
+                                                                onValueChange={(y) => setGroupMonthFrom(joinYearMonth(y, splitYearMonth(groupMonthFrom).month))}
+                                                            >
+                                                                <SelectTrigger className="w-[80px] h-8 text-sm">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {yearOptions.map(y => (
+                                                                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        {/* To month */}
+                                                        <div className="flex gap-2 items-center">
+                                                            <span className="text-xs text-muted-foreground w-8">To</span>
+                                                            <Select
+                                                                value={splitYearMonth(groupMonthTo).month}
+                                                                onValueChange={(m) => setGroupMonthTo(joinYearMonth(splitYearMonth(groupMonthTo).year, m))}
+                                                            >
+                                                                <SelectTrigger className="w-[130px] h-8 text-sm">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {MONTHS.map(m => (
+                                                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <Select
+                                                                value={splitYearMonth(groupMonthTo).year}
+                                                                onValueChange={(y) => setGroupMonthTo(joinYearMonth(y, splitYearMonth(groupMonthTo).month))}
+                                                            >
+                                                                <SelectTrigger className="w-[80px] h-8 text-sm">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {yearOptions.map(y => (
+                                                                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Package filter combobox */}
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-medium">Departure Group (Package)</p>
+                                                    <ProperInputSelect
+                                                        options={groupedPackageOptions}
+                                                        value={groupPackageId !== null ? String(groupPackageId) : ''}
+                                                        onValueChange={(v) => {
+                                                            if (!v) {
+                                                                setGroupPackageId(null);
+                                                            } else {
+                                                                setGroupPackageId(Number(v));
+                                                            }
+                                                        }}
+                                                        placeholder="Select package..."
+                                                        className="w-full justify-between"
+                                                        showClearAction
+                                                    />
+                                                </div>
+
+                                                {/* Export button */}
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    className="w-full"
+                                                    onClick={handleExportGroupReportPdf}
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Export PDF
+                                                </Button>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                             </div>
                         </div>
                     )}

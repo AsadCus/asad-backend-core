@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormatService;
 use App\Models\FinancialYear;
+use App\Models\Package;
 use App\Services\CountryService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
@@ -96,6 +97,9 @@ class DashboardController extends Controller
             }
 
             $data['customers'] = $this->customerService->getForDataTable($request);
+
+            // Package options for the Group Report package selector
+            $data['packageOptions'] = app(\App\Services\PackageService::class)->getForFilter();
         }
 
         if ($user->hasRole('sales')) {
@@ -281,6 +285,62 @@ class DashboardController extends Controller
             ->setOption('isRemoteEnabled', true);
 
         $filename = 'payment-summary-'.$summary['period'].'-'.now()->format('Ymd_His').'.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    public function getPackageGroupPaymentSummary(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $period = (string) $request->input('period', 'monthly');
+        $financialYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
+        $packageId = $request->input('package_id');
+
+        $data = $this->financialTransactionService->getPackageGroupPaymentSummary(
+            $period,
+            $financialYearId ? (int) $financialYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
+            $packageId ? (int) $packageId : null,
+        );
+
+        return response()->json($data);
+    }
+
+    public function exportPackageGroupReportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $period = (string) $request->input('period', 'monthly');
+        $financialYearId = $request->input('financial_year_id');
+        $timezone = $request->input('timezone');
+        $rangeStartUtc = $request->input('range_start_utc');
+        $rangeEndUtc = $request->input('range_end_utc');
+        $packageId = $request->input('package_id');
+
+        $summary = $this->financialTransactionService->getPackageGroupPaymentSummary(
+            $period,
+            $financialYearId ? (int) $financialYearId : null,
+            is_string($timezone) ? $timezone : null,
+            is_string($rangeStartUtc) ? $rangeStartUtc : null,
+            is_string($rangeEndUtc) ? $rangeEndUtc : null,
+            $packageId ? (int) $packageId : null,
+        );
+
+        $report = $this->reportTemplateService->build('package_group_report', $summary);
+        $report['is_pdf'] = true;
+
+        $pdf = Pdf::loadView('reports.dashboard-package-group-report', $report)
+            ->setPaper('a4', 'landscape')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true);
+
+        $packageLabel = isset($summary['package']['package_number'])
+            ? '-'.strtolower($summary['package']['package_number'])
+            : '';
+
+        $filename = 'closing-report'.$packageLabel.'-'.now()->format('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
     }

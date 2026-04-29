@@ -74,6 +74,7 @@ const BUILTIN_MODULES: RegisteredModule[] = [
     },
     { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
     { key: 'payment_summary', label: 'Payment Summary', document_type: 'PAYMENT SUMMARY' },
+    { key: 'package_group_report', label: 'Package Group Report', document_type: 'CLOSING REPORT' },
     { key: 'customer_receipts', label: 'Customer Receipts', document_type: 'CUSTOMER CONFIRMATION' },
     { key: 'package', label: 'Package', document_type: 'PACKAGE' },
     { key: 'manifest_arabic_names', label: 'Manifest - Arabic Names', document_type: 'MANIFEST' },
