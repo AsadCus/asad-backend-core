@@ -152,15 +152,15 @@ class ReportSetting extends Model
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
-            'show_qr' => true,
+            'show_qr' => false,
             'show_signature_stamp_name' => false,
             'show_signature_stamp_date' => false,
         ],
-        'package_group_report' => [
+        'closing_report' => [
             'footer_text' => '',
             'show_stamp' => false,
             'show_signature' => false,
-            'show_qr' => true,
+            'show_qr' => false,
             'show_signature_stamp_name' => false,
             'show_signature_stamp_date' => false,
         ],

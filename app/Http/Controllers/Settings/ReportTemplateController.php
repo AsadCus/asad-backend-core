@@ -449,6 +449,7 @@ class ReportTemplateController extends Controller
             'ops_movement_pif' => 'ops-movements.pif-report-content',
             'ops_movement_budget' => 'ops-movements.budget-report-content',
             'payment_summary' => 'reports.dashboard-payment-summary',
+            'closing_report' => 'reports.dashboard-closing-report',
             'customer_receipts' => 'customer-confirmations.member-receipts-report',
         ];
 

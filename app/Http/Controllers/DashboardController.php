@@ -381,7 +381,7 @@ class DashboardController extends Controller
             empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
-        $report = $this->reportTemplateService->build('package_group_report', $summary);
+        $report = $this->reportTemplateService->build('closing_report', $summary);
         $report['is_pdf'] = true;
 
         $pdf = Pdf::loadView('reports.dashboard-closing-report', $report)

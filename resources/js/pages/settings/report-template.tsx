@@ -1,8 +1,8 @@
 import HeadingSmall from '@/components/heading-small';
-import { ReportTemplatePreviewModal } from '@/pages/settings/report-template/preview-modal';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { ReportTemplatePreviewModal } from '@/pages/settings/report-template/preview-modal';
 import { update as updateReportTemplate } from '@/routes/report-template';
 import { destroy as destroyModuleRoute } from '@/routes/report-template/modules';
 import { Transition } from '@headlessui/react';
@@ -73,17 +73,57 @@ const BUILTIN_MODULES: RegisteredModule[] = [
         document_type: 'OFFICIAL RECEIPT',
     },
     { key: 'sales', label: 'Sales Profile', document_type: 'SALES PROFILE' },
-    { key: 'payment_summary', label: 'Payment Summary', document_type: 'PAYMENT SUMMARY' },
-    { key: 'package_group_report', label: 'Package Group Report', document_type: 'CLOSING REPORT' },
-    { key: 'customer_receipts', label: 'Customer Receipts', document_type: 'CUSTOMER CONFIRMATION' },
+    {
+        key: 'payment_summary',
+        label: 'Payment Summary',
+        document_type: 'PAYMENT SUMMARY',
+    },
+    {
+        key: 'closing_report',
+        label: 'Closing Report',
+        document_type: 'CLOSING REPORT',
+    },
+    {
+        key: 'customer_receipts',
+        label: 'Customer Receipts',
+        document_type: 'CUSTOMER CONFIRMATION',
+    },
     { key: 'package', label: 'Package', document_type: 'PACKAGE' },
-    { key: 'manifest_arabic_names', label: 'Manifest - Arabic Names', document_type: 'MANIFEST' },
-    { key: 'manifest_airline_names', label: 'Manifest - Airline Name List', document_type: 'MANIFEST' },
-    { key: 'manifest_namelist_course_items', label: 'Manifest - Namelist & Course Items', document_type: 'MANIFEST' },
-    { key: 'manifest_room_check', label: 'Manifest - Room Check', document_type: 'MANIFEST' },
-    { key: 'ops_movement', label: 'Ops Movement', document_type: 'OPS MOVEMENT' },
-    { key: 'ops_movement_budget', label: 'Ops Movement - Budget', document_type: 'OPS MOVEMENT' },
-    { key: 'ops_movement_pif', label: 'Ops Movement - PIF', document_type: 'OPS MOVEMENT' },
+    {
+        key: 'manifest_arabic_names',
+        label: 'Manifest - Arabic Names',
+        document_type: 'MANIFEST',
+    },
+    {
+        key: 'manifest_airline_names',
+        label: 'Manifest - Airline Name List',
+        document_type: 'MANIFEST',
+    },
+    {
+        key: 'manifest_namelist_course_items',
+        label: 'Manifest - Namelist & Course Items',
+        document_type: 'MANIFEST',
+    },
+    {
+        key: 'manifest_room_check',
+        label: 'Manifest - Room Check',
+        document_type: 'MANIFEST',
+    },
+    {
+        key: 'ops_movement',
+        label: 'Ops Movement',
+        document_type: 'OPS MOVEMENT',
+    },
+    {
+        key: 'ops_movement_budget',
+        label: 'Ops Movement - Budget',
+        document_type: 'OPS MOVEMENT',
+    },
+    {
+        key: 'ops_movement_pif',
+        label: 'Ops Movement - PIF',
+        document_type: 'OPS MOVEMENT',
+    },
 ];
 
 const DEFAULT_LOGO_FILE_NAME = 'logo-primary.png';
@@ -134,17 +174,18 @@ export default function ReportTemplate({
     const resolveCustomLayout = (): SignatureStampLayoutConfig => {
         const incoming = settings.custom_signature_stamp_layout as
             | (SignatureStampLayoutConfig & {
-                labels?: SignatureStampLayoutConfig['labels'] & {
-                    stamp_name?: string;
-                    signature_name?: string;
-                };
-                stamp?: SignatureStampLayoutConfig['stamp'] & { name?: string };
-                signature?:
-                SignatureStampLayoutConfig['signature'] & {
-                    name?: string;
-                    date?: string;
-                };
-            })
+                  labels?: SignatureStampLayoutConfig['labels'] & {
+                      stamp_name?: string;
+                      signature_name?: string;
+                  };
+                  stamp?: SignatureStampLayoutConfig['stamp'] & {
+                      name?: string;
+                  };
+                  signature?: SignatureStampLayoutConfig['signature'] & {
+                      name?: string;
+                      date?: string;
+                  };
+              })
             | null;
         if (!incoming) {
             return DEFAULT_CUSTOM_LAYOUT;
@@ -154,9 +195,9 @@ export default function ReportTemplate({
             unit: incoming.unit === 'px' ? 'px' : 'percent',
             placement:
                 incoming.placement === 'right_side' ||
-                    incoming.placement === 'stack_each_other' ||
-                    incoming.placement === 'up_side' ||
-                    incoming.placement === 'down_side'
+                incoming.placement === 'stack_each_other' ||
+                incoming.placement === 'up_side' ||
+                incoming.placement === 'down_side'
                     ? incoming.placement
                     : 'left_side',
             labels: {
@@ -169,15 +210,13 @@ export default function ReportTemplate({
                     incoming.signature?.name ??
                     incoming.stamp?.name ??
                     '',
-                date:
-                    incoming.labels?.date ??
-                    incoming.signature?.date ??
-                    '',
+                date: incoming.labels?.date ?? incoming.signature?.date ?? '',
             },
             stamp: {
                 x: incoming.stamp?.x ?? DEFAULT_CUSTOM_LAYOUT.stamp.x,
                 y: incoming.stamp?.y ?? DEFAULT_CUSTOM_LAYOUT.stamp.y,
-                width: incoming.stamp?.width ?? DEFAULT_CUSTOM_LAYOUT.stamp.width,
+                width:
+                    incoming.stamp?.width ?? DEFAULT_CUSTOM_LAYOUT.stamp.width,
                 height:
                     incoming.stamp?.height ??
                     DEFAULT_CUSTOM_LAYOUT.stamp.height,
@@ -258,38 +297,29 @@ export default function ReportTemplate({
     const [stampPreviewFileName, setStampPreviewFileName] = useState<
         string | null
     >(extractFileName(settings.stamp_path));
-    const [qrPreviewFileName, setQrPreviewFileName] = useState<
-        string | null
-    >(extractFileName(settings.qr_image_path));
+    const [qrPreviewFileName, setQrPreviewFileName] = useState<string | null>(
+        extractFileName(settings.qr_image_path),
+    );
     const [signaturePreviewFileName, setSignaturePreviewFileName] = useState<
         string | null
     >(extractFileName(settings.signature_path));
 
-
     const makeFileHandler =
         (
-            field:
-                | 'logo_file'
-                | 'qr_file'
-                | 'stamp_file'
-                | 'signature_file',
+            field: 'logo_file' | 'qr_file' | 'stamp_file' | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
         ) =>
-            (file: File) => {
-                if (!file) return;
+        (file: File) => {
+            if (!file) return;
 
-                setData(field, file as never);
+            setData(field, file as never);
 
-                setPreviewFileName(file.name);
-            };
+            setPreviewFileName(file.name);
+        };
 
     const makeClearHandler =
         (
-            field:
-                | 'logo_file'
-                | 'qr_file'
-                | 'stamp_file'
-                | 'signature_file',
+            field: 'logo_file' | 'qr_file' | 'stamp_file' | 'signature_file',
             setPreviewFileName: (v: string | null) => void,
             pathKey:
                 | 'logo_path'
@@ -298,14 +328,14 @@ export default function ReportTemplate({
                 | 'signature_path',
             hasDatabaseFile: boolean,
         ) =>
-            () => {
-                setData(field, null as never);
-                setPreviewFileName(null);
+        () => {
+            setData(field, null as never);
+            setPreviewFileName(null);
 
-                if (hasDatabaseFile) {
-                    setData(pathKey, '' as never);
-                }
-            };
+            if (hasDatabaseFile) {
+                setData(pathKey, '' as never);
+            }
+        };
 
     const updateModule = (
         field: keyof ModuleTemplate,
@@ -424,91 +454,105 @@ export default function ReportTemplate({
                         {/* GRID: Wider container with better proportions */}
                         <div className="mx-auto w-full max-w-[2200px]">
                             <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] 2xl:items-start">
-
                                 {/* LEFT COLUMN: Global Branding */}
                                 <aside className="w-full min-w-0">
                                     <GlobalBrandingSection
-                                    data={data}
-                                    errors={errors}
-                                    onDataChange={(field, value) =>
-                                        setData(
-                                            field as keyof ReportTemplateFormData,
-                                            value,
-                                        )
-                                    }
-                                    makeFileHandler={
-                                        makeFileHandler as Parameters<
-                                            typeof GlobalBrandingSection
-                                        >[0]['makeFileHandler']
-                                    }
-                                    makeClearHandler={
-                                        makeClearHandler as Parameters<
-                                            typeof GlobalBrandingSection
-                                        >[0]['makeClearHandler']
-                                    }
-                                    logoPreviewFileName={logoPreviewFileName}
-                                    stampPreviewFileName={stampPreviewFileName}
-                                    qrPreviewFileName={qrPreviewFileName}
-                                    signaturePreviewFileName={
-                                        signaturePreviewFileName
-                                    }
-                                    initialLogoDatabasePath={settings.logo_path}
-                                    initialQrDatabasePath={settings.qr_image_path}
-                                    initialStampDatabasePath={
-                                        settings.stamp_path
-                                    }
-                                    initialSignatureDatabasePath={
-                                        settings.signature_path
-                                    }
-                                    setLogoPreviewFileName={
-                                        setLogoPreviewFileName
-                                    }
-                                    setStampPreviewFileName={
-                                        setStampPreviewFileName
-                                    }
-                                    setQrPreviewFileName={
-                                        setQrPreviewFileName
-                                    }
-                                    setSignaturePreviewFileName={
-                                        setSignaturePreviewFileName
-                                    }
-                                    customSignatureStampLayout={
-                                        data.custom_signature_stamp_layout
-                                    }
-                                    onCustomSignatureStampLayoutChange={(layout) =>
-                                        setData(
-                                            'custom_signature_stamp_layout',
+                                        data={data}
+                                        errors={errors}
+                                        onDataChange={(field, value) =>
+                                            setData(
+                                                field as keyof ReportTemplateFormData,
+                                                value,
+                                            )
+                                        }
+                                        makeFileHandler={
+                                            makeFileHandler as Parameters<
+                                                typeof GlobalBrandingSection
+                                            >[0]['makeFileHandler']
+                                        }
+                                        makeClearHandler={
+                                            makeClearHandler as Parameters<
+                                                typeof GlobalBrandingSection
+                                            >[0]['makeClearHandler']
+                                        }
+                                        logoPreviewFileName={
+                                            logoPreviewFileName
+                                        }
+                                        stampPreviewFileName={
+                                            stampPreviewFileName
+                                        }
+                                        qrPreviewFileName={qrPreviewFileName}
+                                        signaturePreviewFileName={
+                                            signaturePreviewFileName
+                                        }
+                                        initialLogoDatabasePath={
+                                            settings.logo_path
+                                        }
+                                        initialQrDatabasePath={
+                                            settings.qr_image_path
+                                        }
+                                        initialStampDatabasePath={
+                                            settings.stamp_path
+                                        }
+                                        initialSignatureDatabasePath={
+                                            settings.signature_path
+                                        }
+                                        setLogoPreviewFileName={
+                                            setLogoPreviewFileName
+                                        }
+                                        setStampPreviewFileName={
+                                            setStampPreviewFileName
+                                        }
+                                        setQrPreviewFileName={
+                                            setQrPreviewFileName
+                                        }
+                                        setSignaturePreviewFileName={
+                                            setSignaturePreviewFileName
+                                        }
+                                        customSignatureStampLayout={
+                                            data.custom_signature_stamp_layout
+                                        }
+                                        onCustomSignatureStampLayoutChange={(
                                             layout,
-                                        )
-                                    }
-                                    onCustomSignatureDataChange={(value) =>
-                                        setData('custom_signature_data', value)
-                                    }
-                                />
+                                        ) =>
+                                            setData(
+                                                'custom_signature_stamp_layout',
+                                                layout,
+                                            )
+                                        }
+                                        onCustomSignatureDataChange={(value) =>
+                                            setData(
+                                                'custom_signature_data',
+                                                value,
+                                            )
+                                        }
+                                    />
                                 </aside>
 
                                 {/* RIGHT COLUMN: Module Templates */}
                                 <main className="w-full min-w-0">
                                     <ModuleTemplateSection
-                                    selectedModule={selectedModule}
-                                    setSelectedModule={setSelectedModule}
-                                    onPreview={(key) => setPreviewModule(key)}
-                                    activeModule={activeModule}
-                                    activeDefinition={activeDefinition}
-                                    builtinModules={BUILTIN_MODULES}
-                                    registeredModules={
-                                        settings.registered_modules ?? []
-                                    }
-                                    updateModule={updateModule}
-                                    updateModuleSignatureStampNameDateVisibility={
-                                        updateModuleSignatureStampNameDateVisibility
-                                    }
-                                    handleDeleteModule={handleDeleteModule}
-                                    AddModuleDialog={
-                                        <AddModuleDialog
-                                            key={registeredModulesCount}
-                                        />
-                                    }
+                                        selectedModule={selectedModule}
+                                        setSelectedModule={setSelectedModule}
+                                        onPreview={(key) =>
+                                            setPreviewModule(key)
+                                        }
+                                        activeModule={activeModule}
+                                        activeDefinition={activeDefinition}
+                                        builtinModules={BUILTIN_MODULES}
+                                        registeredModules={
+                                            settings.registered_modules ?? []
+                                        }
+                                        updateModule={updateModule}
+                                        updateModuleSignatureStampNameDateVisibility={
+                                            updateModuleSignatureStampNameDateVisibility
+                                        }
+                                        handleDeleteModule={handleDeleteModule}
+                                        AddModuleDialog={
+                                            <AddModuleDialog
+                                                key={registeredModulesCount}
+                                            />
+                                        }
                                     />
                                 </main>
                             </div>
@@ -544,4 +588,3 @@ export default function ReportTemplate({
         </AppLayout>
     );
 }
-
