@@ -384,7 +384,7 @@ class DashboardController extends Controller
         $report = $this->reportTemplateService->build('package_group_report', $summary);
         $report['is_pdf'] = true;
 
-        $pdf = Pdf::loadView('reports.dashboard-package-group-report', $report)
+        $pdf = Pdf::loadView('reports.dashboard-closing-report', $report)
             ->setPaper('a4', 'landscape')
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);

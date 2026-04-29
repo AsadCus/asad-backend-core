@@ -83,7 +83,6 @@
         .td-l2 {
             vertical-align: middle !important;
             text-align: center !important;
-            font-weight: 600;
             font-size: 7.5px;
             background: #f4f8fb;
         }
@@ -338,21 +337,18 @@
         {{-- Column headers --}}
         <thead>
             <tr>
-                @if ($isMonthly)
-                    <th style="width:6%;">Week</th>
-                @endif
-                <th style="width:10%;">Date</th>
+                <th class="text-center" style="width:10%;">Date</th>
                 @foreach ($categories as $catKey => $catLabel)
-                    <th class="text-right" style="width:{{ max(5, floor(30 / max(1, count($categories)))) }}%;">
+                    <th class="text-center" style="width:fit-content;">
                         {{ $catLabel }}
                     </th>
                 @endforeach
                 @foreach ($paymentMethods as $method)
-                    <th class="text-right" style="width:{{ max(5, floor(25 / max(1, count($paymentMethods)))) }}%;">
+                    <th class="text-center" style="width:fit-content;">
                         Total {{ $methodHeaderLabel($method) }}
                     </th>
                 @endforeach
-                <th class="text-right" style="width:7%;">Total Sales</th>
+                <th class="text-center" style="width:fit-content;">Total Sales</th>
             </tr>
         </thead>
 
@@ -364,24 +360,10 @@
                  MONTHLY: Week groups → date rows → week subtotal
                  ══════════════════════════════════════════════════════ --}}
 
-                @php
-                    $bBottom = 'border-bottom: none !important;';
-                    $bTop    = 'border-top: none !important;';
-                    $bBoth   = 'border-top: none !important; border-bottom: none !important;';
-                @endphp
-
                 @foreach ($plan as $weekIdx => $weekGroup)
-                    @php $weekFirst = true; @endphp
-
                     @foreach ($weekGroup['rows'] as $row)
                         @php $isEmpty = !empty($row['__empty']); @endphp
                         <tr class="{{ $isEmpty ? 'row-empty' : '' }}">
-
-                            {{-- Week cell: border illusion (NO rowspan) --}}
-                            <td class="td-l2" style="{{ $weekFirst ? $bBottom : $bBoth }}">
-                                {{ $weekFirst ? $weekGroup['label'] : '' }}
-                            </td>
-                            @php $weekFirst = false; @endphp
 
                             <td class="td-date">
                                 {{ $row['date'] }}
@@ -400,8 +382,7 @@
 
                     {{-- Week subtotal --}}
                     <tr class="row-subperiod-total">
-                        <td class="td-l2" style="{{ $bTop }}"></td>  {{-- close the border illusion --}}
-                        <td class="text-right">Total {{ $weekGroup['label'] }}</td>
+                        <td class="text-center">{{ $weekGroup['label'] }}</td>
                         @foreach ($catKeys as $ck)
                             <td class="text-right">{{ $fmt($weekGroup['total'][$ck] ?? 0) }}</td>
                         @endforeach
@@ -437,11 +418,7 @@
 
             {{-- ── Grand Total row ─────────────────────────────────── --}}
             <tr class="row-l1-total">
-                @if ($isMonthly)
-                    <td colspan="2" class="text-right" style="border-top: none !important;">Grand Total</td>
-                @else
-                    <td class="text-right" style="border-top: none !important;">Grand Total</td>
-                @endif
+                <td class="text-right" style="border-top: none !important;">Grand Total</td>
                 @foreach ($catKeys as $ck)
                     <td class="text-right">{{ $fmt($grandTotal[$ck] ?? 0) }}</td>
                 @endforeach

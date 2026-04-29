@@ -7,6 +7,7 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
+use App\Models\GhostUser;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Package;
@@ -16,6 +17,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -1146,5 +1148,130 @@ class DashboardTest extends TestCase
             ->where('data.selectedYearId', $fallbackYear->id)
             ->where('data.fiscalYearStartDate', '2026-01-01')
         );
+    }
+
+    public function test_closing_report_export_is_forbidden_for_non_ghost_admins(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $response = $this->actingAs($admin)->get(route('dashboard.export-package-group-report-pdf', [
+            'period' => 'monthly',
+            'month' => now()->format('Y-m'),
+        ]));
+
+        $response->assertForbidden();
+    }
+
+    public function test_closing_report_summary_filters_selected_categories_and_defaults_to_all_when_none_are_selected(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $ghostAdmin = User::factory()->create();
+        $ghostAdmin->assignRole('admin');
+
+        GhostUser::create([
+            'user_id' => (int) $ghostAdmin->id,
+        ]);
+
+        $includedCategory = 'Category Alpha';
+        $excludedCategory = 'Category Beta';
+
+        $this->createClosingReportReceipt($includedCategory, 100);
+        $this->createClosingReportReceipt($excludedCategory, 250);
+
+        $dateRangeStart = now()->startOfDay()->toIso8601String();
+        $dateRangeEnd = now()->endOfDay()->toIso8601String();
+
+        $filteredResponse = $this->actingAs($ghostAdmin)->getJson(route('dashboard.package-group-payment-summary', [
+            'period' => 'daily',
+            'range_start_utc' => $dateRangeStart,
+            'range_end_utc' => $dateRangeEnd,
+            'categories' => $includedCategory,
+        ]));
+
+        $filteredResponse->assertOk();
+        $filteredResponse->assertJsonPath('receipt_count', 1);
+        $filteredResponse->assertJsonPath('total_amount', 100);
+        $this->assertSame([
+            Str::slug($includedCategory, '_') ?: 'others',
+        ], array_keys($filteredResponse->json('categories')));
+
+        $allCategoriesResponse = $this->actingAs($ghostAdmin)->getJson(route('dashboard.package-group-payment-summary', [
+            'period' => 'daily',
+            'range_start_utc' => $dateRangeStart,
+            'range_end_utc' => $dateRangeEnd,
+        ]));
+
+        $allCategoriesResponse->assertOk();
+        $allCategoriesResponse->assertJsonPath('receipt_count', 2);
+        $this->assertContains(Str::slug($includedCategory, '_') ?: 'others', array_keys($allCategoriesResponse->json('categories')));
+        $this->assertContains(Str::slug($excludedCategory, '_') ?: 'others', array_keys($allCategoriesResponse->json('categories')));
+    }
+
+    private function createClosingReportReceipt(string $categoryLabel, int $amount): void
+    {
+        $author = User::factory()->create();
+        $customerUser = User::factory()->create();
+
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-CR-'.strtoupper(Str::random(6)),
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(7)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'payment_method' => 'cash',
+            'status' => 'converted',
+            'description' => 'Closing report test quotation',
+            'created_by' => $author->id,
+        ]);
+
+        $rootHeader = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => $categoryLabel,
+            'is_header' => true,
+            'sort_order' => 1,
+        ]);
+
+        $leafItem = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'parent_id' => $rootHeader->id,
+            'description' => $categoryLabel.' Item',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => $amount,
+            'sort_order' => 2,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Invoice for '.$categoryLabel,
+            'amount' => $amount,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+
+        $invoice->quotationItems()->sync([$leafItem->id]);
+
+        Receipt::withoutEvents(function () use ($invoice, $amount): void {
+            Receipt::create([
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+                'receipt_date' => now()->format('Y-m-d'),
+                'payment_method' => 'cash',
+            ]);
+        });
     }
 }

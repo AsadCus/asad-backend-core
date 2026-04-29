@@ -19,7 +19,18 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
+import {
+    MultiSelect,
+    type MultiSelectGroup,
+    type MultiSelectOption,
+} from '@/components/multi-select';
 import AppLayout from '@/layouts/app-layout';
+import {
+    getYearOptions,
+    joinYearMonth,
+    MONTHS,
+    splitYearMonth,
+} from '@/lib/months';
 import {
     QUICK_DATE_RANGE_OPTIONS,
     QUICK_DATE_SINGLE_OPTIONS,
@@ -54,7 +65,6 @@ import {
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
-import { MultiSelect, type MultiSelectGroup } from '@/components/multi-select';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateRange } from 'react-day-picker';
@@ -203,6 +213,7 @@ export default function Dashboard({ data }: DashboardProps) {
 
     // roles
     const isAdmin = auth.roles.includes('admin');
+    const isGhostAdmin = isAdmin && Boolean(auth.is_ghost_user);
     const isSales = auth.roles.includes('sales');
 
     // State for API fetched data
@@ -219,9 +230,12 @@ export default function Dashboard({ data }: DashboardProps) {
         from?: string;
         to?: string;
     }>({ from: todayDisplayDate });
-    const initialCategoryIds = (data.categoryOptions ?? []).map(c => String(c.value));
+    const initialCategoryIds = (data.categoryOptions ?? []).map((c) =>
+        String(c.value),
+    );
     const [exportPackageIds, setExportPackageIds] = useState<string[]>([]);
-    const [exportCategoryIds, setExportCategoryIds] = useState<string[]>(initialCategoryIds);
+    const [exportCategoryIds, setExportCategoryIds] =
+        useState<string[]>(initialCategoryIds);
 
     const exportSelectedRange: DateRange | undefined = exportDateRange.from
         ? {
@@ -243,91 +257,60 @@ export default function Dashboard({ data }: DashboardProps) {
 
     // ── Group Report state ────────────────────────────────────────────
     const nowDt = DateTime.now();
-    const currentMonthStr = nowDt.toFormat('yyyy-MM');          // e.g. '2026-04'
-    const [groupPeriod, setGroupPeriod] = useState<'daily' | 'monthly'>('monthly');
-    const [groupDateRange, setGroupDateRange] = useState<{ from?: string; to?: string }>(
-        { from: todayDisplayDate },
+    const currentMonthStr = nowDt.toFormat('yyyy-MM'); // e.g. '2026-04'
+    const [groupPeriod, setGroupPeriod] = useState<'daily' | 'monthly'>(
+        'monthly',
     );
-    const [groupMonthFrom, setGroupMonthFrom] = useState<string>(currentMonthStr);
-    const [groupMonthTo, setGroupMonthTo]     = useState<string>(currentMonthStr);
+    const [groupDateRange, setGroupDateRange] = useState<{
+        from?: string;
+        to?: string;
+    }>({ from: todayDisplayDate });
+    const [groupMonth, setGroupMonth] = useState<string>(currentMonthStr);
     const [groupPackageIds, setGroupPackageIds] = useState<string[]>([]);
-    const [groupCategoryIds, setGroupCategoryIds] = useState<string[]>(initialCategoryIds);
-    const [isGroupPopoverOpen, setIsGroupPopoverOpen]     = useState(false);
+    const [groupCategoryIds, setGroupCategoryIds] =
+        useState<string[]>(initialCategoryIds);
+    const [isGroupPopoverOpen, setIsGroupPopoverOpen] = useState(false);
 
-    const normalizedPackageOptions = (data.packageOptions ?? []) as GeneralEnquiryPackageOption[];
-    const categoryOptions = data.categoryOptions ?? [];
-    const formattedCategoryOptions = [
+    const normalizedPackageOptions = useMemo(
+        () => (data.packageOptions ?? []) as GeneralEnquiryPackageOption[],
+        [data.packageOptions],
+    );
+    const categoryOptions: MultiSelectOption[] = (
+        data.categoryOptions ?? []
+    ).map((option) => ({
+        value: String(option.value),
+        label: option.label,
+    }));
+    const formattedCategoryOptions: MultiSelectGroup[] = [
         {
             heading: 'Categories',
-            options: categoryOptions as any[],
-        }
+            options: categoryOptions,
+        },
     ];
 
-    const isPackageSelectable = useCallback(
-        (option?: GeneralEnquiryPackageOption | null): boolean => {
-            if (!option) {
-                return false;
-            }
-
-            if (option.is_private) {
-                return false;
-            }
-
-            if (option.is_selectable !== undefined) {
-                return Boolean(option.is_selectable);
-            }
-
-            const status = String(option.status ?? '')
-                .trim()
-                .toLowerCase();
-
-            if (status !== 'open') {
-                return false;
-            }
-
-            const seatsLeft = Number(option.seats_left ?? NaN);
-            return Number.isFinite(seatsLeft) ? seatsLeft > 0 : true;
-        },
-        [],
-    );
-
     const groupedPackageOptions = useMemo(() => {
-        const selectedPackageIds = groupPackageIds.map(Number).filter(id => id > 0);
+        const options = normalizedPackageOptions.sort((left, right) => {
+            const leftDate = parseDisplayDate(left.departure_date);
+            const rightDate = parseDisplayDate(right.departure_date);
 
-        const options = normalizedPackageOptions
-            .filter((option) => {
-                const optionId = Number(option.value ?? 0);
-                const isCurrentSelection =
-                    selectedPackageIds.length > 0 && selectedPackageIds.includes(optionId);
+            if (leftDate && rightDate) {
+                return leftDate.getTime() - rightDate.getTime();
+            }
 
-                if (isCurrentSelection) {
-                    return true;
-                }
+            if (leftDate) {
+                return -1;
+            }
 
-                return isPackageSelectable(option);
-            })
-            .sort((left, right) => {
-                const leftDate = parseDisplayDate(left.departure_date);
-                const rightDate = parseDisplayDate(right.departure_date);
+            if (rightDate) {
+                return 1;
+            }
 
-                if (leftDate && rightDate) {
-                    return leftDate.getTime() - rightDate.getTime();
-                }
-
-                if (leftDate) {
-                    return -1;
-                }
-
-                if (rightDate) {
-                    return 1;
-                }
-
-                return String(left.label).localeCompare(String(right.label));
-            });
+            return String(left.label).localeCompare(String(right.label));
+        });
 
         const groups: MultiSelectGroup[] = [];
         let previousGroupKey = '';
-        let currentGroupOptions: any[] = [];
+        let currentGroupOptions: MultiSelectOption[] = [];
 
         options.forEach((option) => {
             const departureDate = parseDisplayDate(option.departure_date);
@@ -347,30 +330,21 @@ export default function Dashboard({ data }: DashboardProps) {
                 previousGroupKey = groupKey;
             }
 
-            const seatsLeft = Number(option.seats_left ?? NaN);
-            const seatsLeftLabel = Number.isFinite(seatsLeft)
-                ? ` (${seatsLeft} Seats Left)`
-                : '';
-            const optionId = Number(option.value ?? 0);
-            const isCurrentSelection =
-                selectedPackageIds.length > 0 && selectedPackageIds.includes(optionId);
-            const selectable = isPackageSelectable(option);
-            const lockedLabel =
-                isCurrentSelection && !selectable ? ' (Locked)' : '';
-
             currentGroupOptions.push({
                 value: String(option.value),
-                label: `${option.label}${seatsLeftLabel}${lockedLabel}`.trim(),
+                label: `${option.label}`.trim(),
             });
         });
 
         return groups;
-    }, [groupPackageIds, isPackageSelectable, normalizedPackageOptions]);
+    }, [normalizedPackageOptions]);
 
     const groupSelectedRange: DateRange | undefined = groupDateRange.from
         ? {
               from: parseDisplayDate(groupDateRange.from),
-              to: groupDateRange.to ? parseDisplayDate(groupDateRange.to) : undefined,
+              to: groupDateRange.to
+                  ? parseDisplayDate(groupDateRange.to)
+                  : undefined,
           }
         : undefined;
 
@@ -386,50 +360,65 @@ export default function Dashboard({ data }: DashboardProps) {
         }
 
         if (groupPeriod === 'monthly') {
-            // month range: from first day of groupMonthFrom to last day of groupMonthTo
-            const fromDt = DateTime.fromFormat(groupMonthFrom, 'yyyy-MM', { zone: userTimezone || 'UTC' });
-            const toDt   = DateTime.fromFormat(groupMonthTo,   'yyyy-MM', { zone: userTimezone || 'UTC' });
-            const rangeStart = fromDt.isValid ? fromDt.startOf('month') : DateTime.now().setZone(userTimezone || 'UTC').startOf('month');
-            const rangeEnd   = toDt.isValid   ? toDt.endOf('month')     : rangeStart.endOf('month');
+            params.set('month', groupMonth);
+
+            const monthDt = DateTime.fromFormat(groupMonth, 'yyyy-MM', {
+                zone: userTimezone || 'UTC',
+            });
+            const rangeStart = monthDt.isValid
+                ? monthDt.startOf('month')
+                : DateTime.now()
+                      .setZone(userTimezone || 'UTC')
+                      .startOf('month');
+            const rangeEnd = monthDt.isValid
+                ? monthDt.endOf('month')
+                : rangeStart.endOf('month');
             params.set('range_start_utc', rangeStart.toUTC().toISO() ?? '');
-            params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
+            params.set('range_end_utc', rangeEnd.toUTC().toISO() ?? '');
         } else {
             // daily range
             const fromDate = groupDateRange.from
-                ? DateTime.fromFormat(groupDateRange.from, 'dd MMMM yyyy', { zone: userTimezone || 'UTC', locale: 'en-GB' })
+                ? DateTime.fromFormat(groupDateRange.from, 'dd MMMM yyyy', {
+                      zone: userTimezone || 'UTC',
+                      locale: 'en-GB',
+                  })
                 : null;
             const toDate = groupDateRange.to
-                ? DateTime.fromFormat(groupDateRange.to, 'dd MMMM yyyy', { zone: userTimezone || 'UTC', locale: 'en-GB' })
+                ? DateTime.fromFormat(groupDateRange.to, 'dd MMMM yyyy', {
+                      zone: userTimezone || 'UTC',
+                      locale: 'en-GB',
+                  })
                 : null;
-            const rangeStart = fromDate?.isValid ? fromDate.startOf('day') : DateTime.now().setZone(userTimezone || 'UTC').startOf('day');
-            const rangeEnd   = (toDate?.isValid ? toDate : fromDate)?.endOf('day') ?? rangeStart.endOf('day');
+            const rangeStart = fromDate?.isValid
+                ? fromDate.startOf('day')
+                : DateTime.now()
+                      .setZone(userTimezone || 'UTC')
+                      .startOf('day');
+            const rangeEnd =
+                (toDate?.isValid ? toDate : fromDate)?.endOf('day') ??
+                rangeStart.endOf('day');
             params.set('range_start_utc', rangeStart.toUTC().toISO() ?? '');
-            params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
+            params.set('range_end_utc', rangeEnd.toUTC().toISO() ?? '');
         }
         return params;
-    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageIds, groupCategoryIds]);
+    }, [
+        groupPeriod,
+        groupDateRange,
+        groupMonth,
+        groupPackageIds,
+        groupCategoryIds,
+    ]);
 
     const handleExportGroupReportPdf = useCallback(() => {
         const params = buildGroupReportParams();
-        window.open(`/dashboard/export-package-group-report-pdf?${params.toString()}`, '_blank');
+        window.open(
+            `/dashboard/export-package-group-report-pdf?${params.toString()}`,
+            '_blank',
+        );
         setIsGroupPopoverOpen(false);
     }, [buildGroupReportParams]);
 
-    // Months list for month picker
-    const MONTHS = [
-        { value: '01', label: 'January' },  { value: '02', label: 'February' },
-        { value: '03', label: 'March' },     { value: '04', label: 'April' },
-        { value: '05', label: 'May' },       { value: '06', label: 'June' },
-        { value: '07', label: 'July' },      { value: '08', label: 'August' },
-        { value: '09', label: 'September' }, { value: '10', label: 'October' },
-        { value: '11', label: 'November' },  { value: '12', label: 'December' },
-    ];
-    const yearOptions = [
-        String(nowDt.year - 2), String(nowDt.year - 1),
-        String(nowDt.year),     String(nowDt.year + 1),
-    ];
-    const splitYearMonth = (ym: string) => ({ year: ym.slice(0, 4), month: ym.slice(5, 7) });
-    const joinYearMonth  = (y: string, m: string) => `${y}-${m}`;
+    const yearOptions = getYearOptions(nowDt.year);
 
     const buildPaymentSummaryParams = useCallback(
         (
@@ -505,11 +494,11 @@ export default function Dashboard({ data }: DashboardProps) {
             if (rangeEndUtc) {
                 params.set('range_end_utc', rangeEndUtc);
             }
-            
+
             if (exportPackageIds && exportPackageIds.length > 0) {
                 params.set('packages', exportPackageIds.join(','));
             }
-            
+
             if (exportCategoryIds && exportCategoryIds.length > 0) {
                 params.set('categories', exportCategoryIds.join(','));
             }
@@ -785,10 +774,9 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
 
                     {/* Admin: Daily/Monthly/Yearly Payment */}
-                    {isAdmin && (
+                    {isGhostAdmin && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
-                                {/* <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"> */}
                                 <div>
                                     <h2 className="text-lg font-semibold">
                                         {paymentSectionTitle}
@@ -822,24 +810,41 @@ export default function Dashboard({ data }: DashboardProps) {
                                             <div className="flex gap-3">
                                                 <div className="space-y-2">
                                                     <div className="space-y-1">
-                                                        <p className="text-sm font-medium">Departure Group (Package)</p>
+                                                        <p className="font-medium">
+                                                            Departure Group
+                                                            (Package)
+                                                        </p>
                                                         <MultiSelect
-                                                            options={groupedPackageOptions}
-                                                            onValueChange={setExportPackageIds}
-                                                            defaultValue={exportPackageIds}
+                                                            options={
+                                                                groupedPackageOptions
+                                                            }
+                                                            onValueChange={
+                                                                setExportPackageIds
+                                                            }
+                                                            defaultValue={
+                                                                exportPackageIds
+                                                            }
                                                             placeholder="Select package(s)..."
-                                                            maxCount={3}
+                                                            maxCount={0}
                                                         />
                                                     </div>
-                                                    
+
                                                     <div className="space-y-1">
-                                                        <p className="text-sm font-medium">Category</p>
+                                                        <p className="font-medium">
+                                                            Category
+                                                        </p>
                                                         <MultiSelect
-                                                            options={formattedCategoryOptions}
-                                                            onValueChange={setExportCategoryIds}
-                                                            defaultValue={exportCategoryIds}
+                                                            options={
+                                                                formattedCategoryOptions
+                                                            }
+                                                            onValueChange={
+                                                                setExportCategoryIds
+                                                            }
+                                                            defaultValue={
+                                                                exportCategoryIds
+                                                            }
                                                             placeholder="Select category(ies)..."
-                                                            maxCount={3}
+                                                            maxCount={0}
                                                         />
                                                     </div>
 
@@ -1004,161 +1009,263 @@ export default function Dashboard({ data }: DashboardProps) {
                         <div>
                             <div className="mb-3 flex flex-col gap-3">
                                 <div>
-                                    <h2 className="text-lg font-semibold">Closing Report</h2>
+                                    <h2 className="text-lg font-semibold">
+                                        Closing Report
+                                    </h2>
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <Popover open={isGroupPopoverOpen} onOpenChange={setIsGroupPopoverOpen}>
+                                    <Popover
+                                        open={isGroupPopoverOpen}
+                                        onOpenChange={setIsGroupPopoverOpen}
+                                    >
                                         <PopoverTrigger asChild>
-                                            <Button type="button" variant="default">
+                                            <Button
+                                                type="button"
+                                                variant="default"
+                                            >
                                                 <Download className="h-4 w-4" />
                                                 Export Closing Report
                                             </Button>
                                         </PopoverTrigger>
 
-                                        <PopoverContent className="w-auto p-4" align="start" side="bottom" sideOffset={4}>
-                                            <div className="flex flex-col gap-4 min-w-[260px]">
-
-                                                {/* Period toggle */}
+                                        <PopoverContent
+                                            className="w-auto p-4"
+                                            align="start"
+                                            side="bottom"
+                                            sideOffset={4}
+                                        >
+                                            <div className="flex flex-col gap-2">
                                                 <div className="space-y-1">
-                                                    <p className="text-sm font-medium">Period</p>
+                                                    <p className="font-medium">
+                                                        Period
+                                                    </p>
                                                     <div className="flex gap-2">
                                                         <Button
                                                             type="button"
                                                             size="sm"
-                                                            variant={groupPeriod === 'daily' ? 'default' : 'outline'}
-                                                            onClick={() => setGroupPeriod('daily')}
+                                                            variant={
+                                                                groupPeriod ===
+                                                                'daily'
+                                                                    ? 'default'
+                                                                    : 'outline'
+                                                            }
+                                                            onClick={() =>
+                                                                setGroupPeriod(
+                                                                    'daily',
+                                                                )
+                                                            }
                                                         >
                                                             Daily
                                                         </Button>
                                                         <Button
                                                             type="button"
                                                             size="sm"
-                                                            variant={groupPeriod === 'monthly' ? 'default' : 'outline'}
-                                                            onClick={() => setGroupPeriod('monthly')}
+                                                            variant={
+                                                                groupPeriod ===
+                                                                'monthly'
+                                                                    ? 'default'
+                                                                    : 'outline'
+                                                            }
+                                                            onClick={() =>
+                                                                setGroupPeriod(
+                                                                    'monthly',
+                                                                )
+                                                            }
                                                         >
                                                             Monthly
                                                         </Button>
                                                     </div>
                                                 </div>
 
-                                                {/* Date / Month picker */}
                                                 {groupPeriod === 'daily' ? (
                                                     <div className="space-y-1">
-                                                        <p className="text-sm font-medium">Date Range</p>
+                                                        <p className="font-medium">
+                                                            Date Range
+                                                        </p>
                                                         <Calendar
                                                             mode="range"
                                                             numberOfMonths={1}
-                                                            selected={groupSelectedRange}
-                                                            defaultMonth={groupSelectedRange?.from}
-                                                            onSelect={(range) => {
-                                                                if (!range?.from) {
-                                                                    setGroupDateRange({ from: todayDisplayDate, to: undefined });
+                                                            selected={
+                                                                groupSelectedRange
+                                                            }
+                                                            defaultMonth={
+                                                                groupSelectedRange?.from
+                                                            }
+                                                            onSelect={(
+                                                                range,
+                                                            ) => {
+                                                                if (
+                                                                    !range?.from
+                                                                ) {
+                                                                    setGroupDateRange(
+                                                                        {
+                                                                            from: todayDisplayDate,
+                                                                            to: undefined,
+                                                                        },
+                                                                    );
                                                                     return;
                                                                 }
-                                                                setGroupDateRange({
-                                                                    from: formatDateForDisplay(range.from),
-                                                                    to: range.to ? formatDateForDisplay(range.to) : undefined,
-                                                                });
+                                                                setGroupDateRange(
+                                                                    {
+                                                                        from: formatDateForDisplay(
+                                                                            range.from,
+                                                                        ),
+                                                                        to: range.to
+                                                                            ? formatDateForDisplay(
+                                                                                  range.to,
+                                                                              )
+                                                                            : undefined,
+                                                                    },
+                                                                );
                                                             }}
                                                             className="rounded-lg border shadow-sm"
                                                         />
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-2">
-                                                        <p className="text-sm font-medium">Month Range</p>
-                                                        {/* From month */}
-                                                        <div className="flex gap-2 items-center">
-                                                            <span className="text-xs text-muted-foreground w-8">From</span>
+                                                        <p className="font-medium">
+                                                            Month
+                                                        </p>
+                                                        <div className="flex gap-2">
                                                             <Select
-                                                                value={splitYearMonth(groupMonthFrom).month}
-                                                                onValueChange={(m) => setGroupMonthFrom(joinYearMonth(splitYearMonth(groupMonthFrom).year, m))}
+                                                                value={
+                                                                    splitYearMonth(
+                                                                        groupMonth,
+                                                                    ).month
+                                                                }
+                                                                onValueChange={(
+                                                                    month,
+                                                                ) =>
+                                                                    setGroupMonth(
+                                                                        joinYearMonth(
+                                                                            splitYearMonth(
+                                                                                groupMonth,
+                                                                            )
+                                                                                .year,
+                                                                            month,
+                                                                        ),
+                                                                    )
+                                                                }
                                                             >
-                                                                <SelectTrigger className="w-[130px] h-8 text-sm">
+                                                                <SelectTrigger className="h-8">
                                                                     <SelectValue />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    {MONTHS.map(m => (
-                                                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                                                    ))}
+                                                                    {MONTHS.map(
+                                                                        (
+                                                                            month,
+                                                                        ) => (
+                                                                            <SelectItem
+                                                                                key={
+                                                                                    month.value
+                                                                                }
+                                                                                value={
+                                                                                    month.value
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    month.label
+                                                                                }
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                             <Select
-                                                                value={splitYearMonth(groupMonthFrom).year}
-                                                                onValueChange={(y) => setGroupMonthFrom(joinYearMonth(y, splitYearMonth(groupMonthFrom).month))}
+                                                                value={
+                                                                    splitYearMonth(
+                                                                        groupMonth,
+                                                                    ).year
+                                                                }
+                                                                onValueChange={(
+                                                                    year,
+                                                                ) =>
+                                                                    setGroupMonth(
+                                                                        joinYearMonth(
+                                                                            year,
+                                                                            splitYearMonth(
+                                                                                groupMonth,
+                                                                            )
+                                                                                .month,
+                                                                        ),
+                                                                    )
+                                                                }
                                                             >
-                                                                <SelectTrigger className="w-[80px] h-8 text-sm">
+                                                                <SelectTrigger className="h-8">
                                                                     <SelectValue />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    {yearOptions.map(y => (
-                                                                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                        {/* To month */}
-                                                        <div className="flex gap-2 items-center">
-                                                            <span className="text-xs text-muted-foreground w-8">To</span>
-                                                            <Select
-                                                                value={splitYearMonth(groupMonthTo).month}
-                                                                onValueChange={(m) => setGroupMonthTo(joinYearMonth(splitYearMonth(groupMonthTo).year, m))}
-                                                            >
-                                                                <SelectTrigger className="w-[130px] h-8 text-sm">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {MONTHS.map(m => (
-                                                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <Select
-                                                                value={splitYearMonth(groupMonthTo).year}
-                                                                onValueChange={(y) => setGroupMonthTo(joinYearMonth(y, splitYearMonth(groupMonthTo).month))}
-                                                            >
-                                                                <SelectTrigger className="w-[80px] h-8 text-sm">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {yearOptions.map(y => (
-                                                                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                                                                    ))}
+                                                                    {yearOptions.map(
+                                                                        (
+                                                                            year,
+                                                                        ) => (
+                                                                            <SelectItem
+                                                                                key={
+                                                                                    year
+                                                                                }
+                                                                                value={
+                                                                                    year
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    year
+                                                                                }
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {/* Package filter combobox */}
                                                 <div className="space-y-1">
-                                                    <p className="text-sm font-medium">Departure Group (Package)</p>
+                                                    <p className="font-medium">
+                                                        Departure Group
+                                                        (Package)
+                                                    </p>
                                                     <MultiSelect
-                                                        options={groupedPackageOptions}
-                                                        onValueChange={setGroupPackageIds}
-                                                        defaultValue={groupPackageIds}
+                                                        options={
+                                                            groupedPackageOptions
+                                                        }
+                                                        onValueChange={
+                                                            setGroupPackageIds
+                                                        }
+                                                        defaultValue={
+                                                            groupPackageIds
+                                                        }
                                                         placeholder="Select package(s)..."
-                                                        maxCount={3}
-                                                    />
-                                                </div>
-                                                
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium">Category</p>
-                                                    <MultiSelect
-                                                        options={formattedCategoryOptions}
-                                                        onValueChange={setGroupCategoryIds}
-                                                        defaultValue={groupCategoryIds}
-                                                        placeholder="Select category(ies)..."
-                                                        maxCount={3}
+                                                        maxCount={0}
                                                     />
                                                 </div>
 
-                                                {/* Export button */}
+                                                <div className="space-y-1">
+                                                    <p className="font-medium">
+                                                        Category
+                                                    </p>
+                                                    <MultiSelect
+                                                        options={
+                                                            formattedCategoryOptions
+                                                        }
+                                                        onValueChange={
+                                                            setGroupCategoryIds
+                                                        }
+                                                        defaultValue={
+                                                            groupCategoryIds
+                                                        }
+                                                        placeholder="Select category(ies)..."
+                                                        maxCount={0}
+                                                    />
+                                                </div>
+
                                                 <Button
                                                     type="button"
                                                     size="sm"
                                                     className="w-full"
-                                                    onClick={handleExportGroupReportPdf}
+                                                    onClick={
+                                                        handleExportGroupReportPdf
+                                                    }
                                                 >
                                                     <Download className="h-4 w-4" />
                                                     Export PDF
