@@ -43,6 +43,8 @@ class DashboardController extends Controller
 
     protected $reportTemplateService;
 
+    protected $packageService;
+
     public function __construct(
         CustomerService $customerService,
         CountryService $countryService,
@@ -55,6 +57,7 @@ class DashboardController extends Controller
         OrderService $orderService,
         EnquiryService $enquiryService,
         ReportTemplateService $reportTemplateService,
+        PackageService $packageService
     ) {
         $this->customerService = $customerService;
         $this->countryService = $countryService;
@@ -67,6 +70,7 @@ class DashboardController extends Controller
         $this->orderService = $orderService;
         $this->enquiryService = $enquiryService;
         $this->reportTemplateService = $reportTemplateService;
+        $this->packageService = $packageService;
     }
 
     public function index(Request $request)
@@ -97,9 +101,7 @@ class DashboardController extends Controller
             }
 
             $data['customers'] = $this->customerService->getForDataTable($request);
-
-            // Package options for the Group Report package selector
-            $data['packageOptions'] = app(\App\Services\PackageService::class)->getForFilter();
+            $data['packageOptions'] = $this->packageService->getForFilter();
         }
 
         if ($user->hasRole('sales')) {
