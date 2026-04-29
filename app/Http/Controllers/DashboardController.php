@@ -15,6 +15,7 @@ use App\Services\OrderService;
 use App\Services\ReligionService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
+use App\Services\PackageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
