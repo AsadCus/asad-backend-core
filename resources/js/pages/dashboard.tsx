@@ -18,7 +18,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { ProperInputSelect } from '@/components/proper-input-select';
 
 import AppLayout from '@/layouts/app-layout';
 import {
@@ -54,8 +53,7 @@ import {
 } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Download, Check, ChevronsUpDown } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Download } from 'lucide-react';
 import { MultiSelect, type MultiSelectGroup } from '@/components/multi-select';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -151,6 +149,7 @@ interface DashboardProps {
         religion: [];
         educationLevel: [];
         packageOptions?: GeneralEnquiryPackageOption[];
+        categoryOptions?: { value: string; label: string }[];
         chartData?: {
             financial?: {
                 'this-year': Array<{
@@ -220,6 +219,9 @@ export default function Dashboard({ data }: DashboardProps) {
         from?: string;
         to?: string;
     }>({ from: todayDisplayDate });
+    const initialCategoryIds = (data.categoryOptions ?? []).map(c => String(c.value));
+    const [exportPackageIds, setExportPackageIds] = useState<string[]>([]);
+    const [exportCategoryIds, setExportCategoryIds] = useState<string[]>(initialCategoryIds);
 
     const exportSelectedRange: DateRange | undefined = exportDateRange.from
         ? {
@@ -249,9 +251,17 @@ export default function Dashboard({ data }: DashboardProps) {
     const [groupMonthFrom, setGroupMonthFrom] = useState<string>(currentMonthStr);
     const [groupMonthTo, setGroupMonthTo]     = useState<string>(currentMonthStr);
     const [groupPackageIds, setGroupPackageIds] = useState<string[]>([]);
+    const [groupCategoryIds, setGroupCategoryIds] = useState<string[]>(initialCategoryIds);
     const [isGroupPopoverOpen, setIsGroupPopoverOpen]     = useState(false);
 
     const normalizedPackageOptions = (data.packageOptions ?? []) as GeneralEnquiryPackageOption[];
+    const categoryOptions = data.categoryOptions ?? [];
+    const formattedCategoryOptions = [
+        {
+            heading: 'Categories',
+            options: categoryOptions as any[],
+        }
+    ];
 
     const isPackageSelectable = useCallback(
         (option?: GeneralEnquiryPackageOption | null): boolean => {
@@ -371,6 +381,9 @@ export default function Dashboard({ data }: DashboardProps) {
         if (groupPackageIds && groupPackageIds.length > 0) {
             params.set('package_id', groupPackageIds.join(','));
         }
+        if (groupCategoryIds && groupCategoryIds.length > 0) {
+            params.set('categories', groupCategoryIds.join(','));
+        }
 
         if (groupPeriod === 'monthly') {
             // month range: from first day of groupMonthFrom to last day of groupMonthTo
@@ -394,7 +407,7 @@ export default function Dashboard({ data }: DashboardProps) {
             params.set('range_end_utc',   rangeEnd.toUTC().toISO() ?? '');
         }
         return params;
-    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageIds]);
+    }, [groupPeriod, groupDateRange, groupMonthFrom, groupMonthTo, groupPackageIds, groupCategoryIds]);
 
     const handleExportGroupReportPdf = useCallback(() => {
         const params = buildGroupReportParams();
@@ -492,10 +505,18 @@ export default function Dashboard({ data }: DashboardProps) {
             if (rangeEndUtc) {
                 params.set('range_end_utc', rangeEndUtc);
             }
+            
+            if (exportPackageIds && exportPackageIds.length > 0) {
+                params.set('packages', exportPackageIds.join(','));
+            }
+            
+            if (exportCategoryIds && exportCategoryIds.length > 0) {
+                params.set('categories', exportCategoryIds.join(','));
+            }
 
             return params;
         },
-        [],
+        [exportPackageIds, exportCategoryIds],
     );
 
     // Fetch dashboard data for admin
@@ -800,6 +821,28 @@ export default function Dashboard({ data }: DashboardProps) {
                                         >
                                             <div className="flex gap-3">
                                                 <div className="space-y-2">
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-medium">Departure Group (Package)</p>
+                                                        <MultiSelect
+                                                            options={groupedPackageOptions}
+                                                            onValueChange={setExportPackageIds}
+                                                            defaultValue={exportPackageIds}
+                                                            placeholder="Select package(s)..."
+                                                            maxCount={3}
+                                                        />
+                                                    </div>
+                                                    
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-medium">Category</p>
+                                                        <MultiSelect
+                                                            options={formattedCategoryOptions}
+                                                            onValueChange={setExportCategoryIds}
+                                                            defaultValue={exportCategoryIds}
+                                                            placeholder="Select category(ies)..."
+                                                            maxCount={3}
+                                                        />
+                                                    </div>
+
                                                     <Calendar
                                                         mode="range"
                                                         numberOfMonths={1}
@@ -1095,6 +1138,17 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         onValueChange={setGroupPackageIds}
                                                         defaultValue={groupPackageIds}
                                                         placeholder="Select package(s)..."
+                                                        maxCount={3}
+                                                    />
+                                                </div>
+                                                
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-medium">Category</p>
+                                                    <MultiSelect
+                                                        options={formattedCategoryOptions}
+                                                        onValueChange={setGroupCategoryIds}
+                                                        defaultValue={groupCategoryIds}
+                                                        placeholder="Select category(ies)..."
                                                         maxCount={3}
                                                     />
                                                 </div>

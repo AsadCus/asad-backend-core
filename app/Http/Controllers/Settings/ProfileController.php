@@ -54,11 +54,11 @@ class ProfileController extends Controller
         Auth::logout();
 
         activity()
-                ->performedOn($user)
-                ->withProperties(['subject_type' => 'Profile', 'subject_id' => $user->id ?? null])
-                ->log('Profile deleted successfully #'.($user->id ?? null));
+            ->performedOn($user)
+            ->withProperties(['subject_type' => 'Profile', 'subject_id' => $user->id ?? null])
+            ->log('Profile deleted successfully #'.($user->id ?? null));
 
-            $user->delete();
+        $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

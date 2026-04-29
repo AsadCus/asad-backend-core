@@ -710,7 +710,7 @@ class ReportTemplateController extends Controller
                     'hotels_by_location' => [
                         ['location' => 'Makkah', 'hotel' => 'Sample Makkah Hotel'],
                         ['location' => 'Madinah', 'hotel' => 'Sample Madinah Hotel'],
-                    ]
+                    ],
                 ],
             ],
             'flights' => [

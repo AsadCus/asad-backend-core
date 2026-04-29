@@ -35,9 +35,9 @@ class PasswordController extends Controller
         ]);
 
         activity()
-                ->performedOn($request->user())
-                ->withProperties(['subject_type' => 'Password', 'subject_id' => $request->user()->id ?? null])
-                ->log('Password updated successfully #'.($request->user()->id ?? null));
+            ->performedOn($request->user())
+            ->withProperties(['subject_type' => 'Password', 'subject_id' => $request->user()->id ?? null])
+            ->log('Password updated successfully #'.($request->user()->id ?? null));
 
         return back();
     }

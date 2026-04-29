@@ -403,12 +403,32 @@ class FinancialTransactionService
         ];
     }
 
+    public function getAvailableCategories(): array
+    {
+        $categories = \App\Models\QuotationItem::where('is_header', true)
+            ->whereNotNull('description')
+            ->distinct()
+            ->pluck('description')
+            ->map(fn ($desc) => trim((string) $desc))
+            ->filter(fn ($desc) => $desc !== '')
+            ->sort()
+            ->map(fn ($desc) => ['value' => $desc, 'label' => $desc])
+            ->values()
+            ->all();
+
+        $categories[] = ['value' => 'Others', 'label' => 'Others'];
+
+        return $categories;
+    }
+
     public function getPaymentCategorySummary(
         string $period = 'daily',
         ?int $financialYearId = null,
         ?string $timezone = null,
         ?string $rangeStartUtc = null,
         ?string $rangeEndUtc = null,
+        ?array $packageIds = null,
+        ?array $categoryIds = null,
     ): array {
         [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange(
             $period,
@@ -427,16 +447,26 @@ class FinancialTransactionService
                 'invoice.order.quotation.createdBy',
                 'invoice.order.quotation.customerConfirmation.package',
             ])
-            ->where(function ($query) {
-                $query->whereNull('invoice_id')
-                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery) {
-                        $quotationQuery->whereNotIn('status', ['cancelled', 'rejected', 'expired']);
-                    });
-            })
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
             ->orderBy('receipt_date')
             ->orderBy('id');
+
+        if (! empty($packageIds)) {
+            $receiptsQuery->whereHas('invoice.order.quotation', function ($q) use ($packageIds): void {
+                $q->whereNotIn('status', ['cancelled', 'rejected', 'expired'])
+                    ->whereHas('customerConfirmation', function ($ccq) use ($packageIds): void {
+                        $ccq->whereIn('package_id', $packageIds);
+                    });
+            });
+        } else {
+            $receiptsQuery->where(function ($query): void {
+                $query->whereNull('invoice_id')
+                    ->orWhereHas('invoice.order.quotation', function ($quotationQuery): void {
+                        $quotationQuery->whereNotIn('status', ['cancelled', 'rejected', 'expired']);
+                    });
+            });
+        }
 
         if (DataScope::shouldScopePaymentCreatorCountry()) {
             $receiptsQuery->where(function ($query): void {
@@ -448,6 +478,31 @@ class FinancialTransactionService
         }
 
         $receipts = $receiptsQuery->get();
+
+        if (! empty($categoryIds)) {
+            $receipts = $receipts->filter(function (Receipt $receipt) use ($categoryIds): bool {
+                $invoice = $receipt->invoice;
+                if (! $invoice) {
+                    return in_array('Others', $categoryIds, true);
+                }
+
+                $items = $invoice->quotationItems
+                    ->filter(fn (QuotationItem $item) => ! $item->is_header);
+
+                if ($items->isEmpty()) {
+                    return in_array('Others', $categoryIds, true);
+                }
+
+                foreach ($items as $item) {
+                    $catLabel = $this->resolveItemCategoryLabel($item);
+                    if (in_array($catLabel, $categoryIds, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->values();
+        }
 
         $categoryTotals = [];
         $bucketTotals = [];
@@ -1005,6 +1060,7 @@ class FinancialTransactionService
         ?string $rangeStartUtc = null,
         ?string $rangeEndUtc = null,
         ?array $packageIds = null,
+        ?array $categoryIds = null,
     ): array {
         [$resolvedPeriod, $startDate, $endDate, $periodLabel] = $this->resolvePaymentPeriodRange(
             $period,
@@ -1028,7 +1084,7 @@ class FinancialTransactionService
             ->orderBy('receipt_date')
             ->orderBy('id');
 
-        if (!empty($packageIds)) {
+        if (! empty($packageIds)) {
             // Package filter: only receipts whose quotation links to these packages
             $receiptsQuery->whereHas('invoice.order.quotation', function ($q) use ($packageIds): void {
                 $q->whereNotIn('status', ['cancelled', 'rejected', 'expired'])
@@ -1057,6 +1113,31 @@ class FinancialTransactionService
 
         $receipts = $receiptsQuery->get();
 
+        if (! empty($categoryIds)) {
+            $receipts = $receipts->filter(function (Receipt $receipt) use ($categoryIds): bool {
+                $invoice = $receipt->invoice;
+                if (! $invoice) {
+                    return in_array('Others', $categoryIds, true);
+                }
+
+                $items = $invoice->quotationItems
+                    ->filter(fn (QuotationItem $item) => ! $item->is_header);
+
+                if ($items->isEmpty()) {
+                    return in_array('Others', $categoryIds, true);
+                }
+
+                foreach ($items as $item) {
+                    $catLabel = $this->resolveItemCategoryLabel($item);
+                    if (in_array($catLabel, $categoryIds, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->values();
+        }
+
         // Per-date accumulator: [dateKey => [date, day_name, categories[], payment_methods[], total_sales]]
         $dateBuckets = [];
         $allCategoryKeys = [];   // [catKey => catLabel]
@@ -1081,12 +1162,12 @@ class FinancialTransactionService
 
             if (! isset($dateBuckets[$dateKey])) {
                 $dateBuckets[$dateKey] = [
-                    'date_sort'       => $dateKey,
-                    'date'            => $dateLabel,
-                    'day_name'        => $dayName,
-                    'categories'      => [],
+                    'date_sort' => $dateKey,
+                    'date' => $dateLabel,
+                    'day_name' => $dayName,
+                    'categories' => [],
                     'payment_methods' => [],
-                    'total_sales'     => 0.0,
+                    'total_sales' => 0.0,
                 ];
             }
 
@@ -1104,6 +1185,7 @@ class FinancialTransactionService
                 $this->addDateCategoryAmount($dateBuckets, $dateKey, 'Others');
                 $this->addDateCategoryAmountValue($dateBuckets, $dateKey, 'Others', $receiptAmount);
                 $allCategoryKeys[$this->toCategoryKey('Others')] = 'Others';
+
                 continue;
             }
 
@@ -1116,6 +1198,7 @@ class FinancialTransactionService
                 $this->addDateCategoryAmount($dateBuckets, $dateKey, 'Others');
                 $this->addDateCategoryAmountValue($dateBuckets, $dateKey, 'Others', $receiptAmount);
                 $allCategoryKeys[$this->toCategoryKey('Others')] = 'Others';
+
                 continue;
             }
 
@@ -1191,9 +1274,9 @@ class FinancialTransactionService
         $rows = [];
         foreach ($dateBuckets as $bucket) {
             $row = [
-                'date_sort'   => $bucket['date_sort'],
-                'date'        => $bucket['date'],
-                'day_name'    => $bucket['day_name'],
+                'date_sort' => $bucket['date_sort'],
+                'date' => $bucket['date'],
+                'day_name' => $bucket['day_name'],
                 'total_sales' => round($bucket['total_sales'], 2),
             ];
 
@@ -1210,37 +1293,37 @@ class FinancialTransactionService
 
         // Resolve package info for display in the report
         $packageInfo = null;
-        if (!empty($packageIds)) {
+        if (! empty($packageIds)) {
             if (count($packageIds) === 1) {
                 $pkg = \App\Models\Package::find($packageIds[0]);
                 if ($pkg) {
                     $packageInfo = [
-                        'id'             => $pkg->id,
+                        'id' => $pkg->id,
                         'package_number' => $pkg->package_number,
-                        'name'           => $pkg->name,
+                        'name' => $pkg->name,
                     ];
                 }
             } else {
                 $packageInfo = [
-                    'id'             => 'multiple',
+                    'id' => 'multiple',
                     'package_number' => 'Multiple',
-                    'name'           => count($packageIds) . ' Packages Selected',
+                    'name' => count($packageIds).' Packages Selected',
                 ];
             }
         }
 
         return [
-            'mode'             => $resolvedPeriod,
-            'period_label'     => $periodLabel,
-            'start_date'       => $startDate->toDateString(),
-            'end_date'         => $endDate->toDateString(),
+            'mode' => $resolvedPeriod,
+            'period_label' => $periodLabel,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
             'date_range_label' => $startDate->translatedFormat('d F Y').' - '.$endDate->translatedFormat('d F Y'),
-            'total_amount'     => round($totalAmount, 2),
-            'receipt_count'    => $receipts->count(),
-            'package'          => $packageInfo,
-            'categories'       => $allCategoryKeys,   // [catKey => catLabel]
-            'payment_methods'  => $paymentMethods,    // [methodKey, ...]
-            'rows'             => $rows,
+            'total_amount' => round($totalAmount, 2),
+            'receipt_count' => $receipts->count(),
+            'package' => $packageInfo,
+            'categories' => $allCategoryKeys,   // [catKey => catLabel]
+            'payment_methods' => $paymentMethods,    // [methodKey, ...]
+            'rows' => $rows,
         ];
     }
 

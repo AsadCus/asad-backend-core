@@ -101,7 +101,9 @@ class DashboardController extends Controller
             }
 
             $data['customers'] = $this->customerService->getForDataTable($request);
+
             $data['packageOptions'] = $this->packageService->getForFilter();
+            $data['categoryOptions'] = $this->financialTransactionService->getAvailableCategories();
         }
 
         if ($user->hasRole('sales')) {
@@ -250,12 +252,24 @@ class DashboardController extends Controller
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
 
+        $packageIds = $request->input('packages');
+        if (is_string($packageIds)) {
+            $packageIds = array_map('intval', array_filter(explode(',', $packageIds)));
+        }
+
+        $categoryIds = $request->input('categories');
+        if (is_string($categoryIds)) {
+            $categoryIds = array_filter(explode(',', $categoryIds));
+        }
+
         $data = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
+            empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
+            empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
         return response()->json($data);
@@ -269,12 +283,24 @@ class DashboardController extends Controller
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
 
+        $packageIds = $request->input('packages');
+        if (is_string($packageIds)) {
+            $packageIds = array_map('intval', array_filter(explode(',', $packageIds)));
+        }
+
+        $categoryIds = $request->input('categories');
+        if (is_string($categoryIds)) {
+            $categoryIds = array_filter(explode(',', $categoryIds));
+        }
+
         $summary = $this->financialTransactionService->getPaymentCategorySummary(
             $period,
             $selectedYearId ? (int) $selectedYearId : null,
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
+            empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
+            empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
         // Build report with branding using Report Template Service
@@ -306,13 +332,19 @@ class DashboardController extends Controller
             $packageIds = array_map('intval', array_filter($packageIds));
         }
 
+        $categoryIds = $request->input('categories');
+        if (is_string($categoryIds)) {
+            $categoryIds = array_filter(explode(',', $categoryIds));
+        }
+
         $data = $this->financialTransactionService->getPackageGroupPaymentSummary(
             $period,
             $financialYearId ? (int) $financialYearId : null,
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
-            empty($packageIds) ? null : $packageIds,
+            empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
+            empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
         return response()->json($data);
@@ -333,13 +365,19 @@ class DashboardController extends Controller
             $packageIds = array_map('intval', array_filter($packageIds));
         }
 
+        $categoryIds = $request->input('categories');
+        if (is_string($categoryIds)) {
+            $categoryIds = array_filter(explode(',', $categoryIds));
+        }
+
         $summary = $this->financialTransactionService->getPackageGroupPaymentSummary(
             $period,
             $financialYearId ? (int) $financialYearId : null,
             is_string($timezone) ? $timezone : null,
             is_string($rangeStartUtc) ? $rangeStartUtc : null,
             is_string($rangeEndUtc) ? $rangeEndUtc : null,
-            empty($packageIds) ? null : $packageIds,
+            empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
+            empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
         $report = $this->reportTemplateService->build('package_group_report', $summary);
