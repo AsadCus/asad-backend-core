@@ -476,6 +476,8 @@ class ManifestService
                         'location' => $accommodation->location,
                         'hotel_name' => $accommodation->hotel_name,
                         'check_in_formatted' => $accommodation->check_in_formatted,
+                        'first_meal' => $accommodation->first_meal,
+                        'last_meal' => $accommodation->last_meal,
                     ];
                 })
                 ->values()

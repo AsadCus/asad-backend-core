@@ -189,6 +189,8 @@ class PackageService
                         'ic_contact_number' => $accommodation['ic_contact_number'] ?? null,
                         'remarks' => $accommodation['remarks'] ?? null,
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
+                        'first_meal' => $accommodation['first_meal'] ?? null,
+                        'last_meal' => $accommodation['last_meal'] ?? null,
                         'check_in' => $accommodation['check_in'] ?? null,
                         'check_out' => $accommodation['check_out'] ?? null,
                     ]);
@@ -294,6 +296,8 @@ class PackageService
                     'ic_contact_number' => $a->ic_contact_number,
                     'remarks' => $a->remarks,
                     'type_of_meal' => $a->type_of_meal,
+                    'first_meal' => $a->first_meal,
+                    'last_meal' => $a->last_meal,
                     'check_in' => $a->check_in_formatted,
                     'check_out' => $a->check_out_formatted,
                 ];
@@ -424,6 +428,8 @@ class PackageService
                         'ic_contact_number' => $accommodation['ic_contact_number'] ?? null,
                         'remarks' => $accommodation['remarks'] ?? null,
                         'type_of_meal' => $accommodation['type_of_meal'] ?? null,
+                        'first_meal' => $accommodation['first_meal'] ?? null,
+                        'last_meal' => $accommodation['last_meal'] ?? null,
                         'check_in' => $accommodation['check_in'] ?? null,
                         'check_out' => $accommodation['check_out'] ?? null,
                     ]);

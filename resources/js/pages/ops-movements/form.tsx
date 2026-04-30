@@ -558,10 +558,10 @@ const YES_NO_OPTIONS = [
     { label: 'No', value: 'no' },
 ];
 
-const FIRST_MEAL_OPTIONS = [
-    { label: 'Breakfast', value: 'breakfast' },
-    { label: 'Lunch', value: 'lunch' },
-    { label: 'Dinner', value: 'dinner' },
+const MEAL_OPTIONS = [
+    { label: 'Breakfast', value: 'Breakfast' },
+    { label: 'Lunch', value: 'Lunch' },
+    { label: 'Dinner', value: 'Dinner' },
 ];
 
 export default function OpsMovementForm({
@@ -665,15 +665,8 @@ export default function OpsMovementForm({
             accommodations: (data.accommodations ?? []).map(
                 (accommodation) => ({
                     id: accommodation.id,
-                    first_meal: ['breakfast', 'lunch', 'dinner'].includes(
-                        String(accommodation.first_meal ?? '')
-                            .trim()
-                            .toLowerCase(),
-                    )
-                        ? String(accommodation.first_meal ?? '')
-                              .trim()
-                              .toLowerCase()
-                        : null,
+                    first_meal: accommodation.first_meal ?? null,
+                    last_meal: accommodation.last_meal ?? null,
                     ic: accommodation.ic ?? null,
                     ic_contact_number: accommodation.ic_contact_number ?? null,
                     remarks: accommodation.remarks ?? null,
@@ -1524,7 +1517,7 @@ export default function OpsMovementForm({
                                         key={accommodation.id}
                                         className="grid grid-cols-1 gap-4 rounded-lg border p-4"
                                     >
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField label="Location">
                                                 <CopyableText
                                                     value={
@@ -1539,6 +1532,15 @@ export default function OpsMovementForm({
                                                     }
                                                 />
                                             </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                            <FormField label="Meal">
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.type_of_meal
+                                                    }
+                                                />
+                                            </FormField>
                                             <FormField
                                                 label="First Meal"
                                                 error={getError(
@@ -1546,15 +1548,12 @@ export default function OpsMovementForm({
                                                 )}
                                             >
                                                 <ProperInputSelect
-                                                    options={FIRST_MEAL_OPTIONS}
+                                                    options={MEAL_OPTIONS}
                                                     value={
                                                         accommodation.first_meal ??
                                                         ''
                                                     }
-                                                    disabled={
-                                                        !canEditOpsAndPif ||
-                                                        processing
-                                                    }
+                                                    disabled
                                                     onValueChange={(value) =>
                                                         updateAccommodation(
                                                             index,
@@ -1565,13 +1564,29 @@ export default function OpsMovementForm({
                                                     placeholder="Select first meal"
                                                 />
                                             </FormField>
-                                            {/* <FormField label="Meal">
-                                                <CopyableText
+                                            <FormField
+                                                label="Last Meal"
+                                                error={getError(
+                                                    `accommodations.${index}.last_meal`,
+                                                )}
+                                            >
+                                                <ProperInputSelect
+                                                    options={MEAL_OPTIONS}
                                                     value={
-                                                        accommodation.type_of_meal
+                                                        accommodation.last_meal ??
+                                                        ''
                                                     }
+                                                    disabled
+                                                    onValueChange={(value) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'last_meal',
+                                                            String(value),
+                                                        )
+                                                    }
+                                                    placeholder="Select last meal"
                                                 />
-                                            </FormField> */}
+                                            </FormField>
                                         </div>
                                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField
@@ -3093,7 +3108,7 @@ export default function OpsMovementForm({
                                         className="space-y-3 rounded-lg border p-4"
                                     >
                                         {/* Hotel info row */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <FormField
                                                 label="City"
                                                 fieldRequirementsProps={{
@@ -3118,6 +3133,71 @@ export default function OpsMovementForm({
                                                     }
                                                 />
                                             </FormField>
+                                        </div>
+                                        {/* Meal */}
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <FormField
+                                                label="Meal"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Total number of meals provided.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={
+                                                        accommodation.type_of_meal ??
+                                                        0
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="First Meal"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Enter first meal.',
+                                                }}
+                                            >
+                                                <ProperInputSelect
+                                                    options={MEAL_OPTIONS}
+                                                    value={
+                                                        accommodation.first_meal ??
+                                                        ''
+                                                    }
+                                                    disabled
+                                                    onValueChange={(value) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'first_meal',
+                                                            String(value),
+                                                        )
+                                                    }
+                                                    placeholder="Select first meal"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Last Meal"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Enter last meal.',
+                                                }}
+                                            >
+                                                <ProperInputSelect
+                                                    options={MEAL_OPTIONS}
+                                                    value={
+                                                        accommodation.last_meal ??
+                                                        ''
+                                                    }
+                                                    disabled
+                                                    onValueChange={(value) =>
+                                                        updateAccommodation(
+                                                            index,
+                                                            'last_meal',
+                                                            String(value),
+                                                        )
+                                                    }
+                                                    placeholder="Select last meal"
+                                                />
+                                            </FormField>
+                                        </div>
+                                        {/* Dates row */}
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                             <FormField
                                                 label="Nights"
                                                 fieldRequirementsProps={{
@@ -3131,9 +3211,6 @@ export default function OpsMovementForm({
                                                     }
                                                 />
                                             </FormField>
-                                        </div>
-                                        {/* Dates row */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                             <FormField
                                                 label="Check In"
                                                 fieldRequirementsProps={{

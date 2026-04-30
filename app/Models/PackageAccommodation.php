@@ -16,6 +16,8 @@ class PackageAccommodation extends Model
         'ic_contact_number',
         'remarks',
         'type_of_meal',
+        'first_meal',
+        'last_meal',
         'check_in',
         'check_out',
     ];

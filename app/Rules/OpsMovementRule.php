@@ -21,9 +21,10 @@ class OpsMovementRule
 
             'accommodations' => ['nullable', 'array'],
             'accommodations.*.id' => ['required', 'integer', 'exists:package_accommodations,id'],
-            'accommodations.*.first_meal' => ['nullable', 'in:breakfast,lunch,dinner'],
             'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
             'accommodations.*.remarks' => ['nullable', 'string'],
+            'accommodations.*.first_meal' => ['nullable', 'string', 'max:255'],
+            'accommodations.*.last_meal' => ['nullable', 'string', 'max:255'],
 
             'officials' => ['nullable', 'array'],
             'officials.*.id' => ['required', 'integer', 'exists:package_officials,id'],

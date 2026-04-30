@@ -235,16 +235,16 @@
     <table class="section-table">
         <tr>
             <th style="width: 10%;">City</th>
-            <th style="width: 18%;">Hotel Name</th>
+            <th style="width: 12%;">Hotel Name</th>
             <th style="width: 12%;" class="text-center">Check In</th>
             <th style="width: 12%;" class="text-center">Check Out</th>
-            <th style="width: 6%;" class="text-right">Nights</th>
+            <th style="width: 7%;" class="text-right">Nights</th>
             <th style="width: 7%;" class="text-right">Single</th>
-            <th style="width: 6%;" class="text-right">DBL</th>
-            <th style="width: 6%;" class="text-right">TRP</th>
-            <th style="width: 6%;" class="text-right">Quad</th>
-            <th style="width: 5%;" class="text-right">Inf</th>
-            <th>Remarks</th>
+            <th style="width: 7%;" class="text-right">Double</th>
+            <th style="width: 7%;" class="text-right">Triple</th>
+            <th style="width: 7%;" class="text-right">Quad</th>
+            <th style="width: 7%;" class="text-right">Infant</th>
+            <th style="width: 12%;">Remarks</th>
         </tr>
         @forelse ($accommodations as $accommodation)
             @php

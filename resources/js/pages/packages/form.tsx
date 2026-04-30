@@ -31,7 +31,9 @@ import {
     infantAndChildPriceLabels,
     officialTypeOptions,
     packageMealPlanOptions,
+    packageMealTimeOptions,
     packageTrainTicketTypeOptions,
+    packageVisaTypeOptions,
     sharingPlanPriceLabels,
     type AccommodationSchema,
     type FlightSchema,
@@ -547,6 +549,8 @@ export default function PackageForm({
                 location: '',
                 hotel_name: '',
                 type_of_meal: '',
+                first_meal: '',
+                last_meal: '',
                 ic: '',
                 ic_contact_number: '',
                 remarks: '',
@@ -998,6 +1002,20 @@ export default function PackageForm({
     };
 
     const occupiedSeats = Number(data.occupied_seats ?? 0);
+    const visaTypeOptionValues = useMemo(() => {
+        return new Set(
+            packageVisaTypeOptions.map((option) =>
+                String(option.value).toLowerCase(),
+            ),
+        );
+    }, []);
+    const normalizedVisaType = String(data.visa_type ?? '').trim();
+    const isVisaTypeCustom =
+        normalizedVisaType.length > 0 &&
+        !visaTypeOptionValues.has(normalizedVisaType.toLowerCase());
+    const visaTypeSelectValue = isVisaTypeCustom
+        ? '__custom__'
+        : normalizedVisaType;
 
     return (
         <div className="mx-auto w-full">
@@ -1825,19 +1843,43 @@ export default function PackageForm({
                                 label="Visa Type"
                                 htmlFor="visa_type"
                                 fieldRequirementsProps={{
-                                    hint: 'Enter visa type',
+                                    hint: 'Select visa type or enter a custom value',
                                 }}
                                 error={getError('visa_type')}
                             >
-                                <ProperInput
-                                    id="visa_type"
-                                    value={data.visa_type || ''}
-                                    disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData('visa_type', v || null)
-                                    }
-                                    placeholder="e.g., Umrah Visa"
-                                />
+                                <div className="space-y-3">
+                                    <ProperInputSelect
+                                        id="visa_type"
+                                        options={packageVisaTypeOptions}
+                                        value={visaTypeSelectValue}
+                                        disabled={isView || processing}
+                                        onValueChange={(v) => {
+                                            const nextValue = String(v || '');
+                                            setData(
+                                                'visa_type',
+                                                nextValue.length > 0
+                                                    ? nextValue
+                                                    : null,
+                                            );
+                                        }}
+                                        placeholder="Select visa type"
+                                    />
+                                    {visaTypeSelectValue === '__custom__' && (
+                                        <ProperInput
+                                            id="visa_type_custom"
+                                            value={
+                                                isVisaTypeCustom
+                                                    ? normalizedVisaType
+                                                    : ''
+                                            }
+                                            disabled={isView || processing}
+                                            onCommit={(v) =>
+                                                setData('visa_type', v || null)
+                                            }
+                                            placeholder="Enter custom visa type"
+                                        />
+                                    )}
+                                </div>
                             </FormField>
                         </div>
                     </CardContent>
@@ -2198,7 +2240,7 @@ export default function PackageForm({
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                                 <FormField
                                                     label="Location"
                                                     htmlFor={`accommodations_${index}_location`}
@@ -2259,6 +2301,9 @@ export default function PackageForm({
                                                         placeholder="Hotel name"
                                                     />
                                                 </FormField>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                                 <FormField
                                                     label="Meal Type"
                                                     fieldRequirementsProps={{
@@ -2287,6 +2332,66 @@ export default function PackageForm({
                                                             )
                                                         }
                                                         placeholder="Select meal plan"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="First Meal"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Select first meal',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.first_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={
+                                                            packageMealTimeOptions
+                                                        }
+                                                        value={
+                                                            accommodation.first_meal ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'first_meal',
+                                                                String(v || ''),
+                                                            )
+                                                        }
+                                                        placeholder="Select first meal"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Last Meal"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Select last meal',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.last_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={
+                                                            packageMealTimeOptions
+                                                        }
+                                                        value={
+                                                            accommodation.last_meal ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            isView || processing
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'last_meal',
+                                                                String(v || ''),
+                                                            )
+                                                        }
+                                                        placeholder="Select last meal"
                                                     />
                                                 </FormField>
                                             </div>

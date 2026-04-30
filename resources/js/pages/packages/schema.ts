@@ -8,6 +8,8 @@ export const accommodationSchema = z.object({
     ic_contact_number: z.string().nullable().optional(),
     remarks: z.string().nullable().optional(),
     type_of_meal: z.string().nullable().optional(),
+    first_meal: z.string().nullable().optional(),
+    last_meal: z.string().nullable().optional(),
     check_in: z.string().nullable().optional(),
     check_out: z.string().nullable().optional(),
 });
@@ -262,4 +264,16 @@ export const packageMealPlanOptions = [
     { value: 'Breakfast Only', label: 'Breakfast Only' },
     { value: 'Half Board', label: 'Half Board (Breakfast & Dinner)' },
     { value: 'Full Board', label: 'Full Board (3 Meals)' },
+];
+
+export const packageMealTimeOptions = [
+    { value: 'Breakfast', label: 'Breakfast' },
+    { value: 'Lunch', label: 'Lunch' },
+    { value: 'Dinner', label: 'Dinner' },
+];
+
+export const packageVisaTypeOptions = [
+    { value: 'Not Applicable', label: 'Not Applicable' },
+    { value: 'Tourist Visa', label: 'Tourist Visa' },
+    { value: 'Umrah Visa', label: 'Umrah Visa' },
 ];

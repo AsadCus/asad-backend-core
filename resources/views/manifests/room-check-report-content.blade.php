@@ -4,6 +4,8 @@
 
 @section('title-bar')
     Manifest Check-In Room List - {{ $manifest['room_check_location_label'] ?? '-' }}
+    <br>
+    Please make it all in ONE FLOOR
 @endsection
 
 @section('body-class', 'is-landscape')
@@ -140,6 +142,18 @@
             ->values();
 
         $accommodations = collect($manifest['package_accommodations'] ?? [])->values();
+        $packageFirstMeal = $accommodations
+            ->pluck('first_meal')
+            ->filter(function ($value) {
+                return trim((string) $value) !== '';
+            })
+            ->first();
+        $packageLastMeal = $accommodations
+            ->pluck('last_meal')
+            ->filter(function ($value) {
+                return trim((string) $value) !== '';
+            })
+            ->last();
 
         $groupedRows = [];
         foreach ($rows as $index => $row) {
@@ -190,15 +204,16 @@
         <tr>
             <td class="summary-label">Date of Departure</td>
             <td>{{ $manifest['departure_date'] ?? '-' }}</td>
-            <td class="summary-label">Manifest Number</td>
-            <td>{{ $manifest['manifest_number'] ?? '-' }}</td>
+            <td class="summary-label">Package Number</td>
+            <td>{{ $manifest['package_number'] ?? '-' }}</td>
         </tr>
         <tr>
             <td class="summary-label">Date of Return</td>
             <td>{{ $manifest['return_date'] ?? '-' }}</td>
-            <td class="summary-label">Package Number</td>
-            <td>{{ $manifest['package_number'] ?? '-' }}</td>
+            <td class="summary-label">Package</td>
+            <td>{{ $manifest['package_name'] ?? '-' }}</td>
         </tr>
+
         @forelse ($accommodations as $index => $accommodation)
             <tr>
                 <td class="summary-label">
@@ -209,8 +224,11 @@
                 </td>
                 <td>{{ $accommodation['check_in_formatted'] ?? '-' }}</td>
                 @if ($index === 0)
-                    <td class="summary-label">Package</td>
-                    <td>{{ $manifest['package_name'] ?? '-' }}</td>
+                    <td class="summary-label">First Meal</td>
+                    <td>{{ $packageFirstMeal ? ucfirst((string) $packageFirstMeal) : '-' }}</td>
+                @elseif ($index === 1)
+                    <td class="summary-label">Last Meal</td>
+                    <td>{{ $packageLastMeal ? ucfirst((string) $packageLastMeal) : '-' }}</td>
                 @else
                     <td class="summary-label">&nbsp;</td>
                     <td>&nbsp;</td>
@@ -220,8 +238,14 @@
             <tr>
                 <td class="summary-label">Date of Enter</td>
                 <td>-</td>
-                <td class="summary-label">Package</td>
-                <td>{{ $manifest['package_name'] ?? '-' }}</td>
+                <td class="summary-label">First Meal</td>
+                <td>{{ $packageFirstMeal ? ucfirst((string) $packageFirstMeal) : '-' }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">&nbsp;</td>
+                <td>&nbsp;</td>
+                <td class="summary-label">Last Meal</td>
+                <td>{{ $packageLastMeal ? ucfirst((string) $packageLastMeal) : '-' }}</td>
             </tr>
         @endforelse
     </table>

@@ -115,6 +115,8 @@ class EnquiryController extends Controller
             $rules['package_data.accommodations.*.location'] = ['required', 'string', 'max:255'];
             $rules['package_data.accommodations.*.hotel_name'] = ['required', 'string', 'max:255'];
             $rules['package_data.accommodations.*.type_of_meal'] = ['nullable', 'string', 'max:255'];
+            $rules['package_data.accommodations.*.first_meal'] = ['nullable', 'string', 'max:255'];
+            $rules['package_data.accommodations.*.last_meal'] = ['nullable', 'string', 'max:255'];
             $rules['package_data.accommodations.*.check_in'] = ['nullable', 'date'];
             $rules['package_data.accommodations.*.check_out'] = ['nullable', 'date'];
         }

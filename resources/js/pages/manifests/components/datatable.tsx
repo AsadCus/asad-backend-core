@@ -101,6 +101,7 @@ const BED_TYPE_OPTIONS: SelectOption[] = [
 ];
 
 const MEAL_OPTIONS: SelectOption[] = [
+    { value: 'Exclude Meal', label: 'Exclude Meal' },
     { value: 'Breakfast Only', label: 'Breakfast Only' },
     { value: 'Half Board', label: 'Half Board' },
     { value: 'Full Board', label: 'Full Board' },

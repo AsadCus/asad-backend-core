@@ -106,9 +106,6 @@ class OpsMovementService
         $manifest = $package->manifests->sortByDesc('id')->first();
         $extension = $manifest?->ops_movement_extension ?? [];
         $flightOpsMap = collect($extension['flights'] ?? [])->keyBy('id');
-        $accommodationOpsMap = collect($extension['accommodations'] ?? [])
-            ->filter(fn ($accommodation) => is_array($accommodation) && isset($accommodation['id']))
-            ->keyBy('id');
         $accommodationTargets = $package->accommodations
             ->map(function ($accommodation, int $index): array {
                 return [
@@ -200,8 +197,7 @@ class OpsMovementService
                 'wheelchair_non_official_total' => $nonOfficialMembers->filter(fn ($member) => $member->is_using_wheelchair === true)->count(),
                 'grand_total' => $nonOfficialMembers->count() + $officialMembers->count(),
             ],
-            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomCountsByLocation, $manifest, $accommodationOpsMap) {
-                $accommodationOps = $accommodationOpsMap->get((int) $accommodation->id, []);
+            'accommodations' => $package->accommodations->map(function ($accommodation) use ($roomCountsByLocation, $manifest) {
                 $locationKey = $this->normalizeLocationKey($accommodation->location);
                 $locationRooms = collect($manifest?->rooms ?? [])
                     ->filter(function ($room) use ($locationKey): bool {
@@ -240,7 +236,8 @@ class OpsMovementService
                     'id' => $accommodation->id,
                     'location' => $accommodation->location,
                     'hotel_name' => $accommodation->hotel_name,
-                    'first_meal' => $this->normalizeFirstMeal($accommodationOps['first_meal'] ?? null),
+                    'first_meal' => $accommodation->first_meal,
+                    'last_meal' => $accommodation->last_meal,
                     'ic' => $accommodation->ic,
                     'ic_contact_number' => $accommodation->ic_contact_number,
                     'type_of_meal' => $accommodation->type_of_meal,
@@ -380,8 +377,6 @@ class OpsMovementService
                 'train_description' => $payload['train_description'] ?? $package->train_description,
             ]);
 
-            $accommodationExtensionRows = [];
-
             foreach (($payload['accommodations'] ?? []) as $accommodationPayload) {
                 if (empty($accommodationPayload['id'])) {
                     continue;
@@ -397,12 +392,9 @@ class OpsMovementService
                 $accommodation->update([
                     'ic' => $accommodationPayload['ic'] ?? null,
                     'remarks' => $accommodationPayload['remarks'] ?? null,
+                    'first_meal' => $accommodationPayload['first_meal'] ?? null,
+                    'last_meal' => $accommodationPayload['last_meal'] ?? null,
                 ]);
-
-                $accommodationExtensionRows[] = [
-                    'id' => (int) $accommodation->id,
-                    'first_meal' => $this->normalizeFirstMeal($accommodationPayload['first_meal'] ?? null),
-                ];
             }
 
             foreach (($payload['officials'] ?? []) as $officialPayload) {
@@ -469,10 +461,6 @@ class OpsMovementService
             $extension['doa_datetime'] = $payload['doa_datetime'] ?? null;
             $extension['visa_submitted_to_z_umrah'] = (bool) ($payload['visa_submitted_to_z_umrah'] ?? false);
             $extension['visa_approved'] = (bool) ($payload['visa_approved'] ?? false);
-
-            if (array_key_exists('accommodations', $payload) && is_array($payload['accommodations'])) {
-                $extension['accommodations'] = $accommodationExtensionRows;
-            }
 
             if (array_key_exists('budget_currency', $payload)) {
                 $extension['budget_currency'] = $this->normalizeNullableString($payload['budget_currency'] ?? null);
@@ -597,18 +585,6 @@ class OpsMovementService
         }
 
         return $departureDate->translatedFormat('j F Y').' - '.$returnDate->translatedFormat('j F Y');
-    }
-
-    private function normalizeFirstMeal(mixed $value): ?string
-    {
-        $normalizedValue = Str::of((string) ($value ?? ''))
-            ->trim()
-            ->lower()
-            ->value();
-
-        return in_array($normalizedValue, ['breakfast', 'lunch', 'dinner'], true)
-            ? $normalizedValue
-            : null;
     }
 
     private function buildOpsMovementNumber(Manifest $manifest): string

@@ -159,6 +159,8 @@
             <th>Location</th>
             <th>Hotel</th>
             <th>Meal</th>
+            <th>First Meal</th>
+            <th>Last Meal</th>
             <th>IC</th>
             <th>IC Contact</th>
             <th>Check In</th>
@@ -169,6 +171,8 @@
                 <td>{{ $accommodation['location'] ?? '-' }}</td>
                 <td>{{ $accommodation['hotel_name'] ?? '-' }}</td>
                 <td>{{ $accommodation['type_of_meal'] ?? '-' }}</td>
+                <td>{{ $accommodation['first_meal'] ?? '-' }}</td>
+                <td>{{ $accommodation['last_meal'] ?? '-' }}</td>
                 <td>{{ $accommodation['ic'] ?? '-' }}</td>
                 <td>{{ $accommodation['ic_contact_number'] ?? '-' }}</td>
                 <td>{{ $accommodation['check_in'] ?? '-' }}</td>
@@ -197,17 +201,19 @@
     <table class="section-table">
         <tr>
             <th>Name</th>
-            @foreach($officialLocations as $loc)
+            @foreach ($officialLocations as $loc)
                 <th>{{ $loc }} Hotel</th>
             @endforeach
         </tr>
         @forelse ($officials as $official)
             <tr>
                 <td>{{ $official['name'] ?? '-' }}</td>
-                @foreach($officialLocations as $loc)
+                @foreach ($officialLocations as $loc)
                     @php
-                        $locHotel = collect($official['hotels_by_location'] ?? [])
-                            ->first(fn($h) => strtolower($h['location'] ?? '') === strtolower($loc))['hotel'] ?? null;
+                        $locHotel =
+                            collect($official['hotels_by_location'] ?? [])->first(
+                                fn($h) => strtolower($h['location'] ?? '') === strtolower($loc),
+                            )['hotel'] ?? null;
                     @endphp
                     <td>{{ $locHotel ?: '-' }}</td>
                 @endforeach

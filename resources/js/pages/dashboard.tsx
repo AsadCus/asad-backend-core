@@ -774,7 +774,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
 
                     {/* Admin: Daily/Monthly/Yearly Payment */}
-                    {isGhostAdmin && (
+                    {isAdmin && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
@@ -1004,13 +1004,12 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )}
 
-                    {/* Admin: Package Group / Closing Report */}
-                    {isAdmin && (
+                    {isGhostAdmin && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        Closing Report
+                                        Daily/Monthly Sales Report
                                     </h2>
                                 </div>
 
@@ -1025,7 +1024,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 variant="default"
                                             >
                                                 <Download className="h-4 w-4" />
-                                                Export Closing Report
+                                                Export Sales Report
                                             </Button>
                                         </PopoverTrigger>
 
