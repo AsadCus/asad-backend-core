@@ -1,16 +1,13 @@
 import { DatePickerField } from '@/components/date-picker';
 import { DocumentField } from '@/components/document-field';
 import { FormField } from '@/components/form-field';
+import { FormProgressHeader } from '@/components/form-progress-header';
+import { FormSection } from '@/components/form-section';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
+import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -20,10 +17,11 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { navigateToSection } from '@/lib/navigation-helper';
 import { type SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     type OpsAccommodationSchema,
     type OpsBudgetExtensionSchema,
@@ -576,6 +574,12 @@ export default function OpsMovementForm({
     const canEditOpsAndPif = canEdit && isAdminUser;
 
     const [activeTab, setActiveTab] = useState('ops-movement');
+    const [openOpsSections, setOpenOpsSections] = useState<string[]>([
+        'ops-movement-info',
+    ]);
+    const [openPifSections, setOpenPifSections] = useState<string[]>([
+        'passenger-details',
+    ]);
     const [budgetExtensionEditor, setBudgetExtensionEditor] =
         useState<BudgetExtensionEditorState | null>(null);
 
@@ -745,6 +749,238 @@ export default function OpsMovementForm({
     const getError = (fieldName: string): string | undefined => {
         return (errors as Record<string, string>)[fieldName];
     };
+
+    const errorEntries = useMemo(() => {
+        return Object.entries(errors as Record<string, string>);
+    }, [errors]);
+
+    const hasErrorsForPrefixes = useCallback(
+        (prefixes: string[]) => {
+            return errorEntries.some(([path]) =>
+                prefixes.some(
+                    (prefix) =>
+                        path === prefix || path.startsWith(`${prefix}.`),
+                ),
+            );
+        },
+        [errorEntries],
+    );
+
+    const opsSectionStatuses = useMemo(() => {
+        const hasOpsInfo =
+            Boolean(data.departure_return_range) ||
+            Boolean(data.first_hotel_name) ||
+            Boolean(data.visa_type) ||
+            Boolean(data.package_number) ||
+            Boolean(data.manifest_number) ||
+            Boolean(data.ops_base) ||
+            Boolean(data.infotech_ref);
+        const hasPassengers = Boolean(data.passengers);
+        const hasHotels = (data.accommodations ?? []).length > 0;
+        const hasOfficials = (data.officials ?? []).length > 0;
+        const hasFlights =
+            (data.flights ?? []).length > 0 ||
+            Boolean(data.location) ||
+            Boolean(data.doa_by) ||
+            Boolean(data.doa_datetime);
+        const hasVehicle =
+            Boolean(data.vehicle_type) ||
+            Boolean(data.vehicle_driver_name) ||
+            Boolean(data.vehicle_driver_contact_number);
+        const hasTrain =
+            Boolean(data.train_description) ||
+            (data.train_tickets ?? []).length > 0;
+        const hasVisa =
+            data.visa_submitted_to_z_umrah !== null &&
+            data.visa_submitted_to_z_umrah !== undefined;
+
+        return {
+            opsMovementInfo: hasErrorsForPrefixes(['ops_base', 'infotech_ref'])
+                ? 'error'
+                : hasOpsInfo
+                  ? 'complete'
+                  : 'incomplete',
+            passengers: hasErrorsForPrefixes(['passengers'])
+                ? 'error'
+                : hasPassengers
+                  ? 'complete'
+                  : 'incomplete',
+            hotels: hasErrorsForPrefixes(['accommodations'])
+                ? 'error'
+                : hasHotels
+                  ? 'complete'
+                  : 'incomplete',
+            officials: hasErrorsForPrefixes(['officials'])
+                ? 'error'
+                : hasOfficials
+                  ? 'complete'
+                  : 'incomplete',
+            flightInfo: hasErrorsForPrefixes([
+                'location',
+                'doa_by',
+                'doa_datetime',
+                'flights',
+            ])
+                ? 'error'
+                : hasFlights
+                  ? 'complete'
+                  : 'incomplete',
+            vehicle: hasErrorsForPrefixes([
+                'vehicle_type',
+                'vehicle_driver_name',
+                'vehicle_driver_contact_number',
+            ])
+                ? 'error'
+                : hasVehicle
+                  ? 'complete'
+                  : 'incomplete',
+            train: hasErrorsForPrefixes(['train_description', 'train_tickets'])
+                ? 'error'
+                : hasTrain
+                  ? 'complete'
+                  : 'incomplete',
+            visa: hasErrorsForPrefixes([
+                'visa_submitted_to_z_umrah',
+                'visa_approved',
+            ])
+                ? 'error'
+                : hasVisa
+                  ? 'complete'
+                  : 'incomplete',
+        } as const;
+    }, [data, hasErrorsForPrefixes]);
+
+    const pifSectionStatuses = useMemo(() => {
+        const hasPassengers = Boolean(data.passengers);
+        const hasTourLeaders = (data.pif?.tour_leaders ?? []).length > 0;
+        const hasFlights = (data.flights ?? []).length > 0;
+        const hasAccommodations = (data.accommodations ?? []).length > 0;
+        const hasRawdah = (data.rawdah_tasreehs ?? []).length > 0;
+        const hasTransportation = (data.transportation_plans ?? []).length > 0;
+
+        return {
+            passengerDetails: hasErrorsForPrefixes(['passengers'])
+                ? 'error'
+                : hasPassengers
+                  ? 'complete'
+                  : 'incomplete',
+            tourLeader: hasErrorsForPrefixes(['pif.tour_leaders'])
+                ? 'error'
+                : hasTourLeaders
+                  ? 'complete'
+                  : 'incomplete',
+            flightSchedule: hasErrorsForPrefixes(['flights'])
+                ? 'error'
+                : hasFlights
+                  ? 'complete'
+                  : 'incomplete',
+            accommodation: hasErrorsForPrefixes(['accommodations'])
+                ? 'error'
+                : hasAccommodations
+                  ? 'complete'
+                  : 'incomplete',
+            rawdahTasreeh: hasErrorsForPrefixes(['rawdah_tasreehs'])
+                ? 'error'
+                : hasRawdah
+                  ? 'complete'
+                  : 'incomplete',
+            transportationPlan: hasErrorsForPrefixes(['transportation_plans'])
+                ? 'error'
+                : hasTransportation
+                  ? 'complete'
+                  : 'incomplete',
+        } as const;
+    }, [data, hasErrorsForPrefixes]);
+
+    const opsSections = useMemo(
+        () => [
+            {
+                id: 'ops-movement-info',
+                title: 'Ops Movement Info',
+                status: opsSectionStatuses.opsMovementInfo,
+            },
+            {
+                id: 'pax-passengers',
+                title: 'Pax / Passengers',
+                status: opsSectionStatuses.passengers,
+            },
+            {
+                id: 'hotels',
+                title: 'Hotels',
+                status: opsSectionStatuses.hotels,
+            },
+            {
+                id: 'officials',
+                title: 'Officials',
+                status: opsSectionStatuses.officials,
+            },
+            {
+                id: 'flight-info',
+                title: 'Flight Info',
+                status: opsSectionStatuses.flightInfo,
+            },
+            {
+                id: 'vehicle',
+                title: 'Vehicle',
+                status: opsSectionStatuses.vehicle,
+            },
+            {
+                id: 'train',
+                title: 'Train',
+                status: opsSectionStatuses.train,
+            },
+            {
+                id: 'visa',
+                title: 'Visa',
+                status: opsSectionStatuses.visa,
+            },
+        ],
+        [opsSectionStatuses],
+    );
+
+    const pifSections = useMemo(
+        () => [
+            {
+                id: 'passenger-details',
+                title: 'Passenger Details',
+                status: pifSectionStatuses.passengerDetails,
+            },
+            {
+                id: 'tour-leader',
+                title: 'Tour Leader',
+                status: pifSectionStatuses.tourLeader,
+            },
+            {
+                id: 'flight-schedule',
+                title: 'Flight Schedule',
+                status: pifSectionStatuses.flightSchedule,
+            },
+            {
+                id: 'accommodation',
+                title: 'Accommodation',
+                status: pifSectionStatuses.accommodation,
+            },
+            {
+                id: 'rawdah-tasreeh',
+                title: 'Rawdah Tasreeh',
+                status: pifSectionStatuses.rawdahTasreeh,
+            },
+            {
+                id: 'transportation-plan',
+                title: 'Transportation Plan',
+                status: pifSectionStatuses.transportationPlan,
+            },
+        ],
+        [pifSectionStatuses],
+    );
+
+    const handleOpsSectionClick = useCallback((sectionId: string) => {
+        navigateToSection(sectionId, setOpenOpsSections);
+    }, []);
+
+    const handlePifSectionClick = useCallback((sectionId: string) => {
+        navigateToSection(sectionId, setOpenPifSections);
+    }, []);
 
     const updateAccommodation = (
         index: number,
@@ -1353,664 +1589,687 @@ export default function OpsMovementForm({
                 </ScrollArea>
 
                 <TabsContent value="ops-movement" className="space-y-6">
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Ops Movement Info
-                            </CardTitle>
-                            <CardDescription>
-                                Core operational details derived from package
-                                and manifest, with editable ops references.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField
-                                label="Travel Date Range"
-                                fieldRequirementsProps={{
-                                    hint: 'Departure to return range for this movement, derived from package dates.',
-                                    example: '01 April 2026 - 10 April 2026',
-                                }}
-                            >
-                                <CopyableText
-                                    value={data.departure_return_range}
-                                />
-                            </FormField>
-                            <FormField
-                                label="First Hotel"
-                                fieldRequirementsProps={{
-                                    hint: 'First hotel destination from package accommodation sequence.',
-                                }}
-                            >
-                                <CopyableText value={data.first_hotel_name} />
-                            </FormField>
-                            <FormField
-                                label="Visa Type"
-                                fieldRequirementsProps={{
-                                    hint: 'Package visa category used for this movement.',
-                                }}
-                            >
-                                <CopyableText value={data.visa_type} />
-                            </FormField>
-                            <FormField
-                                label="Ops Base"
-                                fieldRequirementsProps={{
-                                    hint: 'Operational base or control location for this trip.',
-                                    example: 'Makkah Ops Desk A',
-                                }}
-                                error={errors.ops_base}
-                            >
-                                <ProperInput
-                                    value={data.ops_base ?? ''}
-                                    disabled={processing || !canEditOpsAndPif}
-                                    onCommit={(value) =>
-                                        setFormData('ops_base', value)
-                                    }
-                                    placeholder="Enter ops base"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Package Number"
-                                fieldRequirementsProps={{
-                                    hint: 'Source package identifier.',
-                                }}
-                            >
-                                <CopyableText value={data.package_number} />
-                            </FormField>
-                            <FormField
-                                label="Manifest Number"
-                                fieldRequirementsProps={{
-                                    hint: 'Linked manifest identifier for operations.',
-                                }}
-                            >
-                                <CopyableText value={data.manifest_number} />
-                            </FormField>
-                            <FormField
-                                label="Infotech Ref"
-                                fieldRequirementsProps={{
-                                    hint: 'External system reference used by operations.',
-                                    example: 'INF-OPS-2026-0042',
-                                }}
-                                error={errors.infotech_ref}
-                                className="md:col-span-2"
-                            >
-                                <ProperInput
-                                    value={data.infotech_ref ?? ''}
-                                    disabled={processing || !canEditOpsAndPif}
-                                    onCommit={(value) =>
-                                        setFormData('infotech_ref', value)
-                                    }
-                                    placeholder="Enter infotech reference"
-                                />
-                            </FormField>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Pax / Passengers
-                            </CardTitle>
-                            <CardDescription>
-                                Passenger totals split by adult, child,
-                                official, and wheelchair counts.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Adult">
-                                <ProperInput
-                                    value={`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} Male / ${data.passengers?.adult_female ?? 0} Female)`}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                />
-                            </FormField>
-                            <FormField label="Child">
-                                <ProperInput
-                                    value={`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} Boy / ${data.passengers?.child_girl ?? 0} Girl)`}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                />
-                            </FormField>
-                            <FormField label="Official Total">
-                                <ProperInput
-                                    value={String(
-                                        data.passengers?.official_total ?? 0,
-                                    )}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                />
-                            </FormField>
-                            <FormField label="Wheelchair">
-                                <ProperInput
-                                    value={String(
-                                        data.passengers
-                                            ?.wheelchair_non_official_total ??
-                                            0,
-                                    )}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                />
-                            </FormField>
-                            <FormField label="Grand Total">
-                                <ProperInput
-                                    value={String(
-                                        data.passengers?.grand_total ?? 0,
-                                    )}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                />
-                            </FormField>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">Hotels</CardTitle>
-                            <CardDescription>
-                                Accommodation list from package with editable IC
-                                notes per hotel location.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.accommodations ?? []).map(
-                                (accommodation, index) => (
-                                    <div
-                                        key={accommodation.id}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4"
-                                    >
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                            <FormField label="Location">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.location
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField label="Hotel Name">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.hotel_name
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                                            <FormField label="Meal">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.type_of_meal
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="First Meal"
-                                                error={getError(
-                                                    `accommodations.${index}.first_meal`,
-                                                )}
-                                            >
-                                                <ProperInputSelect
-                                                    options={MEAL_OPTIONS}
-                                                    value={
-                                                        accommodation.first_meal ??
-                                                        ''
-                                                    }
-                                                    disabled
-                                                    onValueChange={(value) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'first_meal',
-                                                            String(value),
-                                                        )
-                                                    }
-                                                    placeholder="Select first meal"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Last Meal"
-                                                error={getError(
-                                                    `accommodations.${index}.last_meal`,
-                                                )}
-                                            >
-                                                <ProperInputSelect
-                                                    options={MEAL_OPTIONS}
-                                                    value={
-                                                        accommodation.last_meal ??
-                                                        ''
-                                                    }
-                                                    disabled
-                                                    onValueChange={(value) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'last_meal',
-                                                            String(value),
-                                                        )
-                                                    }
-                                                    placeholder="Select last meal"
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                            <FormField
-                                                label="In Charge"
-                                                error={getError(
-                                                    `accommodations.${index}.ic`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        accommodation.ic ?? ''
-                                                    }
-                                                    disabled
-                                                    onCommit={(value) =>
-                                                        updateAccommodation(
-                                                            index,
-                                                            'ic',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter in charge"
-                                                />
-                                            </FormField>
-                                            <FormField label="IC Contact Number">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.ic_contact_number
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                            <FormField label="Check In">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.check_in
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField label="Check Out">
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.check_out
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                    </div>
-                                ),
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">Officials</CardTitle>
-                            <CardDescription>
-                                Official names come from package; hotel field is
-                                a remark for whether they stay in a dedicated
-                                hotel or with jemaah.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.officials ?? []).map((official, index) => (
-                                <div
-                                    key={official.id}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-2"
-                                >
-                                    <FormField label="Official Name">
-                                        <CopyableText value={official.name} />
-                                    </FormField>
-                                    {resolveOfficialHotelRows(official).map(
-                                        (hotelRow, hotelIndex) => (
-                                            <FormField
-                                                key={`${official.id}-${hotelRow.location}-${hotelIndex}`}
-                                                label={`${hotelRow.location} Hotel`}
-                                                fieldRequirementsProps={{
-                                                    hint: 'Hotel remark for this accommodation location.',
-                                                }}
-                                                error={
-                                                    getError(
-                                                        `officials.${index}.hotels_by_location.${hotelIndex}.hotel`,
-                                                    ) ??
-                                                    getError(
-                                                        `officials.${index}.hotel`,
-                                                    )
-                                                }
-                                            >
-                                                <ProperInput
-                                                    value={hotelRow.hotel}
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    onCommit={(value) =>
-                                                        updateOfficialHotelByLocation(
-                                                            index,
-                                                            hotelRow.location,
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter hotel"
-                                                />
-                                            </FormField>
-                                        ),
-                                    )}
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Flight Info
-                            </CardTitle>
-                            <CardDescription>
-                                Flight details are package-sourced, with
-                                editable operational info for location, Doa, and
-                                IC.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3">
+                    <FormProgressHeader
+                        title="Ops Movement"
+                        sections={opsSections}
+                        onSectionClick={handleOpsSectionClick}
+                    />
+                    <Accordion
+                        type="multiple"
+                        value={openOpsSections}
+                        onValueChange={setOpenOpsSections}
+                        className="space-y-4"
+                    >
+                        <FormSection
+                            value="ops-movement-info"
+                            title="Ops Movement Info"
+                            description="Core operational details derived from package and manifest, with editable ops references."
+                            status={opsSectionStatuses.opsMovementInfo}
+                        >
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <FormField
-                                    label="Location"
-                                    error={getError('location')}
+                                    label="Travel Date Range"
+                                    fieldRequirementsProps={{
+                                        hint: 'Departure to return range for this movement, derived from package dates.',
+                                        example:
+                                            '01 April 2026 - 10 April 2026',
+                                    }}
                                 >
-                                    <ProperInput
-                                        value={data.location ?? ''}
-                                        disabled={
-                                            processing || !canEditOpsAndPif
-                                        }
-                                        textarea
-                                        onCommit={(value) =>
-                                            setFormData('location', value)
-                                        }
-                                        placeholder="Enter location"
+                                    <CopyableText
+                                        value={data.departure_return_range}
                                     />
                                 </FormField>
                                 <FormField
-                                    label="Doa By"
-                                    error={getError('doa_by')}
+                                    label="First Hotel"
+                                    fieldRequirementsProps={{
+                                        hint: 'First hotel destination from package accommodation sequence.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.first_hotel_name}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Visa Type"
+                                    fieldRequirementsProps={{
+                                        hint: 'Package visa category used for this movement.',
+                                    }}
+                                >
+                                    <CopyableText value={data.visa_type} />
+                                </FormField>
+                                <FormField
+                                    label="Ops Base"
+                                    fieldRequirementsProps={{
+                                        hint: 'Operational base or control location for this trip.',
+                                        example: 'Makkah Ops Desk A',
+                                    }}
+                                    error={errors.ops_base}
                                 >
                                     <ProperInput
-                                        value={data.doa_by ?? ''}
+                                        value={data.ops_base ?? ''}
                                         disabled={
                                             processing || !canEditOpsAndPif
                                         }
                                         onCommit={(value) =>
-                                            setFormData('doa_by', value)
+                                            setFormData('ops_base', value)
                                         }
-                                        placeholder="Enter Doa by"
+                                        placeholder="Enter ops base"
                                     />
                                 </FormField>
                                 <FormField
-                                    label="Doa Datetime"
-                                    error={getError('doa_datetime')}
+                                    label="Package Number"
+                                    fieldRequirementsProps={{
+                                        hint: 'Source package identifier.',
+                                    }}
                                 >
-                                    <DatePickerField
-                                        id="doa_datetime"
-                                        value={data.doa_datetime || ''}
-                                        fromYear={new Date().getFullYear() - 2}
-                                        toYear={new Date().getFullYear() + 5}
+                                    <CopyableText value={data.package_number} />
+                                </FormField>
+                                <FormField
+                                    label="Manifest Number"
+                                    fieldRequirementsProps={{
+                                        hint: 'Linked manifest identifier for operations.',
+                                    }}
+                                >
+                                    <CopyableText
+                                        value={data.manifest_number}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Infotech Ref"
+                                    fieldRequirementsProps={{
+                                        hint: 'External system reference used by operations.',
+                                        example: 'INF-OPS-2026-0042',
+                                    }}
+                                    error={errors.infotech_ref}
+                                    className="md:col-span-2"
+                                >
+                                    <ProperInput
+                                        value={data.infotech_ref ?? ''}
                                         disabled={
                                             processing || !canEditOpsAndPif
                                         }
-                                        useTime
-                                        onChange={(value) =>
-                                            setFormData(
-                                                'doa_datetime',
-                                                value || null,
-                                            )
+                                        onCommit={(value) =>
+                                            setFormData('infotech_ref', value)
                                         }
+                                        placeholder="Enter infotech reference"
                                     />
                                 </FormField>
                             </div>
-                            {(data.flights ?? []).map((flight, index) => (
-                                <div
-                                    key={flight.id}
-                                    className="space-y-4 rounded-lg border p-4"
-                                >
-                                    <div className="text-lg font-semibold text-muted-foreground">
-                                        {flight.description ||
-                                            (index === 0
-                                                ? 'Departure'
-                                                : index === 1
-                                                  ? 'Return'
-                                                  : `Flight ${index + 1}`)}
+                        </FormSection>
+
+                        <FormSection
+                            value="pax-passengers"
+                            title="Pax / Passengers"
+                            description="Passenger totals split by adult, child, official, and wheelchair counts."
+                            status={opsSectionStatuses.passengers}
+                        >
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <FormField label="Adult">
+                                    <ProperInput
+                                        value={`${data.passengers?.adult_total ?? 0} (${data.passengers?.adult_male ?? 0} Male / ${data.passengers?.adult_female ?? 0} Female)`}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                    />
+                                </FormField>
+                                <FormField label="Child">
+                                    <ProperInput
+                                        value={`${data.passengers?.child_total ?? 0} (${data.passengers?.child_boy ?? 0} Boy / ${data.passengers?.child_girl ?? 0} Girl)`}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                    />
+                                </FormField>
+                                <FormField label="Official Total">
+                                    <ProperInput
+                                        value={String(
+                                            data.passengers?.official_total ??
+                                                0,
+                                        )}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                    />
+                                </FormField>
+                                <FormField label="Wheelchair">
+                                    <ProperInput
+                                        value={String(
+                                            data.passengers
+                                                ?.wheelchair_non_official_total ??
+                                                0,
+                                        )}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                    />
+                                </FormField>
+                                <FormField label="Grand Total">
+                                    <ProperInput
+                                        value={String(
+                                            data.passengers?.grand_total ?? 0,
+                                        )}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                    />
+                                </FormField>
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="hotels"
+                            title="Hotels"
+                            description="Accommodation list from package with editable IC notes per hotel location."
+                            status={opsSectionStatuses.hotels}
+                        >
+                            <div className="space-y-4">
+                                {(data.accommodations ?? []).map(
+                                    (accommodation, index) => (
+                                        <div
+                                            key={accommodation.id}
+                                            className="grid grid-cols-1 gap-4 rounded-lg border p-4"
+                                        >
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField label="Location">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.location
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField label="Hotel Name">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.hotel_name
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                                                <FormField label="Meal">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.type_of_meal
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="First Meal"
+                                                    error={getError(
+                                                        `accommodations.${index}.first_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={MEAL_OPTIONS}
+                                                        value={
+                                                            accommodation.first_meal ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'first_meal',
+                                                                String(value),
+                                                            )
+                                                        }
+                                                        placeholder="Select first meal"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Last Meal"
+                                                    error={getError(
+                                                        `accommodations.${index}.last_meal`,
+                                                    )}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={MEAL_OPTIONS}
+                                                        value={
+                                                            accommodation.last_meal ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'last_meal',
+                                                                String(value),
+                                                            )
+                                                        }
+                                                        placeholder="Select last meal"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="In Charge"
+                                                    error={getError(
+                                                        `accommodations.${index}.ic`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.ic ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={(value) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'ic',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter in charge"
+                                                    />
+                                                </FormField>
+                                                <FormField label="IC Contact Number">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.ic_contact_number
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField label="Check In">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.check_in
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField label="Check Out">
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.check_out
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="officials"
+                            title="Officials"
+                            description="Official names come from package; hotel field is a remark for whether they stay in a dedicated hotel or with jemaah."
+                            status={opsSectionStatuses.officials}
+                        >
+                            <div className="space-y-4">
+                                {(data.officials ?? []).map(
+                                    (official, index) => (
+                                        <div
+                                            key={official.id}
+                                            className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-2"
+                                        >
+                                            <FormField label="Official Name">
+                                                <CopyableText
+                                                    value={official.name}
+                                                />
+                                            </FormField>
+                                            {resolveOfficialHotelRows(
+                                                official,
+                                            ).map((hotelRow, hotelIndex) => (
+                                                <FormField
+                                                    key={`${official.id}-${hotelRow.location}-${hotelIndex}`}
+                                                    label={`${hotelRow.location} Hotel`}
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Hotel remark for this accommodation location.',
+                                                    }}
+                                                    error={
+                                                        getError(
+                                                            `officials.${index}.hotels_by_location.${hotelIndex}.hotel`,
+                                                        ) ??
+                                                        getError(
+                                                            `officials.${index}.hotel`,
+                                                        )
+                                                    }
+                                                >
+                                                    <ProperInput
+                                                        value={hotelRow.hotel}
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        onCommit={(value) =>
+                                                            updateOfficialHotelByLocation(
+                                                                index,
+                                                                hotelRow.location,
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter hotel"
+                                                    />
+                                                </FormField>
+                                            ))}
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="flight-info"
+                            title="Flight Info"
+                            description="Flight details are package-sourced, with editable operational info for location, Doa, and IC."
+                            status={opsSectionStatuses.flightInfo}
+                        >
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3">
+                                    <FormField
+                                        label="Location"
+                                        error={getError('location')}
+                                    >
+                                        <ProperInput
+                                            value={data.location ?? ''}
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
+                                            textarea
+                                            onCommit={(value) =>
+                                                setFormData('location', value)
+                                            }
+                                            placeholder="Enter location"
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Doa By"
+                                        error={getError('doa_by')}
+                                    >
+                                        <ProperInput
+                                            value={data.doa_by ?? ''}
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
+                                            onCommit={(value) =>
+                                                setFormData('doa_by', value)
+                                            }
+                                            placeholder="Enter Doa by"
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Doa Datetime"
+                                        error={getError('doa_datetime')}
+                                    >
+                                        <DatePickerField
+                                            id="doa_datetime"
+                                            value={data.doa_datetime || ''}
+                                            fromYear={
+                                                new Date().getFullYear() - 2
+                                            }
+                                            toYear={
+                                                new Date().getFullYear() + 5
+                                            }
+                                            disabled={
+                                                processing || !canEditOpsAndPif
+                                            }
+                                            useTime
+                                            onChange={(value) =>
+                                                setFormData(
+                                                    'doa_datetime',
+                                                    value || null,
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+                                </div>
+                                {(data.flights ?? []).map((flight, index) => (
+                                    <div
+                                        key={flight.id}
+                                        className="space-y-4 rounded-lg border p-4"
+                                    >
+                                        <div className="text-lg font-semibold text-muted-foreground">
+                                            {flight.description ||
+                                                (index === 0
+                                                    ? 'Departure'
+                                                    : index === 1
+                                                      ? 'Return'
+                                                      : `Flight ${index + 1}`)}
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <FormField label="Flight No">
+                                                <CopyableText
+                                                    value={flight.pnr}
+                                                />
+                                            </FormField>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+                                                <FormField label="From">
+                                                    <CopyableText
+                                                        value={flight.from}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Departure Datetime">
+                                                    <CopyableText
+                                                        value={
+                                                            flight.departure_datetime
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField label="To">
+                                                    <CopyableText
+                                                        value={flight.to}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Arrival Datetime">
+                                                    <CopyableText
+                                                        value={
+                                                            flight.arrival_datetime
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField label="Airline">
+                                                    <CopyableText
+                                                        value={flight.airline}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="In Charge"
+                                                    error={getError(
+                                                        `flights.${index}.ic`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={flight.ic ?? ''}
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        onCommit={(value) =>
+                                                            updateFlight(
+                                                                index,
+                                                                'ic',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter in charge"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 items-start gap-4">
+                                                <FormField
+                                                    label="Remarks"
+                                                    error={getError(
+                                                        `flights.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            flight.remarks ?? ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        textarea
+                                                        onCommit={(value) =>
+                                                            updateFlight(
+                                                                index,
+                                                                'remarks',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <FormField label="Flight No">
-                                            <CopyableText value={flight.pnr} />
+                                ))}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="vehicle"
+                            title="Vehicle"
+                            description="Ground transport details for the movement, including driver assignment info."
+                            status={opsSectionStatuses.vehicle}
+                        >
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <FormField
+                                    label="Vehicle Type"
+                                    error={errors.vehicle_type}
+                                >
+                                    <ProperInput
+                                        value={data.vehicle_type ?? ''}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                        placeholder="Enter vehicle type"
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Driver Name"
+                                    error={errors.vehicle_driver_name}
+                                >
+                                    <ProperInput
+                                        value={data.vehicle_driver_name ?? ''}
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                        placeholder="Enter driver name"
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Driver Contact Number"
+                                    error={errors.vehicle_driver_contact_number}
+                                >
+                                    <ProperInput
+                                        value={
+                                            data.vehicle_driver_contact_number ??
+                                            ''
+                                        }
+                                        disabled={true}
+                                        onCommit={() => undefined}
+                                        placeholder="Enter driver contact"
+                                    />
+                                </FormField>
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="train"
+                            title="Train"
+                            description="Train movement narrative and package train ticket references."
+                            status={opsSectionStatuses.train}
+                        >
+                            <div className="space-y-4">
+                                <FormField
+                                    label="Train Description"
+                                    error={errors.train_description}
+                                >
+                                    <ProperInput
+                                        value={data.train_description ?? ''}
+                                        disabled={true}
+                                        textarea
+                                        onCommit={() => undefined}
+                                        placeholder="Enter train description"
+                                    />
+                                </FormField>
+                                {(data.train_tickets ?? []).map((ticket) => (
+                                    <div
+                                        key={ticket.id}
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                                    >
+                                        <FormField label="From">
+                                            <CopyableText value={ticket.from} />
                                         </FormField>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
-                                            <FormField label="From">
-                                                <CopyableText
-                                                    value={flight.from}
-                                                />
-                                            </FormField>
-                                            <FormField label="Departure Datetime">
-                                                <CopyableText
-                                                    value={
-                                                        flight.departure_datetime
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField label="To">
-                                                <CopyableText
-                                                    value={flight.to}
-                                                />
-                                            </FormField>
-                                            <FormField label="Arrival Datetime">
-                                                <CopyableText
-                                                    value={
-                                                        flight.arrival_datetime
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                                            <FormField label="Airline">
-                                                <CopyableText
-                                                    value={flight.airline}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="In Charge"
-                                                error={getError(
-                                                    `flights.${index}.ic`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={flight.ic ?? ''}
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    onCommit={(value) =>
-                                                        updateFlight(
-                                                            index,
-                                                            'ic',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter in charge"
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="grid grid-cols-1 items-start gap-4">
-                                            <FormField
-                                                label="Remarks"
-                                                error={getError(
-                                                    `flights.${index}.remarks`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={flight.remarks ?? ''}
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    textarea
-                                                    onCommit={(value) =>
-                                                        updateFlight(
-                                                            index,
-                                                            'remarks',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter remarks"
-                                                />
-                                            </FormField>
-                                        </div>
+                                        <FormField label="To">
+                                            <CopyableText value={ticket.to} />
+                                        </FormField>
+                                        <FormField label="Date">
+                                            <CopyableText
+                                                value={ticket.travel_date}
+                                            />
+                                        </FormField>
+                                        <FormField label="Time">
+                                            <CopyableText
+                                                value={ticket.travel_time}
+                                            />
+                                        </FormField>
                                     </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                                ))}
+                            </div>
+                        </FormSection>
 
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">Vehicle</CardTitle>
-                            <CardDescription>
-                                Ground transport details for the movement,
-                                including driver assignment info.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField
-                                label="Vehicle Type"
-                                error={errors.vehicle_type}
-                            >
-                                <ProperInput
-                                    value={data.vehicle_type ?? ''}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                    placeholder="Enter vehicle type"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Driver Name"
-                                error={errors.vehicle_driver_name}
-                            >
-                                <ProperInput
-                                    value={data.vehicle_driver_name ?? ''}
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                    placeholder="Enter driver name"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Driver Contact Number"
-                                error={errors.vehicle_driver_contact_number}
-                            >
-                                <ProperInput
-                                    value={
-                                        data.vehicle_driver_contact_number ?? ''
-                                    }
-                                    disabled={true}
-                                    onCommit={() => undefined}
-                                    placeholder="Enter driver contact"
-                                />
-                            </FormField>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">Train</CardTitle>
-                            <CardDescription>
-                                Train movement narrative and package train
-                                ticket references.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <FormField
-                                label="Train Description"
-                                error={errors.train_description}
-                            >
-                                <ProperInput
-                                    value={data.train_description ?? ''}
-                                    disabled={true}
-                                    textarea
-                                    onCommit={() => undefined}
-                                    placeholder="Enter train description"
-                                />
-                            </FormField>
-                            {(data.train_tickets ?? []).map((ticket) => (
-                                <div
-                                    key={ticket.id}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-4"
+                        <FormSection
+                            value="visa"
+                            title="Visa"
+                            description="Visa processing checklist for this movement."
+                            status={opsSectionStatuses.visa}
+                        >
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <FormField
+                                    label="PP Submitted for Visa Application"
+                                    error={errors.visa_submitted_to_z_umrah}
                                 >
-                                    <FormField label="From">
-                                        <CopyableText value={ticket.from} />
-                                    </FormField>
-                                    <FormField label="To">
-                                        <CopyableText value={ticket.to} />
-                                    </FormField>
-                                    <FormField label="Date">
-                                        <CopyableText
-                                            value={ticket.travel_date}
-                                        />
-                                    </FormField>
-                                    <FormField label="Time">
-                                        <CopyableText
-                                            value={ticket.travel_time}
-                                        />
-                                    </FormField>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">Visa</CardTitle>
-                            <CardDescription>
-                                Visa processing checklist for this movement.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <FormField
-                                label="PP Submitted for Visa Application"
-                                error={errors.visa_submitted_to_z_umrah}
-                            >
-                                <ProperInputSelect
-                                    mode="classic"
-                                    options={YES_NO_OPTIONS}
-                                    value={
-                                        data.visa_submitted_to_z_umrah
-                                            ? 'yes'
-                                            : 'no'
-                                    }
-                                    disabled={processing || !canEditOpsAndPif}
-                                    onValueChange={(value) =>
-                                        setFormData(
-                                            'visa_submitted_to_z_umrah',
-                                            value === 'yes',
-                                        )
-                                    }
-                                    searchable={false}
-                                />
-                            </FormField>
-                            <FormField
-                                label="Approved"
-                                error={errors.visa_approved}
-                            >
-                                <ProperInputSelect
-                                    mode="classic"
-                                    options={YES_NO_OPTIONS}
-                                    value={data.visa_approved ? 'yes' : 'no'}
-                                    disabled={processing || !canEditOpsAndPif}
-                                    onValueChange={(value) =>
-                                        setFormData(
-                                            'visa_approved',
-                                            value === 'yes',
-                                        )
-                                    }
-                                    searchable={false}
-                                />
-                            </FormField>
-                        </CardContent>
-                    </Card>
+                                    <ProperInputSelect
+                                        mode="classic"
+                                        options={YES_NO_OPTIONS}
+                                        value={
+                                            data.visa_submitted_to_z_umrah
+                                                ? 'yes'
+                                                : 'no'
+                                        }
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
+                                        onValueChange={(value) =>
+                                            setFormData(
+                                                'visa_submitted_to_z_umrah',
+                                                value === 'yes',
+                                            )
+                                        }
+                                        searchable={false}
+                                    />
+                                </FormField>
+                                <FormField
+                                    label="Approved"
+                                    error={errors.visa_approved}
+                                >
+                                    <ProperInputSelect
+                                        mode="classic"
+                                        options={YES_NO_OPTIONS}
+                                        value={
+                                            data.visa_approved ? 'yes' : 'no'
+                                        }
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
+                                        onValueChange={(value) =>
+                                            setFormData(
+                                                'visa_approved',
+                                                value === 'yes',
+                                            )
+                                        }
+                                        searchable={false}
+                                    />
+                                </FormField>
+                            </div>
+                        </FormSection>
+                    </Accordion>
                 </TabsContent>
 
                 {OPS_DOCUMENT_TABS.map((tab) => {
@@ -2784,81 +3043,88 @@ export default function OpsMovementForm({
                 )}
 
                 <TabsContent value="pif" className="space-y-6">
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Passenger Details
-                            </CardTitle>
-                            <CardDescription>
-                                Passenger breakdown details for the linked
-                                manifest.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 items-start gap-4 md:grid-cols-4">
-                                <FormField
-                                    label="Adult"
-                                    fieldRequirementsProps={{
-                                        hint: 'Total adult passengers in this manifest.',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.adult_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                                <FormField
-                                    label="Child"
-                                    fieldRequirementsProps={{
-                                        hint: 'Total child passengers (with and without bed).',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.child_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                                <FormField
-                                    label="Infant"
-                                    fieldRequirementsProps={{
-                                        hint: 'Number of infant passengers in this manifest.',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.infant_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                                <FormField
-                                    label="Official / Mutawif"
-                                    fieldRequirementsProps={{
-                                        hint: 'Number of Mutawif and officials included in this movement.',
-                                    }}
-                                >
-                                    <CopyableText
-                                        value={
-                                            data.passengers?.official_total ?? 0
-                                        }
-                                    />
-                                </FormField>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <CardTitle className="text-xl">
-                                        Tour Leader
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Assigned tour leader details for the
-                                        linked manifest.
-                                    </CardDescription>
+                    <FormProgressHeader
+                        title="PIF"
+                        sections={pifSections}
+                        onSectionClick={handlePifSectionClick}
+                    />
+                    <Accordion
+                        type="multiple"
+                        value={openPifSections}
+                        onValueChange={setOpenPifSections}
+                        className="space-y-4"
+                    >
+                        <FormSection
+                            value="passenger-details"
+                            title="Passenger Details"
+                            description="Passenger breakdown details for the linked manifest."
+                            status={pifSectionStatuses.passengerDetails}
+                        >
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 items-start gap-4 md:grid-cols-4">
+                                    <FormField
+                                        label="Adult"
+                                        fieldRequirementsProps={{
+                                            hint: 'Total adult passengers in this manifest.',
+                                        }}
+                                    >
+                                        <CopyableText
+                                            value={
+                                                data.passengers?.adult_total ??
+                                                0
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Child"
+                                        fieldRequirementsProps={{
+                                            hint: 'Total child passengers (with and without bed).',
+                                        }}
+                                    >
+                                        <CopyableText
+                                            value={
+                                                data.passengers?.child_total ??
+                                                0
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Infant"
+                                        fieldRequirementsProps={{
+                                            hint: 'Number of infant passengers in this manifest.',
+                                        }}
+                                    >
+                                        <CopyableText
+                                            value={
+                                                data.passengers?.infant_total ??
+                                                0
+                                            }
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Official / Mutawif"
+                                        fieldRequirementsProps={{
+                                            hint: 'Number of Mutawif and officials included in this movement.',
+                                        }}
+                                    >
+                                        <CopyableText
+                                            value={
+                                                data.passengers
+                                                    ?.official_total ?? 0
+                                            }
+                                        />
+                                    </FormField>
                                 </div>
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="tour-leader"
+                            title="Tour Leader"
+                            description="Assigned tour leader details for the linked manifest."
+                            status={pifSectionStatuses.tourLeader}
+                        >
+                            <div className="flex items-center justify-end">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -2869,684 +3135,213 @@ export default function OpsMovementForm({
                                     Add Tour Leader
                                 </Button>
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.pif?.tour_leaders ?? []).map(
-                                (tourLeader, index) => (
-                                    <div
-                                        key={`tour-leader-${index}`}
-                                        className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
-                                    >
-                                        <FormField
-                                            label="Official Location"
-                                            fieldRequirementsProps={{
-                                                hint: 'Official location label synced from package official locations.',
-                                                example: 'Makkah / Madinah',
-                                            }}
-                                            error={getError(
-                                                `pif.tour_leaders.${index}.type`,
-                                            )}
+                            <div className="space-y-4">
+                                {(data.pif?.tour_leaders ?? []).map(
+                                    (tourLeader, index) => (
+                                        <div
+                                            key={`tour-leader-${index}`}
+                                            className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
                                         >
-                                            <ProperInput
-                                                value={tourLeader.type ?? ''}
-                                                disabled={
-                                                    processing ||
-                                                    !canEditOpsAndPif
-                                                }
-                                                onCommit={(value) =>
-                                                    updateTourLeader(
-                                                        index,
-                                                        'type',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Makkah / Madinah"
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Official Name"
-                                            fieldRequirementsProps={{
-                                                hint: 'Full name of the tour leader or official.',
-                                            }}
-                                            error={getError(
-                                                `pif.tour_leaders.${index}.name`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={tourLeader.name ?? ''}
-                                                disabled={
-                                                    processing ||
-                                                    !canEditOpsAndPif
-                                                }
-                                                onCommit={(value) =>
-                                                    updateTourLeader(
-                                                        index,
-                                                        'name',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Enter official name"
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="Contact Number"
-                                            fieldRequirementsProps={{
-                                                hint: 'Phone number of the official, including country code.',
-                                                example: '+65 9123 4567',
-                                            }}
-                                            error={getError(
-                                                `pif.tour_leaders.${index}.contact_number`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={
-                                                    tourLeader.contact_number ??
-                                                    ''
-                                                }
-                                                disabled={
-                                                    processing ||
-                                                    !canEditOpsAndPif
-                                                }
-                                                onCommit={(value) =>
-                                                    updateTourLeader(
-                                                        index,
-                                                        'contact_number',
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Enter contact number"
-                                            />
-                                        </FormField>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            disabled={
-                                                processing || !canEditOpsAndPif
-                                            }
-                                            onClick={() =>
-                                                removeTourLeader(index)
-                                            }
-                                            className="text-destructive"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ),
-                            )}
-                            {(data.pif?.tour_leaders ?? []).length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    No tour leader rows available.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Flight Schedule
-                            </CardTitle>
-                            <CardDescription>
-                                Departure and return flights for this movement,
-                                pulled from the package flight details. Add
-                                remarks for each flight as needed.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.flights ?? []).map((flight, index) => (
-                                <div
-                                    key={`pif-flight-${flight.id}`}
-                                    className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
-                                >
-                                    <FormField
-                                        label="Airline / Carrier"
-                                        fieldRequirementsProps={{
-                                            hint: 'Airline carrier code or name for this flight.',
-                                        }}
-                                    >
-                                        <CopyableText value={flight.airline} />
-                                    </FormField>
-                                    <FormField
-                                        label="From"
-                                        fieldRequirementsProps={{
-                                            hint: 'Departure airport or city.',
-                                        }}
-                                    >
-                                        <CopyableText value={flight.from} />
-                                    </FormField>
-                                    <FormField
-                                        label="To"
-                                        fieldRequirementsProps={{
-                                            hint: 'Arrival airport or city.',
-                                        }}
-                                    >
-                                        <CopyableText value={flight.to} />
-                                    </FormField>
-                                    <FormField
-                                        label="ETD (Departure Datetime)"
-                                        fieldRequirementsProps={{
-                                            hint: 'Estimated time of departure.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={flight.departure_datetime}
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="ETA (Arrival Datetime)"
-                                        fieldRequirementsProps={{
-                                            hint: 'Estimated time of arrival.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={flight.arrival_datetime}
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="PNR"
-                                        fieldRequirementsProps={{
-                                            hint: 'Flight booking reference / PNR.',
-                                        }}
-                                    >
-                                        <CopyableText value={flight.pnr} />
-                                    </FormField>
-                                    <FormField
-                                        label="Remarks"
-                                        className="md:col-span-3"
-                                        fieldRequirementsProps={{
-                                            hint: 'Any additional notes for this flight, e.g. meal arrangements or special instructions.',
-                                            example:
-                                                'Dinner at Hotel (International Buffet Dinner Hours: 7.30 till 10.30 pm)',
-                                        }}
-                                        error={getError(
-                                            `flights.${index}.remarks`,
-                                        )}
-                                    >
-                                        <ProperInput
-                                            value={flight.remarks ?? ''}
-                                            disabled={
-                                                processing || !canEditOpsAndPif
-                                            }
-                                            textarea
-                                            onCommit={(value) =>
-                                                updatePifFlightRemarks(
-                                                    index,
-                                                    value,
-                                                )
-                                            }
-                                            placeholder="Optional remarks"
-                                        />
-                                    </FormField>
-                                </div>
-                            ))}
-                            {(data.flights ?? []).length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    No flight data available.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Accommodation
-                            </CardTitle>
-                            <CardDescription>
-                                Hotel stays per city for this movement. Room
-                                counts and member category counts are derived
-                                from manifest room allocations. Add remarks per
-                                accommodation as needed.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.accommodations ?? []).map(
-                                (accommodation, index) => (
-                                    <div
-                                        key={`pif-accommodation-${accommodation.id}`}
-                                        className="space-y-3 rounded-lg border p-4"
-                                    >
-                                        {/* Hotel info row */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <FormField
-                                                label="City"
+                                                label="Official Location"
                                                 fieldRequirementsProps={{
-                                                    hint: 'City or destination of this accommodation.',
+                                                    hint: 'Official location label synced from package official locations.',
+                                                    example: 'Makkah / Madinah',
                                                 }}
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.type`,
+                                                )}
                                             >
-                                                <CopyableText
+                                                <ProperInput
                                                     value={
-                                                        accommodation.location
+                                                        tourLeader.type ?? ''
                                                     }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Hotel Name"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Name of the hotel for this stay.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.hotel_name
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
                                                     }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        {/* Meal */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                            <FormField
-                                                label="Meal"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Total number of meals provided.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.type_of_meal ??
-                                                        0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="First Meal"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Enter first meal.',
-                                                }}
-                                            >
-                                                <ProperInputSelect
-                                                    options={MEAL_OPTIONS}
-                                                    value={
-                                                        accommodation.first_meal ??
-                                                        ''
-                                                    }
-                                                    disabled
-                                                    onValueChange={(value) =>
-                                                        updateAccommodation(
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
                                                             index,
-                                                            'first_meal',
-                                                            String(value),
+                                                            'type',
+                                                            value,
                                                         )
                                                     }
-                                                    placeholder="Select first meal"
+                                                    placeholder="Makkah / Madinah"
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="Last Meal"
+                                                label="Official Name"
                                                 fieldRequirementsProps={{
-                                                    hint: 'Enter last meal.',
+                                                    hint: 'Full name of the tour leader or official.',
                                                 }}
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.name`,
+                                                )}
                                             >
-                                                <ProperInputSelect
-                                                    options={MEAL_OPTIONS}
+                                                <ProperInput
                                                     value={
-                                                        accommodation.last_meal ??
-                                                        ''
+                                                        tourLeader.name ?? ''
                                                     }
-                                                    disabled
-                                                    onValueChange={(value) =>
-                                                        updateAccommodation(
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
                                                             index,
-                                                            'last_meal',
-                                                            String(value),
+                                                            'name',
+                                                            value,
                                                         )
                                                     }
-                                                    placeholder="Select last meal"
-                                                />
-                                            </FormField>
-                                        </div>
-                                        {/* Dates row */}
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                            <FormField
-                                                label="Nights"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Total number of nights at this hotel.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.nights ??
-                                                        0
-                                                    }
+                                                    placeholder="Enter official name"
                                                 />
                                             </FormField>
                                             <FormField
-                                                label="Check In"
+                                                label="Contact Number"
                                                 fieldRequirementsProps={{
-                                                    hint: 'Check-in date.',
+                                                    hint: 'Phone number of the official, including country code.',
+                                                    example: '+65 9123 4567',
                                                 }}
+                                                error={getError(
+                                                    `pif.tour_leaders.${index}.contact_number`,
+                                                )}
                                             >
-                                                <CopyableText
+                                                <ProperInput
                                                     value={
-                                                        accommodation.check_in
+                                                        tourLeader.contact_number ??
+                                                        ''
                                                     }
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
+                                                    onCommit={(value) =>
+                                                        updateTourLeader(
+                                                            index,
+                                                            'contact_number',
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Enter contact number"
                                                 />
                                             </FormField>
-                                            <FormField
-                                                label="Check Out"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Check-out date.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation.check_out
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        {/* Room counts row */}
-                                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                            <FormField
-                                                label="Single"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of single rooms allocated from manifest.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation
-                                                            .room_counts
-                                                            ?.single ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Double"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of double rooms (2 pax per room).',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation
-                                                            .room_counts
-                                                            ?.double ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Triple"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of triple rooms (3 pax per room).',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation
-                                                            .room_counts
-                                                            ?.triple ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Quad"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of quad rooms (4 pax per room).',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        accommodation
-                                                            .room_counts
-                                                            ?.quad ?? 0
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                        {/* Remarks */}
-                                        <FormField
-                                            label="Remarks"
-                                            fieldRequirementsProps={{
-                                                hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
-                                                example: 'Breakfast included',
-                                            }}
-                                            error={getError(
-                                                `accommodations.${index}.remarks`,
-                                            )}
-                                        >
-                                            <ProperInput
-                                                value={
-                                                    accommodation.remarks ?? ''
-                                                }
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
                                                 disabled={
                                                     processing ||
                                                     !canEditOpsAndPif
                                                 }
-                                                textarea
-                                                onCommit={(value) =>
-                                                    updatePifAccommodationRemarks(
-                                                        index,
-                                                        value,
-                                                    )
+                                                onClick={() =>
+                                                    removeTourLeader(index)
                                                 }
-                                                placeholder="Optional remarks"
+                                                className="text-destructive"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ),
+                                )}
+                                {(data.pif?.tour_leaders ?? []).length ===
+                                    0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No tour leader rows available.
+                                    </p>
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="flight-schedule"
+                            title="Flight Schedule"
+                            description="Departure and return flights for this movement, pulled from the package flight details. Add remarks for each flight as needed."
+                            status={pifSectionStatuses.flightSchedule}
+                        >
+                            <div className="space-y-4">
+                                {(data.flights ?? []).map((flight, index) => (
+                                    <div
+                                        key={`pif-flight-${flight.id}`}
+                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                    >
+                                        <FormField
+                                            label="Airline / Carrier"
+                                            fieldRequirementsProps={{
+                                                hint: 'Airline carrier code or name for this flight.',
+                                            }}
+                                        >
+                                            <CopyableText
+                                                value={flight.airline}
                                             />
                                         </FormField>
-                                    </div>
-                                ),
-                            )}
-                            {(data.accommodations ?? []).length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    No accommodation data available.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Rawdah Tasreeh
-                            </CardTitle>
-                            <CardDescription>
-                                Rawdah visit permit details for women and men
-                                passengers. Dates and pax counts are sourced
-                                from the package. Add remarks for any scheduling
-                                notes.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.rawdah_tasreehs ?? []).map((row, index) => (
-                                <div
-                                    key={`pif-rawdah-${row.id}`}
-                                    className="space-y-3 rounded-lg border p-4"
-                                >
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        <div className="space-y-4">
-                                            <FormField
-                                                label="Date"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Scheduled date for the Rawdah visit.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={row.date}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Women Time"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Scheduled entry time for female passengers.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={row.women_time}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Men Time"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Scheduled entry time for male passengers.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={row.men_time}
-                                                />
-                                            </FormField>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <FormField
-                                                label="Total Passengers"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Total passengers (women + men) for this slot.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        (row.women_passengers ??
-                                                            0) +
-                                                        (row.men_passengers ??
-                                                            0)
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Women Passengers"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of female passengers for this Rawdah slot.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        row.women_passengers ===
-                                                        0
-                                                            ? '-'
-                                                            : row.women_passengers
-                                                    }
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Men Passengers"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Number of male passengers for this Rawdah slot.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={
-                                                        row.men_passengers === 0
-                                                            ? '-'
-                                                            : row.men_passengers
-                                                    }
-                                                />
-                                            </FormField>
-                                        </div>
-                                    </div>
-                                    <FormField
-                                        label="Remarks"
-                                        fieldRequirementsProps={{
-                                            hint: 'Any scheduling notes, blocked dates, or departure info.',
-                                            example:
-                                                'Mazarat 10 Jan, DEP 7.30 AM',
-                                        }}
-                                        error={getError(
-                                            `rawdah_tasreehs.${index}.remarks`,
-                                        )}
-                                    >
-                                        <ProperInput
-                                            value={row.remarks ?? ''}
-                                            disabled={
-                                                processing || !canEditOpsAndPif
-                                            }
-                                            textarea
-                                            onCommit={(value) =>
-                                                updatePifRawdahRemarks(
-                                                    index,
-                                                    value,
-                                                )
-                                            }
-                                            placeholder="Optional remarks"
-                                        />
-                                    </FormField>
-                                </div>
-                            ))}
-                            {(data.rawdah_tasreehs ?? []).length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    No rawdah tasreeh data available.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="gap-0">
-                            <CardTitle className="text-xl">
-                                Transportation Plan
-                            </CardTitle>
-                            <CardDescription>
-                                Ground transport itinerary for the movement,
-                                covering airport transfers, city tours, and
-                                inter-city travel. Add remarks for special
-                                instructions per leg.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(data.transportation_plans ?? []).map(
-                                (row, index) => (
-                                    <div
-                                        key={`pif-transport-${row.id}`}
-                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3"
-                                    >
                                         <FormField
                                             label="From"
                                             fieldRequirementsProps={{
-                                                hint: 'Departure point for this transport leg.',
-                                                example: 'Jeddah Airport',
+                                                hint: 'Departure airport or city.',
                                             }}
                                         >
-                                            <CopyableText value={row.from} />
+                                            <CopyableText value={flight.from} />
                                         </FormField>
                                         <FormField
                                             label="To"
                                             fieldRequirementsProps={{
-                                                hint: 'Destination for this transport leg.',
-                                                example: 'Sofitel Hotel',
+                                                hint: 'Arrival airport or city.',
                                             }}
                                         >
-                                            <CopyableText value={row.to} />
+                                            <CopyableText value={flight.to} />
                                         </FormField>
                                         <FormField
-                                            label="Date"
+                                            label="ETD (Departure Datetime)"
                                             fieldRequirementsProps={{
-                                                hint: 'Date of travel for this transport leg.',
+                                                hint: 'Estimated time of departure.',
                                             }}
                                         >
                                             <CopyableText
-                                                value={row.travel_date}
+                                                value={
+                                                    flight.departure_datetime
+                                                }
                                             />
                                         </FormField>
                                         <FormField
-                                            label="Time"
+                                            label="ETA (Arrival Datetime)"
                                             fieldRequirementsProps={{
-                                                hint: 'Scheduled departure or pickup time.',
-                                                example: '07:30 AM',
+                                                hint: 'Estimated time of arrival.',
                                             }}
                                         >
                                             <CopyableText
-                                                value={row.travel_time}
+                                                value={flight.arrival_datetime}
                                             />
+                                        </FormField>
+                                        <FormField
+                                            label="PNR"
+                                            fieldRequirementsProps={{
+                                                hint: 'Flight booking reference / PNR.',
+                                            }}
+                                        >
+                                            <CopyableText value={flight.pnr} />
                                         </FormField>
                                         <FormField
                                             label="Remarks"
-                                            className="md:col-span-2"
+                                            className="md:col-span-3"
                                             fieldRequirementsProps={{
-                                                hint: 'Any notes for this leg, e.g. pending confirmation, special stops, or vehicle type.',
-                                                example: 'REHAL / MAKKAH HOTEL',
+                                                hint: 'Any additional notes for this flight, e.g. meal arrangements or special instructions.',
+                                                example:
+                                                    'Dinner at Hotel (International Buffet Dinner Hours: 7.30 till 10.30 pm)',
                                             }}
                                             error={getError(
-                                                `transportation_plans.${index}.remarks`,
+                                                `flights.${index}.remarks`,
                                             )}
                                         >
                                             <ProperInput
-                                                value={row.remarks ?? ''}
+                                                value={flight.remarks ?? ''}
                                                 disabled={
                                                     processing ||
                                                     !canEditOpsAndPif
                                                 }
                                                 textarea
                                                 onCommit={(value) =>
-                                                    updatePifTransportationRemarks(
+                                                    updatePifFlightRemarks(
                                                         index,
                                                         value,
                                                     )
@@ -3555,15 +3350,485 @@ export default function OpsMovementForm({
                                             />
                                         </FormField>
                                     </div>
-                                ),
-                            )}
-                            {(data.transportation_plans ?? []).length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    No transportation data available.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                                ))}
+                                {(data.flights ?? []).length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No flight data available.
+                                    </p>
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="accommodation"
+                            title="Accommodation"
+                            description="Hotel stays per city for this movement. Room counts and member category counts are derived from manifest room allocations. Add remarks per accommodation as needed."
+                            status={pifSectionStatuses.accommodation}
+                        >
+                            <div className="space-y-4">
+                                {(data.accommodations ?? []).map(
+                                    (accommodation, index) => (
+                                        <div
+                                            key={`pif-accommodation-${accommodation.id}`}
+                                            className="space-y-3 rounded-lg border p-4"
+                                        >
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <FormField
+                                                    label="City"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'City or destination of this accommodation.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.location
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Hotel Name"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Name of the hotel for this stay.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.hotel_name
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <FormField
+                                                    label="Meal"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Total number of meals provided.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.type_of_meal ??
+                                                            0
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="First Meal"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter first meal.',
+                                                    }}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={MEAL_OPTIONS}
+                                                        value={
+                                                            accommodation.first_meal ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'first_meal',
+                                                                String(value),
+                                                            )
+                                                        }
+                                                        placeholder="Select first meal"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Last Meal"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Enter last meal.',
+                                                    }}
+                                                >
+                                                    <ProperInputSelect
+                                                        options={MEAL_OPTIONS}
+                                                        value={
+                                                            accommodation.last_meal ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateAccommodation(
+                                                                index,
+                                                                'last_meal',
+                                                                String(value),
+                                                            )
+                                                        }
+                                                        placeholder="Select last meal"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                <FormField
+                                                    label="Nights"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Total number of nights at this hotel.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.nights ??
+                                                            0
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Check In"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Check-in date.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.check_in
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Check Out"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Check-out date.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation.check_out
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                                <FormField
+                                                    label="Single"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Number of single rooms allocated from manifest.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation
+                                                                .room_counts
+                                                                ?.single ?? 0
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Double"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Number of double rooms (2 pax per room).',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation
+                                                                .room_counts
+                                                                ?.double ?? 0
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Triple"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Number of triple rooms (3 pax per room).',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation
+                                                                .room_counts
+                                                                ?.triple ?? 0
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Quad"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Number of quad rooms (4 pax per room).',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            accommodation
+                                                                .room_counts
+                                                                ?.quad ?? 0
+                                                        }
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <FormField
+                                                label="Remarks"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
+                                                    example:
+                                                        'Breakfast included',
+                                                }}
+                                                error={getError(
+                                                    `accommodations.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        accommodation.remarks ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
+                                                    textarea
+                                                    onCommit={(value) =>
+                                                        updatePifAccommodationRemarks(
+                                                            index,
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
+                                        </div>
+                                    ),
+                                )}
+                                {(data.accommodations ?? []).length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No accommodation data available.
+                                    </p>
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="rawdah-tasreeh"
+                            title="Rawdah Tasreeh"
+                            description="Rawdah visit permit details for women and men passengers. Dates and pax counts are sourced from the package. Add remarks for any scheduling notes."
+                            status={pifSectionStatuses.rawdahTasreeh}
+                        >
+                            <div className="space-y-4">
+                                {(data.rawdah_tasreehs ?? []).map(
+                                    (row, index) => (
+                                        <div
+                                            key={`pif-rawdah-${row.id}`}
+                                            className="space-y-3 rounded-lg border p-4"
+                                        >
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        label="Date"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Scheduled date for the Rawdah visit.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={row.date}
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Women Time"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Scheduled entry time for female passengers.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                row.women_time
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Men Time"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Scheduled entry time for male passengers.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={row.men_time}
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        label="Total Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Total passengers (women + men) for this slot.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                (row.women_passengers ??
+                                                                    0) +
+                                                                (row.men_passengers ??
+                                                                    0)
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Women Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of female passengers for this Rawdah slot.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                row.women_passengers ===
+                                                                0
+                                                                    ? '-'
+                                                                    : row.women_passengers
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Men Passengers"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of male passengers for this Rawdah slot.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                row.men_passengers ===
+                                                                0
+                                                                    ? '-'
+                                                                    : row.men_passengers
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                            </div>
+                                            <FormField
+                                                label="Remarks"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Any scheduling notes, blocked dates, or departure info.',
+                                                    example:
+                                                        'Mazarat 10 Jan, DEP 7.30 AM',
+                                                }}
+                                                error={getError(
+                                                    `rawdah_tasreehs.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={row.remarks ?? ''}
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
+                                                    textarea
+                                                    onCommit={(value) =>
+                                                        updatePifRawdahRemarks(
+                                                            index,
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
+                                        </div>
+                                    ),
+                                )}
+                                {(data.rawdah_tasreehs ?? []).length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No rawdah tasreeh data available.
+                                    </p>
+                                )}
+                            </div>
+                        </FormSection>
+
+                        <FormSection
+                            value="transportation-plan"
+                            title="Transportation Plan"
+                            description="Ground transport itinerary for the movement, covering airport transfers, city tours, and inter-city travel. Add remarks for special instructions per leg."
+                            status={pifSectionStatuses.transportationPlan}
+                        >
+                            <div className="space-y-4">
+                                {(data.transportation_plans ?? []).map(
+                                    (row, index) => (
+                                        <div
+                                            key={`pif-transport-${row.id}`}
+                                            className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                        >
+                                            <FormField
+                                                label="From"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Departure point for this transport leg.',
+                                                    example: 'Jeddah Airport',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={row.from}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="To"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Destination for this transport leg.',
+                                                    example: 'Sofitel Hotel',
+                                                }}
+                                            >
+                                                <CopyableText value={row.to} />
+                                            </FormField>
+                                            <FormField
+                                                label="Date"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Date of travel for this transport leg.',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={row.travel_date}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Time"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Scheduled departure or pickup time.',
+                                                    example: '07:30 AM',
+                                                }}
+                                            >
+                                                <CopyableText
+                                                    value={row.travel_time}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Remarks"
+                                                className="md:col-span-2"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Any notes for this leg, e.g. pending confirmation, special stops, or vehicle type.',
+                                                    example:
+                                                        'REHAL / MAKKAH HOTEL',
+                                                }}
+                                                error={getError(
+                                                    `transportation_plans.${index}.remarks`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={row.remarks ?? ''}
+                                                    disabled={
+                                                        processing ||
+                                                        !canEditOpsAndPif
+                                                    }
+                                                    textarea
+                                                    onCommit={(value) =>
+                                                        updatePifTransportationRemarks(
+                                                            index,
+                                                            value,
+                                                        )
+                                                    }
+                                                    placeholder="Optional remarks"
+                                                />
+                                            </FormField>
+                                        </div>
+                                    ),
+                                )}
+                                {(data.transportation_plans ?? []).length ===
+                                    0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No transportation data available.
+                                    </p>
+                                )}
+                            </div>
+                        </FormSection>
+                    </Accordion>
                 </TabsContent>
             </Tabs>
 
