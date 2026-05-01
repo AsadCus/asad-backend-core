@@ -169,464 +169,209 @@
 
 @section('report-content')
     @php
-        /*
-    ════════════════════════════════════════════════════════════════════
-    DATA CONTRACT
-    ════════════════════════════════════════════════════════════════════
-
-    $body = [
-        'mode'         => 'daily',           // 'daily' | 'monthly' | 'yearly'
-        'period_label' => 'March 2026',
-        ── DAILY ────────────────────────────────────────────────────────
-        //  groups = one item per date shown (can be multi-day range).
-        //  No L1 grouping; each group renders directly with a Date column.
-
-        ── MONTHLY ──────────────────────────────────────────────────────
-        //  groups  = one item per MONTH
-        //  sub_periods = Weeks within that month (Week 1 … Week 4)
-
-        ── YEARLY ───────────────────────────────────────────────────────
-        //  groups  = one item per YEAR
-        //  sub_periods = Months within that year (January … December)
-
-        'groups' => [
-            [
-                // ── DAILY only ──
-                'label'    => '18 Mar 2026',
-                'day_name' => 'Wednesday',   // optional
-                'rows'     => [...],
-
-                // ── MONTHLY & YEARLY ──
-                // 'label'       => 'March 2026',   // L1 header
-                // 'sub_periods' => [
-                //     ['label' => 'Week 1',  'rows' => [...]],
-                //     ['label' => 'Week 2',  'rows' => [...]],
-                //     ['label' => 'Week 3',  'rows' => [...]],
-                //     ['label' => 'Week 4',  'rows' => [...]],
-                // ],
-
-                // ── YEARLY ──
-                // 'label'       => '2026',
-                // 'sub_periods' => [
-                //     ['label' => 'January',   'rows' => [...]],
-                //     ['label' => 'February',  'rows' => [...]],
-                //     ...
-                //     ['label' => 'December',  'rows' => [...]],
-                // ],
-            ],
-        ],
-    ];
-
-    ── ROW STRUCTURE (same for all modes) ──────────────────────────────
-    [
-        'category'     => 'umrah_packages',
-        // ^ umrah_packages | leisure_package | friday_blessings_badal
-        //   | wakaf_jemaah  | others
-        'package_item' => '11 Days Deluxe – 16 Jun 2026',
-        'ref_no'       => 'KTG-251571',
-        'amount'       => 4745.00,
-        'cash'         => 0.00,
-        'nets'         => 0.00,
-        'visa'         => 0.00,
-        'master'       => 0.00,
-        'paynow'       => 4745.00,
-        'total_sale'   => 4745.00,
-        'maker'        => 'NINA',
-        'remarks'      => '50% PAYMENT',
-    ]
-    ════════════════════════════════════════════════════════════════════
-    */
-
+        // modes: daily (no L1/L2), monthly (L1=month, L2=week), yearly (L1=year, L2=month)
         $report = is_array($body ?? null) ? $body : [];
 
         if (!isset($report['mode']) && isset($report['period'])) {
             $report['mode'] = (string) $report['period'];
         }
-
         if (!isset($report['period_label'])) {
-            $report['period_label'] =
-                (string) ($report['date_range_label'] ?? ucfirst((string) ($report['period'] ?? 'daily')));
+            $report['period_label'] = (string) ($report['date_range_label'] ?? ucfirst((string) ($report['period'] ?? 'daily')));
         }
 
+        // Normalise flat rows → groups structure when the service returns rows instead of groups
         if (empty($report['groups']) && is_array($report['rows'] ?? null) && count($report['rows']) > 0) {
             $rows = collect($report['rows']);
-
             if (($report['mode'] ?? 'daily') === 'daily') {
                 $report['groups'] = $rows
                     ->groupBy(fn(array $row) => (string) ($row['date'] ?? '-'))
-                    ->map(function (\Illuminate\Support\Collection $groupRows, string $dateLabel) {
-                        return [
-                            'label' => $dateLabel,
-                            'day_name' => null,
-                            'rows' => $groupRows->values()->all(),
-                        ];
-                    })
-                    ->values()
-                    ->all();
+                    ->map(fn($groupRows, $dateLabel) => ['label' => $dateLabel, 'day_name' => null, 'rows' => $groupRows->values()->all()])
+                    ->values()->all();
             } elseif (($report['mode'] ?? 'daily') === 'monthly') {
                 $report['groups'] = $rows
-                    ->groupBy(function (array $row): string {
-                        $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
-                        return $parsed->translatedFormat('F Y');
-                    })
-                    ->map(function (\Illuminate\Support\Collection $monthRows, string $monthLabel) {
+                    ->groupBy(fn(array $row) => \Carbon\Carbon::parse((string) ($row['date'] ?? now()))->translatedFormat('F Y'))
+                    ->map(function ($monthRows, $monthLabel) {
                         $subPeriods = $monthRows
-                            ->groupBy(function (array $row): string {
-                                $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
-                                $weekNumber = (int) ceil(((int) $parsed->format('j')) / 7);
-                                return 'Week ' . $weekNumber;
-                            })
-                            ->map(
-                                fn(\Illuminate\Support\Collection $weekRows, string $weekLabel) => [
-                                    'label' => $weekLabel,
-                                    'rows' => $weekRows->values()->all(),
-                                ],
-                            )
-                            ->values()
-                            ->all();
-
-                        return [
-                            'label' => $monthLabel,
-                            'sub_periods' => $subPeriods,
-                        ];
+                            ->groupBy(fn(array $row) => 'Week ' . (int) ceil((int) \Carbon\Carbon::parse((string) ($row['date'] ?? now()))->format('j') / 7))
+                            ->map(fn($weekRows, $weekLabel) => ['label' => $weekLabel, 'rows' => $weekRows->values()->all()])
+                            ->values()->all();
+                        return ['label' => $monthLabel, 'sub_periods' => $subPeriods];
                     })
-                    ->values()
-                    ->all();
+                    ->values()->all();
             } else {
                 $report['groups'] = $rows
-                    ->groupBy(function (array $row): string {
-                        $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
-                        return $parsed->format('Y');
-                    })
-                    ->map(function (\Illuminate\Support\Collection $yearRows, string $yearLabel) {
+                    ->groupBy(fn(array $row) => \Carbon\Carbon::parse((string) ($row['date'] ?? now()))->format('Y'))
+                    ->map(function ($yearRows, $yearLabel) {
                         $subPeriods = $yearRows
-                            ->groupBy(function (array $row): string {
-                                $parsed = \Carbon\Carbon::parse((string) ($row['date'] ?? now()->toDateString()));
-                                return $parsed->translatedFormat('F');
-                            })
-                            ->map(
-                                fn(\Illuminate\Support\Collection $monthRows, string $monthLabel) => [
-                                    'label' => $monthLabel,
-                                    'rows' => $monthRows->values()->all(),
-                                ],
-                            )
-                            ->values()
-                            ->all();
-
-                        return [
-                            'label' => $yearLabel,
-                            'sub_periods' => $subPeriods,
-                        ];
+                            ->groupBy(fn(array $row) => \Carbon\Carbon::parse((string) ($row['date'] ?? now()))->translatedFormat('F'))
+                            ->map(fn($monthRows, $monthLabel) => ['label' => $monthLabel, 'rows' => $monthRows->values()->all()])
+                            ->values()->all();
+                        return ['label' => $yearLabel, 'sub_periods' => $subPeriods];
                     })
-                    ->values()
-                    ->all();
+                    ->values()->all();
             }
         } elseif (empty($report['groups']) && is_array($report['categories'] ?? null)) {
-            $normalizeCategory = function (string $label): string {
-                $normalizedLabel = strtolower(trim($label));
-
-                return match ($normalizedLabel) {
-                    'umrah packages' => 'umrah_packages',
-                    'leisure package' => 'leisure_package',
-                    'friday blessings / badal',
-                    'friday blessings/badal',
-                    'friday blessings badal'
-                        => 'friday_blessings_badal',
-                    'wakaf jemaah' => 'wakaf_jemaah',
-                    default => 'others',
-                };
+            $normalizeCategory = fn(string $label) => match (strtolower(trim($label))) {
+                'umrah packages'                                                    => 'umrah_packages',
+                'leisure package'                                                   => 'leisure_package',
+                'friday blessings / badal', 'friday blessings/badal',
+                'friday blessings badal'                                            => 'friday_blessings_badal',
+                'wakaf jemaah'                                                      => 'wakaf_jemaah',
+                default                                                             => 'others',
             };
-
-            $report['groups'] = [
-                [
-                    'label' => (string) ($report['date_range_label'] ?? ($report['period_label'] ?? '-')),
-                    'day_name' => null,
-                    'rows' => collect($report['categories'])
-                        ->map(function (array $categoryRow) use ($normalizeCategory) {
-                            $amount = (float) ($categoryRow['amount'] ?? 0);
-                            $categoryName = (string) ($categoryRow['category'] ?? 'Others');
-                            $receiptCount = (int) ($categoryRow['receipt_count'] ?? 0);
-
-                            return [
-                                'category' => $normalizeCategory($categoryName),
-                                'package_item' => $categoryName,
-                                'ref_no' => '-',
-                                'amount' => $amount,
-                                'cash' => 0.0,
-                                'nets' => 0.0,
-                                'visa' => 0.0,
-                                'master' => 0.0,
-                                'paynow' => $amount,
-                                'total_sale' => $amount,
-                                'maker' => '-',
-                                'remarks' => $receiptCount . ' receipt rows',
-                            ];
-                        })
-                        ->values()
-                        ->all(),
-                ],
-            ];
-
+            $report['groups'] = [[
+                'label'    => (string) ($report['date_range_label'] ?? ($report['period_label'] ?? '-')),
+                'day_name' => null,
+                'rows'     => collect($report['categories'])
+                    ->map(function (array $cat) use ($normalizeCategory) {
+                        $amount = (float) ($cat['amount'] ?? 0);
+                        $name   = (string) ($cat['category'] ?? 'Others');
+                        return ['category' => $normalizeCategory($name), 'package_item' => $name, 'ref_no' => '-',
+                                'amount' => $amount, 'cash' => 0.0, 'nets' => 0.0, 'visa' => 0.0, 'master' => 0.0,
+                                'paynow' => $amount, 'total_sale' => $amount, 'maker' => '-',
+                                'remarks' => ($cat['receipt_count'] ?? 0) . ' receipt rows'];
+                    })->values()->all(),
+            ]];
             $report['mode'] = 'daily';
         }
 
-        $mode = $report['mode'] ?? 'daily';
+        $mode   = $report['mode'] ?? 'daily';
         $groups = $report['groups'] ?? [];
 
-        /* ── Sub-period scaffolding ─────────────────────────────── */
-        // Monthly  → render at least Week 1 … Week 4, and include extra weeks if present (e.g., Week 5)
-        // Yearly   → always render January … December
+        // Sub-period scaffolding: monthly → at least Week 1–4; yearly → Jan–Dec
         $monthlySubLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-        $yearlySubLabels = [
-            'January',
-            'February',
-            'March',
-            'April',
-            'May',
-            'June',
-            'July',
-            'August',
-            'September',
-            'October',
-            'November',
-            'December',
-        ];
+        $yearlySubLabels  = ['January','February','March','April','May','June',
+                             'July','August','September','October','November','December'];
 
-        /* ── Categories ─────────────────────────────────────────── */
         $categoriesFromRows = collect($report['rows'] ?? [])
             ->mapWithKeys(function (array $row) {
                 $category = trim((string) ($row['category'] ?? 'Others'));
                 $key = \Illuminate\Support\Str::of($category)->lower()->slug('_')->value();
+                return [$key !== '' ? $key : 'others' => $category !== '' ? $category : 'Others'];
+            })->all();
 
-                if ($key === '') {
-                    return ['others' => 'Others'];
-                }
-
-                return [$key => $category];
-            })
-            ->all();
-
-        $categories =
-            $categoriesFromRows !== []
-                ? $categoriesFromRows
-                : [
-                    'umrah_packages' => 'Umrah Packages',
-                    'leisure_package' => 'Leisure Package',
-                    'friday_blessings_badal' => 'Friday Blessings / Badal',
-                    'wakaf_jemaah' => 'Wakaf Jemaah',
-                    'others' => 'Others',
-                ];
+        $categories = $categoriesFromRows !== [] ? $categoriesFromRows : [
+            'umrah_packages'        => 'Umrah Packages',
+            'leisure_package'       => 'Leisure Package',
+            'friday_blessings_badal'=> 'Friday Blessings / Badal',
+            'wakaf_jemaah'          => 'Wakaf Jemaah',
+            'others'                => 'Others',
+        ];
 
         $paymentMethodColumns = collect($report['payment_methods'] ?? ['cash', 'nets', 'visa', 'master', 'paynow'])
-            ->map(fn($method) => strtolower(trim((string) $method)))
-            ->filter(fn($method) => $method !== '' && $method !== 'amount' && $method !== 'total_sale')
-            ->unique()
-            ->values()
-            ->all();
-
+            ->map(fn($m) => strtolower(trim((string) $m)))
+            ->filter(fn($m) => $m !== '' && $m !== 'amount' && $m !== 'total_sale')
+            ->unique()->values()->all();
         if (count($paymentMethodColumns) === 0) {
             $paymentMethodColumns = ['cash', 'nets', 'visa', 'master', 'paynow'];
         }
 
         $fields = array_merge(['amount'], $paymentMethodColumns, ['total_sale']);
-        $zero = array_fill_keys($fields, 0.0);
-        $fmt = fn($v) => '$' . number_format((float) $v, 2);
+        $zero   = array_fill_keys($fields, 0.0);
+        $fmt    = fn($v) => '$' . number_format((float) $v, 2);
 
-        $methodHeaderLabel = function (string $method): string {
-            return match (strtolower($method)) {
-                'paynow' => 'Paynow',
-                default => ucfirst($method),
-            };
+        $methodHeaderLabel = fn(string $m) => match (strtolower($m)) {
+            'paynow' => 'Paynow', default => ucfirst($m),
         };
 
-        /* ── Helper: sum fields from flat rows array ─────────────── */
         $sumRows = function (array $rows) use ($fields, $zero): array {
             $t = $zero;
-            foreach ($rows as $r) {
-                foreach ($fields as $f) {
-                    $t[$f] += (float) ($r[$f] ?? 0);
-                }
-            }
+            foreach ($rows as $r) { foreach ($fields as $f) { $t[$f] += (float) ($r[$f] ?? 0); } }
             return $t;
         };
 
-        /* ── Helper: add two totals arrays ──────────────────────── */
         $addTot = function (array $a, array $b) use ($fields): array {
-            foreach ($fields as $f) {
-                $a[$f] += $b[$f];
-            }
+            foreach ($fields as $f) { $a[$f] += $b[$f]; }
             return $a;
         };
 
-        /* ── Helper: build category blocks with rowspan ──────────── */
-        // rowspan(cat) = max(1, txCount) + 1 (the subtotal row)
+        // rowspan per category block = max(1, txCount) + 1 subtotal row
         $buildCatBlocks = function (array $rows) use ($categories, $fields, $zero): array {
             $blocks = [];
             foreach ($categories as $catKey => $catLabel) {
-                $catRows = array_values(
-                    array_filter($rows, function ($r) use ($catKey): bool {
-                        $rowCategory = trim((string) ($r['category'] ?? ''));
-                        $normalizedRowKey = \Illuminate\Support\Str::of($rowCategory)->lower()->slug('_')->value();
-
-                        return $normalizedRowKey === (string) $catKey;
-                    }),
-                );
+                $catRows = array_values(array_filter($rows, function ($r) use ($catKey): bool {
+                    $nk = \Illuminate\Support\Str::of(trim((string) ($r['category'] ?? '')))->lower()->slug('_')->value();
+                    return $nk === (string) $catKey;
+                }));
                 $catTot = $zero;
-                foreach ($catRows as $r) {
-                    foreach ($fields as $f) {
-                        $catTot[$f] += (float) ($r[$f] ?? 0);
-                    }
-                }
-                $blocks[] = [
-                    'key' => $catKey,
-                    'label' => $catLabel,
-                    'rows' => $catRows,
-                    'total' => $catTot,
-                    'rowspan' => max(count($catRows), 1) + 1,
-                ];
+                foreach ($catRows as $r) { foreach ($fields as $f) { $catTot[$f] += (float) ($r[$f] ?? 0); } }
+                $blocks[] = ['key' => $catKey, 'label' => $catLabel, 'rows' => $catRows,
+                             'total' => $catTot, 'rowspan' => max(count($catRows), 1) + 1];
             }
-
-            return array_values(array_filter($blocks, function (array $block): bool {
-                return count($block['rows'] ?? []) > 0;
-            }));
+            return array_values(array_filter($blocks, fn(array $b) => count($b['rows'] ?? []) > 0));
         };
 
-        /* ── Helper: ensure sub_periods has every required label ─── */
-        // Fills in empty-row stubs for any missing Week/Month label.
         $padSubPeriods = function (array $subPeriods, array $requiredLabels): array {
-            $indexed = [];
-            foreach ($subPeriods as $sp) {
-                $indexed[$sp['label'] ?? ''] = $sp;
-            }
-            $result = [];
-            foreach ($requiredLabels as $lbl) {
-                $result[] = $indexed[$lbl] ?? ['label' => $lbl, 'rows' => []];
-            }
-            return $result;
+            $indexed = array_column($subPeriods, null, 'label');
+            return array_map(fn($lbl) => $indexed[$lbl] ?? ['label' => $lbl, 'rows' => []], $requiredLabels);
         };
 
         $buildMonthlyRequiredLabels = function (array $subPeriods) use ($monthlySubLabels): array {
-            $maxWeekNumber = 4;
-
-            foreach ($subPeriods as $subPeriod) {
-                $label = (string) ($subPeriod['label'] ?? '');
-                if (preg_match('/week\s+(\d+)/i', $label, $matches) === 1) {
-                    $weekNumber = (int) ($matches[1] ?? 0);
-                    if ($weekNumber > $maxWeekNumber) {
-                        $maxWeekNumber = $weekNumber;
-                    }
+            $max = 4;
+            foreach ($subPeriods as $sp) {
+                if (preg_match('/week\s+(\d+)/i', (string) ($sp['label'] ?? ''), $m) === 1) {
+                    $max = max($max, (int) $m[1]);
                 }
             }
-
-            $labels = [];
-            for ($week = 1; $week <= $maxWeekNumber; $week++) {
-                $labels[] = 'Week ' . $week;
-            }
-
-            return !empty($labels) ? $labels : $monthlySubLabels;
+            return array_map(fn($w) => 'Week ' . $w, range(1, $max)) ?: $monthlySubLabels;
         };
 
-        /* ── Build render plan ───────────────────────────────────── */
         $plan = [];
         $overallTotal = $zero;
 
         if ($mode === 'daily') {
-            // ── DAILY: no L1/L2 grouping ──────────────────────────
             foreach ($groups as $group) {
-                $dailyDateLabel = (string) ($group['label'] ?? '-');
-                $dailyDayLabel = $group['day_name'] ?? null;
+                $dateLabel = (string) ($group['label'] ?? '-');
+                $dayLabel  = $group['day_name'] ?? null;
 
-                if (str_contains($dailyDateLabel, ' - ')) {
-                    [$startLabel, $endLabel] = array_pad(explode(' - ', $dailyDateLabel, 2), 2, null);
-                    $startLabel = trim((string) $startLabel);
-                    $endLabel = trim((string) $endLabel);
-
-                    if ($startLabel !== '' && $endLabel !== '' && $startLabel === $endLabel) {
-                        $dailyDateLabel = $startLabel;
+                if (str_contains($dateLabel, ' - ')) {
+                    [$s, $e] = array_pad(explode(' - ', $dateLabel, 2), 2, null);
+                    if (trim((string) $s) !== '' && trim((string) $s) === trim((string) $e)) {
+                        $dateLabel = trim((string) $s);
                     }
                 }
-
                 try {
-                    $parsedDailyDate = \Carbon\Carbon::parse($dailyDateLabel);
-                    $dailyDateLabel = $parsedDailyDate->format('d F Y');
-
-                    if (empty($dailyDayLabel)) {
-                        $dailyDayLabel = $parsedDailyDate->format('l');
-                    }
-                } catch (\Throwable $e) {
-                    // Keep original fallback labels when parsing fails.
-                }
+                    $parsed    = \Carbon\Carbon::parse($dateLabel);
+                    $dateLabel = $parsed->format('d F Y');
+                    if (empty($dayLabel)) { $dayLabel = $parsed->format('l'); }
+                } catch (\Throwable) {}
 
                 $rows = $group['rows'] ?? [];
                 $cats = $buildCatBlocks($rows);
-                $catSpanSum = array_sum(array_column($cats, 'rowspan'));
-                $plan[] = [
-                    'type' => 'daily',
-                    'label' => $dailyDateLabel,
-                    'day_name' => $dailyDayLabel,
-                    'cats' => $cats,
-                    'total' => $sumRows($rows),
-                    'rowspan' => $catSpanSum + 1, // +1 for the grand-total row
-                ];
+                $plan[] = ['type' => 'daily', 'label' => $dateLabel, 'day_name' => $dayLabel,
+                           'cats' => $cats, 'total' => $sumRows($rows),
+                           'rowspan' => array_sum(array_column($cats, 'rowspan')) + 1];
                 $overallTotal = $addTot($overallTotal, $sumRows($rows));
             }
         } else {
-            // ── MONTHLY / YEARLY: two-level grouping ──────────────
             foreach ($groups as $group) {
-                // Ensure every Week (monthly) or Month (yearly) is present
-                $requiredLabels =
-                    $mode === 'yearly' ? $yearlySubLabels : $buildMonthlyRequiredLabels($group['sub_periods'] ?? []);
+                $requiredLabels = $mode === 'yearly'
+                    ? $yearlySubLabels
+                    : $buildMonthlyRequiredLabels($group['sub_periods'] ?? []);
                 $subPeriods = $padSubPeriods($group['sub_periods'] ?? [], $requiredLabels);
 
-                $l1Total = $zero;
-                $l1Rowspan = 0;
-                $subPlanList = [];
-
+                $l1Total = $zero; $l1Rowspan = 0; $subPlanList = [];
                 foreach ($subPeriods as $sub) {
-                    $rows = $sub['rows'] ?? [];
-                    $cats = $buildCatBlocks($rows);
-                    $catSpanSum = array_sum(array_column($cats, 'rowspan'));
-                    $subTotal = $sumRows($rows);
-                    $subRowspan = $catSpanSum + 1; // +1 for sub-period grand-total row
-
-                    $l1Rowspan += $subRowspan;
-                    $l1Total = $addTot($l1Total, $subTotal);
-
-                    $subPlanList[] = [
-                        'label' => $sub['label'],
-                        'cats' => $cats,
-                        'total' => $subTotal,
-                        'rowspan' => $subRowspan,
-                    ];
+                    $rows        = $sub['rows'] ?? [];
+                    $cats        = $buildCatBlocks($rows);
+                    $subTotal    = $sumRows($rows);
+                    $subRowspan  = array_sum(array_column($cats, 'rowspan')) + 1;
+                    $l1Rowspan  += $subRowspan;
+                    $l1Total     = $addTot($l1Total, $subTotal);
+                    $subPlanList[] = ['label' => $sub['label'], 'cats' => $cats,
+                                      'total' => $subTotal, 'rowspan' => $subRowspan];
                 }
-
-                $l1Rowspan += 1; // +1 for L1 grand-total row
+                $l1Rowspan += 1;
                 $overallTotal = $addTot($overallTotal, $l1Total);
-
-                $plan[] = [
-                    'type' => 'grouped',
-                    'label' => $group['label'] ?? '-',
-                    'subs' => $subPlanList,
-                    'total' => $l1Total,
-                    'rowspan' => $l1Rowspan,
-                ];
+                $plan[] = ['type' => 'grouped', 'label' => $group['label'] ?? '-',
+                           'subs' => $subPlanList, 'total' => $l1Total, 'rowspan' => $l1Rowspan];
             }
         }
 
-        $multiL1 = count($plan) > 1;
+        $multiL1     = count($plan) > 1;
         $isDailyMode = $mode === 'daily';
-
-        /* ── Column header labels ───────────────────────────────── */
-        $col1Label = match ($mode) {
-            'yearly' => 'Year',
-            'monthly' => 'Month',
-            default => 'Date',
-        };
-        $col2Label = match ($mode) {
-            'yearly' => 'Month',
-            'monthly' => 'Week',
-            default => null,
-        };
+        $col1Label   = match ($mode) { 'yearly' => 'Year', 'monthly' => 'Month', default => 'Date' };
+        $col2Label   = match ($mode) { 'yearly' => 'Month', 'monthly' => 'Week', default => null };
     @endphp
 
     {{-- ── Report Header ─────────────────────────────────────── --}}

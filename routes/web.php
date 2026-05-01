@@ -59,15 +59,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('data-scope/countries', [DataScopeController::class, 'updateCountrySelection'])->name('data-scope.countries.update');
 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('dashboard/sales-dashboard-data', [DashboardController::class, 'getSalesDashboardData'])->name('dashboard.sales-dashboard-data');
-    Route::get('dashboard/fiscal-year-total-sales', [DashboardController::class, 'getFiscalYearTotalSales'])->name('dashboard.fiscal-year-total-sales');
-    Route::get('dashboard/revenue-by-month', [DashboardController::class, 'getRevenueByMonth'])->name('dashboard.revenue-by-month');
-    Route::get('dashboard/income-by-month', [DashboardController::class, 'getIncomeByMonth'])->name('dashboard.income-by-month');
-    Route::get('dashboard/payment-summary-by-period', [DashboardController::class, 'getPaymentSummaryByPeriod'])->name('dashboard.payment-summary-by-period');
-    Route::get('dashboard/export-payment-summary-pdf', [DashboardController::class, 'exportPaymentSummaryPdf'])->name('dashboard.export-payment-summary-pdf');
+    Route::get('dashboard/fiscal-year-sales', [DashboardController::class, 'fiscalYearSales'])->name('dashboard.fiscal-year-sales');
+    Route::get('dashboard/payment-report', [DashboardController::class, 'paymentReport'])->name('dashboard.payment-report');
+    Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])->name('dashboard.payment-report-export');
     Route::middleware(['ghost_admin'])->group(function () {
-        Route::get('dashboard/package-group-payment-summary', [DashboardController::class, 'getPackageGroupPaymentSummary'])->name('dashboard.package-group-payment-summary');
-        Route::get('dashboard/export-package-group-report-pdf', [DashboardController::class, 'exportPackageGroupReportPdf'])->name('dashboard.export-package-group-report-pdf');
+        Route::get('dashboard/closing-report/export', [DashboardController::class, 'exportClosingReport'])->name('dashboard.closing-report-export');
     });
 
     // Notifications

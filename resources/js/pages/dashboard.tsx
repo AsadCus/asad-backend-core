@@ -51,7 +51,12 @@ import {
     index as customerIndex,
     show as customerShow,
 } from '@/routes/customer';
-import { fiscalYearTotalSales } from '@/routes/dashboard';
+import {
+    closingReportExport,
+    fiscalYearSales,
+    paymentReport,
+    paymentReportExport,
+} from '@/routes/dashboard';
 import { index as enquiriesIndex } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import { create as generalPublicCreate } from '@/routes/general-enquiries/public';
@@ -230,12 +235,8 @@ export default function Dashboard({ data }: DashboardProps) {
         from?: string;
         to?: string;
     }>({ from: todayDisplayDate });
-    const initialCategoryIds = (data.categoryOptions ?? []).map((c) =>
-        String(c.value),
-    );
     const [exportPackageIds, setExportPackageIds] = useState<string[]>([]);
-    const [exportCategoryIds, setExportCategoryIds] =
-        useState<string[]>(initialCategoryIds);
+    const [exportCategoryIds, setExportCategoryIds] = useState<string[]>([]);
 
     const exportSelectedRange: DateRange | undefined = exportDateRange.from
         ? {
@@ -259,7 +260,7 @@ export default function Dashboard({ data }: DashboardProps) {
     const nowDt = DateTime.now();
     const currentMonthStr = nowDt.toFormat('yyyy-MM'); // e.g. '2026-04'
     const [groupPeriod, setGroupPeriod] = useState<'daily' | 'monthly'>(
-        'monthly',
+        'daily',
     );
     const [groupDateRange, setGroupDateRange] = useState<{
         from?: string;
@@ -267,9 +268,16 @@ export default function Dashboard({ data }: DashboardProps) {
     }>({ from: todayDisplayDate });
     const [groupMonth, setGroupMonth] = useState<string>(currentMonthStr);
     const [groupPackageIds, setGroupPackageIds] = useState<string[]>([]);
-    const [groupCategoryIds, setGroupCategoryIds] =
-        useState<string[]>(initialCategoryIds);
+    const [groupCategoryIds, setGroupCategoryIds] = useState<string[]>([]);
     const [isGroupPopoverOpen, setIsGroupPopoverOpen] = useState(false);
+
+    // const applyGroupQuickDate = useCallback((type: QuickDateKey) => {
+    //     const { from: fromDate, to: toDate } = resolveQuickDateRange(type);
+    //     setGroupDateRange({
+    //         from: formatDateForDisplay(fromDate),
+    //         to: toDate ? formatDateForDisplay(toDate) : undefined,
+    //     });
+    // }, []);
 
     const normalizedPackageOptions = useMemo(
         () => (data.packageOptions ?? []) as GeneralEnquiryPackageOption[],
@@ -349,7 +357,7 @@ export default function Dashboard({ data }: DashboardProps) {
         : undefined;
 
     const buildGroupReportParams = useCallback(() => {
-        const params = new URLSearchParams({ period: groupPeriod });
+        const params = new URLSearchParams({ period: 'monthly' });
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (userTimezone) params.set('timezone', userTimezone);
         if (groupPackageIds && groupPackageIds.length > 0) {
@@ -412,7 +420,7 @@ export default function Dashboard({ data }: DashboardProps) {
     const handleExportGroupReportPdf = useCallback(() => {
         const params = buildGroupReportParams();
         window.open(
-            `/dashboard/export-package-group-report-pdf?${params.toString()}`,
+            `${closingReportExport.definition.url}?${params.toString()}`,
             '_blank',
         );
         setIsGroupPopoverOpen(false);
@@ -518,9 +526,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     ? { query: { financial_year_id: yearId.toString() } }
                     : undefined;
 
-                const fytdRes = await fetch(
-                    fiscalYearTotalSales(queryOptions).url,
-                );
+                const fytdRes = await fetch(fiscalYearSales(queryOptions).url);
 
                 if (fytdRes.ok) {
                     const fytdData = await fytdRes.json();
@@ -543,7 +549,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 const params = buildPaymentSummaryParams(period, yearId);
 
                 const response = await fetch(
-                    `/dashboard/payment-summary-by-period?${params.toString()}`,
+                    `${paymentReport.definition.url}?${params.toString()}`,
                 );
 
                 if (response.ok) {
@@ -568,7 +574,7 @@ export default function Dashboard({ data }: DashboardProps) {
         );
 
         window.open(
-            `/dashboard/export-payment-summary-pdf?${params.toString()}`,
+            `${paymentReportExport.definition.url}?${params.toString()}`,
             '_blank',
         );
         setIsExportPopoverOpen(false);
@@ -578,8 +584,6 @@ export default function Dashboard({ data }: DashboardProps) {
         exportDateRange,
         paymentSummaryPeriod,
     ]);
-
-    const paymentSectionTitle = 'Daily Payment';
 
     const paymentSummaryDateLabel = (() => {
         const rawLabel = String(
@@ -779,9 +783,9 @@ export default function Dashboard({ data }: DashboardProps) {
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        {paymentSectionTitle}
+                                        Payment Report
                                     </h2>
-                                    <p className="text-base text-muted-foreground">
+                                    <p className="hidden text-base text-muted-foreground">
                                         Receipt payment breakdown by item
                                         category ({paymentSummaryDateLabel})
                                     </p>
@@ -798,18 +802,18 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 variant="default"
                                             >
                                                 <Download className="h-4 w-4" />
-                                                Export Daily Report
+                                                Export Report
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent
                                             className="w-auto p-3"
-                                            align="end"
+                                            align="start"
                                             side="bottom"
                                             sideOffset={4}
                                         >
                                             <div className="flex gap-3">
                                                 <div className="space-y-2">
-                                                    <div className="space-y-1">
+                                                    <div className="hidden space-y-1">
                                                         <p className="font-medium">
                                                             Departure Group
                                                             (Package)
@@ -824,12 +828,12 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             defaultValue={
                                                                 exportPackageIds
                                                             }
-                                                            placeholder="Select package(s)..."
+                                                            placeholder="Select package..."
                                                             maxCount={0}
                                                         />
                                                     </div>
 
-                                                    <div className="space-y-1">
+                                                    <div className="hidden space-y-1">
                                                         <p className="font-medium">
                                                             Category
                                                         </p>
@@ -843,7 +847,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             defaultValue={
                                                                 exportCategoryIds
                                                             }
-                                                            placeholder="Select category(ies)..."
+                                                            placeholder="Select category..."
                                                             maxCount={0}
                                                         />
                                                     </div>
@@ -1006,10 +1010,10 @@ export default function Dashboard({ data }: DashboardProps) {
 
                     {isGhostAdmin && (
                         <div>
-                            <div className="mb-3 flex flex-col gap-3">
+                            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        Daily/Monthly Sales Report
+                                        Closing Report
                                     </h2>
                                 </div>
 
@@ -1024,7 +1028,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                                 variant="default"
                                             >
                                                 <Download className="h-4 w-4" />
-                                                Export Sales Report
+                                                Export Report
                                             </Button>
                                         </PopoverTrigger>
 
@@ -1034,54 +1038,51 @@ export default function Dashboard({ data }: DashboardProps) {
                                             side="bottom"
                                             sideOffset={4}
                                         >
-                                            <div className="flex flex-col gap-2">
-                                                <div className="space-y-1">
-                                                    <p className="font-medium">
-                                                        Period
-                                                    </p>
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant={
-                                                                groupPeriod ===
-                                                                'daily'
-                                                                    ? 'default'
-                                                                    : 'outline'
-                                                            }
-                                                            onClick={() =>
-                                                                setGroupPeriod(
-                                                                    'daily',
-                                                                )
-                                                            }
-                                                        >
-                                                            Daily
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant={
-                                                                groupPeriod ===
-                                                                'monthly'
-                                                                    ? 'default'
-                                                                    : 'outline'
-                                                            }
-                                                            onClick={() =>
-                                                                setGroupPeriod(
-                                                                    'monthly',
-                                                                )
-                                                            }
-                                                        >
-                                                            Monthly
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                {groupPeriod === 'daily' ? (
-                                                    <div className="space-y-1">
+                                            <div className="flex gap-3">
+                                                <div className="space-y-2">
+                                                    <div className="hidden space-y-1">
                                                         <p className="font-medium">
-                                                            Date Range
+                                                            Period
                                                         </p>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant={
+                                                                    groupPeriod ===
+                                                                    'daily'
+                                                                        ? 'default'
+                                                                        : 'outline'
+                                                                }
+                                                                onClick={() =>
+                                                                    setGroupPeriod(
+                                                                        'daily',
+                                                                    )
+                                                                }
+                                                            >
+                                                                Daily
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant={
+                                                                    groupPeriod ===
+                                                                    'monthly'
+                                                                        ? 'default'
+                                                                        : 'outline'
+                                                                }
+                                                                onClick={() =>
+                                                                    setGroupPeriod(
+                                                                        'monthly',
+                                                                    )
+                                                                }
+                                                            >
+                                                                Monthly
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+
+                                                    {groupPeriod === 'daily' ? (
                                                         <Calendar
                                                             mode="range"
                                                             numberOfMonths={1}
@@ -1120,155 +1121,207 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             }}
                                                             className="rounded-lg border shadow-sm"
                                                         />
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <p className="font-medium">
-                                                            Month
-                                                        </p>
-                                                        <div className="flex gap-2">
-                                                            <Select
-                                                                value={
-                                                                    splitYearMonth(
-                                                                        groupMonth,
-                                                                    ).month
-                                                                }
-                                                                onValueChange={(
-                                                                    month,
-                                                                ) =>
-                                                                    setGroupMonth(
-                                                                        joinYearMonth(
-                                                                            splitYearMonth(
-                                                                                groupMonth,
-                                                                            )
-                                                                                .year,
-                                                                            month,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                            >
-                                                                <SelectTrigger className="h-8">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {MONTHS.map(
-                                                                        (
-                                                                            month,
-                                                                        ) => (
-                                                                            <SelectItem
-                                                                                key={
-                                                                                    month.value
-                                                                                }
-                                                                                value={
-                                                                                    month.value
-                                                                                }
-                                                                            >
-                                                                                {
-                                                                                    month.label
-                                                                                }
-                                                                            </SelectItem>
-                                                                        ),
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <Select
-                                                                value={
-                                                                    splitYearMonth(
-                                                                        groupMonth,
-                                                                    ).year
-                                                                }
-                                                                onValueChange={(
-                                                                    year,
-                                                                ) =>
-                                                                    setGroupMonth(
-                                                                        joinYearMonth(
-                                                                            year,
-                                                                            splitYearMonth(
-                                                                                groupMonth,
-                                                                            )
-                                                                                .month,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                            >
-                                                                <SelectTrigger className="h-8">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {yearOptions.map(
-                                                                        (
-                                                                            year,
-                                                                        ) => (
-                                                                            <SelectItem
-                                                                                key={
-                                                                                    year
-                                                                                }
-                                                                                value={
-                                                                                    year
-                                                                                }
-                                                                            >
-                                                                                {
-                                                                                    year
-                                                                                }
-                                                                            </SelectItem>
-                                                                        ),
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            <div className="flex gap-2">
+                                                                <Select
+                                                                    value={
+                                                                        splitYearMonth(
+                                                                            groupMonth,
+                                                                        ).month
+                                                                    }
+                                                                    onValueChange={(
+                                                                        month,
+                                                                    ) =>
+                                                                        setGroupMonth(
+                                                                            joinYearMonth(
+                                                                                splitYearMonth(
+                                                                                    groupMonth,
+                                                                                )
+                                                                                    .year,
+                                                                                month,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <SelectTrigger className="h-8">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {MONTHS.map(
+                                                                            (
+                                                                                month,
+                                                                            ) => (
+                                                                                <SelectItem
+                                                                                    key={
+                                                                                        month.value
+                                                                                    }
+                                                                                    value={
+                                                                                        month.value
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        month.label
+                                                                                    }
+                                                                                </SelectItem>
+                                                                            ),
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <Select
+                                                                    value={
+                                                                        splitYearMonth(
+                                                                            groupMonth,
+                                                                        ).year
+                                                                    }
+                                                                    onValueChange={(
+                                                                        year,
+                                                                    ) =>
+                                                                        setGroupMonth(
+                                                                            joinYearMonth(
+                                                                                year,
+                                                                                splitYearMonth(
+                                                                                    groupMonth,
+                                                                                )
+                                                                                    .month,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <SelectTrigger className="h-8">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {yearOptions.map(
+                                                                            (
+                                                                                year,
+                                                                            ) => (
+                                                                                <SelectItem
+                                                                                    key={
+                                                                                        year
+                                                                                    }
+                                                                                    value={
+                                                                                        year
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        year
+                                                                                    }
+                                                                                </SelectItem>
+                                                                            ),
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
                                                         </div>
+                                                    )}
+
+                                                    <div className="flex flex-col gap-3 md:hidden">
+                                                        <div className="space-y-1">
+                                                            <p className="font-medium">
+                                                                Departure Group
+                                                                (Package)
+                                                            </p>
+                                                            <MultiSelect
+                                                                options={
+                                                                    groupedPackageOptions
+                                                                }
+                                                                onValueChange={
+                                                                    setGroupPackageIds
+                                                                }
+                                                                defaultValue={
+                                                                    groupPackageIds
+                                                                }
+                                                                placeholder="Select package..."
+                                                                maxCount={0}
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <p className="font-medium">
+                                                                Category
+                                                            </p>
+                                                            <MultiSelect
+                                                                options={
+                                                                    formattedCategoryOptions
+                                                                }
+                                                                onValueChange={
+                                                                    setGroupCategoryIds
+                                                                }
+                                                                defaultValue={
+                                                                    groupCategoryIds
+                                                                }
+                                                                placeholder="Select category..."
+                                                                maxCount={0}
+                                                            />
+                                                        </div>
+
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            className="w-full"
+                                                            onClick={
+                                                                handleExportGroupReportPdf
+                                                            }
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                            Export
+                                                        </Button>
                                                     </div>
-                                                )}
-
-                                                <div className="space-y-1">
-                                                    <p className="font-medium">
-                                                        Departure Group
-                                                        (Package)
-                                                    </p>
-                                                    <MultiSelect
-                                                        options={
-                                                            groupedPackageOptions
-                                                        }
-                                                        onValueChange={
-                                                            setGroupPackageIds
-                                                        }
-                                                        defaultValue={
-                                                            groupPackageIds
-                                                        }
-                                                        placeholder="Select package(s)..."
-                                                        maxCount={0}
-                                                    />
                                                 </div>
 
-                                                <div className="space-y-1">
-                                                    <p className="font-medium">
-                                                        Category
-                                                    </p>
-                                                    <MultiSelect
-                                                        options={
-                                                            formattedCategoryOptions
-                                                        }
-                                                        onValueChange={
-                                                            setGroupCategoryIds
-                                                        }
-                                                        defaultValue={
-                                                            groupCategoryIds
-                                                        }
-                                                        placeholder="Select category(ies)..."
-                                                        maxCount={0}
-                                                    />
-                                                </div>
+                                                <div className="hidden flex-col gap-3 border-l pl-3 md:flex">
+                                                    <div className="space-y-1">
+                                                        <p className="font-medium">
+                                                            Departure Group
+                                                            (Package)
+                                                        </p>
+                                                        <MultiSelect
+                                                            options={
+                                                                groupedPackageOptions
+                                                            }
+                                                            onValueChange={
+                                                                setGroupPackageIds
+                                                            }
+                                                            defaultValue={
+                                                                groupPackageIds
+                                                            }
+                                                            placeholder="Select package..."
+                                                            maxCount={0}
+                                                        />
+                                                    </div>
 
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    className="w-full"
-                                                    onClick={
-                                                        handleExportGroupReportPdf
-                                                    }
-                                                >
-                                                    <Download className="h-4 w-4" />
-                                                    Export PDF
-                                                </Button>
+                                                    <div className="space-y-1">
+                                                        <p className="font-medium">
+                                                            Category
+                                                        </p>
+                                                        <MultiSelect
+                                                            options={
+                                                                formattedCategoryOptions
+                                                            }
+                                                            onValueChange={
+                                                                setGroupCategoryIds
+                                                            }
+                                                            defaultValue={
+                                                                groupCategoryIds
+                                                            }
+                                                            placeholder="Select category..."
+                                                            maxCount={0}
+                                                        />
+                                                    </div>
+
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        className="w-full"
+                                                        onClick={
+                                                            handleExportGroupReportPdf
+                                                        }
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                        Export
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </PopoverContent>
                                     </Popover>

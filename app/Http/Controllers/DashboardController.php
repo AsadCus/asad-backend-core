@@ -174,29 +174,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Get sales dashboard data for a specific sales user
-     */
-    public function getSalesDashboardData(Request $request)
-    {
-        $user = $request->user();
-
-        if (! $user || ! $user->hasRole('sales')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
-
-        $salesData = $this->salesService->getSalesDashboardData($user->id, $selectedYear);
-
-        return response()->json($salesData);
-    }
-
-    /**
-     * Get fiscal year total sales (FYTD # and $)
-     */
-    public function getFiscalYearTotalSales(Request $request)
+    public function fiscalYearSales(Request $request)
     {
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
@@ -210,42 +188,7 @@ class DashboardController extends Controller
         return response()->json($data);
     }
 
-    /**
-     * Get revenue by month (quotation count and amount per month)
-     */
-    public function getRevenueByMonth(Request $request)
-    {
-        $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
-
-        if (! $selectedYear) {
-            return response()->json([]);
-        }
-
-        $data = $this->salesService->getRevenueByMonth($selectedYear);
-
-        return response()->json($data);
-    }
-
-    /**
-     * Get income by month (total invoice amount per month)
-     */
-    public function getIncomeByMonth(Request $request)
-    {
-        $selectedYearId = $request->input('financial_year_id');
-        $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
-        $status = $request->input('status', null);
-
-        if (! $selectedYear) {
-            return response()->json([]);
-        }
-
-        $data = $this->salesService->getIncomeByMonth($selectedYear, $status);
-
-        return response()->json($data);
-    }
-
-    public function getPaymentSummaryByPeriod(Request $request)
+    public function paymentReport(Request $request)
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
@@ -276,7 +219,7 @@ class DashboardController extends Controller
         return response()->json($data);
     }
 
-    public function exportPaymentSummaryPdf(Request $request)
+    public function exportPaymentReport(Request $request)
     {
         $period = (string) $request->input('period', 'daily');
         $selectedYearId = $request->input('financial_year_id');
@@ -308,7 +251,7 @@ class DashboardController extends Controller
         $report = $this->reportTemplateService->build('payment_summary', $summary);
         $report['is_pdf'] = true;
 
-        $pdf = Pdf::loadView('reports.dashboard-payment-summary', $report)
+        $pdf = Pdf::loadView('dashboard.payment-report', $report)
             ->setPaper('a4', 'portrait')
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
@@ -318,40 +261,7 @@ class DashboardController extends Controller
         return $pdf->download($filename);
     }
 
-    public function getPackageGroupPaymentSummary(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $period = (string) $request->input('period', 'monthly');
-        $financialYearId = $request->input('financial_year_id');
-        $timezone = $request->input('timezone');
-        $rangeStartUtc = $request->input('range_start_utc');
-        $rangeEndUtc = $request->input('range_end_utc');
-        $packageIds = $request->input('package_id');
-        if (is_string($packageIds)) {
-            $packageIds = explode(',', $packageIds);
-        }
-        if (is_array($packageIds)) {
-            $packageIds = array_map('intval', array_filter($packageIds));
-        }
-
-        $categoryIds = $request->input('categories');
-        if (is_string($categoryIds)) {
-            $categoryIds = array_filter(explode(',', $categoryIds));
-        }
-
-        $data = $this->financialTransactionService->getPackageGroupPaymentSummary(
-            $period,
-            $financialYearId ? (int) $financialYearId : null,
-            is_string($timezone) ? $timezone : null,
-            is_string($rangeStartUtc) ? $rangeStartUtc : null,
-            is_string($rangeEndUtc) ? $rangeEndUtc : null,
-            empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
-            empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
-        );
-
-        return response()->json($data);
-    }
-
-    public function exportPackageGroupReportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function exportClosingReport(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         $period = (string) $request->input('period', 'monthly');
         $financialYearId = $request->input('financial_year_id');
@@ -384,7 +294,7 @@ class DashboardController extends Controller
         $report = $this->reportTemplateService->build('closing_report', $summary);
         $report['is_pdf'] = true;
 
-        $pdf = Pdf::loadView('reports.dashboard-closing-report', $report)
+        $pdf = Pdf::loadView('dashboard.closing-report', $report)
             ->setPaper('a4', 'landscape')
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
