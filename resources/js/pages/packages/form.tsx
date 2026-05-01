@@ -1,17 +1,13 @@
 import { DatePickerField } from '@/components/date-picker';
 import { FormField } from '@/components/form-field';
+import { FormProgressHeader } from '@/components/form-progress-header';
+import { FormSection } from '@/components/form-section';
 import ModelNumberInput from '@/components/model-number-input';
 import { ProperInput } from '@/components/proper-input';
 import { ProperInputSelect } from '@/components/proper-input-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -21,11 +17,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
+import { navigateToSection } from '@/lib/navigation-helper';
 import { store, update } from '@/routes/packages';
 import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { genderOptions } from '../customer/schema';
 import {
     infantAndChildPriceLabels,
@@ -216,6 +213,8 @@ export default function PackageForm({
         clearErrors,
     } = useForm<PackageSchema>(defaultData);
 
+    const [openSections, setOpenSections] = useState<string[]>(['package-information']);
+
     const lastAppliedPrefillRef = useRef<string | null>(null);
     const previousDepartureDateRef = useRef<string>('');
     const hasInitializedDepartureDateSyncRef = useRef<boolean>(false);
@@ -296,6 +295,218 @@ export default function PackageForm({
         [getInputIdFromPath],
     );
 
+    const errorEntries = useMemo(() => {
+        return Object.entries(errors as Record<string, string>);
+    }, [errors]);
+
+    const hasErrorsForPrefixes = useCallback(
+        (prefixes: string[]) => {
+            return errorEntries.some(([path]) =>
+                prefixes.some(
+                    (prefix) =>
+                        path === prefix || path.startsWith(`${prefix}.`),
+                ),
+            );
+        },
+        [errorEntries],
+    );
+
+    const sectionStatuses = useMemo(() => {
+        const hasPackageInfo = Boolean(data.name) || Boolean(data.status);
+        const hasPricing = [
+            data.price_single,
+            data.price_double,
+            data.price_triple,
+            data.price_quad,
+            data.child_with_bed_price,
+            data.child_no_bed_price,
+            data.infant_price,
+        ].some((v) => v !== null && v !== undefined);
+        const hasFlights = (data.flights ?? []).some(
+            (f) => f.from || f.to || f.airline,
+        );
+        const hasTransportation = (data.transportation_plans ?? []).length > 0;
+        const hasVisa = Boolean(data.visa_type);
+        const hasVehicle =
+            Boolean(data.vehicle_type) ||
+            Boolean(data.vehicle_driver_name) ||
+            Boolean(data.vehicle_driver_contact_number);
+        const hasTrainTickets =
+            Boolean(data.ticket_type) || Boolean(data.train_description);
+        const hasAccommodations = (data.accommodations ?? []).length > 0;
+        const hasRawdah = (data.rawdah_tasreehs ?? []).length > 0;
+        const hasOfficials = (data.officials ?? []).length > 0;
+        const hasInclusions =
+            Boolean(data.included) ||
+            Boolean(data.not_included) ||
+            Boolean(data.offer);
+        const hasRemarks = Boolean(data.remarks);
+
+        return {
+            packageInformation: hasErrorsForPrefixes([
+                'package_number',
+                'name',
+                'status',
+                'country_id',
+                'departure_date',
+                'return_date',
+                'total_seats',
+            ])
+                ? 'error'
+                : hasPackageInfo
+                  ? 'complete'
+                  : 'incomplete',
+            pricing: hasErrorsForPrefixes([
+                'price_single',
+                'price_double',
+                'price_triple',
+                'price_quad',
+                'child_with_bed_price',
+                'child_no_bed_price',
+                'infant_price',
+            ])
+                ? 'error'
+                : hasPricing
+                  ? 'complete'
+                  : 'incomplete',
+            flightDetails: hasErrorsForPrefixes(['flights'])
+                ? 'error'
+                : hasFlights
+                  ? 'complete'
+                  : 'incomplete',
+            transportationPlan: hasErrorsForPrefixes(['transportation_plans'])
+                ? 'error'
+                : hasTransportation
+                  ? 'complete'
+                  : 'incomplete',
+            visa: hasErrorsForPrefixes(['visa_type'])
+                ? 'error'
+                : hasVisa
+                  ? 'complete'
+                  : 'incomplete',
+            vehicle: hasErrorsForPrefixes([
+                'vehicle_type',
+                'vehicle_driver_name',
+                'vehicle_driver_contact_number',
+            ])
+                ? 'error'
+                : hasVehicle
+                  ? 'complete'
+                  : 'incomplete',
+            trainTicketDetails: hasErrorsForPrefixes([
+                'ticket_type',
+                'train_description',
+                'train_tickets',
+            ])
+                ? 'error'
+                : hasTrainTickets
+                  ? 'complete'
+                  : 'incomplete',
+            accommodations: hasErrorsForPrefixes(['accommodations'])
+                ? 'error'
+                : hasAccommodations
+                  ? 'complete'
+                  : 'incomplete',
+            rawdahTasreeh: hasErrorsForPrefixes(['rawdah_tasreehs'])
+                ? 'error'
+                : hasRawdah
+                  ? 'complete'
+                  : 'incomplete',
+            officials: hasErrorsForPrefixes(['officials'])
+                ? 'error'
+                : hasOfficials
+                  ? 'complete'
+                  : 'incomplete',
+            packageInclusions: hasErrorsForPrefixes([
+                'included',
+                'not_included',
+                'offer',
+            ])
+                ? 'error'
+                : hasInclusions
+                  ? 'complete'
+                  : 'incomplete',
+            remarks: hasErrorsForPrefixes(['remarks'])
+                ? 'error'
+                : hasRemarks
+                  ? 'complete'
+                  : 'incomplete',
+        } as const;
+    }, [data, hasErrorsForPrefixes]);
+
+    const sections = useMemo(
+        () => [
+            {
+                id: 'package-information',
+                title: 'Package Information',
+                status: sectionStatuses.packageInformation,
+            },
+            {
+                id: 'pricing',
+                title: 'Pricing',
+                status: sectionStatuses.pricing,
+            },
+            {
+                id: 'flight-details',
+                title: 'Flight Details',
+                status: sectionStatuses.flightDetails,
+            },
+            {
+                id: 'transportation-plan',
+                title: 'Transportation Plan',
+                status: sectionStatuses.transportationPlan,
+            },
+            {
+                id: 'visa',
+                title: 'Visa',
+                status: sectionStatuses.visa,
+            },
+            {
+                id: 'vehicle',
+                title: 'Vehicle',
+                status: sectionStatuses.vehicle,
+            },
+            {
+                id: 'train-ticket-details',
+                title: 'Train Ticket Details',
+                status: sectionStatuses.trainTicketDetails,
+            },
+            {
+                id: 'accommodations',
+                title: 'Accommodations',
+                status: sectionStatuses.accommodations,
+            },
+            {
+                id: 'rawdah-tasreeh',
+                title: 'Rawdah Tasreeh',
+                status: sectionStatuses.rawdahTasreeh,
+            },
+            {
+                id: 'officials',
+                title: 'Officials',
+                status: sectionStatuses.officials,
+            },
+            {
+                id: 'package-inclusions',
+                title: 'Package Inclusions',
+                status: sectionStatuses.packageInclusions,
+            },
+            {
+                id: 'remarks',
+                title: 'Remarks',
+                status: sectionStatuses.remarks,
+            },
+        ],
+        [sectionStatuses],
+    );
+
+    const handleSectionClick = useCallback(
+        (sectionId: string) => {
+            navigateToSection(sectionId, setOpenSections);
+        },
+        [],
+    );
+
     const errorSummaryItems = useMemo(() => {
         return Object.entries(errors)
             .filter(
@@ -312,8 +523,16 @@ export default function PackageForm({
     useEffect(() => {
         if (errorSummaryItems.length > 0 && !isView) {
             scrollToErrorBanner();
+            const errorSectionIds = sections
+                .filter((s) => s.status === 'error')
+                .map((s) => s.id);
+            if (errorSectionIds.length > 0) {
+                setOpenSections((prev) => [
+                    ...new Set([...prev, ...errorSectionIds]),
+                ]);
+            }
         }
-    }, [errorSummaryItems.length, isView, scrollToErrorBanner]);
+    }, [errorSummaryItems.length, isView, scrollToErrorBanner, sections]);
 
     useEffect(() => {
         if (!isCreate || !prefillData) {
@@ -1056,17 +1275,28 @@ export default function PackageForm({
                     </div>
                 )}
 
+                {!isView && (
+                    <FormProgressHeader
+                        title="Package"
+                        sections={sections}
+                        onSectionClick={handleSectionClick}
+                    />
+                )}
+
+                <Accordion
+                    type="multiple"
+                    value={openSections}
+                    onValueChange={setOpenSections}
+                    className="space-y-4"
+                >
                 {/* Package Information */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">
-                            Package Information
-                        </CardTitle>
-                        <CardDescription>
-                            Define the package identity and status.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
+                <FormSection
+                    value="package-information"
+                    title="Package Information"
+                    description="Define the package identity and status."
+                    status={sectionStatuses.packageInformation}
+                >
+                    <div className="space-y-6">
                         <div
                             className={`grid grid-cols-1 items-start gap-4 md:grid-cols-4`}
                         >
@@ -1255,18 +1485,18 @@ export default function PackageForm({
                                 />
                             </FormField>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </FormSection>
 
                 {/* Pricing */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">Pricing</CardTitle>
-                        <CardDescription>
-                            Set occupancy and child/infant pricing.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
+                <FormSection
+                    value="pricing"
+                    title="Pricing"
+                    description="Set occupancy and child/infant pricing."
+                    status={sectionStatuses.pricing}
+                    required={false}
+                >
+                    <div className="space-y-6">
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                             {sharingPlanPriceLabels.map(({ key, label }) => (
                                 <FormField
@@ -1338,34 +1568,17 @@ export default function PackageForm({
                                 </FormField>
                             ))}
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </FormSection>
 
                 {/* Flight Details */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">
-                                Flight Details
-                            </CardTitle>
-                            <CardDescription>
-                                Add flight information for this package.
-                            </CardDescription>
-                        </div>
-                        {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addFlight}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Flight
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="flight-details"
+                    title="Flight Details"
+                    description="Add flight information for this package."
+                    status={sectionStatuses.flightDetails}
+                    required={false}
+                >
                         {(data.flights || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No flights added yet. Click "Add Flight" to add
@@ -1623,35 +1836,28 @@ export default function PackageForm({
                                 ))}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    {!isView && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="mt-4 w-full sm:w-auto"
+                            onClick={addFlight}
+                            disabled={processing}
+                        >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add Flight
+                        </Button>
+                    )}
+                </FormSection>
 
                 {/* Transportation Plan */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">
-                                Transportation Plan
-                            </CardTitle>
-                            <CardDescription>
-                                Add transportation arrangements for this
-                                package.
-                            </CardDescription>
-                        </div>
-                        {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addTransportationPlan}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Transportation
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="transportation-plan"
+                    title="Transportation Plan"
+                    description="Add transportation arrangements for this package."
+                    status={sectionStatuses.transportationPlan}
+                    required={false}
+                >
                         {(data.transportation_plans || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No transportation plans added yet. Click "Add
@@ -1826,18 +2032,29 @@ export default function PackageForm({
                                 )}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    {!isView && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="mt-4 w-full sm:w-auto"
+                            onClick={addTransportationPlan}
+                            disabled={processing}
+                        >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add Transportation
+                        </Button>
+                    )}
+                </FormSection>
 
-                {/* Visa & Vehicle */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">Visa</CardTitle>
-                        <CardDescription>
-                            Capture visa details for this package.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
+                {/* Visa */}
+                <FormSection
+                    value="visa"
+                    title="Visa"
+                    description="Capture visa details for this package."
+                    status={sectionStatuses.visa}
+                    required={false}
+                >
+                    <div className="space-y-6">
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-1">
                             <FormField
                                 label="Visa Type"
@@ -1882,95 +2099,94 @@ export default function PackageForm({
                                 </div>
                             </FormField>
                         </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">Vehicle</CardTitle>
-                        <CardDescription>
-                            Capture vehicle details for this package.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                            <FormField
-                                label="Vehicle Type"
-                                htmlFor="vehicle_type"
-                                fieldRequirementsProps={{
-                                    hint: 'Enter vehicle type',
-                                }}
-                                error={getError('vehicle_type')}
-                            >
-                                <ProperInput
-                                    id="vehicle_type"
-                                    value={data.vehicle_type || ''}
-                                    disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData('vehicle_type', v || null)
-                                    }
-                                    placeholder="e.g., Bus 45 Seater"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Driver Name"
-                                htmlFor="vehicle_driver_name"
-                                fieldRequirementsProps={{
-                                    hint: 'Enter driver name',
-                                }}
-                                error={getError('vehicle_driver_name')}
-                            >
-                                <ProperInput
-                                    id="vehicle_driver_name"
-                                    value={data.vehicle_driver_name || ''}
-                                    disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData(
-                                            'vehicle_driver_name',
-                                            v || null,
-                                        )
-                                    }
-                                    placeholder="Enter driver name"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Driver Contact Number"
-                                htmlFor="vehicle_driver_contact_number"
-                                fieldRequirementsProps={{
-                                    hint: 'Enter driver contact number',
-                                }}
-                                error={getError(
-                                    'vehicle_driver_contact_number',
-                                )}
-                            >
-                                <ProperInput
-                                    id="vehicle_driver_contact_number"
-                                    value={
-                                        data.vehicle_driver_contact_number || ''
-                                    }
-                                    disabled={isView || processing}
-                                    onCommit={(v) =>
-                                        setData(
-                                            'vehicle_driver_contact_number',
-                                            v || null,
-                                        )
-                                    }
-                                    placeholder="Enter contact number"
-                                />
-                            </FormField>
-                        </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </FormSection>
 
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">
-                            Train Ticket Details
-                        </CardTitle>
-                        <CardDescription>
-                            Provide train ticket itinerary details.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
+                {/* Vehicle */}
+                <FormSection
+                    value="vehicle"
+                    title="Vehicle"
+                    description="Capture vehicle details for this package."
+                    status={sectionStatuses.vehicle}
+                    required={false}
+                >
+                    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
+                        <FormField
+                            label="Vehicle Type"
+                            htmlFor="vehicle_type"
+                            fieldRequirementsProps={{
+                                hint: 'Enter vehicle type',
+                            }}
+                            error={getError('vehicle_type')}
+                        >
+                            <ProperInput
+                                id="vehicle_type"
+                                value={data.vehicle_type || ''}
+                                disabled={isView || processing}
+                                onCommit={(v) =>
+                                    setData('vehicle_type', v || null)
+                                }
+                                placeholder="e.g., Bus 45 Seater"
+                            />
+                        </FormField>
+                        <FormField
+                            label="Driver Name"
+                            htmlFor="vehicle_driver_name"
+                            fieldRequirementsProps={{
+                                hint: 'Enter driver name',
+                            }}
+                            error={getError('vehicle_driver_name')}
+                        >
+                            <ProperInput
+                                id="vehicle_driver_name"
+                                value={data.vehicle_driver_name || ''}
+                                disabled={isView || processing}
+                                onCommit={(v) =>
+                                    setData(
+                                        'vehicle_driver_name',
+                                        v || null,
+                                    )
+                                }
+                                placeholder="Enter driver name"
+                            />
+                        </FormField>
+                        <FormField
+                            label="Driver Contact Number"
+                            htmlFor="vehicle_driver_contact_number"
+                            fieldRequirementsProps={{
+                                hint: 'Enter driver contact number',
+                            }}
+                            error={getError(
+                                'vehicle_driver_contact_number',
+                            )}
+                        >
+                            <ProperInput
+                                id="vehicle_driver_contact_number"
+                                value={
+                                    data.vehicle_driver_contact_number || ''
+                                }
+                                disabled={isView || processing}
+                                onCommit={(v) =>
+                                    setData(
+                                        'vehicle_driver_contact_number',
+                                        v || null,
+                                    )
+                                }
+                                placeholder="Enter contact number"
+                            />
+                        </FormField>
+                    </div>
+                </FormSection>
+
+                {/* Train Ticket Details */}
+                <FormSection
+                    value="train-ticket-details"
+                    title="Train Ticket Details"
+                    description="Provide train ticket itinerary details."
+                    status={sectionStatuses.trainTicketDetails}
+                    required={false}
+                >
+                    <div className="space-y-6">
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-1">
                             <FormField
                                 label="Train Description"
@@ -2174,34 +2390,17 @@ export default function PackageForm({
                                 )}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </FormSection>
 
                 {/* Accommodations */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">
-                                Accommodations
-                            </CardTitle>
-                            <CardDescription>
-                                Add accommodation entries for each location.
-                            </CardDescription>
-                        </div>
-                        {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addAccommodation}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Accommodation
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="accommodations"
+                    title="Accommodations"
+                    description="Add accommodation entries for each location."
+                    status={sectionStatuses.accommodations}
+                    required={false}
+                >
                         {(data.accommodations || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No accommodations added yet. Click "Add
@@ -2589,35 +2788,28 @@ export default function PackageForm({
                                 )}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    {!isView && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="mt-4 w-full sm:w-auto"
+                            onClick={addAccommodation}
+                            disabled={processing}
+                        >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add Accommodation
+                        </Button>
+                    )}
+                </FormSection>
 
                 {/* Rawdah Tasreeh */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">
-                                Rawdah Tasreeh
-                            </CardTitle>
-                            <CardDescription>
-                                Add Rawdah tasreeh schedules and passenger
-                                counts.
-                            </CardDescription>
-                        </div>
-                        {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addRawdahTasreeh}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="rawdah-tasreeh"
+                    title="Rawdah Tasreeh"
+                    description="Add Rawdah tasreeh schedules and passenger counts."
+                    status={sectionStatuses.rawdahTasreeh}
+                    required={false}
+                >
                         <div className="mb-4 grid grid-cols-1 gap-4 rounded-lg border border-dashed p-4 md:grid-cols-3">
                             <FormField
                                 label="Women (Member Info)"
@@ -2933,32 +3125,28 @@ export default function PackageForm({
                                 )}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    {!isView && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="mt-4 w-full sm:w-auto"
+                            onClick={addRawdahTasreeh}
+                            disabled={processing}
+                        >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add Rawdah Tasreeh
+                        </Button>
+                    )}
+                </FormSection>
 
                 {/* Officials */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-xl">Officials</CardTitle>
-                            <CardDescription>
-                                Assign officials for this package.
-                            </CardDescription>
-                        </div>
-                        {!isView && (
-                            <Button
-                                type="button"
-                                variant="default"
-                                className="w-full sm:w-auto"
-                                onClick={addOfficial}
-                                disabled={processing}
-                            >
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Official
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="officials"
+                    title="Officials"
+                    description="Assign officials for this package."
+                    status={sectionStatuses.officials}
+                    required={false}
+                >
                         {(data.officials || []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
                                 No officials added yet. Click "Add Official" to
@@ -3417,112 +3605,118 @@ export default function PackageForm({
                                 )}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    {!isView && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="mt-4 w-full sm:w-auto"
+                            onClick={addOfficial}
+                            disabled={processing}
+                        >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add Official
+                        </Button>
+                    )}
+                </FormSection>
 
                 {/* Package Inclusions */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">
-                            Package Inclusions
-                        </CardTitle>
-                        <CardDescription>
-                            Describe included, excluded, and special offer
-                            details.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                            <FormField
-                                label="Included"
-                                htmlFor="included"
-                                fieldRequirementsProps={{
-                                    hint: "List what's included in the package",
-                                }}
-                                error={getError('included')}
-                            >
-                                <ProperInput
-                                    id="included"
-                                    value={data.included || ''}
-                                    disabled={isView || processing}
-                                    textarea
-                                    onCommit={(e) =>
-                                        setData('included', e || null)
-                                    }
-                                    placeholder="List included items (e.g., flights, hotels, meals, visa, transport...)"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Not Included"
-                                htmlFor="not_included"
-                                fieldRequirementsProps={{
-                                    hint: "List what's not included",
-                                }}
-                                error={getError('not_included')}
-                            >
-                                <ProperInput
-                                    id="not_included"
-                                    value={data.not_included || ''}
-                                    disabled={isView || processing}
-                                    textarea
-                                    onCommit={(e) =>
-                                        setData('not_included', e || null)
-                                    }
-                                    placeholder="List excluded items (e.g., personal expenses, tips...)"
-                                />
-                            </FormField>
-                            <FormField
-                                label="Offer"
-                                htmlFor="offer"
-                                fieldRequirementsProps={{
-                                    hint: 'Describe any special offers',
-                                }}
-                                error={getError('offer')}
-                            >
-                                <ProperInput
-                                    id="offer"
-                                    value={data.offer || ''}
-                                    disabled={isView || processing}
-                                    textarea
-                                    onCommit={(e) =>
-                                        setData('offer', e || null)
-                                    }
-                                    placeholder="Describe any special offers or promotions..."
-                                />
-                            </FormField>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Remarks */}
-                <Card>
-                    <CardHeader className="gap-0">
-                        <CardTitle className="text-xl">Remarks</CardTitle>
-                        <CardDescription>
-                            Add any additional internal or operational notes.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <FormSection
+                    value="package-inclusions"
+                    title="Package Inclusions"
+                    description="Describe included, excluded, and special offer details."
+                    status={sectionStatuses.packageInclusions}
+                    required={false}
+                >
+                    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                         <FormField
-                            label="Remarks"
-                            htmlFor="remarks"
+                            label="Included"
+                            htmlFor="included"
                             fieldRequirementsProps={{
-                                hint: 'Enter any additional remarks or notes',
+                                hint: "List what's included in the package",
                             }}
-                            error={getError('remarks')}
+                            error={getError('included')}
                         >
                             <ProperInput
-                                id="remarks"
-                                value={data.remarks || ''}
+                                id="included"
+                                value={data.included || ''}
                                 disabled={isView || processing}
                                 textarea
-                                onCommit={(v) => setData('remarks', v || null)}
-                                placeholder="Additional remarks or notes"
-                                rows={4}
+                                onCommit={(e) =>
+                                    setData('included', e || null)
+                                }
+                                placeholder="List included items (e.g., flights, hotels, meals, visa, transport...)"
                             />
                         </FormField>
-                    </CardContent>
-                </Card>
+                        <FormField
+                            label="Not Included"
+                            htmlFor="not_included"
+                            fieldRequirementsProps={{
+                                hint: "List what's not included",
+                            }}
+                            error={getError('not_included')}
+                        >
+                            <ProperInput
+                                id="not_included"
+                                value={data.not_included || ''}
+                                disabled={isView || processing}
+                                textarea
+                                onCommit={(e) =>
+                                    setData('not_included', e || null)
+                                }
+                                placeholder="List excluded items (e.g., personal expenses, tips...)"
+                            />
+                        </FormField>
+                        <FormField
+                            label="Offer"
+                            htmlFor="offer"
+                            fieldRequirementsProps={{
+                                hint: 'Describe any special offers',
+                            }}
+                            error={getError('offer')}
+                        >
+                            <ProperInput
+                                id="offer"
+                                value={data.offer || ''}
+                                disabled={isView || processing}
+                                textarea
+                                onCommit={(e) =>
+                                    setData('offer', e || null)
+                                }
+                                placeholder="Describe any special offers or promotions..."
+                            />
+                        </FormField>
+                    </div>
+                </FormSection>
+
+                {/* Remarks */}
+                <FormSection
+                    value="remarks"
+                    title="Remarks"
+                    description="Add any additional internal or operational notes."
+                    status={sectionStatuses.remarks}
+                    required={false}
+                >
+                    <FormField
+                        label="Remarks"
+                        htmlFor="remarks"
+                        fieldRequirementsProps={{
+                            hint: 'Enter any additional remarks or notes',
+                        }}
+                        error={getError('remarks')}
+                    >
+                        <ProperInput
+                            id="remarks"
+                            value={data.remarks || ''}
+                            disabled={isView || processing}
+                            textarea
+                            onCommit={(v) => setData('remarks', v || null)}
+                            placeholder="Additional remarks or notes"
+                            rows={4}
+                        />
+                    </FormField>
+                </FormSection>
+
+                </Accordion>
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3">
