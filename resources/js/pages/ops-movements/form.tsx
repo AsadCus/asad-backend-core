@@ -612,8 +612,12 @@ export default function OpsMovementForm({
         },
     });
     const { data, setData, processing, post, transform } = form;
-    const errors =
-        (form as unknown as { errors?: Record<string, string> }).errors ?? {};
+    const errors = useMemo(
+        () =>
+            (form as unknown as { errors?: Record<string, string> }).errors ??
+            {},
+        [form],
+    );
     const clearFormErrors = (): void => {
         (form as unknown as { clearErrors: () => void }).clearErrors();
     };
