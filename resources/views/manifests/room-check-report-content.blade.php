@@ -5,7 +5,7 @@
 @section('title-bar')
     Manifest Check-In Room List - {{ $manifest['room_check_location_label'] ?? '-' }}
     <br>
-    Please make it all in ONE FLOOR
+    <span style="font-size: 14px">Please make it all in ONE FLOOR</span>
 @endsection
 
 @section('body-class', 'is-landscape')

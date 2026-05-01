@@ -3966,9 +3966,10 @@ export default function ManifestDatatable({
                         <Table
                             className={cn(
                                 'min-w-[1600px]',
-                                'border-separate border-spacing-0',
+                                'border-separate border-spacing-0.5',
                                 '[&_td]:align-top [&_th]:align-middle',
                                 '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted',
+                                '[&_td]:border [&_th]:border',
                                 // '[&_td]:p-1 [&_th]:px-1 [&_th]:py-2',
                                 // '[&_tfoot_td]:p-2',
                             )}
