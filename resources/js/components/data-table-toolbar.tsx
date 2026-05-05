@@ -4,7 +4,7 @@ import { Plus, Trash, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ActionType } from './action-column';
 import useConfirmDialog from './confirm-popup';
-import { DataTableExport } from './data-table-export';
+import { CustomExport, DataTableExport } from './data-table-export';
 import { DataTableSettings } from './data-table-settings';
 import { ProperInput } from './proper-input';
 import { Button } from './ui/button';
@@ -27,6 +27,7 @@ interface DataTableToolbarProps<TData> {
     columnFilterMode?: 'inside' | 'outside';
     showSettings?: boolean;
     showExport?: boolean;
+    customExports?: CustomExport[];
 }
 
 export function DataTableToolbar<TData>({
@@ -47,6 +48,7 @@ export function DataTableToolbar<TData>({
     columnFilterMode = 'inside',
     showSettings = true,
     showExport = true,
+    customExports,
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const showOutsideSearch = searchFilterMode === 'outside';
@@ -150,6 +152,7 @@ export function DataTableToolbar<TData>({
                         <DataTableExport
                             table={table}
                             filename={exportFilename}
+                            customExports={customExports}
                         />
                     )}
                 </div>

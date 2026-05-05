@@ -30,6 +30,8 @@ import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
 import opsMovements from '@/routes/ops-movements';
 import order from '@/routes/order';
+import closingReport from '@/routes/reports/closing';
+import paymentReport from '@/routes/reports/payment';
 import packages from '@/routes/packages';
 import privateEnquiries from '@/routes/private-enquiries';
 import quotation from '@/routes/quotation';
@@ -40,7 +42,9 @@ import userLogs from '@/routes/user-logs';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BarChart3,
     BookOpen,
+    ClipboardCheck,
     ClipboardList,
     FileText,
     FileUser,
@@ -77,6 +81,8 @@ export function AppSidebar() {
     const isSalesOnlyRole = roles.includes('sales') && !roles.includes('admin');
     const isOperationsOnlyRole =
         roles.includes('operations') && roles.length === 1;
+    const isAdmin = roles.includes('admin');
+    const isGhostAdmin = isAdmin && Boolean(auth?.is_ghost_user);
 
     const mainNavItems: NavItem[] = isOperationsOnlyRole
         ? [
@@ -327,6 +333,30 @@ export function AppSidebar() {
                             title: 'Ops Movement',
                             href: opsMovements.index.url(),
                             icon: Route,
+                        },
+                    ]
+                  : []),
+              ...(isAdmin
+                  ? [
+                        {
+                            title: 'Report',
+                            icon: BarChart3,
+                            subItems: [
+                                {
+                                    title: 'Payment',
+                                    href: paymentReport.index.url(),
+                                    icon: Wallet,
+                                },
+                                ...(isGhostAdmin
+                                    ? [
+                                          {
+                                              title: 'Closing',
+                                              href: closingReport.index.url(),
+                                              icon: ClipboardCheck,
+                                          },
+                                      ]
+                                    : []),
+                            ],
                         },
                     ]
                   : []),

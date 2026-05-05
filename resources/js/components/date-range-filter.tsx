@@ -25,6 +25,7 @@ interface DateRangeFilterProps<TData> {
     toYear?: number;
     quickDate?: boolean;
     compact?: boolean;
+    dash?: boolean;
 
     value?: { from?: string; to?: string };
     onChange?: (value: { from?: string; to?: string }) => void;
@@ -38,6 +39,7 @@ export function DateRangeFilter<TData>({
     toYear = new Date().getFullYear() + 3,
     quickDate = false,
     compact = false,
+    dash = true,
     value,
     onChange,
 }: DateRangeFilterProps<TData>) {
@@ -144,8 +146,8 @@ export function DateRangeFilter<TData>({
                         size={compact ? 'sm' : 'default'}
                         className={
                             compact
-                                ? 'h-9 justify-start gap-1.5 border-dashed'
-                                : 'w-full justify-start border-dashed'
+                                ? `h-9 justify-start gap-1.5 ${dash ? 'border-dashed' : ''}`
+                                : `w-full justify-start ${dash ? 'border-dashed' : ''}`
                         }
                     >
                         <CalendarIcon className="h-4 w-4 shrink-0" />
