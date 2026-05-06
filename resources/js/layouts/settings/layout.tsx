@@ -69,12 +69,12 @@ export default function SettingsLayout({
     fullWidth = false,
 }: SettingsLayoutProps) {
     const { auth } = usePage<SharedData>().props;
-    const isAdmin = auth.roles.includes('admin');
-    const isGhostAdmin = isAdmin && Boolean(auth.is_ghost_user);
+    const isSuperadmin = auth.roles.includes('superadmin');
+    const isGhostSuperadmin = isSuperadmin && Boolean(auth.is_ghost_user);
     const navItems = [
         ...sidebarNavItems,
-        ...(isAdmin ? adminOnlySidebarNavItems : []),
-        ...(isGhostAdmin ? ghostAdminOnlySidebarNavItems : []),
+        ...(isSuperadmin ? adminOnlySidebarNavItems : []),
+        ...(isGhostSuperadmin ? ghostAdminOnlySidebarNavItems : []),
     ];
 
     // When server-side rendering, we only render the layout on the client...

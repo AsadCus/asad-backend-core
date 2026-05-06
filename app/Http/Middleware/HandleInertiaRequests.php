@@ -170,7 +170,8 @@ class HandleInertiaRequests extends Middleware
 
     protected function canShowScopeIndicator(User $user): bool
     {
-        return $user->hasRole('admin')
+        return $user->hasRole('superadmin')
+            || $user->hasRole('admin')
             || $user->hasRole('sales')
             || $user->hasRole('operations');
     }

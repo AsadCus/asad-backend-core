@@ -86,7 +86,7 @@ class ManifestCountryScopeTest extends TestCase
     {
         config(['data_scope.enabled' => true]);
 
-        $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $adminRole = Role::query()->firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
 
         $countryA = Country::create([
             'name' => 'Malaysia',

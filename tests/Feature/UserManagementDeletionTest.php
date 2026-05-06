@@ -17,22 +17,23 @@ class UserManagementDeletionTest extends TestCase
 
     public function test_master_user_destroy_soft_deletes_user_and_preserves_role_models(): void
     {
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('operations', 'web');
         Role::findOrCreate('customer', 'web');
 
         $actor = User::factory()->create();
-        $actor->assignRole('admin');
+        $actor->assignRole('superadmin');
 
         $this->actingAs($actor);
 
         $cases = [
             [
-                'role' => 'admin',
-                'route' => 'master.user.admin.destroy',
-                'param' => 'admin',
-                'redirect' => 'master.user.admin.index',
+                'role' => 'superadmin',
+                'route' => 'master.user.superadmin.destroy',
+                'param' => 'superadmin',
+                'redirect' => 'master.user.superadmin.index',
                 'table' => 'admins',
                 'createScope' => static fn (User $user): int => (int) Admin::create([
                     'user_id' => $user->id,

@@ -20,7 +20,7 @@ class AdminSalesUserSeeder extends Seeder
      */
     public function run(): void
     {
-        $adminRole = Role::findByName('admin');
+        $superadminRole = Role::findByName('superadmin');
         $salesRole = Role::findByName('sales');
         $operationsRole = Role::findByName('operations');
 
@@ -61,7 +61,7 @@ class AdminSalesUserSeeder extends Seeder
                 ]
             );
 
-            $adminUser->assignRole($adminRole);
+            $adminUser->assignRole($superadminRole);
 
             $selectedCountryIds = [];
 

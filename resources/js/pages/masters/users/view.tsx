@@ -25,6 +25,7 @@ interface ViewUserProps {
     dataBranch: [];
     dataCountry: [];
     dataSales: [];
+    isSuperadmin: boolean;
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
@@ -38,6 +39,7 @@ export default function ViewUser({
     dataBranch,
     dataCountry,
     dataSales,
+    isSuperadmin = false,
     isAdmin = false,
     isSales = false,
     isOperations = false,
@@ -49,6 +51,7 @@ export default function ViewUser({
     }, []);
 
     const roleLabel = resolveUserRoleLabel({
+        isSuperadmin,
         isAdmin,
         isSales,
         isOperations,
@@ -73,7 +76,11 @@ export default function ViewUser({
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
+                        isSuperadmin={isSuperadmin}
+                        isAdmin={isAdmin}
+                        isSales={isSales}
                         isOperations={isOperations}
+                        isCustomer={isCustomer}
                         scopeMode={scopeMode}
                     />
                 </div>

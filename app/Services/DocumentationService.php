@@ -31,7 +31,7 @@ class DocumentationService
             ],
             'roleGuide' => [
                 [
-                    'role' => 'Admin',
+                    'role' => 'Superadmin',
                     'scope' => 'Manage core setup, system modules, package creation, manifests, and governance controls.',
                     'primary_actions' => [
                         'Configure system-level references from Master module.',
@@ -71,7 +71,7 @@ class DocumentationService
                     'menu' => 'Master',
                     'children' => [
                         'Add User',
-                        'User Management: Administrator, Sales, Customer, Operations',
+                        'User Management: Superadmin, Admin, Sales, Customer, Operations',
                         'Country',
                         'Branch',
                         'Fiscal Year',
@@ -231,7 +231,7 @@ class DocumentationService
                     'module' => 'Dashboard analytics and summaries',
                     'purpose' => 'Monitor key metrics based on your role, including revenue, customer trend, and enquiry summary.',
                     'features' => [
-                        'Role-based dashboard content for admin, sales, and customer users.',
+                        'Role-based dashboard content for superadmin, sales, and customer users.',
                         'Fiscal year based chart and payment summary data.',
                         'Export payment summary report for audit and sharing.',
                     ],
@@ -246,7 +246,7 @@ class DocumentationService
                     'module' => 'System setup and reference management',
                     'purpose' => 'Configure users, country, branch, fiscal year, and product-service catalogs before operations start.',
                     'features' => [
-                        'Create and manage admin, sales, operations, and customer users.',
+                        'Create and manage superadmin, admin, sales, operations, and customer users.',
                         'Maintain country and branch references (based on scope mode).',
                         'Manage fiscal year defaults and product-service items.',
                     ],
@@ -355,7 +355,7 @@ class DocumentationService
                     'features' => [
                         'View and update movement details per package/manifest context.',
                         'Export operational PDF, PIF PDF, and budget PDF.',
-                        'Admin-controlled budget fields with role-safe restrictions.',
+                        'Superadmin-controlled budget fields with role-safe restrictions.',
                     ],
                     'how_to' => [
                         'Open Ops Movement from list and complete required movement sections.',
@@ -384,8 +384,8 @@ class DocumentationService
                     'purpose' => 'Manage account settings and system-level output formatting for documents and visuals.',
                     'features' => [
                         'Profile and password management for all users.',
-                        'Appearance settings for admin users.',
-                        'Report Template and Model Number Formats for authorized ghost-admin users.',
+                        'Appearance settings for superadmin users.',
+                        'Report Template and Model Number Formats for authorized ghost-superadmin users.',
                     ],
                     'how_to' => [
                         'Configure report branding before generating customer-facing PDFs.',

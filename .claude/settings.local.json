@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(vendor/bin/phpunit --filter \"test_dashboard_payment_summary_pdf_export_returns_pdf_response\" --no-coverage)"
+    ]
+  }
+}

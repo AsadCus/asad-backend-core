@@ -45,22 +45,24 @@ class UserRuleTest extends TestCase
         $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
     }
 
-    public function test_admin_role_requires_scope_ids_in_branch_mode(): void
+    public function test_superadmin_and_admin_roles_require_scope_ids_in_branch_mode(): void
     {
         config(['data_scope.mode' => 'branch']);
 
         $rule = new UserRule;
 
-        $payload = [
-            'name' => 'Admin One',
-            'email' => 'admin.one@example.com',
-            'role' => 'admin',
-        ];
+        foreach (['superadmin', 'admin'] as $role) {
+            $payload = [
+                'name' => ucfirst($role).' One',
+                'email' => $role.'.one@example.com',
+                'role' => $role,
+            ];
 
-        $validator = Validator::make($payload, $rule->rules('admin'));
+            $validator = Validator::make($payload, $rule->rules($role));
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
+            $this->assertTrue($validator->fails());
+            $this->assertArrayHasKey('scope_ids', $validator->errors()->toArray());
+        }
     }
 
     public function test_create_rules_allow_email_when_existing_user_is_soft_deleted(): void

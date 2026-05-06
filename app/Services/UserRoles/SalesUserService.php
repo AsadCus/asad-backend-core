@@ -12,13 +12,15 @@ use Spatie\Permission\Models\Role;
 
 class SalesUserService
 {
+    public function __construct(private string $roleName = 'sales') {}
+
     public function getForDataTable()
     {
         $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
 
         return User::query()
             ->whereDoesntHave('ghostUser')
-            ->role('sales')
+            ->role($this->roleName)
             ->with('roles', 'sales.branch.country', 'sales.country')
             ->get()
             ->map(function ($user) use ($scopeMode) {
@@ -32,7 +34,7 @@ class SalesUserService
                     ->filter()
                     ->values();
 
-                $user->role = 'sales';
+                $user->role = $this->roleName;
                 $user->contact = $user->contact ?? '';
                 $user->scope_mode = $scopeMode;
                 $user->scope_ids = array_map(
@@ -52,6 +54,7 @@ class SalesUserService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $roleLabel = ucfirst($this->roleName);
             $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
             $scopeIds = $this->normalizeScopeIds($data['scope_ids'] ?? []);
             [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
@@ -59,7 +62,7 @@ class SalesUserService
 
             $user = $this->createOrRestoreUser($data);
 
-            $user->syncRoles([Role::findByName('sales')]);
+            $user->syncRoles([Role::findByName($this->roleName)]);
 
             Sales::create([
                 'user_id' => $user->id,
@@ -75,8 +78,8 @@ class SalesUserService
 
             activity()
                 ->performedOn($user)
-                ->withProperties(['subject_type' => 'SalesUser', 'subject_id' => $user->id ?? null])
-                ->log('SalesUser created successfully #'.($user->id ?? null));
+                ->withProperties(['subject_type' => $roleLabel.'User', 'subject_id' => $user->id ?? null])
+                ->log($roleLabel.'User created successfully #'.($user->id ?? null));
 
             return $user;
         });
@@ -114,7 +117,7 @@ class SalesUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('sales')->with('sales.branch.country', 'sales.country')->findOrFail($id);
+        $user = User::role($this->roleName)->with('sales.branch.country', 'sales.country')->findOrFail($id);
         $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
         $salesScope = $user->sales;
 
@@ -123,7 +126,7 @@ class SalesUserService
             'name' => $user->name,
             'email' => $user->email,
             'contact' => $user->contact ?? '',
-            'role' => 'sales',
+            'role' => $this->roleName,
             'scope_mode' => $scopeMode,
             'scope_ids' => array_map(
                 'strval',
@@ -161,12 +164,13 @@ class SalesUserService
     public function update(array $data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
+            $roleLabel = ucfirst($this->roleName);
             $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
             $scopeIds = $this->normalizeScopeIds($data['scope_ids'] ?? []);
             [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
                 $this->resolveScopePayload($scopeIds, $scopeMode);
 
-            $user = User::role('sales')->with('sales')->findOrFail($id);
+            $user = User::role($this->roleName)->with('sales')->findOrFail($id);
 
             $user->update([
                 'name' => $data['name'],
@@ -196,8 +200,8 @@ class SalesUserService
 
             activity()
                 ->performedOn($user)
-                ->withProperties(['subject_type' => 'SalesUser', 'subject_id' => $user->id ?? null])
-                ->log('SalesUser updated successfully #'.($user->id ?? null));
+                ->withProperties(['subject_type' => $roleLabel.'User', 'subject_id' => $user->id ?? null])
+                ->log($roleLabel.'User updated successfully #'.($user->id ?? null));
 
             return $user;
         });

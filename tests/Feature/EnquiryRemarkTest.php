@@ -34,11 +34,11 @@ class EnquiryRemarkTest extends TestCase
             Permission::findOrCreate($permission, 'web');
         }
 
-        $adminRole = Role::findOrCreate('admin', 'web');
+        $adminRole = Role::findOrCreate('superadmin', 'web');
         $adminRole->givePermissionTo($permissions);
 
         $this->user = User::factory()->create();
-        $this->user->assignRole('admin');
+        $this->user->assignRole('superadmin');
 
         $this->enquiry = Enquiry::create([
             'type' => 'general',
@@ -188,7 +188,7 @@ class EnquiryRemarkTest extends TestCase
     public function test_store_remark_does_not_change_handled_by_after_confirmed(): void
     {
         $otherUser = User::factory()->create();
-        $otherUser->assignRole('admin');
+        $otherUser->assignRole('superadmin');
 
         $this->enquiry->update([
             'status' => EnquiryStatus::Confirmed->value,

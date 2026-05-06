@@ -53,12 +53,12 @@ class CustomerConfirmationFormTest extends TestCase
             Permission::findOrCreate($permission, 'web');
         }
 
-        $adminRole = Role::findOrCreate('admin', 'web');
+        $adminRole = Role::findOrCreate('superadmin', 'web');
         $adminRole->givePermissionTo($permissions);
         Role::findOrCreate('customer', 'web');
 
         $this->adminUser = User::factory()->create();
-        $this->adminUser->assignRole('admin');
+        $this->adminUser->assignRole('superadmin');
 
         $this->defaultPackage = Package::create([
             'package_number' => 'PKG-DEFAULT-TEST',

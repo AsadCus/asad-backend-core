@@ -187,7 +187,7 @@ const getColumns = (
 export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const { receiptsForDatatable, invoices, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
-    const isAdmin = auth.roles.includes('admin');
+    const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
     const columns = useMemo(
         () => getColumns(data.paymentMethods ?? []),
@@ -384,7 +384,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                         title="Customer"
                                         options={customers}
                                     />
-                                    {isAdmin && (
+                                    {isSuperadmin && (
                                         <ColumnFilter
                                             table={table}
                                             columnId="sales_id"

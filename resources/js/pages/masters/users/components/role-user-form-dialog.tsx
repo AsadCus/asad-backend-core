@@ -19,6 +19,7 @@ interface RoleUserFormDialogProps {
     branches?: OptionType[];
     countries?: OptionType[];
     salesList?: OptionType[];
+    isSuperadmin?: boolean;
     isAdmin?: boolean;
     isSales?: boolean;
     isOperations?: boolean;
@@ -37,6 +38,7 @@ export default function RoleUserFormDialog({
     branches = [],
     countries = [],
     salesList = [],
+    isSuperadmin = false,
     isAdmin = false,
     isSales = false,
     isOperations = false,
@@ -62,6 +64,7 @@ export default function RoleUserFormDialog({
                         branches={branches}
                         countries={countries}
                         salesList={salesList}
+                        isSuperadmin={isSuperadmin}
                         isAdmin={isAdmin}
                         isSales={isSales}
                         isOperations={isOperations}

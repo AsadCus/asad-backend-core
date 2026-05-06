@@ -35,8 +35,12 @@ class UserService
 
     public function getForDataTable(?string $role = null)
     {
-        if ($role === 'admin') {
+        if ($role === 'superadmin') {
             return $this->adminUserService->getForDataTable();
+        }
+
+        if ($role === 'admin') {
+            return $this->adminRoleService()->getForDataTable();
         }
 
         if ($role === 'sales') {
@@ -53,6 +57,7 @@ class UserService
 
         return collect()
             ->concat($this->adminUserService->getForDataTable())
+            ->concat($this->adminRoleService()->getForDataTable())
             ->concat($this->salesUserService->getForDataTable())
             ->concat($this->operationsUserService->getForDataTable())
             ->concat($this->customerUserService->getForDataTable())
@@ -89,11 +94,25 @@ class UserService
     {
         $countryCounts = [];
 
+        if ($role === 'superadmin') {
+            $admins = User::query()
+                ->whereDoesntHave('ghostUser')
+                ->role('superadmin')
+                ->with('admin.country')
+                ->get();
+
+            foreach ($admins as $admin) {
+                foreach ($this->resolveCountryNamesForUser($admin, 'admin') as $countryName) {
+                    $countryCounts[$countryName] = ($countryCounts[$countryName] ?? 0) + 1;
+                }
+            }
+        }
+
         if ($role === 'admin') {
             $admins = User::query()
                 ->whereDoesntHave('ghostUser')
                 ->role('admin')
-                ->with('admin.country')
+                ->with('sales.country')
                 ->get();
 
             foreach ($admins as $admin) {
@@ -148,7 +167,8 @@ class UserService
     private function resolveCountryNamesForUser(User $user, string $role): array
     {
         $scope = match ($role) {
-            'admin' => $user->admin,
+            'superadmin' => $user->admin,
+            'admin' => $user->sales,
             'sales' => $user->sales,
             'operations' => $user->operation,
             default => null,
@@ -221,11 +241,17 @@ class UserService
     private function resolveRoleService(string $role): object
     {
         return match ($role) {
-            'admin' => $this->adminUserService,
+            'superadmin' => $this->adminUserService,
+            'admin' => $this->adminRoleService(),
             'sales' => $this->salesUserService,
             'operations' => $this->operationsUserService,
             'customer' => $this->customerUserService,
             default => throw new \InvalidArgumentException("Unsupported user role [{$role}]."),
         };
+    }
+
+    private function adminRoleService(): SalesUserService
+    {
+        return new SalesUserService('admin');
     }
 }

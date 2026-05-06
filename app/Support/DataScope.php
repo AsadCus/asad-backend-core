@@ -59,7 +59,7 @@ class DataScope
 
         return self::enabled()
             && $resolvedUser !== null
-            && self::hasRole($resolvedUser, ['admin', 'sales', 'operations']);
+            && self::hasRole($resolvedUser, ['superadmin', 'admin', 'sales', 'operations']);
     }
 
     public static function shouldScopePackageAndManifestCountry(?User $user = null): bool
@@ -321,12 +321,16 @@ class DataScope
 
     private static function scopeSource(User $user): ?object
     {
+        if ($user->hasRole('superadmin')) {
+            return $user->admin;
+        }
+
         if ($user->hasRole('sales')) {
             return $user->sales;
         }
 
         if ($user->hasRole('admin')) {
-            return $user->admin;
+            return $user->sales ?? $user->admin;
         }
 
         if ($user->hasRole('operations')) {

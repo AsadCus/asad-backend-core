@@ -361,7 +361,7 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
 export default function InvoicesIndex({ data }: InvoicesProps) {
     const { invoicesForDatatable, quotations, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
-    const isAdmin = auth.roles.includes('admin');
+    const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
 
     const actions: ActionType[] = [];
@@ -645,7 +645,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         title="Customer"
                                         options={customers}
                                     />
-                                    {isAdmin && (
+                                    {isSuperadmin && (
                                         <ColumnFilter
                                             table={table}
                                             columnId="sales_id"

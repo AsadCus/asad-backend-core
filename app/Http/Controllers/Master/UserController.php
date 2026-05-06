@@ -47,6 +47,7 @@ class UserController extends Controller
 
         // Get role statistics
         $roleStats = [
+            'superadmin' => $this->userService->countByRole('superadmin'),
             'admin' => $this->userService->countByRole('admin'),
             'sales' => $this->userService->countByRole('sales'),
             'operations' => $this->userService->countByRole('operations'),
@@ -54,6 +55,7 @@ class UserController extends Controller
         ];
 
         $countryStats = [
+            'superadmin' => $this->userService->getCountryStatsByRole('superadmin'),
             'admin' => $this->userService->getCountryStatsByRole('admin'),
             'sales' => $this->userService->getCountryStatsByRole('sales'),
             'operations' => $this->userService->getCountryStatsByRole('operations'),

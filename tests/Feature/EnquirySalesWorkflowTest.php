@@ -35,7 +35,7 @@ class EnquirySalesWorkflowTest extends TestCase
         parent::setUp();
 
         Role::findOrCreate('sales', 'web');
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
     }
 
     public function test_status_transition_sets_handled_by_and_supports_contacted_to_confirmed(): void

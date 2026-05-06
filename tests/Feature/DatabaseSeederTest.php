@@ -32,7 +32,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertGreaterThan(0, Country::count());
         $this->assertGreaterThan(0, FinancialYear::count());
 
-        $this->assertSame(3, User::role('admin')->count());
+        $this->assertSame(3, User::role('superadmin')->count());
         $this->assertSame(2, User::role('sales')->count());
         $this->assertSame(1, User::role('operations')->count());
         $this->assertSame(3, Admin::count());

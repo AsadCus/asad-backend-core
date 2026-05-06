@@ -26,6 +26,7 @@ interface DateRangeFilterProps<TData> {
     quickDate?: boolean;
     compact?: boolean;
     dash?: boolean;
+    align?: 'end' | 'center' | 'start' | undefined;
 
     value?: { from?: string; to?: string };
     onChange?: (value: { from?: string; to?: string }) => void;
@@ -40,6 +41,7 @@ export function DateRangeFilter<TData>({
     quickDate = false,
     compact = false,
     dash = true,
+    align = 'end',
     value,
     onChange,
 }: DateRangeFilterProps<TData>) {
@@ -164,7 +166,7 @@ export function DateRangeFilter<TData>({
 
                 <PopoverContent
                     className="w-auto p-3"
-                    align="end"
+                    align={align}
                     side="bottom"
                     sideOffset={4}
                 >

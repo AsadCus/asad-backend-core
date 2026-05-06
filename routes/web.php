@@ -18,6 +18,7 @@ use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearCo
 use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\OperationsController as MasterOperationsController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
+use App\Http\Controllers\Master\SuperadminController as MasterSuperadminController;
 use App\Http\Controllers\Master\UserController as MasterUserController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\NotificationController;
@@ -29,8 +30,8 @@ use App\Http\Controllers\PrivateEnquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
-use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SalesController;
 use App\Http\Controllers\UserLogsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -61,14 +62,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/fiscal-year-sales', [DashboardController::class, 'fiscalYearSales'])->name('dashboard.fiscal-year-sales');
-    Route::get('dashboard/payment-report', [DashboardController::class, 'paymentReport'])->name('dashboard.payment-report');
-    Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])->name('dashboard.payment-report-export');
+    Route::get('dashboard/payment-report', [DashboardController::class, 'paymentReport'])
+        ->middleware(['role:superadmin|sales'])
+        ->name('dashboard.payment-report');
+    Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])
+        ->middleware(['role:superadmin|sales'])
+        ->name('dashboard.payment-report-export');
     Route::middleware(['ghost_admin'])->group(function () {
         Route::get('dashboard/closing-report/export', [DashboardController::class, 'exportClosingReport'])->name('dashboard.closing-report-export');
     });
 
     // Reports
-    Route::middleware(['role:admin'])->group(function () {
+    Route::middleware(['role:superadmin|sales'])->group(function () {
         Route::get('reports/payment', [ReportController::class, 'paymentIndex'])->name('reports.payment.index');
     });
     Route::middleware(['ghost_admin'])->group(function () {
@@ -89,11 +94,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documentations.index');
 
     // Masters
-    Route::prefix('master')->name('master.')->middleware(['role:admin'])->group(function () {
+    Route::prefix('master')->name('master.')->middleware(['role:superadmin'])->group(function () {
         Route::get('/', [MasterController::class, 'index'])->name('index');
 
         // Master - Users
         Route::prefix('user')->name('user.')->group(function () {
+            Route::resource('superadmin', MasterSuperadminController::class);
             Route::resource('admin', MasterAdminController::class);
             Route::resource('sales', MasterSalesController::class);
             Route::resource('operations', MasterOperationsController::class);

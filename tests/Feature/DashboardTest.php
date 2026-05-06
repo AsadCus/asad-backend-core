@@ -49,14 +49,14 @@ class DashboardTest extends TestCase
             ->assertRedirect(route('enquiries.index'));
     }
 
-    public function test_admin_role_takes_precedence_when_user_has_both_admin_and_sales_roles(): void
+    public function test_superadmin_role_takes_precedence_when_user_has_both_superadmin_and_sales_roles(): void
     {
         $user = User::factory()->create();
         Role::findOrCreate('sales', 'web');
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('customer', 'web');
         $user->assignRole('sales');
-        $user->assignRole('admin');
+        $user->assignRole('superadmin');
 
         $this->actingAs($user)
             ->get(route('dashboard'))
@@ -65,7 +65,9 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_groups_receipts_by_item_header_category(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('sales', 'web');
+        $this->actingAs($user = User::factory()->create());
+        $user->assignRole('sales');
 
         $customerUser = User::factory()->create();
         $customer = Customer::create([
@@ -152,7 +154,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_pdf_export_returns_pdf_response(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
         $this->requireRoute('dashboard.payment-report-export');
 
         $response = $this->get(route('dashboard.payment-report-export', [
@@ -165,7 +170,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_allocates_negative_invoice_extension_to_payer_member_item(): void
     {
-        $this->actingAs($maker = User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $maker = User::factory()->create();
+        $maker->assignRole('superadmin');
+        $this->actingAs($maker);
 
         $payerUser = User::factory()->create();
         $payerCustomer = Customer::create([
@@ -317,7 +325,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_pdf_export_returns_pdf_when_rows_are_grouped(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
 
         Receipt::withoutEvents(function (): void {
             Receipt::create([
@@ -584,7 +595,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_rows_include_ref_no_maker_installment_remarks_and_method_columns(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $viewerUser = User::factory()->create();
+        $viewerUser->assignRole('superadmin');
+        $this->actingAs($viewerUser);
 
         $maker = User::factory()->create(['name' => 'Maker User']);
         $customerUser = User::factory()->create();
@@ -712,7 +726,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_uses_invoice_created_at_order_for_installment_remarks(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $viewerUser = User::factory()->create();
+        $viewerUser->assignRole('superadmin');
+        $this->actingAs($viewerUser);
 
         $maker = User::factory()->create(['name' => 'Created At Maker']);
         $customerUser = User::factory()->create();
@@ -833,7 +850,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_includes_receipts_without_invoice_as_others(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
 
         Receipt::withoutEvents(function (): void {
             Receipt::create([
@@ -860,7 +880,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_excludes_receipts_from_rejected_cancelled_or_expired_quotations(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
 
         $customerUser = User::factory()->create();
         $customer = Customer::create([
@@ -942,7 +965,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_uses_timezone_aware_utc_range_for_daily_period(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
 
         Receipt::withoutEvents(function (): void {
             Receipt::create([
@@ -977,7 +1003,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_payment_summary_rows_are_sorted_ascending_for_daily_date_range(): void
     {
-        $this->actingAs(User::factory()->create());
+        Role::findOrCreate('superadmin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
 
         Receipt::withoutEvents(function (): void {
             Receipt::create([
@@ -1131,11 +1160,11 @@ class DashboardTest extends TestCase
 
     public function test_admin_dashboard_falls_back_when_default_financial_year_has_null_dates(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('customer', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('superadmin');
 
         FinancialYear::create([
             'year' => 'Broken Default',
@@ -1158,19 +1187,20 @@ class DashboardTest extends TestCase
             ->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('dashboard')
-            ->where('data.selectedYearId', $fallbackYear->id)
-            ->where('data.fiscalYearStartDate', '2026-01-01')
+        $response->assertInertia(
+            fn (Assert $page) => $page
+                ->component('dashboard')
+                ->where('data.selectedYearId', $fallbackYear->id)
+                ->where('data.fiscalYearStartDate', '2026-01-01')
         );
     }
 
     public function test_closing_report_export_is_forbidden_for_non_ghost_admins(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('superadmin');
 
         $response = $this->actingAs($admin)->get(route('dashboard.closing-report-export', [
             'period' => 'monthly',
@@ -1182,10 +1212,10 @@ class DashboardTest extends TestCase
 
     public function test_closing_report_export_returns_pdf_for_ghost_admin_with_and_without_category_filter(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('admin');
+        $ghostAdmin->assignRole('superadmin');
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,

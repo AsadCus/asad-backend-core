@@ -15,6 +15,7 @@ import {
 } from '@/lib/utils';
 import { paymentReport, paymentReportExport } from '@/routes/dashboard';
 import payment from '@/routes/reports/payment';
+import sales from '@/routes/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -23,7 +24,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Report', href: payment.index.url() },
+    { title: 'Sales', href: sales.index.url() },
     { title: 'Payment Report', href: payment.index.url() },
 ];
 
@@ -185,7 +186,7 @@ export default function PaymentReportIndex({
 
     useEffect(() => {
         void fetchData();
-    }, []);
+    }, [fetchData]);
 
     const handleExportPdf = useCallback(() => {
         const params = buildParams();
@@ -196,10 +197,11 @@ export default function PaymentReportIndex({
     }, [buildParams]);
 
     const rows: PaymentRow[] = reportData?.rows ?? [];
-    const paymentMethods: string[] = reportData?.payment_methods ?? [];
 
-    const columns: ColumnDef<PaymentRow>[] = useMemo(
-        () => [
+    const columns: ColumnDef<PaymentRow>[] = useMemo(() => {
+        const paymentMethods: string[] = reportData?.payment_methods ?? [];
+
+        return [
             { accessorKey: 'date', header: 'Date', meta: { exportable: true } },
             {
                 accessorKey: 'category',
@@ -242,9 +244,8 @@ export default function PaymentReportIndex({
                 header: 'Remarks',
                 meta: { exportable: true },
             },
-        ],
-        [paymentMethods],
-    );
+        ];
+    }, [reportData]);
 
     const customExports: CustomExport[] = useMemo(
         () => [
@@ -300,6 +301,7 @@ export default function PaymentReportIndex({
                             quickDate
                             compact
                             dash={false}
+                            align="start"
                         />
                     </div>
                     <Button

@@ -20,13 +20,13 @@ class GhostUserVisibilityTest extends TestCase
 
     public function test_ghost_admin_is_hidden_from_admin_datatable_and_admin_role_count(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $visibleAdmin = User::factory()->create();
-        $visibleAdmin->assignRole('admin');
+        $visibleAdmin->assignRole('superadmin');
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('admin');
+        $ghostAdmin->assignRole('superadmin');
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,
@@ -36,22 +36,22 @@ class GhostUserVisibilityTest extends TestCase
 
         $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $visibleAdmin->id));
         $this->assertFalse($rows->contains(fn ($row): bool => (int) $row->id === (int) $ghostAdmin->id));
-        $this->assertSame(1, app(UserService::class)->countByRole('admin'));
+        $this->assertSame(1, app(UserService::class)->countByRole('superadmin'));
     }
 
     public function test_change_summary_visibility_flag_is_true_only_for_ghost_user(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('admin');
+        $ghostAdmin->assignRole('superadmin');
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,
         ]);
 
         $normalAdmin = User::factory()->create();
-        $normalAdmin->assignRole('admin');
+        $normalAdmin->assignRole('superadmin');
 
         Activity::query()->create([
             'log_name' => 'default',
@@ -70,32 +70,34 @@ class GhostUserVisibilityTest extends TestCase
 
         $this->actingAs($ghostAdmin)
             ->get(route('user-logs.index'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('user-logs/index')
-                ->where('canViewChangeSummary', true)
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->component('user-logs/index')
+                    ->where('canViewChangeSummary', true)
             );
 
         $this->actingAs($normalAdmin)
             ->get(route('user-logs.index'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('user-logs/index')
-                ->where('canViewChangeSummary', false)
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->component('user-logs/index')
+                    ->where('canViewChangeSummary', false)
             );
     }
 
     public function test_ghost_admin_can_see_own_row_in_admin_datatable(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('admin');
+        $ghostAdmin->assignRole('superadmin');
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,
         ]);
 
         $normalAdmin = User::factory()->create();
-        $normalAdmin->assignRole('admin');
+        $normalAdmin->assignRole('superadmin');
 
         $this->actingAs($ghostAdmin);
 
@@ -121,38 +123,41 @@ class GhostUserVisibilityTest extends TestCase
 
     public function test_documentation_visibility_follows_config_and_ghost_status(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         Config::set('documentation.visible_to_all_users', false);
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('admin');
+        $ghostAdmin->assignRole('superadmin');
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,
         ]);
 
         $regularAdmin = User::factory()->create();
-        $regularAdmin->assignRole('admin');
+        $regularAdmin->assignRole('superadmin');
 
         $this->actingAs($ghostAdmin)
             ->get(route('documentations.index'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('auth.can_view_documentation', true)
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('auth.can_view_documentation', true)
             );
 
         $this->actingAs($regularAdmin)
             ->get(route('documentations.index'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('auth.can_view_documentation', false)
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('auth.can_view_documentation', false)
             );
 
         Config::set('documentation.visible_to_all_users', true);
 
         $this->actingAs($regularAdmin)
             ->get(route('documentations.index'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('auth.can_view_documentation', true)
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('auth.can_view_documentation', true)
             );
     }
 }

@@ -54,6 +54,7 @@ interface UserFormProps {
     countries?: OptionType[];
     roles?: OptionType[];
     salesList?: OptionType[];
+    isSuperadmin?: boolean;
     isAdmin?: boolean;
     isSales?: boolean;
     isOperations?: boolean;
@@ -70,6 +71,7 @@ export function UserForm({
     countries = [],
     roles = [],
     salesList = [],
+    isSuperadmin,
     isAdmin,
     isSales,
     isOperations,
@@ -82,6 +84,7 @@ export function UserForm({
     const isCreate = mode === 'create';
 
     const getDeterminedRole = () => {
+        if (isSuperadmin) return 'superadmin';
         if (isAdmin) return 'admin';
         if (isSales) return 'sales';
         if (isOperations) return 'operations';
@@ -431,7 +434,8 @@ export function UserForm({
 
                 <Card>
                     <CardContent className="space-y-6">
-                        {isAdmin === false &&
+                        {isSuperadmin === false &&
+                            isAdmin === false &&
                             isSales === false &&
                             isOperations === false &&
                             isCustomer === false && (
@@ -484,7 +488,9 @@ export function UserForm({
                                 </div>
                             )}
 
-                        {(role === 'admin' || role === 'operations') && (
+                        {(role === 'superadmin' ||
+                            role === 'admin' ||
+                            role === 'operations') && (
                             <AdminFormFields
                                 data={{
                                     name: data.name,

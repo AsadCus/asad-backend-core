@@ -18,7 +18,7 @@ class EnsureGhostAdmin
         $user = $request->user();
 
         abort_unless(
-            $user !== null && $user->hasRole('admin') && $user->isGhostUser(),
+            $user !== null && $user->hasRole('superadmin') && $user->isGhostUser(),
             403,
             'You do not have the required role or permission to access this resource.'
         );

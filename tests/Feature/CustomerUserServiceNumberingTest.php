@@ -19,7 +19,7 @@ class CustomerUserServiceNumberingTest extends TestCase
     {
         parent::setUp();
 
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('customer', 'web');
     }

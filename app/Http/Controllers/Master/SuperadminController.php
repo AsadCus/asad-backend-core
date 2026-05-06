@@ -8,29 +8,29 @@ use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
 use App\Services\SalesService;
-use App\Services\UserRoles\SalesUserService;
+use App\Services\UserRoles\AdminUserService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
-class AdminController extends Controller
+class SuperadminController extends Controller
 {
-    protected SalesUserService $adminRoleService;
+    protected $adminUserService;
 
-    protected UserService $userService;
+    protected $userService;
 
-    protected BranchService $branchService;
+    protected $branchService;
 
-    protected CountryService $countryService;
+    protected $countryService;
 
-    protected SalesService $salesService;
+    protected $salesService;
 
-    protected UserRule $userRule;
+    protected $userRule;
 
-    public function __construct(UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
+    public function __construct(AdminUserService $adminUserService, UserService $userService, BranchService $branchService, CountryService $countryService, SalesService $salesService, UserRule $userRule)
     {
-        $this->adminRoleService = new SalesUserService('admin');
+        $this->adminUserService = $adminUserService;
         $this->userService = $userService;
         $this->branchService = $branchService;
         $this->countryService = $countryService;
@@ -41,15 +41,15 @@ class AdminController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): \Inertia\Response
+    public function index()
     {
-        $dataUser = $this->adminRoleService->getForDataTable();
+        $dataUser = $this->adminUserService->getForDataTable();
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
         $dataSales = $this->salesService->getForFilter();
 
-        return Inertia::render('masters/users/admin/index', [
+        return Inertia::render('masters/users/superadmin/index', [
             'dataUser' => $dataUser,
             'dataRole' => $dataRole,
             'dataBranch' => $dataBranch,
@@ -62,7 +62,7 @@ class AdminController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(): \Inertia\Response
+    public function create()
     {
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
@@ -74,8 +74,8 @@ class AdminController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isAdmin' => true,
-            'submitUrl' => '/master/user/admin',
+            'isSuperadmin' => true,
+            'submitUrl' => '/master/user/superadmin',
             'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
@@ -83,11 +83,11 @@ class AdminController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request)
     {
-        $validated = $request->validate($this->userRule->rules('admin'));
+        $validated = $request->validate($this->userRule->rules('superadmin'));
 
-        $user = $this->adminRoleService->store($validated);
+        $user = $this->adminUserService->store($validated);
 
         if (! empty($validated['password']) && $request->boolean('send_email')) {
             Mail::to($user->email)->send(
@@ -97,19 +97,18 @@ class AdminController extends Controller
 
         activity()
             ->performedOn($user)
-            ->withProperties(['subject_type' => 'Admin', 'subject_id' => $user->id ?? null])
-            ->log('Admin created successfully #'.($user->id ?? null));
+            ->withProperties(['subject_type' => 'Superadmin', 'subject_id' => $user->id ?? null])
+            ->log('Superadmin created successfully #'.($user->id ?? null));
 
-        return redirect()->intended(route('master.user.admin.index'))
-            ->with('success', 'Admin created successfully.');
+        return redirect()->intended(route('master.user.superadmin.index'))->with('success', 'Superadmin created successfully.');
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id): \Inertia\Response
+    public function show(string $id)
     {
-        $data = $this->adminRoleService->getForEditShow($id);
+        $data = $this->adminUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
@@ -121,7 +120,7 @@ class AdminController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isAdmin' => true,
+            'isSuperadmin' => true,
             'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
@@ -129,9 +128,9 @@ class AdminController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id): \Inertia\Response
+    public function edit(string $id)
     {
-        $data = $this->adminRoleService->getForEditShow($id);
+        $data = $this->adminUserService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
         $dataCountry = $this->countryService->getForFilter();
@@ -143,7 +142,7 @@ class AdminController extends Controller
             'dataBranch' => $dataBranch,
             'dataCountry' => $dataCountry,
             'dataSales' => $dataSales,
-            'isAdmin' => true,
+            'isSuperadmin' => true,
             'scopeMode' => strtolower((string) config('data_scope.mode', 'country')),
         ]);
     }
@@ -151,20 +150,19 @@ class AdminController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id): \Illuminate\Http\RedirectResponse
+    public function update(Request $request, string $id)
     {
-        $validated = $request->validate($this->userRule->rules('admin', 'update', $id));
+        $validated = $request->validate($this->userRule->rules('superadmin', 'update', $id));
 
-        $this->adminRoleService->update($validated, $id);
+        $this->adminUserService->update($validated, $id);
 
-        return redirect()->intended(route('master.user.admin.index'))
-            ->with('success', 'Admin updated successfully.');
+        return redirect()->intended(route('master.user.superadmin.index'))->with('success', 'Superadmin updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, string $id): \Illuminate\Http\RedirectResponse
+    public function destroy(Request $request, string $id)
     {
         $ids = $request->input('ids');
 
@@ -173,13 +171,11 @@ class AdminController extends Controller
                 $this->userService->delete($userId);
             }
 
-            return redirect()->intended(route('master.user.admin.index'))
-                ->with('success', 'Selected admins deleted successfully.');
+            return redirect()->intended(route('master.user.superadmin.index'))->with('success', 'Selected superadmins deleted successfully.');
         }
 
         $this->userService->delete($id);
 
-        return redirect()->intended(route('master.user.admin.index'))
-            ->with('success', 'Admin deleted successfully.');
+        return redirect()->intended(route('master.user.superadmin.index'))->with('success', 'Superadmin deleted successfully.');
     }
 }

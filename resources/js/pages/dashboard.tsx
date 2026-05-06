@@ -217,8 +217,8 @@ export default function Dashboard({ data }: DashboardProps) {
     const userPermissions = auth.permissions || [];
 
     // roles
-    const isAdmin = auth.roles.includes('admin');
-    const isGhostAdmin = isAdmin && Boolean(auth.is_ghost_user);
+    const isSuperadmin = auth.roles.includes('superadmin');
+    const isGhostSuperadmin = isSuperadmin && Boolean(auth.is_ghost_user);
     const isSales = auth.roles.includes('sales');
 
     // State for API fetched data
@@ -519,7 +519,7 @@ export default function Dashboard({ data }: DashboardProps) {
     // Fetch dashboard data for admin
     const fetchAdminDashboardData = useCallback(
         async (yearId?: number) => {
-            if (!isAdmin) return;
+            if (!isSuperadmin) return;
 
             try {
                 const queryOptions = yearId
@@ -536,12 +536,12 @@ export default function Dashboard({ data }: DashboardProps) {
                 console.error('Error fetching dashboard data:', error);
             }
         },
-        [isAdmin],
+        [isSuperadmin],
     );
 
     const fetchPaymentSummaryData = useCallback(
         async (period: 'daily' | 'monthly' | 'yearly', yearId?: number) => {
-            if (!isAdmin) return;
+            if (!isSuperadmin) return;
 
             setIsLoadingPaymentSummary(true);
 
@@ -563,7 +563,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 setIsLoadingPaymentSummary(false);
             }
         },
-        [buildPaymentSummaryParams, isAdmin],
+        [buildPaymentSummaryParams, isSuperadmin],
     );
 
     const handleExportPaymentSummaryPdf = useCallback(() => {
@@ -605,13 +605,13 @@ export default function Dashboard({ data }: DashboardProps) {
 
     // Initial data fetch for admin
     useEffect(() => {
-        if (isAdmin && data.selectedYearId) {
+        if (isSuperadmin && data.selectedYearId) {
             fetchAdminDashboardData(data.selectedYearId);
         }
-    }, [isAdmin, data.selectedYearId, fetchAdminDashboardData]);
+    }, [isSuperadmin, data.selectedYearId, fetchAdminDashboardData]);
 
     useEffect(() => {
-        if (!isAdmin) {
+        if (!isSuperadmin) {
             return;
         }
 
@@ -619,7 +619,7 @@ export default function Dashboard({ data }: DashboardProps) {
     }, [
         data.selectedYearId,
         fetchPaymentSummaryData,
-        isAdmin,
+        isSuperadmin,
         paymentSummaryPeriod,
     ]);
 
@@ -686,7 +686,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <Head title="Dashboard" />
                 <div className="@container/main flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     {/* Admin: Fiscal Year Selector */}
-                    {isAdmin &&
+                    {isSuperadmin &&
                         data.availableYears &&
                         data.availableYears.length > 0 && (
                             <div className="flex items-center justify-between rounded-lg border bg-card p-4">
@@ -734,7 +734,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         )}
 
                     {/* Admin: Fiscal Year - Total Sales (FYTD # and $) */}
-                    {isAdmin && fiscalYearTotalSalesData && (
+                    {isSuperadmin && fiscalYearTotalSalesData && (
                         <div>
                             <h2 className="mb-3 text-lg font-semibold">
                                 Fiscal Year - Total Sales
@@ -778,7 +778,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
 
                     {/* Admin: Daily/Monthly/Yearly Payment */}
-                    {isAdmin && (
+                    {isSuperadmin && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
@@ -1008,7 +1008,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )}
 
-                    {isGhostAdmin && (
+                    {isGhostSuperadmin && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
@@ -1525,7 +1525,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
 
                     {/* Customer DataTable - Recent Customers for Admin */}
-                    {isAdmin && (
+                    {isSuperadmin && (
                         <div>
                             <div className="mb-3 flex items-center justify-between">
                                 <h2 className="text-lg font-semibold">

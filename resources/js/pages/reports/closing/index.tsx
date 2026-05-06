@@ -15,7 +15,7 @@ import {
 } from '@/lib/utils';
 import { closingReportExport } from '@/routes/dashboard';
 import closing from '@/routes/reports/closing';
-import payment from '@/routes/reports/payment';
+import sales from '@/routes/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -24,7 +24,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Report', href: payment.index.url() },
+    { title: 'Sales', href: sales.index.url() },
     { title: 'Closing Report', href: closing.index.url() },
 ];
 
@@ -184,7 +184,7 @@ export default function ClosingReportIndex({
 
     useEffect(() => {
         void fetchData();
-    }, []);
+    }, [fetchData]);
 
     const handleExportPdf = useCallback(() => {
         const params = buildParams();
@@ -195,11 +195,12 @@ export default function ClosingReportIndex({
     }, [buildParams]);
 
     const rows: ClosingRow[] = reportData?.rows ?? [];
-    const paymentMethods: string[] = reportData?.payment_methods ?? [];
-    const categories = reportData?.categories ?? {};
 
-    const columns: ColumnDef<ClosingRow>[] = useMemo(
-        () => [
+    const columns: ColumnDef<ClosingRow>[] = useMemo(() => {
+        const paymentMethods: string[] = reportData?.payment_methods ?? [];
+        const categories = reportData?.categories ?? {};
+
+        return [
             { accessorKey: 'date', header: 'Date', meta: { exportable: true } },
             {
                 accessorKey: 'day_name',
@@ -231,9 +232,8 @@ export default function ClosingReportIndex({
                             0,
                     ),
             })),
-        ],
-        [categories, paymentMethods],
-    );
+        ];
+    }, [reportData]);
 
     const customExports: CustomExport[] = useMemo(
         () => [
@@ -289,6 +289,7 @@ export default function ClosingReportIndex({
                             quickDate
                             compact
                             dash={false}
+                            align="start"
                         />
                     </div>
                     <Button

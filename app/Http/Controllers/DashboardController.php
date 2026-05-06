@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormatService;
 use App\Models\FinancialYear;
-use App\Models\Package;
 use App\Services\CountryService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
@@ -12,10 +11,10 @@ use App\Services\EnquiryService;
 use App\Services\FinancialTransactionService;
 use App\Services\FinancialYearService;
 use App\Services\OrderService;
+use App\Services\PackageService;
 use App\Services\ReligionService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
-use App\Services\PackageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -78,7 +77,10 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user->hasRole('sales') && ! $user->hasRole('admin')) {
+        if (
+            ($user->hasRole('sales') || $user->hasRole('admin'))
+            && ! $user->hasRole('superadmin')
+        ) {
             return redirect()->route('enquiries.index');
         }
 
@@ -87,7 +89,7 @@ class DashboardController extends Controller
         $selectedYearId = $request->input('financial_year_id');
         $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
-        if ($user->hasRole('admin')) {
+        if ($user->hasRole('superadmin')) {
             $availableYears = $this->financialYearService->getAvailableYears();
             $data['availableYears'] = $availableYears;
 

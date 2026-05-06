@@ -5,13 +5,13 @@ import { createSelectColumn } from '@/components/select-column';
 import AppLayout from '@/layouts/app-layout';
 import { index as masterIndex } from '@/routes/master';
 import { index as userIndex } from '@/routes/master/user';
-import { destroy, index } from '@/routes/master/user/admin';
+import { destroy, index } from '@/routes/master/user/superadmin';
 import { OptionType, type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { UserSchema } from '../schema';
-import AdminViewDialog from './view-dialog';
+import SuperadminViewDialog from './view-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -23,7 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: userIndex().url,
     },
     {
-        title: 'Admin',
+        title: 'Superadmin',
         href: index().url,
     },
 ];
@@ -73,7 +73,7 @@ function getColumns(scopeMode: 'country' | 'branch'): ColumnDef<UserSchema>[] {
     ];
 }
 
-interface AdminProps {
+interface SuperadminProps {
     dataUser: UserSchema[];
     dataRole: OptionType[];
     dataBranch: OptionType[];
@@ -82,14 +82,14 @@ interface AdminProps {
     scopeMode?: 'country' | 'branch';
 }
 
-export default function Admin({
+export default function Superadmin({
     dataUser,
     dataRole,
     dataBranch,
     dataCountry,
     dataSales,
     scopeMode = 'country',
-}: AdminProps) {
+}: SuperadminProps) {
     const columns = getColumns(scopeMode);
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -110,10 +110,10 @@ export default function Admin({
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Admin" />
+                <Head title="Superadmin" />
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Admin</h2>
+                        <h2 className="text-lg font-semibold">Superadmin</h2>
                     </div>
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
@@ -138,8 +138,8 @@ export default function Admin({
                                         openDialog('edit', row?.original);
                                     } else if (action === 'delete') {
                                         confirm({
-                                            title: 'Delete Admin',
-                                            message: `Are you sure you want to delete admin "${row?.original.name}"?`,
+                                            title: 'Delete Superadmin',
+                                            message: `Are you sure you want to delete superadmin "${row?.original.name}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {
@@ -161,7 +161,7 @@ export default function Admin({
                     </div>
                 </div>
             </AppLayout>
-            <AdminViewDialog
+            <SuperadminViewDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 mode={dialogMode}

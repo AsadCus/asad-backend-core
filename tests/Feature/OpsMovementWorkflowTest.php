@@ -254,8 +254,8 @@ class OpsMovementWorkflowTest extends TestCase
         $customerUser = User::factory()->create([
             'name' => 'Wheelchair Traveler',
         ]);
-        Role::findOrCreate('admin', 'web');
-        $actingUser->assignRole('admin');
+        Role::findOrCreate('superadmin', 'web');
+        $actingUser->assignRole('superadmin');
         Permission::findOrCreate('ops-movement view', 'web');
         Permission::findOrCreate('ops-movement edit', 'web');
         $actingUser->givePermissionTo(['ops-movement view', 'ops-movement edit']);

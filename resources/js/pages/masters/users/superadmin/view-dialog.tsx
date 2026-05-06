@@ -1,9 +1,9 @@
-import { index } from '@/routes/master/user/admin';
+import { index } from '@/routes/master/user/superadmin';
 import { OptionType } from '@/types';
 import RoleUserFormDialog from '../components/role-user-form-dialog';
 import { UserSchema } from '../schema';
 
-interface AdminViewDialogProps {
+interface SuperadminViewDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     mode: 'create' | 'edit' | 'view';
@@ -15,7 +15,7 @@ interface AdminViewDialogProps {
     scopeMode?: 'country' | 'branch';
 }
 
-export default function AdminViewDialog({
+export default function SuperadminViewDialog({
     open,
     onOpenChange,
     mode,
@@ -25,13 +25,13 @@ export default function AdminViewDialog({
     countries = [],
     salesList = [],
     scopeMode = 'country',
-}: AdminViewDialogProps) {
+}: SuperadminViewDialogProps) {
     const title =
         mode === 'create'
-            ? 'Create Admin'
+            ? 'Create Superadmin'
             : mode === 'edit'
-              ? 'Edit Admin'
-              : 'View Admin';
+              ? 'Edit Superadmin'
+              : 'View Superadmin';
 
     return (
         <RoleUserFormDialog
@@ -44,7 +44,7 @@ export default function AdminViewDialog({
             branches={branches}
             countries={countries}
             salesList={salesList}
-            isAdmin
+            isSuperadmin
             submitUrl={index().url}
             scopeMode={scopeMode}
         />

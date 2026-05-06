@@ -28,24 +28,25 @@ import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
+import masterSuperadmin from '@/routes/master/user/superadmin';
 import opsMovements from '@/routes/ops-movements';
 import order from '@/routes/order';
-import closingReport from '@/routes/reports/closing';
-import paymentReport from '@/routes/reports/payment';
 import packages from '@/routes/packages';
 import privateEnquiries from '@/routes/private-enquiries';
 import quotation from '@/routes/quotation';
 import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
+import closingReport from '@/routes/reports/closing';
+import paymentReport from '@/routes/reports/payment';
 import sales from '@/routes/sales';
 import userLogs from '@/routes/user-logs';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
-    BarChart3,
     BookOpen,
     ClipboardCheck,
     ClipboardList,
+    DollarSign,
     FileText,
     FileUser,
     Globe,
@@ -78,11 +79,15 @@ export function AppSidebar() {
         auth?.hide_customer_from_user_management,
     );
     const scopeMode = String(auth?.scope_mode ?? 'country').toLowerCase();
-    const isSalesOnlyRole = roles.includes('sales') && !roles.includes('admin');
+    const isSalesOnlyRole =
+        roles.includes('sales') &&
+        !roles.includes('superadmin') &&
+        !roles.includes('admin');
     const isOperationsOnlyRole =
         roles.includes('operations') && roles.length === 1;
-    const isAdmin = roles.includes('admin');
-    const isGhostAdmin = isAdmin && Boolean(auth?.is_ghost_user);
+    const isSuperadmin = roles.includes('superadmin');
+    const isGhostSuperadmin = isSuperadmin && Boolean(auth?.is_ghost_user);
+    const canViewSalesReports = roles.includes('sales') || isSuperadmin;
 
     const mainNavItems: NavItem[] = isOperationsOnlyRole
         ? [
@@ -125,7 +130,11 @@ export function AppSidebar() {
                                     matchExact: true,
                                     subItems: [
                                         {
-                                            title: 'Administrator',
+                                            title: 'Superadmin',
+                                            href: masterSuperadmin.index.url(),
+                                        },
+                                        {
+                                            title: 'Admin',
                                             href: masterAdmin.index.url(),
                                         },
                                         {
@@ -191,6 +200,30 @@ export function AppSidebar() {
                                 ? { href: sales.index.url() }
                                 : {}),
                             subItems: [
+                                ...(canViewSalesReports
+                                    ? [
+                                          {
+                                              title: 'Report',
+                                              icon: DollarSign,
+                                              subItems: [
+                                                  {
+                                                      title: 'Daily Receieved',
+                                                      href: paymentReport.index.url(),
+                                                      icon: Wallet,
+                                                  },
+                                                  ...(isGhostSuperadmin
+                                                      ? [
+                                                            {
+                                                                title: 'Closing Report',
+                                                                href: closingReport.index.url(),
+                                                                icon: ClipboardCheck,
+                                                            },
+                                                        ]
+                                                      : []),
+                                              ],
+                                          },
+                                      ]
+                                    : []),
                                 ...(permissions.includes('quotation view')
                                     ? [
                                           {
@@ -333,30 +366,6 @@ export function AppSidebar() {
                             title: 'Ops Movement',
                             href: opsMovements.index.url(),
                             icon: Route,
-                        },
-                    ]
-                  : []),
-              ...(isAdmin
-                  ? [
-                        {
-                            title: 'Report',
-                            icon: BarChart3,
-                            subItems: [
-                                {
-                                    title: 'Payment',
-                                    href: paymentReport.index.url(),
-                                    icon: Wallet,
-                                },
-                                ...(isGhostAdmin
-                                    ? [
-                                          {
-                                              title: 'Closing',
-                                              href: closingReport.index.url(),
-                                              icon: ClipboardCheck,
-                                          },
-                                      ]
-                                    : []),
-                            ],
                         },
                     ]
                   : []),

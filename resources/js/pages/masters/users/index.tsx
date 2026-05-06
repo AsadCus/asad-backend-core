@@ -14,9 +14,10 @@ import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
 import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
+import masterSuperadmin from '@/routes/master/user/superadmin';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Plus, Route, Shield, TrendingUp, Users } from 'lucide-react';
+import { Plus, Route, Shield, TrendingUp, User, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -33,12 +34,17 @@ interface MasterUserProps {
     // data: User[];
     // dataRole: OptionType[];
     roleStats: {
+        superadmin: number;
         admin: number;
         sales: number;
         operations: number;
         customer: number;
     };
     countryStats: {
+        superadmin: {
+            totalCountries: number;
+            breakdown: Array<{ country: string; count: number }>;
+        };
         admin: {
             totalCountries: number;
             breakdown: Array<{ country: string; count: number }>;
@@ -77,11 +83,22 @@ export default function MasterUser({
 
     const roleMenus = [
         {
-            title: 'Administrator',
+            title: 'Superadmin',
+            // description: `Assigned countries: ${countryStats.superadmin.totalCountries} (${countrySummary(countryStats.superadmin.breakdown)})`,
+            description: 'Superadmin accounts',
+            hidden: false,
+            icon: Shield,
+            count: roleStats.superadmin,
+            href: masterSuperadmin.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterSuperadmin.create().url),
+        },
+        {
+            title: 'Admin',
             // description: `Assigned countries: ${countryStats.admin.totalCountries} (${countrySummary(countryStats.admin.breakdown)})`,
             description: 'Admin accounts',
             hidden: false,
-            icon: Shield,
+            icon: User,
             count: roleStats.admin,
             href: masterAdmin.index.url(),
             hasAddButton: true,

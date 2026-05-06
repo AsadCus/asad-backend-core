@@ -17,7 +17,7 @@ class AdminUserService
         $viewer = auth()->user();
         $isGhostAdminViewer =
             $viewer !== null &&
-            $viewer->hasRole('admin') &&
+            $viewer->hasRole('superadmin') &&
             $viewer->isGhostUser();
 
         return User::query()
@@ -30,7 +30,7 @@ class AdminUserService
                         ->orWhere('id', (int) ($viewer?->id ?? 0));
                 }),
             )
-            ->role('admin')
+            ->role('superadmin')
             ->with('roles', 'admin.branch.country', 'admin.country')
             ->get()
             ->map(function ($user) use ($scopeMode) {
@@ -40,7 +40,7 @@ class AdminUserService
                     ->filter()
                     ->values();
 
-                $user->role = 'admin';
+                $user->role = 'superadmin';
                 $user->contact = $user->contact ?? '';
                 $user->scope_mode = $scopeMode;
                 $user->scope_ids = array_map(
@@ -68,7 +68,7 @@ class AdminUserService
 
             $user = $this->createOrRestoreUser($data);
 
-            $user->syncRoles([Role::findByName('admin')]);
+            $user->syncRoles([Role::findByName('superadmin')]);
 
             Admin::updateOrCreate([
                 'user_id' => $user->id,
@@ -85,8 +85,8 @@ class AdminUserService
 
             activity()
                 ->performedOn($user)
-                ->withProperties(['subject_type' => 'AdminUser', 'subject_id' => $user->id ?? null])
-                ->log('AdminUser created successfully #'.($user->id ?? null));
+                ->withProperties(['subject_type' => 'SuperadminUser', 'subject_id' => $user->id ?? null])
+                ->log('SuperadminUser created successfully #'.($user->id ?? null));
 
             return $user;
         });
@@ -124,7 +124,7 @@ class AdminUserService
 
     public function getForEditShow($id)
     {
-        $user = User::role('admin')->with('admin.branch.country', 'admin.country')->findOrFail($id);
+        $user = User::role('superadmin')->with('admin.branch.country', 'admin.country')->findOrFail($id);
         $scopeMode = strtolower((string) config('data_scope.mode', 'country'));
         $adminScope = $user->admin;
 
@@ -133,7 +133,7 @@ class AdminUserService
             'name' => $user->name,
             'email' => $user->email,
             'contact' => $user->contact ?? '',
-            'role' => 'admin',
+            'role' => 'superadmin',
             'scope_mode' => $scopeMode,
             'scope_ids' => array_map(
                 'strval',
@@ -176,7 +176,7 @@ class AdminUserService
             [$primaryBranchId, $primaryCountryId, $branchIds, $countryIds] =
                 $this->resolveScopePayload($scopeIds, $scopeMode);
 
-            $user = User::role('admin')->findOrFail($id);
+            $user = User::role('superadmin')->findOrFail($id);
 
             $user->update([
                 'name' => $data['name'],
@@ -198,8 +198,8 @@ class AdminUserService
 
             activity()
                 ->performedOn($user)
-                ->withProperties(['subject_type' => 'AdminUser', 'subject_id' => $user->id ?? null])
-                ->log('AdminUser updated successfully #'.($user->id ?? null));
+                ->withProperties(['subject_type' => 'SuperadminUser', 'subject_id' => $user->id ?? null])
+                ->log('SuperadminUser updated successfully #'.($user->id ?? null));
 
             return $user;
         });

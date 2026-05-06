@@ -20,13 +20,13 @@ class ReportTemplateTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
     }
 
     private function createGhostAdminUser(): User
     {
         $user = User::factory()->create();
-        $user->assignRole('admin');
+        $user->assignRole('superadmin');
         GhostUser::create(['user_id' => (int) $user->id]);
 
         return $user;
@@ -41,9 +41,10 @@ class ReportTemplateTest extends TestCase
             ->get(route('report-template.edit'));
 
         $response->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('settings/report-template')
-            ->where('settings.module_templates.manifest_airline_names.show_qr', true)
+        $response->assertInertia(
+            fn (Assert $page) => $page
+                ->component('settings/report-template')
+                ->where('settings.module_templates.manifest_airline_names.show_qr', true)
         );
     }
 

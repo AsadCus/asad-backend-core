@@ -82,6 +82,7 @@ class RolePermissionSeeder extends Seeder
 
         // Create roles
         $roles = [
+            'superadmin',
             'admin',
             'sales',
             'customer',
@@ -96,7 +97,7 @@ class RolePermissionSeeder extends Seeder
         }
 
         // Assign permissions
-        Role::findByName('admin')->givePermissionTo([
+        $superadminPermissions = [
             'dashboard view',
             'master view',
             'user view',
@@ -154,8 +155,9 @@ class RolePermissionSeeder extends Seeder
             'manifest edit',
             'ops-movement view',
             'ops-movement edit',
-        ]);
-        Role::findByName('sales')->givePermissionTo([
+        ];
+
+        $salesPermissions = [
             'dashboard view',
             'customer view',
             'customer create',
@@ -195,7 +197,16 @@ class RolePermissionSeeder extends Seeder
             'manifest view',
             'manifest create',
             'manifest edit',
-        ]);
+        ];
+
+        $adminPermissions = array_values(array_filter(
+            $salesPermissions,
+            static fn (string $permission): bool => $permission !== 'dashboard view',
+        ));
+
+        Role::findByName('superadmin')->givePermissionTo($superadminPermissions);
+        Role::findByName('sales')->givePermissionTo($salesPermissions);
+        Role::findByName('admin')->givePermissionTo($adminPermissions);
         Role::findByName('customer')->givePermissionTo([
             'dashboard view',
         ]);

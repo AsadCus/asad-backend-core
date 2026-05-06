@@ -15,25 +15,26 @@ class ModelNumberFormatSettingsTest extends TestCase
 
     public function test_ghost_admin_can_open_model_number_format_settings_page(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('superadmin');
         GhostUser::create(['user_id' => (int) $admin->id]);
 
         $this->actingAs($admin)
             ->get(route('model-number-formats.edit'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/model-number-formats')
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->component('settings/model-number-formats')
             );
     }
 
     public function test_non_ghost_admin_cannot_open_model_number_format_settings_page(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('superadmin');
 
         $this->actingAs($admin)
             ->get(route('model-number-formats.edit'))
@@ -42,7 +43,7 @@ class ModelNumberFormatSettingsTest extends TestCase
 
     public function test_non_admin_cannot_open_model_number_format_settings_page(): void
     {
-        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('superadmin', 'web');
 
         $user = User::factory()->create();
 

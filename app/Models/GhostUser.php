@@ -19,9 +19,9 @@ class GhostUser extends Model
         static::saving(function (GhostUser $ghostUser): void {
             $user = User::query()->find($ghostUser->user_id);
 
-            if (! $user || ! $user->hasRole('admin')) {
+            if (! $user || ! $user->hasRole('superadmin')) {
                 throw ValidationException::withMessages([
-                    'user_id' => 'Ghost user only supports admin role users.',
+                    'user_id' => 'Ghost user only supports superadmin role users.',
                 ]);
             }
         });

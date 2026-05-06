@@ -25,6 +25,7 @@ interface EditUserProps {
     dataBranch: [];
     dataCountry: [];
     dataSales: [];
+    isSuperadmin: boolean;
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
@@ -38,6 +39,7 @@ export default function EditUser({
     dataBranch,
     dataCountry,
     dataSales,
+    isSuperadmin = false,
     isAdmin = false,
     isSales = false,
     isOperations = false,
@@ -49,6 +51,7 @@ export default function EditUser({
     }, []);
 
     const roleLabel = resolveUserRoleLabel({
+        isSuperadmin,
         isAdmin,
         isSales,
         isOperations,
@@ -73,6 +76,7 @@ export default function EditUser({
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
+                        isSuperadmin={isSuperadmin}
                         isAdmin={isAdmin}
                         isSales={isSales}
                         isOperations={isOperations}

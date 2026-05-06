@@ -38,6 +38,7 @@ export function NavActions() {
     const notifications = auth.notifications;
     const roles = auth.roles ?? [];
     const isScopeIndicatorVisible =
+        roles.includes('superadmin') ||
         roles.includes('admin') ||
         roles.includes('sales') ||
         roles.includes('operations');

@@ -60,7 +60,7 @@ class OpsMovementController extends Controller
     {
         $validated = $request->validate($this->opsMovementRule->rules());
 
-        if (! $request->user()?->hasRole('admin')) {
+        if (! $request->user()?->hasRole('superadmin')) {
             unset($validated['budget'], $validated['budget_currency']);
         }
 

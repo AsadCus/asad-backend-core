@@ -13,7 +13,13 @@ const baseUserSchema = z
         password_confirmation: z.string().optional(),
         send_email: z.boolean().optional(),
         contact: z.string().optional(),
-        role: z.enum(['admin', 'sales', 'operations', 'customer']),
+        role: z.enum([
+            'superadmin',
+            'admin',
+            'sales',
+            'operations',
+            'customer',
+        ]),
         scope_mode: z.enum(['country', 'branch']).optional(),
         scope_ids: z.array(z.string()).optional(),
         country_id: z.string().optional(),
@@ -80,7 +86,8 @@ const baseUserSchema = z
         );
 
         if (
-            (data.role === 'admin' ||
+            (data.role === 'superadmin' ||
+                data.role === 'admin' ||
                 data.role === 'sales' ||
                 data.role === 'operations') &&
             scopeIds.length === 0

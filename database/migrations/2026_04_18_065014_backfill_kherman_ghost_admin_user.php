@@ -15,7 +15,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $adminRole = Role::findOrCreate('admin', 'web');
+        $adminRole = Role::findOrCreate('superadmin', 'web');
 
         $kherman = User::firstOrCreate(
             ['email' => 'kherman@example.com'],

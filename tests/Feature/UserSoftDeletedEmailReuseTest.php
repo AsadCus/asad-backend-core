@@ -22,22 +22,24 @@ class UserSoftDeletedEmailReuseTest extends TestCase
     public static function scopedRoleProvider(): array
     {
         return [
+            ['superadmin'],
             ['admin'],
             ['sales'],
             ['operations'],
         ];
     }
 
-    public function test_store_reuses_soft_deleted_email_for_admin_sales_and_operations(): void
+    public function test_store_reuses_soft_deleted_email_for_superadmin_admin_sales_and_operations(): void
     {
         Role::findOrCreate('customer', 'web');
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('operations', 'web');
 
         $userService = app(UserService::class);
 
-        foreach (['admin', 'sales', 'operations'] as $role) {
+        foreach (['superadmin', 'admin', 'sales', 'operations'] as $role) {
             $email = sprintf('%s.reused@example.com', $role);
 
             $deletedUser = User::factory()->create([
@@ -67,6 +69,7 @@ class UserSoftDeletedEmailReuseTest extends TestCase
     public function test_store_customer_reuses_soft_deleted_email_without_creating_duplicate_customer_row(): void
     {
         Role::findOrCreate('customer', 'web');
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
 
@@ -115,6 +118,7 @@ class UserSoftDeletedEmailReuseTest extends TestCase
     {
         config(['data_scope.mode' => 'country']);
 
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('operations', 'web');
@@ -147,6 +151,7 @@ class UserSoftDeletedEmailReuseTest extends TestCase
     {
         config(['data_scope.mode' => 'branch']);
 
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('operations', 'web');

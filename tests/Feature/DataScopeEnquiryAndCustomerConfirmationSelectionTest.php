@@ -26,7 +26,7 @@ class DataScopeEnquiryAndCustomerConfirmationSelectionTest extends TestCase
         config(['data_scope.enabled' => true]);
         config(['data_scope.mode' => 'country']);
 
-        $adminRole = Role::query()->firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $adminRole = Role::query()->firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
 
         $countrySingapore = Country::create([
             'name' => 'Singapore',

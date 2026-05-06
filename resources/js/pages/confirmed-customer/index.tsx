@@ -699,7 +699,7 @@ export default function ConfirmedCustomerIndex({
 }: ConfirmedCustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
-    const isAdmin = auth.roles.includes('admin');
+    const isSuperadmin = auth.roles.includes('superadmin');
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const isHoldingIndex = indexUrl.includes('/customer-holding');
     const isCompletedIndex = indexUrl.includes('/completed-customer');
@@ -713,7 +713,7 @@ export default function ConfirmedCustomerIndex({
                     ? String(column.accessorKey ?? '')
                     : String(column.id ?? '');
 
-            if (columnKey === 'package_country' && !isAdmin) {
+            if (columnKey === 'package_country' && !isSuperadmin) {
                 return false;
             }
 
@@ -726,7 +726,7 @@ export default function ConfirmedCustomerIndex({
                 columnKey !== 'refund_cancel_date'
             );
         });
-    }, [isAdmin, isCancelledIndex]);
+    }, [isSuperadmin, isCancelledIndex]);
 
     const memberTableColumns = useMemo(() => {
         return memberColumns.filter((column) => {
@@ -2149,7 +2149,7 @@ export default function ConfirmedCustomerIndex({
                                     enquiry_contact: false,
                                     member_count: true,
                                     package_name: true,
-                                    package_country: isAdmin,
+                                    package_country: isSuperadmin,
                                     paid_amount: !isCancelledIndex,
                                     refunded_paid_summary: isCancelledIndex,
                                     enquiry_type: true,
@@ -2182,7 +2182,7 @@ export default function ConfirmedCustomerIndex({
                                             },
                                         ]}
                                     />
-                                    {isAdmin &&
+                                    {isSuperadmin &&
                                         packageCountryFilterOptions.length >
                                             0 && (
                                             <ColumnFilter

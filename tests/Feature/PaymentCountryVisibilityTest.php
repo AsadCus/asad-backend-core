@@ -25,9 +25,9 @@ class PaymentCountryVisibilityTest extends TestCase
         $countries = $this->createCountries();
         $fixtures = $this->createPaymentFixtures($countries['malaysia']->id, $countries['singapore']->id);
 
-        $viewerMalaysia = $this->createScopedUser('admin', [$countries['malaysia']->id], [$countries['malaysia']->id]);
+        $viewerMalaysia = $this->createScopedUser('sales', [$countries['malaysia']->id], [$countries['malaysia']->id]);
         $viewerSingapore = $this->createScopedUser('sales', [$countries['singapore']->id], [$countries['singapore']->id]);
-        $viewerBoth = $this->createScopedUser('admin', [$countries['malaysia']->id, $countries['singapore']->id], [$countries['malaysia']->id, $countries['singapore']->id]);
+        $viewerBoth = $this->createScopedUser('superadmin', [$countries['malaysia']->id, $countries['singapore']->id], [$countries['malaysia']->id, $countries['singapore']->id]);
         $viewerNoSelected = $this->createScopedUser('sales', [$countries['malaysia']->id, $countries['singapore']->id], []);
 
         $this->assertIndexVisibility($viewerMalaysia, ['MY', 'BOTH', 'GLOBAL']);
@@ -43,7 +43,7 @@ class PaymentCountryVisibilityTest extends TestCase
         $countries = $this->createCountries();
         $fixtures = $this->createPaymentFixtures($countries['malaysia']->id, $countries['singapore']->id);
 
-        $viewerMalaysia = $this->createScopedUser('admin', [$countries['malaysia']->id], [$countries['malaysia']->id]);
+        $viewerMalaysia = $this->createScopedUser('sales', [$countries['malaysia']->id], [$countries['malaysia']->id]);
 
         $this->actingAs($viewerMalaysia)
             ->getJson(route('quotation.get-for-show', $fixtures['MY']['quotation']->id))
@@ -86,9 +86,9 @@ class PaymentCountryVisibilityTest extends TestCase
             'default' => true,
         ]);
 
-        $viewerMalaysia = $this->createScopedUser('admin', [$countries['malaysia']->id], [$countries['malaysia']->id]);
+        $viewerMalaysia = $this->createScopedUser('sales', [$countries['malaysia']->id], [$countries['malaysia']->id]);
         $viewerSingapore = $this->createScopedUser('sales', [$countries['singapore']->id], [$countries['singapore']->id]);
-        $viewerNoSelected = $this->createScopedUser('admin', [$countries['malaysia']->id, $countries['singapore']->id], []);
+        $viewerNoSelected = $this->createScopedUser('sales', [$countries['malaysia']->id, $countries['singapore']->id], []);
 
         $routes = app('router')->getRoutes();
 
@@ -146,6 +146,7 @@ class PaymentCountryVisibilityTest extends TestCase
 
     private function createScopedUser(string $role, array $assignableCountryIds, array $selectedCountryIds): User
     {
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
 
@@ -163,11 +164,11 @@ class PaymentCountryVisibilityTest extends TestCase
             'branch_ids' => [],
         ];
 
-        if ($role === 'sales') {
+        if ($role === 'sales' || $role === 'admin') {
             Sales::create($payload);
         }
 
-        if ($role === 'admin') {
+        if ($role === 'superadmin') {
             Admin::create($payload);
         }
 
@@ -181,7 +182,7 @@ class PaymentCountryVisibilityTest extends TestCase
     {
         $creatorMalaysia = $this->createScopedUser('sales', [$malaysiaCountryId], [$malaysiaCountryId]);
         $creatorSingapore = $this->createScopedUser('sales', [$singaporeCountryId], [$singaporeCountryId]);
-        $creatorBoth = $this->createScopedUser('admin', [$malaysiaCountryId, $singaporeCountryId], [$malaysiaCountryId, $singaporeCountryId]);
+        $creatorBoth = $this->createScopedUser('superadmin', [$malaysiaCountryId, $singaporeCountryId], [$malaysiaCountryId, $singaporeCountryId]);
         $creatorGlobal = $this->createScopedUser('sales', [], []);
 
         return [

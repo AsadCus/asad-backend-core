@@ -19,7 +19,7 @@ class UserRule
             ],
             'contact' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6|confirmed',
-            'role' => 'required|string|in:admin,sales,operations,customer',
+            'role' => 'required|string|in:superadmin,admin,sales,operations,customer',
         ];
 
         if ($action === 'update') {
@@ -32,7 +32,7 @@ class UserRule
             ];
         }
 
-        if (in_array($role, ['admin', 'sales', 'operations'], true)) {
+        if (in_array($role, ['superadmin', 'admin', 'sales', 'operations'], true)) {
             $rules['scope_ids'] = 'required|array|min:1';
             $rules['scope_ids.*'] = $scopeMode === 'branch'
                 ? 'required|integer|exists:branches,id'

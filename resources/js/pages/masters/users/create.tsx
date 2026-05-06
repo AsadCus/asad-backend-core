@@ -24,6 +24,7 @@ interface CreateUserProps {
     dataBranch: [];
     dataCountry: [];
     dataSales: [];
+    isSuperadmin: boolean;
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
@@ -33,16 +34,19 @@ interface CreateUserProps {
 }
 
 export function resolveUserRoleLabel({
+    isSuperadmin,
     isAdmin,
     isSales,
     isOperations,
     isCustomer,
 }: {
+    isSuperadmin: boolean;
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
 }) {
+    if (isSuperadmin) return 'Superadmin';
     if (isAdmin) return 'Admin';
     if (isSales) return 'Sales';
     if (isOperations) return 'Operations';
@@ -55,6 +59,7 @@ export default function CreateUser({
     dataBranch,
     dataCountry,
     dataSales,
+    isSuperadmin = false,
     isAdmin = false,
     isSales = false,
     isOperations = false,
@@ -67,6 +72,7 @@ export default function CreateUser({
     }, []);
 
     const roleLabel = resolveUserRoleLabel({
+        isSuperadmin,
         isAdmin,
         isSales,
         isOperations,
@@ -90,6 +96,7 @@ export default function CreateUser({
                         roles={dataRole}
                         salesList={dataSales}
                         onCancel={handleCancel}
+                        isSuperadmin={isSuperadmin}
                         isAdmin={isAdmin}
                         isSales={isSales}
                         isOperations={isOperations}

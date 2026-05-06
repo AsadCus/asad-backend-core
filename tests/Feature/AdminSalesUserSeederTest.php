@@ -15,8 +15,9 @@ class AdminSalesUserSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seeder_creates_kherman_as_ghost_admin_with_asad_country_scope(): void
+    public function test_seeder_creates_kherman_as_ghost_superadmin_with_asad_country_scope(): void
     {
+        Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
         Role::findOrCreate('sales', 'web');
         Role::findOrCreate('operations', 'web');
@@ -30,7 +31,7 @@ class AdminSalesUserSeederTest extends TestCase
 
         $this->assertNotNull($kherman);
         $this->assertSame('Kherman', $kherman->name);
-        $this->assertTrue($kherman->hasRole('admin'));
+        $this->assertTrue($kherman->hasRole('superadmin'));
 
         $khermanAdmin = Admin::query()->where('user_id', (int) $kherman->id)->first();
         $this->assertNotNull($khermanAdmin);
