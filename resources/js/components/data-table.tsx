@@ -46,6 +46,7 @@ import React, {
 } from 'react';
 import { ActionColumn, ActionType } from './action-column';
 import { ActionMenuItems } from './action-menu-items';
+import { CustomExport } from './data-table-export';
 import { DataTablePagination } from './data-table-pagination';
 import { DataTableToolbar } from './data-table-toolbar';
 import { Button } from './ui/button';
@@ -84,6 +85,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     inheritExpandedRowBackground?: boolean;
     showSettings?: boolean;
     showExport?: boolean;
+    customExports?: CustomExport[];
 }
 
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -245,6 +247,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     inheritExpandedRowBackground = false,
     showSettings = true,
     showExport = true,
+    customExports,
 }: DataTableProps<TData, TValue>) {
     const hasActionsColumn = columns.some(
         (col) => 'id' in col && col.id === 'actions',
@@ -678,6 +681,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         columnFilterMode={columnFilterMode}
                         showSettings={showSettings}
                         showExport={showExport}
+                        customExports={customExports}
                     />
                 </div>
             </div>

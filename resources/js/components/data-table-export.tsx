@@ -20,18 +20,27 @@ import {
     FileArchiveIcon,
     FileSpreadsheetIcon,
     FileTextIcon,
+    LucideIcon,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
+export interface CustomExport {
+    label: string;
+    icon?: LucideIcon;
+    onClick: () => void;
+}
+
 interface DataTableExportProps<TData> {
     table: Table<TData>;
     filename?: string;
+    customExports?: CustomExport[];
 }
 
 export function DataTableExport<TData>({
     table,
     filename = 'data',
+    customExports,
 }: DataTableExportProps<TData>) {
     const exportableColumns = table
         .getAllLeafColumns()
@@ -338,6 +347,23 @@ export function DataTableExport<TData>({
                         <FileTextIcon className="h-4 w-4" />
                         Export as JSON
                     </DropdownMenuItem>
+                    {customExports && customExports.length > 0 && (
+                        <>
+                            <DropdownMenuSeparator />
+                            {customExports.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <DropdownMenuItem
+                                        key={item.label}
+                                        onClick={item.onClick}
+                                    >
+                                        {Icon && <Icon className="h-4 w-4" />}
+                                        {item.label}
+                                    </DropdownMenuItem>
+                                );
+                            })}
+                        </>
+                    )}
                 </DropdownMenuContent>
             </DropdownMenu>
         </div>

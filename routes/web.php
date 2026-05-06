@@ -30,6 +30,7 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserLogsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -64,6 +65,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])->name('dashboard.payment-report-export');
     Route::middleware(['ghost_admin'])->group(function () {
         Route::get('dashboard/closing-report/export', [DashboardController::class, 'exportClosingReport'])->name('dashboard.closing-report-export');
+    });
+
+    // Reports
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('reports/payment', [ReportController::class, 'paymentIndex'])->name('reports.payment.index');
+    });
+    Route::middleware(['ghost_admin'])->group(function () {
+        Route::get('reports/closing', [ReportController::class, 'closingIndex'])->name('reports.closing.index');
+        Route::get('reports/closing/data', [ReportController::class, 'closingData'])->name('reports.closing.data');
     });
 
     // Notifications
