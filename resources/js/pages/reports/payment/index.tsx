@@ -8,6 +8,7 @@ import {
 } from '@/components/multi-select';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
+import { type QuickDateOption } from '@/lib/quick-date';
 import {
     formatCurrency,
     formatDateForDisplay,
@@ -61,6 +62,13 @@ export default function PaymentReportIndex({
     categoryOptions = [],
 }: PaymentReportProps) {
     const todayDisplayDate = formatDateForDisplay(new Date());
+
+    const quickOptions: QuickDateOption[] = [
+        { label: 'Today', value: 'today' },
+        { label: 'Yesterday', value: 'yesterday' },
+        { label: 'This Month', value: 'thismonth' },
+        { label: 'Last Month', value: 'lastmonth' },
+    ];
 
     const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({
         from: todayDisplayDate,
@@ -299,6 +307,7 @@ export default function PaymentReportIndex({
                             value={dateRange}
                             onChange={setDateRange}
                             quickDate
+                            quickOptions={quickOptions}
                             compact
                             dash={false}
                             align="start"

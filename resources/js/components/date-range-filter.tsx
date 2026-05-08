@@ -4,6 +4,7 @@ import {
     QUICK_DATE_RANGE_OPTIONS,
     QUICK_DATE_SINGLE_OPTIONS,
     QuickDateKey,
+    type QuickDateOption,
     resolveQuickDateRange,
 } from '@/lib/quick-date';
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
@@ -24,6 +25,7 @@ interface DateRangeFilterProps<TData> {
     fromYear?: number;
     toYear?: number;
     quickDate?: boolean;
+    quickOptions?: QuickDateOption[];
     compact?: boolean;
     dash?: boolean;
     align?: 'end' | 'center' | 'start' | undefined;
@@ -39,6 +41,7 @@ export function DateRangeFilter<TData>({
     fromYear = new Date().getFullYear() - 3,
     toYear = new Date().getFullYear() + 3,
     quickDate = false,
+    quickOptions,
     compact = false,
     dash = true,
     align = 'end',
@@ -137,6 +140,11 @@ export function DateRangeFilter<TData>({
     };
 
     const hasFilter = filterValue?.from || filterValue?.to;
+
+    const resolvedQuickOptions = quickOptions ?? [
+        ...QUICK_DATE_SINGLE_OPTIONS,
+        ...QUICK_DATE_RANGE_OPTIONS,
+    ];
 
     const renderContent = () => (
         <div className="space-y-1">
@@ -237,10 +245,7 @@ export function DateRangeFilter<TData>({
                                             Quick Select
                                         </p>
 
-                                        {[
-                                            ...QUICK_DATE_SINGLE_OPTIONS,
-                                            ...QUICK_DATE_RANGE_OPTIONS,
-                                        ].map((item) => (
+                                        {resolvedQuickOptions.map((item) => (
                                             <Button
                                                 key={item.value}
                                                 variant="ghost"
@@ -263,10 +268,7 @@ export function DateRangeFilter<TData>({
                                         Quick Select
                                     </p>
 
-                                    {[
-                                        ...QUICK_DATE_SINGLE_OPTIONS,
-                                        ...QUICK_DATE_RANGE_OPTIONS,
-                                    ].map((item) => (
+                                    {resolvedQuickOptions.map((item) => (
                                         <Button
                                             key={item.value}
                                             variant="ghost"

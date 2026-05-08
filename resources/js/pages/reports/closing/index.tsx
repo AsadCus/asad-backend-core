@@ -8,6 +8,7 @@ import {
 } from '@/components/multi-select';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
+import { type QuickDateOption } from '@/lib/quick-date';
 import {
     formatCurrency,
     formatDateForDisplay,
@@ -58,6 +59,12 @@ export default function ClosingReportIndex({
     categoryOptions = [],
 }: ClosingReportProps) {
     const todayDisplayDate = formatDateForDisplay(new Date());
+
+    const quickOptions: QuickDateOption[] = [
+        { label: 'This Week', value: 'thisweek' },
+        { label: 'This Month', value: 'thismonth' },
+        { label: 'This Year', value: 'thisyear' },
+    ];
 
     const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({
         from: todayDisplayDate,
@@ -287,6 +294,7 @@ export default function ClosingReportIndex({
                             value={dateRange}
                             onChange={setDateRange}
                             quickDate
+                            quickOptions={quickOptions}
                             compact
                             dash={false}
                             align="start"
