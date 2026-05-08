@@ -1,4 +1,5 @@
 import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
@@ -32,10 +33,9 @@ import {
     splitYearMonth,
 } from '@/lib/months';
 import {
-    QUICK_DATE_RANGE_OPTIONS,
-    QUICK_DATE_SINGLE_OPTIONS,
     QuickDateKey,
     resolveQuickDateRange,
+    type QuickDateOption,
 } from '@/lib/quick-date';
 import { formatUserTime } from '@/lib/timezone';
 import {
@@ -60,6 +60,13 @@ import {
 import { index as enquiriesIndex } from '@/routes/enquiries';
 import { edit as generalEnquiryEdit } from '@/routes/general-enquiries';
 import { create as generalPublicCreate } from '@/routes/general-enquiries/public';
+import {
+    create as packageCreate,
+    download as packageDownload,
+    edit as packageEdit,
+    index as packageIndex,
+    show as packageShow,
+} from '@/routes/packages';
 import { edit as privateEnquiryEdit } from '@/routes/private-enquiries';
 import { create as privatePublicCreate } from '@/routes/private-enquiries/public';
 import {
@@ -75,6 +82,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
+import { packageStatusColors, packageStatusLabels } from './packages/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -138,11 +146,29 @@ interface EnquirySummaryType {
 interface GeneralEnquiryPackageOption {
     value: string | number;
     label: React.ReactNode | string;
+    package_number?: string | null;
     is_private?: boolean;
     is_selectable?: boolean;
     status?: string;
+    country_id?: number | null;
+    country_name?: string | null;
+    total_seats?: number | null;
     seats_left?: number;
     departure_date?: string;
+    return_date?: string | null;
+}
+
+interface UpcomingDepartureRow {
+    id: number;
+    package_number: string;
+    name: string;
+    status: string;
+    country_id?: string;
+    country_name?: string | null;
+    departure_date: string;
+    return_date?: string | null;
+    total_seats?: number | null;
+    seats_left?: number | null;
 }
 
 interface DashboardProps {
@@ -218,8 +244,20 @@ export default function Dashboard({ data }: DashboardProps) {
 
     // roles
     const isSuperadmin = auth.roles.includes('superadmin');
+    const isAdmin = auth.roles.includes('admin');
     const isGhostSuperadmin = isSuperadmin && Boolean(auth.is_ghost_user);
     const isSales = auth.roles.includes('sales');
+    const scopeMode = (auth.scope_mode ?? 'country') as 'country' | 'branch';
+    const scopeCountryOptions = useMemo(
+        () =>
+            Array.isArray(auth.scope_country_options)
+                ? auth.scope_country_options.map((option) => ({
+                      value: String(option.id),
+                      label: option.label,
+                  }))
+                : [],
+        [auth.scope_country_options],
+    );
 
     // State for API fetched data
     const [fiscalYearTotalSalesData, setFiscalYearTotalSalesData] =
@@ -237,6 +275,12 @@ export default function Dashboard({ data }: DashboardProps) {
     }>({ from: todayDisplayDate });
     const [exportPackageIds, setExportPackageIds] = useState<string[]>([]);
     const [exportCategoryIds, setExportCategoryIds] = useState<string[]>([]);
+    const dailyReceivedQuickOptions: QuickDateOption[] = [
+        { label: 'Today', value: 'today' },
+        { label: 'Yesterday', value: 'yesterday' },
+        { label: 'This Month', value: 'thismonth' },
+        { label: 'Last Month', value: 'lastmonth' },
+    ];
 
     const exportSelectedRange: DateRange | undefined = exportDateRange.from
         ? {
@@ -270,14 +314,19 @@ export default function Dashboard({ data }: DashboardProps) {
     const [groupPackageIds, setGroupPackageIds] = useState<string[]>([]);
     const [groupCategoryIds, setGroupCategoryIds] = useState<string[]>([]);
     const [isGroupPopoverOpen, setIsGroupPopoverOpen] = useState(false);
+    const closingQuickOptions: QuickDateOption[] = [
+        { label: 'This Week', value: 'thisweek' },
+        { label: 'This Month', value: 'thismonth' },
+        { label: 'This Year', value: 'thisyear' },
+    ];
 
-    // const applyGroupQuickDate = useCallback((type: QuickDateKey) => {
-    //     const { from: fromDate, to: toDate } = resolveQuickDateRange(type);
-    //     setGroupDateRange({
-    //         from: formatDateForDisplay(fromDate),
-    //         to: toDate ? formatDateForDisplay(toDate) : undefined,
-    //     });
-    // }, []);
+    const applyGroupQuickDate = useCallback((type: QuickDateKey) => {
+        const { from: fromDate, to: toDate } = resolveQuickDateRange(type);
+        setGroupDateRange({
+            from: formatDateForDisplay(fromDate),
+            to: toDate ? formatDateForDisplay(toDate) : undefined,
+        });
+    }, []);
 
     const normalizedPackageOptions = useMemo(
         () => (data.packageOptions ?? []) as GeneralEnquiryPackageOption[],
@@ -346,6 +395,127 @@ export default function Dashboard({ data }: DashboardProps) {
 
         return groups;
     }, [normalizedPackageOptions]);
+
+    const upcomingDepartures = useMemo((): UpcomingDepartureRow[] => {
+        const todayStart = DateTime.now().startOf('day');
+        const rows: UpcomingDepartureRow[] = [];
+
+        normalizedPackageOptions.forEach((option) => {
+            const departureDate = parseDisplayDate(option.departure_date);
+            if (!departureDate) return;
+
+            const parsedDeparture = DateTime.fromJSDate(departureDate);
+            if (parsedDeparture < todayStart) return;
+
+            rows.push({
+                id: Number(option.value),
+                package_number: String(option.package_number ?? ''),
+                name: String(option.label ?? ''),
+                status: String(option.status ?? ''),
+                country_id:
+                    option.country_id !== null &&
+                    option.country_id !== undefined
+                        ? String(option.country_id)
+                        : undefined,
+                country_name: option.country_name ?? null,
+                departure_date: formatDateForDisplay(departureDate),
+                return_date: option.return_date ?? null,
+                total_seats: option.total_seats ?? null,
+                seats_left: option.seats_left ?? null,
+            });
+        });
+
+        return rows.sort((left, right) => {
+            const leftDate = parseDisplayDate(left.departure_date);
+            const rightDate = parseDisplayDate(right.departure_date);
+            if (leftDate && rightDate)
+                return leftDate.getTime() - rightDate.getTime();
+            if (leftDate) return -1;
+            if (rightDate) return 1;
+            return left.package_number.localeCompare(right.package_number);
+        });
+    }, [normalizedPackageOptions]);
+
+    const upcomingDepartureColumns = useMemo(
+        (): ColumnDef<UpcomingDepartureRow>[] => [
+            {
+                accessorKey: 'package_number',
+                header: 'Package No.',
+                meta: { exportable: true },
+            },
+            {
+                accessorKey: 'name',
+                header: 'Package',
+                meta: { exportable: true },
+            },
+            {
+                accessorKey: 'departure_date',
+                header: 'Departure Date',
+                meta: { exportable: true },
+            },
+            {
+                accessorKey: 'return_date',
+                header: 'Return Date',
+                meta: { exportable: true },
+                cell: ({ row }) => row.original.return_date ?? '-',
+            },
+            {
+                accessorKey: 'seats_left',
+                header: 'Available Seats',
+                meta: { exportable: true },
+                cell: ({ row }) => {
+                    const total = row.original.total_seats;
+                    const left = row.original.seats_left;
+
+                    if (total === null || total === undefined) {
+                        return '-';
+                    }
+
+                    return `${left ?? 0} / ${total}`;
+                },
+            },
+            {
+                accessorKey: 'status',
+                header: 'Status',
+                meta: { exportable: true },
+                cell: ({ row }) => {
+                    const normalizedStatus = String(row.original.status ?? '')
+                        .trim()
+                        .toLowerCase();
+
+                    if (!normalizedStatus) {
+                        return <span className="text-muted-foreground">-</span>;
+                    }
+
+                    return (
+                        <Badge
+                            className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
+                        >
+                            {packageStatusLabels[normalizedStatus] ??
+                                normalizedStatus}
+                        </Badge>
+                    );
+                },
+            },
+            ...(scopeMode === 'country'
+                ? [
+                      {
+                          accessorKey: 'country_name',
+                          header: 'Country',
+                          meta: { exportable: true },
+                          cell: ({ row }) => row.original.country_name ?? '-',
+                      } as ColumnDef<UpcomingDepartureRow>,
+                  ]
+                : []),
+            {
+                accessorKey: 'country_id',
+                header: 'Country Id',
+                meta: { exportable: true },
+                filterFn: 'includesValue',
+            },
+        ],
+        [scopeMode],
+    );
 
     const groupSelectedRange: DateRange | undefined = groupDateRange.from
         ? {
@@ -783,7 +953,7 @@ export default function Dashboard({ data }: DashboardProps) {
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
                                     <h2 className="text-lg font-semibold">
-                                        Payment Report
+                                        Daily Received
                                     </h2>
                                     <p className="hidden text-base text-muted-foreground">
                                         Receipt payment breakdown by item
@@ -907,10 +1077,35 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             Quick Select
                                                         </p>
 
-                                                        {[
-                                                            ...QUICK_DATE_SINGLE_OPTIONS,
-                                                            ...QUICK_DATE_RANGE_OPTIONS,
-                                                        ].map((item) => (
+                                                        {dailyReceivedQuickOptions.map(
+                                                            (item) => (
+                                                                <Button
+                                                                    key={
+                                                                        item.value
+                                                                    }
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="justify-start"
+                                                                    onClick={() =>
+                                                                        applyQuickDate(
+                                                                            item.value,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {item.label}
+                                                                </Button>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
+                                                    <p className="mb-2 text-sm font-medium">
+                                                        Quick Select
+                                                    </p>
+
+                                                    {dailyReceivedQuickOptions.map(
+                                                        (item) => (
                                                             <Button
                                                                 key={item.value}
                                                                 variant="ghost"
@@ -924,33 +1119,8 @@ export default function Dashboard({ data }: DashboardProps) {
                                                             >
                                                                 {item.label}
                                                             </Button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
-                                                    <p className="mb-2 text-sm font-medium">
-                                                        Quick Select
-                                                    </p>
-
-                                                    {[
-                                                        ...QUICK_DATE_SINGLE_OPTIONS,
-                                                        ...QUICK_DATE_RANGE_OPTIONS,
-                                                    ].map((item) => (
-                                                        <Button
-                                                            key={item.value}
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="justify-start"
-                                                            onClick={() =>
-                                                                applyQuickDate(
-                                                                    item.value,
-                                                                )
-                                                            }
-                                                        >
-                                                            {item.label}
-                                                        </Button>
-                                                    ))}
+                                                        ),
+                                                    )}
                                                 </div>
                                             </div>
                                         </PopoverContent>
@@ -1008,7 +1178,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )}
 
-                    {isGhostSuperadmin && (
+                    {(isGhostSuperadmin || false) && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>
@@ -1216,6 +1386,37 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         </div>
                                                     )}
 
+                                                    {groupPeriod ===
+                                                        'daily' && (
+                                                        <div className="mt-3 flex flex-col gap-1 border-t pt-3 md:hidden">
+                                                            <p className="mb-2 text-sm font-medium">
+                                                                Quick Select
+                                                            </p>
+
+                                                            {closingQuickOptions.map(
+                                                                (item) => (
+                                                                    <Button
+                                                                        key={
+                                                                            item.value
+                                                                        }
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="justify-start"
+                                                                        onClick={() =>
+                                                                            applyGroupQuickDate(
+                                                                                item.value,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.label
+                                                                        }
+                                                                    </Button>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    )}
+
                                                     <div className="flex flex-col gap-3 md:hidden">
                                                         <div className="space-y-1">
                                                             <p className="font-medium">
@@ -1310,6 +1511,37 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         />
                                                     </div>
 
+                                                    {groupPeriod ===
+                                                        'daily' && (
+                                                        <div className="mt-1 flex flex-col gap-1 border-t pt-3">
+                                                            <p className="mb-2 text-sm font-medium">
+                                                                Quick Select
+                                                            </p>
+
+                                                            {closingQuickOptions.map(
+                                                                (item) => (
+                                                                    <Button
+                                                                        key={
+                                                                            item.value
+                                                                        }
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="justify-start"
+                                                                        onClick={() =>
+                                                                            applyGroupQuickDate(
+                                                                                item.value,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.label
+                                                                        }
+                                                                    </Button>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    )}
+
                                                     <Button
                                                         type="button"
                                                         size="sm"
@@ -1326,6 +1558,97 @@ export default function Dashboard({ data }: DashboardProps) {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {(isSuperadmin || isAdmin) && (
+                        <div>
+                            <div className="mb-3 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-lg font-semibold">
+                                        Upcoming Departures
+                                    </h2>
+                                    <p className="text-base text-muted-foreground">
+                                        Packages sorted by nearest departure
+                                        date
+                                    </p>
+                                </div>
+                                <Button asChild variant="default">
+                                    <Link href={packageIndex().url}>
+                                        View All
+                                    </Link>
+                                </Button>
+                            </div>
+
+                            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
+                                <DataTable
+                                    columns={upcomingDepartureColumns}
+                                    data={upcomingDepartures}
+                                    actions={[
+                                        // 'add',
+                                        'view',
+                                        'edit',
+                                        'download',
+                                    ]}
+                                    addButtonText="Create New Package"
+                                    url={packageIndex().url}
+                                    onAction={(action, row) => {
+                                        if (action === 'add') {
+                                            router.get(packageCreate().url);
+                                        }
+
+                                        const targetId = row?.original?.id;
+
+                                        if (targetId !== undefined) {
+                                            if (action === 'view') {
+                                                router.get(
+                                                    packageShow(targetId).url,
+                                                );
+                                            } else if (action === 'edit') {
+                                                router.get(
+                                                    packageEdit(targetId).url,
+                                                );
+                                            } else if (action === 'download') {
+                                                window.open(
+                                                    packageDownload(targetId)
+                                                        .url,
+                                                    '_blank',
+                                                );
+                                            }
+                                        }
+                                    }}
+                                    onRowDoubleClick={(row) => {
+                                        if (row.id) {
+                                            router.get(packageEdit(row.id).url);
+                                        }
+                                    }}
+                                    initialState={{
+                                        pagination: {
+                                            pageIndex: 0,
+                                            pageSize: 10,
+                                        },
+                                        columnVisibility: {
+                                            country_id: false,
+                                        },
+                                    }}
+                                    renderFilter={(table) => (
+                                        <>
+                                            {scopeMode === 'country' &&
+                                                scopeCountryOptions.length >
+                                                    0 && (
+                                                    <ColumnFilter
+                                                        table={table}
+                                                        columnId="country_id"
+                                                        title="Country"
+                                                        options={
+                                                            scopeCountryOptions
+                                                        }
+                                                    />
+                                                )}
+                                        </>
+                                    )}
+                                />
                             </div>
                         </div>
                     )}

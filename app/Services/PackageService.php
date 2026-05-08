@@ -84,7 +84,7 @@ class PackageService
 
     public function getForFilter()
     {
-        $query = Package::with(['accommodations', 'flights', 'officials']);
+        $query = Package::with(['accommodations', 'flights', 'officials', 'country']);
 
         $this->applyPackageCountryScope($query);
 
@@ -97,6 +97,8 @@ class PackageService
                 'label' => $q->name,
                 'package_number' => $q->package_number,
                 'status' => $q->status,
+                'country_id' => $q->country_id,
+                'country_name' => $q->country?->name,
                 'departure_date' => $q->departure_date_formatted,
                 'return_date' => $q->return_date_formatted,
                 'total_seats' => $q->total_seats,

@@ -86,14 +86,14 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
-        header: 'Departure',
+        header: 'Departure Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.departure_date || '-',
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'return_date',
-        header: 'Return',
+        header: 'Return Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.return_date || '-',
     },
