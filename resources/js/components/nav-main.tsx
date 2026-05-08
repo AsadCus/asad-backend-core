@@ -48,14 +48,22 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
         return c.startsWith(`${b}/`);
     };
 
+    const isAnySubItemActive = (items?: NavItem[]): boolean => {
+        if (!items?.length) return false;
+
+        return items.some(
+            (item) =>
+                isUrlActive(item.href, item.matchExact) ||
+                isAnySubItemActive(item.subItems),
+        );
+    };
+
     const renderSubMenu = (subItems: NavItem[]) => (
         <SidebarMenuSub>
             {subItems.map((subItem) => {
                 const hasNested = (subItem.subItems?.length ?? 0) > 0;
                 const isActive = isUrlActive(subItem.href, subItem.matchExact);
-                const subActive = subItem.subItems?.some((c) =>
-                    isUrlActive(c.href, c.matchExact),
-                );
+                const subActive = isAnySubItemActive(subItem.subItems);
 
                 if (!hasNested) {
                     return (
@@ -155,9 +163,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                     const hasSubItems = (item.subItems?.length ?? 0) > 0;
 
                     const isActive = isUrlActive(item.href, item.matchExact);
-                    const subActive = item.subItems?.some((sub) =>
-                        isUrlActive(sub.href, sub.matchExact),
-                    );
+                    const subActive = isAnySubItemActive(item.subItems);
 
                     if (!hasSubItems) {
                         return (

@@ -207,7 +207,7 @@ export function AppSidebar() {
                                               icon: DollarSign,
                                               subItems: [
                                                   {
-                                                      title: 'Daily Receieved',
+                                                      title: 'Daily Received',
                                                       href: paymentReport.index.url(),
                                                       icon: Wallet,
                                                   },

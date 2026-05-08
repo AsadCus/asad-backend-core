@@ -25,7 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Sales', href: sales.index.url() },
-    { title: 'Payment Report', href: payment.index.url() },
+    { title: 'Daily Received', href: payment.index.url() },
 ];
 
 interface GeneralEnquiryPackageOption {
@@ -260,10 +260,10 @@ export default function PaymentReportIndex({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Payment Report" />
+            <Head title="Daily Received" />
             <div className="@container/main flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div>
-                    <h2 className="text-lg font-semibold">Payment Report</h2>
+                    <h2 className="text-lg font-semibold">Daily Received</h2>
                     <p className="text-base text-muted-foreground">
                         Receipt payment breakdown by item category
                     </p>
