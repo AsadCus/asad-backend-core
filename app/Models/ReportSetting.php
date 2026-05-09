@@ -184,7 +184,7 @@ class ReportSetting extends Model
             ['id' => 1],
             [
                 'company_name' => 'Karva Travel & Tours',
-                'company_address' => '22-1 Jalan Delima 10, Wangsa Maju, 53300 Kuala Lumpur, Malaysia',
+                'company_address' => '22-1 Jalan Delima 10, Wangsa Maju, 53300 Yishun, Singapore',
                 'company_phone' => '+60 11-1608 0771',
                 'company_email' => '[EMAIL_ADDRESS]',
                 'logo_path' => null,

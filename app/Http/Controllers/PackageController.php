@@ -9,6 +9,7 @@ use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class PackageController extends Controller
@@ -128,6 +129,31 @@ class PackageController extends Controller
 
         return redirect()->route('packages.index')
             ->with('success', 'Package deleted successfully.');
+    }
+
+    /**
+     * Import one or more packages from a parsed Excel payload.
+     */
+    public function import(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'data' => ['required', 'array', 'min:1'],
+        ]);
+
+        $result = $this->packageService->importFromPayload($request->input('data'));
+
+        if (! empty($result['errors'])) {
+            $errorLines = collect($result['errors'])
+                ->map(fn ($e) => "Row {$e['row']}: {$e['message']}")
+                ->join(' | ');
+
+            throw ValidationException::withMessages([
+                'import' => $errorLines,
+            ]);
+        }
+
+        return redirect()->route('packages.index')
+            ->with('success', "Successfully imported {$result['imported']} package(s).");
     }
 
     /**

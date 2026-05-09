@@ -11,6 +11,7 @@ use App\Models\PrivateEnquiry;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class PackageService
 {
@@ -470,6 +471,43 @@ class PackageService
 
             return $package;
         });
+    }
+
+    /**
+     * Import packages from a pre-parsed payload array.
+     *
+     * Each item is validated with PackageRule before calling store().
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array{imported: int, errors: list<array{row: int, message: string}>}
+     */
+    public function importFromPayload(array $items): array
+    {
+        $imported = 0;
+        $errors = [];
+        $packageRule = new \App\Rules\PackageRule;
+
+        foreach ($items as $index => $item) {
+            $row = $index + 1;
+
+            try {
+                $validator = Validator::make($item, $packageRule->rules());
+
+                if ($validator->fails()) {
+                    $messages = collect($validator->errors()->all())->implode(' | ');
+                    $errors[] = ['row' => $row, 'message' => "Validation: {$messages}"];
+
+                    continue;
+                }
+
+                $this->store($validator->validated());
+                $imported++;
+            } catch (\Throwable $e) {
+                $errors[] = ['row' => $row, 'message' => $e->getMessage()];
+            }
+        }
+
+        return ['imported' => $imported, 'errors' => $errors];
     }
 
     public function delete($id)

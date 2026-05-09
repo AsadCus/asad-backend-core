@@ -86,6 +86,8 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     showSettings?: boolean;
     showExport?: boolean;
     customExports?: CustomExport[];
+    showImport?: boolean;
+    onImport?: () => void;
 }
 
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -248,6 +250,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     showSettings = true,
     showExport = true,
     customExports,
+    showImport = false,
+    onImport,
 }: DataTableProps<TData, TValue>) {
     const hasActionsColumn = columns.some(
         (col) => 'id' in col && col.id === 'actions',
@@ -682,6 +686,8 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         showSettings={showSettings}
                         showExport={showExport}
                         customExports={customExports}
+                        showImport={showImport}
+                        onImport={onImport}
                     />
                 </div>
             </div>

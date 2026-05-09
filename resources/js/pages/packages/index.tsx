@@ -16,6 +16,12 @@ import {
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { FileSpreadsheetIcon } from 'lucide-react';
+import { useState } from 'react';
+import {
+    generatePackageImportTemplate,
+    PackageImportDialog,
+} from './import-dialog';
 import { packageStatusColors, packageStatusLabels } from './schema';
 
 interface PackageDataTableSchema {
@@ -137,6 +143,15 @@ export default function PackagesIndex({ data }: PackagesProps) {
     const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    const [importOpen, setImportOpen] = useState(false);
+
+    const customExports = [
+        {
+            label: 'Download Import Template',
+            icon: FileSpreadsheetIcon,
+            onClick: generatePackageImportTemplate,
+        },
+    ];
 
     return (
         <>
@@ -156,6 +171,9 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             columnFilterMode="outside"
                             addButtonText="Create New Package"
                             url={index().url}
+                            showImport={true}
+                            onImport={() => setImportOpen(true)}
+                            customExports={customExports}
                             onAction={(action, row) => {
                                 if (action === 'add') {
                                     router.get(create().url);
@@ -222,6 +240,10 @@ export default function PackagesIndex({ data }: PackagesProps) {
             </AppLayout>
 
             <ConfirmDialog />
+            <PackageImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+            />
         </>
     );
 }
