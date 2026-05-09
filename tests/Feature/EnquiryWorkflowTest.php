@@ -72,11 +72,11 @@ class EnquiryWorkflowTest extends TestCase
             'passport_number' => 'A12345678',
             'passport_issue_date' => '2023-01-01',
             'passport_expiry_date' => '2033-01-01',
-            'passport_place_of_issue' => 'Kuala Lumpur',
+            'passport_place_of_issue' => 'Singapore',
             'gender' => 'male',
             'marital_status' => 'single',
             'date_of_birth' => '1990-05-15',
-            'place_of_birth' => 'Kuala Lumpur',
+            'place_of_birth' => 'Singapore',
             'first_time_umrah' => true,
             'has_chronic_disease' => false,
             'chronic_disease_details' => null,
@@ -399,7 +399,7 @@ class EnquiryWorkflowTest extends TestCase
         $this->actingAs($this->adminUser);
         $country = Country::factory()->create();
         Branch::create([
-            'name' => 'Kuala Lumpur',
+            'name' => 'Singapore',
             'country_id' => $country->id,
         ]);
 

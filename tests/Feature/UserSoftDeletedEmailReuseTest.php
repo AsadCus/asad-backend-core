@@ -167,8 +167,8 @@ class UserSoftDeletedEmailReuseTest extends TestCase
 
         $branchA = Branch::create([
             'country_id' => $countryA->id,
-            'name' => 'KL Branch',
-            'adjective' => 'Kuala Lumpur',
+            'name' => 'SG Branch',
+            'adjective' => 'Singapore',
         ]);
 
         $branchB = Branch::create([

@@ -87,7 +87,7 @@ class CustomerUserSeeder extends Seeder
                     'gender' => $gender,
                     'marital_status' => $index % 2 === 0 ? 'single' : 'married',
                     'date_of_birth' => now()->subYears(22 + $index)->format('Y-m-d'),
-                    'place_of_birth' => $index % 2 === 0 ? 'Kuala Lumpur' : 'Jakarta',
+                    'place_of_birth' => $index % 2 === 0 ? 'Singapore' : 'Jakarta',
                     'first_time_umrah' => $index % 3 === 0,
                     'has_chronic_disease' => false,
                     'is_active' => true,

@@ -30,8 +30,8 @@ class PackageOfficialManifestSyncTest extends TestCase
                     'date_of_birth' => '1980-01-10',
                     'passport_issue_date' => '2022-01-01',
                     'passport_expiry_date' => '2032-01-01',
-                    'passport_place_of_issue' => 'Kuala Lumpur',
-                    'place_of_birth' => 'Kuala Lumpur',
+                    'passport_place_of_issue' => 'Singapore',
+                    'place_of_birth' => 'Singapore',
                 ],
                 [
                     'type' => 'official',
@@ -88,8 +88,8 @@ class PackageOfficialManifestSyncTest extends TestCase
                     'date_of_birth' => '1982-01-01',
                     'passport_issue_date' => '2021-01-01',
                     'passport_expiry_date' => '2031-01-01',
-                    'passport_place_of_issue' => 'Kuala Lumpur',
-                    'place_of_birth' => 'Kuala Lumpur',
+                    'passport_place_of_issue' => 'Singapore',
+                    'place_of_birth' => 'Singapore',
                 ],
             ],
         ]);

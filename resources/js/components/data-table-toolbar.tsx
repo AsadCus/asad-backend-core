@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Row, Table } from '@tanstack/react-table';
-import { Plus, Trash, X } from 'lucide-react';
+import { Plus, Trash, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ActionType } from './action-column';
 import useConfirmDialog from './confirm-popup';
@@ -28,6 +28,8 @@ interface DataTableToolbarProps<TData> {
     showSettings?: boolean;
     showExport?: boolean;
     customExports?: CustomExport[];
+    showImport?: boolean;
+    onImport?: () => void;
 }
 
 export function DataTableToolbar<TData>({
@@ -49,6 +51,8 @@ export function DataTableToolbar<TData>({
     showSettings = true,
     showExport = true,
     customExports,
+    showImport = false,
+    onImport,
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const showOutsideSearch = searchFilterMode === 'outside';
@@ -148,13 +152,21 @@ export function DataTableToolbar<TData>({
                         )}
                     </div>
 
-                    {showExport && (
-                        <DataTableExport
-                            table={table}
-                            filename={exportFilename}
-                            customExports={customExports}
-                        />
-                    )}
+                    <div className="flex items-center gap-2">
+                        {showImport && onImport && (
+                            <Button variant="outline" onClick={onImport}>
+                                <Upload className="h-4 w-4" />
+                                <span className="hidden sm:block">Import</span>
+                            </Button>
+                        )}
+                        {showExport && (
+                            <DataTableExport
+                                table={table}
+                                filename={exportFilename}
+                                customExports={customExports}
+                            />
+                        )}
+                    </div>
                 </div>
 
                 {(showOutsideSearch || showOutsideColumnFilters) && (
