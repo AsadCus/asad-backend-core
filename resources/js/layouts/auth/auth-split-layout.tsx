@@ -22,9 +22,10 @@ export default function AuthSplitLayout({
     title,
     description,
 }: PropsWithChildren<AuthLayoutProps>) {
-    const { name, appearance } = usePage<
-        SharedData & { appearance?: AppearanceSetting }
-    >().props;
+    const {
+        // name,
+        appearance,
+    } = usePage<SharedData & { appearance?: AppearanceSetting }>().props;
 
     return (
         <div
