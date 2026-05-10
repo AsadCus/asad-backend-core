@@ -84,7 +84,7 @@ export default function AuthSplitLayout({
                         : undefined,
                 }}
             >
-                <span className="mr-2">Copyright © 2025 by "{name}"</span>
+                <span className="mr-2">Copyright © 2026 by Qiub Pte Ltd</span>
                 {/* <img src="/tms-logo.png" alt={name} className="hidden w-12" /> */}
             </div>
         </div>
