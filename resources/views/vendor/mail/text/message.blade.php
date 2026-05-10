@@ -1,7 +1,7 @@
 <x-mail::layout>
     {{-- Header --}}
     <x-slot:header>
-        <x-mail::header :url="'https://ktms.qiub.com.sg/'">
+        <x-mail::header :url="config('app.url')">
             Karva Travel and Tours Management System
         </x-mail::header>
     </x-slot:header>
