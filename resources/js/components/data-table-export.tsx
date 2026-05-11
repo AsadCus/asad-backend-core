@@ -35,12 +35,14 @@ interface DataTableExportProps<TData> {
     table: Table<TData>;
     filename?: string;
     customExports?: CustomExport[];
+    exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
 }
 
 export function DataTableExport<TData>({
     table,
     filename = 'data',
     customExports,
+    exportOptions,
 }: DataTableExportProps<TData>) {
     const exportableColumns = table
         .getAllLeafColumns()
@@ -330,23 +332,33 @@ export function DataTableExport<TData>({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={exportToCSV}>
-                        <FileTextIcon className="h-4 w-4" />
-                        Export as CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportToExcel}>
-                        <FileSpreadsheetIcon className="h-4 w-4" />
-                        Export as Excel
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportToPDF}>
-                        <FileArchiveIcon className="h-4 w-4" />
-                        Export as PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={exportToJSON}>
-                        <FileTextIcon className="h-4 w-4" />
-                        Export as JSON
-                    </DropdownMenuItem>
+                    {(!exportOptions || exportOptions.includes('csv')) && (
+                        <DropdownMenuItem onClick={exportToCSV}>
+                            <FileTextIcon className="h-4 w-4" />
+                            Export as CSV
+                        </DropdownMenuItem>
+                    )}
+                    {(!exportOptions || exportOptions.includes('excel')) && (
+                        <DropdownMenuItem onClick={exportToExcel}>
+                            <FileSpreadsheetIcon className="h-4 w-4" />
+                            Export as Excel
+                        </DropdownMenuItem>
+                    )}
+                    {(!exportOptions || exportOptions.includes('pdf')) && (
+                        <DropdownMenuItem onClick={exportToPDF}>
+                            <FileArchiveIcon className="h-4 w-4" />
+                            Export as PDF
+                        </DropdownMenuItem>
+                    )}
+                    {(!exportOptions || exportOptions.includes('json')) && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={exportToJSON}>
+                                <FileTextIcon className="h-4 w-4" />
+                                Export as JSON
+                            </DropdownMenuItem>
+                        </>
+                    )}
                     {customExports && customExports.length > 0 && (
                         <>
                             <DropdownMenuSeparator />

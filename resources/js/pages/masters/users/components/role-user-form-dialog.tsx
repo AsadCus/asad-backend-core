@@ -72,6 +72,7 @@ export default function RoleUserFormDialog({
                         submitUrl={submitUrl}
                         scopeMode={scopeMode}
                         onCancel={() => onOpenChange(false)}
+                        onSuccess={() => onOpenChange(false)}
                     />
                 </div>
             </DialogContent>

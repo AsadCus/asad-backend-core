@@ -86,6 +86,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     showSettings?: boolean;
     showExport?: boolean;
     customExports?: CustomExport[];
+    exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
     showImport?: boolean;
     onImport?: () => void;
 }
@@ -250,6 +251,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     showSettings = true,
     showExport = true,
     customExports,
+    exportOptions,
     showImport = false,
     onImport,
 }: DataTableProps<TData, TValue>) {
@@ -686,6 +688,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         showSettings={showSettings}
                         showExport={showExport}
                         customExports={customExports}
+                        exportOptions={exportOptions}
                         showImport={showImport}
                         onImport={onImport}
                     />

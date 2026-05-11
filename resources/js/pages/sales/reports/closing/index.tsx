@@ -14,8 +14,8 @@ import {
     formatDateForDisplay,
     parseDisplayDate,
 } from '@/lib/utils';
-import { paymentReport, paymentReportExport } from '@/routes/dashboard';
-import payment from '@/routes/reports/payment';
+import { closingReportExport } from '@/routes/dashboard';
+import closing from '@/routes/reports/closing';
 import sales from '@/routes/sales';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
@@ -26,7 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Sales', href: sales.index.url() },
-    { title: 'Daily Received', href: payment.index.url() },
+    { title: 'Closing Report', href: closing.index.url() },
 ];
 
 interface GeneralEnquiryPackageOption {
@@ -35,39 +35,35 @@ interface GeneralEnquiryPackageOption {
     departure_date?: string;
 }
 
-interface PaymentReportProps {
+interface ClosingReportProps {
     packageOptions?: GeneralEnquiryPackageOption[];
     categoryOptions?: { value: string; label: string }[];
 }
 
-interface PaymentRow {
+interface ClosingRow {
+    date_sort: string;
     date: string;
-    category: string;
-    package_item: string;
-    ref_no: string;
-    amount: number | string;
-    total_sale: number | string;
-    maker: string;
-    remarks: string;
+    day_name: string;
+    total_sales: number | string;
     [key: string]: unknown;
 }
 
-interface PaymentReportData {
+interface ClosingReportData {
     payment_methods: string[];
-    rows: PaymentRow[];
+    categories: Record<string, string>;
+    rows: ClosingRow[];
 }
 
-export default function PaymentReportIndex({
+export default function ClosingReportIndex({
     packageOptions = [],
     categoryOptions = [],
-}: PaymentReportProps) {
+}: ClosingReportProps) {
     const todayDisplayDate = formatDateForDisplay(new Date());
 
     const quickOptions: QuickDateOption[] = [
-        { label: 'Today', value: 'today' },
-        { label: 'Yesterday', value: 'yesterday' },
+        { label: 'This Week', value: 'thisweek' },
         { label: 'This Month', value: 'thismonth' },
-        { label: 'Last Month', value: 'lastmonth' },
+        { label: 'This Year', value: 'thisyear' },
     ];
 
     const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({
@@ -75,7 +71,7 @@ export default function PaymentReportIndex({
     });
     const [packageIds, setPackageIds] = useState<string[]>([]);
     const [categoryIds, setCategoryIds] = useState<string[]>([]);
-    const [reportData, setReportData] = useState<PaymentReportData | null>(
+    const [reportData, setReportData] = useState<ClosingReportData | null>(
         null,
     );
     const [isLoading, setIsLoading] = useState(false);
@@ -139,7 +135,8 @@ export default function PaymentReportIndex({
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (tz) params.set('timezone', tz);
 
-        if (packageIds.length > 0) params.set('packages', packageIds.join(','));
+        if (packageIds.length > 0)
+            params.set('package_id', packageIds.join(','));
         if (categoryIds.length > 0)
             params.set('categories', categoryIds.join(','));
 
@@ -179,14 +176,14 @@ export default function PaymentReportIndex({
         try {
             const params = buildParamsRef.current();
             const res = await fetch(
-                `${paymentReport.definition.url}?${params.toString()}`,
+                `${closing.data.definition.url}?${params.toString()}`,
             );
             if (res.ok) {
-                const json = (await res.json()) as PaymentReportData;
+                const json = (await res.json()) as ClosingReportData;
                 setReportData(json);
             }
         } catch (err) {
-            console.error('Error fetching payment report:', err);
+            console.error('Error fetching closing report:', err);
         } finally {
             setIsLoading(false);
         }
@@ -199,66 +196,56 @@ export default function PaymentReportIndex({
     const handleExportPdf = useCallback(() => {
         const params = buildParams();
         window.open(
-            `${paymentReportExport.definition.url}?${params.toString()}`,
+            `${closingReportExport.definition.url}?${params.toString()}`,
             '_blank',
         );
     }, [buildParams]);
 
-    const rows: PaymentRow[] = reportData?.rows ?? [];
+    const rows: ClosingRow[] = reportData?.rows ?? [];
 
-    const columns: ColumnDef<PaymentRow>[] = useMemo(() => {
+    const columns: ColumnDef<ClosingRow>[] = useMemo(() => {
         const paymentMethods: string[] = reportData?.payment_methods ?? [];
+        const categories = reportData?.categories ?? {};
 
         return [
             { accessorKey: 'date', header: 'Date', meta: { exportable: true } },
             {
-                accessorKey: 'category',
-                header: 'Category',
+                accessorKey: 'day_name',
+                header: 'Day',
                 meta: { exportable: true },
             },
             {
-                accessorKey: 'package_item',
-                header: 'Item',
+                accessorKey: 'total_sales',
+                header: 'Total Sales',
                 meta: { exportable: true },
+                cell: ({ row }) => formatCurrency(row.original.total_sales),
             },
-            {
-                accessorKey: 'ref_no',
-                header: 'Ref No.',
+            ...Object.entries(categories).map(([key, label]) => ({
+                accessorKey: key,
+                header: label,
                 meta: { exportable: true },
-            },
-            {
-                accessorKey: 'amount',
-                header: 'Amount',
-                meta: { exportable: true },
-                cell: ({ row }) => formatCurrency(row.original.amount),
-            },
+                cell: ({ row }: { row: { original: ClosingRow } }) =>
+                    formatCurrency(
+                        (row.original[key] as number | string | undefined) ?? 0,
+                    ),
+            })),
             ...paymentMethods.map((method) => ({
                 accessorKey: method,
                 header: method.charAt(0).toUpperCase() + method.slice(1),
                 meta: { exportable: true },
-                cell: ({ row }: { row: { original: PaymentRow } }) =>
+                cell: ({ row }: { row: { original: ClosingRow } }) =>
                     formatCurrency(
                         (row.original[method] as number | string | undefined) ??
                             0,
                     ),
             })),
-            {
-                accessorKey: 'maker',
-                header: 'Maker',
-                meta: { exportable: true },
-            },
-            {
-                accessorKey: 'remarks',
-                header: 'Remarks',
-                meta: { exportable: true },
-            },
         ];
     }, [reportData]);
 
     const customExports: CustomExport[] = useMemo(
         () => [
             {
-                label: 'Export PDF (Report)',
+                label: 'Export PDF',
                 icon: FileText,
                 onClick: handleExportPdf,
             },
@@ -268,17 +255,17 @@ export default function PaymentReportIndex({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Daily Received" />
+            <Head title="Closing Report" />
             <div className="@container/main flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div>
-                    <h2 className="text-lg font-semibold">Daily Received</h2>
+                    <h2 className="text-lg font-semibold">Closing Report</h2>
                     <p className="text-base text-muted-foreground">
-                        Receipt payment breakdown by item category
+                        Per-date aggregated payment breakdown
                     </p>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3">
-                    <div className="hidden space-y-1">
+                    <div className="space-y-1">
                         <p className="font-medium">Package</p>
                         <MultiSelect
                             options={groupedPackageOptions}
@@ -289,7 +276,7 @@ export default function PaymentReportIndex({
                             className="bg-background hover:bg-accent"
                         />
                     </div>
-                    <div className="hidden space-y-1">
+                    <div className="space-y-1">
                         <p className="font-medium">Category</p>
                         <MultiSelect
                             options={formattedCategoryOptions}
@@ -325,15 +312,16 @@ export default function PaymentReportIndex({
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                     {isLoading ? (
                         <p className="py-6 text-center text-base text-muted-foreground">
-                            Loading payment data...
+                            Loading closing report...
                         </p>
                     ) : (
                         <DataTable
                             columns={columns}
                             data={rows}
                             actions={[]}
-                            exportFilename="payment-report"
+                            exportFilename="closing-report"
                             customExports={customExports}
+                            exportOptions={['excel']}
                             initialState={{
                                 pagination: { pageIndex: 0, pageSize: 25 },
                             }}
