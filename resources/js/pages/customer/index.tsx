@@ -1,6 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
+import { CustomExport } from '@/components/data-table-export';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
@@ -17,6 +18,12 @@ import {
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { Download } from 'lucide-react';
+import { useState } from 'react';
+import {
+    CustomerImportDialog,
+    generateCustomerImportTemplate,
+} from './import-dialog';
 import { UserSchema } from '../masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -121,6 +128,16 @@ export default function Customer({ data }: CustomerProps) {
     if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
+    const [importOpen, setImportOpen] = useState(false);
+
+    const customExports: CustomExport[] = [
+        {
+            label: 'Download Template',
+            icon: Download,
+            onClick: generateCustomerImportTemplate,
+        },
+    ];
+
     const { confirm, ConfirmDialog } = useConfirmDialog();
 
     return (
@@ -147,6 +164,9 @@ export default function Customer({ data }: CustomerProps) {
                             searchFilterMode="outside"
                             columnFilterMode="outside"
                             addButtonText="Add New Customer"
+                            showImport={userPermissions.includes('customer create')}
+                            onImport={() => setImportOpen(true)}
+                            customExports={customExports}
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
@@ -222,6 +242,10 @@ export default function Customer({ data }: CustomerProps) {
                 </div>
             </AppLayout>
             <ConfirmDialog />
+            <CustomerImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+            />
         </>
     );
 }

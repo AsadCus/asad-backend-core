@@ -5,12 +5,14 @@ namespace App\Services\UserRoles;
 use App\Models\Customer;
 use App\Models\ModelFile;
 use App\Models\User;
+use App\Rules\UserRule;
 use App\Services\NotificationService;
 use App\Services\NumberingService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 
 class CustomerUserService
@@ -55,6 +57,37 @@ class CustomerUserService
 
                 return $user;
             });
+    }
+
+    public function importFromPayload(array $items): array
+    {
+        $imported = 0;
+        $errors = [];
+        $userRule = new UserRule;
+
+        foreach ($items as $index => $item) {
+            $row = $index + 1;
+
+            try {
+                $item['role'] = 'customer';
+
+                $validator = Validator::make($item, $userRule->rules('customer'));
+
+                if ($validator->fails()) {
+                    $messages = collect($validator->errors()->all())->implode(' | ');
+                    $errors[] = ['row' => $row, 'message' => "Validation: {$messages}"];
+
+                    continue;
+                }
+
+                $this->store($validator->validated());
+                $imported++;
+            } catch (\Throwable $e) {
+                $errors[] = ['row' => $row, 'message' => $e->getMessage()];
+            }
+        }
+
+        return ['imported' => $imported, 'errors' => $errors];
     }
 
     public function store(array $data)
