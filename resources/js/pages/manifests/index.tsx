@@ -1,4 +1,5 @@
 import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
@@ -9,11 +10,20 @@ import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { packageStatusColors, packageStatusLabels } from '../packages/schema';
-import { ManifestSchema } from './schema';
+import { type ManifestSchema } from './schema';
+
+type ManifestDataTableSchema = ManifestSchema & {
+    package_number?: string | null;
+    package_name?: string | null;
+    departure_date?: string | null;
+    return_date?: string | null;
+    country_name?: string | null;
+    created_at?: string | null;
+};
 
 interface ManifestsProps {
     data: {
-        manifestsForDatatable: ManifestSchema[];
+        manifestsForDatatable: ManifestDataTableSchema[];
     };
 }
 
@@ -24,8 +34,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const columns: ColumnDef<ManifestSchema>[] = [
-    createSelectColumn<ManifestSchema>(),
+const columns: ColumnDef<ManifestDataTableSchema>[] = [
+    createSelectColumn<ManifestDataTableSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',
@@ -40,6 +50,39 @@ const columns: ColumnDef<ManifestSchema>[] = [
         accessorKey: 'package_name',
         header: 'Package',
         meta: { exportable: true },
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const normalizedStatus = String(row.original.status ?? '')
+                .trim()
+                .toLowerCase();
+
+            if (!normalizedStatus) {
+                return <span className="text-muted-foreground">-</span>;
+            }
+
+            return (
+                <Badge
+                    className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
+                >
+                    {packageStatusLabels[normalizedStatus] ?? normalizedStatus}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'country_name',
+        header: 'Country',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+        cell: ({ row }) =>
+            row.original.country_name ?? (
+                <span className="text-muted-foreground">-</span>
+            ),
     },
     {
         accessorKey: 'departure_date',
@@ -74,29 +117,6 @@ const columns: ColumnDef<ManifestSchema>[] = [
         },
     },
     {
-        accessorKey: 'status',
-        header: 'Status',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const normalizedStatus = String(row.original.status ?? '')
-                .trim()
-                .toLowerCase();
-
-            if (!normalizedStatus) {
-                return <span className="text-muted-foreground">-</span>;
-            }
-
-            return (
-                <Badge
-                    className={`${packageStatusColors[normalizedStatus] ?? 'bg-gray-100 text-gray-800'} rounded-full px-3 py-1 text-base`}
-                >
-                    {packageStatusLabels[normalizedStatus] ?? normalizedStatus}
-                </Badge>
-            );
-        },
-        filterFn: 'includesValue',
-    },
-    {
         accessorKey: 'created_at',
         header: 'Created At',
         meta: { exportable: true },
@@ -109,6 +129,14 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const actions: ActionType[] = [];
+
+    const countryOptions = [
+        ...new Set(
+            manifestsForDatatable
+                .map((r) => r.country_name)
+                .filter((c): c is string => Boolean(c)),
+        ),
+    ].map((c) => ({ value: c, label: c }));
 
     // if (userPermissions.includes('manifest create')) actions.push('add');
     if (userPermissions.includes('manifest view')) actions.push('view');
@@ -160,6 +188,12 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="country_name"
+                                        title="Country"
+                                        options={countryOptions}
+                                    />
                                     <DateRangeFilter
                                         table={table}
                                         columnId="departure_date"

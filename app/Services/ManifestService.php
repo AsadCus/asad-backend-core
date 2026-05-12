@@ -36,7 +36,7 @@ class ManifestService
 
     public function getForDataTable(array $filters = [])
     {
-        $query = Manifest::with('package')
+        $query = Manifest::with(['package', 'package.country'])
             ->withCount([
                 'members as members_count' => function ($query) {
                     $query->whereNull('package_official_id');
@@ -71,6 +71,7 @@ class ManifestService
                     'return_date' => $q->package?->return_date_formatted,
                     'total_seats' => $q->package?->total_seats,
                     'seats_left' => $q->package?->seats_left,
+                    'country_name' => $q->package?->country?->name,
                     'status' => $q->package?->status,
                     'members_count' => $q->members_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),

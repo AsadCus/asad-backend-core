@@ -245,7 +245,8 @@
             @foreach ($plan as $weekGroup)
                 @foreach ($weekGroup['rows'] as $row)
                     @php $isEmpty = !empty($row['__empty']); @endphp
-                    <tr class="{{ $isEmpty ? 'row-empty' : '' }}">
+                    @if (!$isEmpty)
+                    <tr>
                         <td class="td-date">
                             {{ $row['date'] }}
                             <span class="day-name">{{ $row['day_name'] }}</span>
@@ -258,6 +259,7 @@
                         @endforeach
                         <td class="text-right">{{ $fmt($row['total_sales'] ?? 0) }}</td>
                     </tr>
+                    @endif
                 @endforeach
 
                 {{-- Week subtotal --}}

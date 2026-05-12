@@ -1,4 +1,5 @@
 import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
@@ -35,6 +36,7 @@ interface PackageDataTableSchema {
     total_seats: number | null;
     occupied_seats: number;
     seats_left: number | null;
+    country_name: string | null;
     price_quad: number;
     manifests_count: number;
     created_at: string;
@@ -67,7 +69,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'name',
-        header: 'Package Name',
+        header: 'Package',
         meta: { exportable: true },
     },
     {
@@ -92,6 +94,16 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
             );
         },
         filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'country_name',
+        header: 'Country',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+        cell: ({ row }) =>
+            row.original.country_name ?? (
+                <span className="text-muted-foreground">-</span>
+            ),
     },
     {
         accessorKey: 'departure_date',
@@ -144,6 +156,14 @@ export default function PackagesIndex({ data }: PackagesProps) {
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [importOpen, setImportOpen] = useState(false);
+
+    const countryOptions = [
+        ...new Set(
+            packagesForDatatable
+                .map((r) => r.country_name)
+                .filter((c): c is string => Boolean(c)),
+        ),
+    ].map((c) => ({ value: c, label: c }));
 
     const customExports = [
         {
@@ -226,6 +246,12 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="country_name"
+                                        title="Country"
+                                        options={countryOptions}
+                                    />
                                     <DateRangeFilter
                                         table={table}
                                         columnId="departure_date"

@@ -38,6 +38,7 @@ class PackageService
         $query = Package::query()
             ->withCount('manifests')
             ->with([
+                'country',
                 'manifests.members' => function ($query) {
                     $query->whereNull('package_official_id');
                 },
@@ -77,6 +78,7 @@ class PackageService
                     'total_seats' => $q->total_seats,
                     'occupied_seats' => $occupiedSeats,
                     'seats_left' => $seatsLeft,
+                    'country_name' => $q->country?->name,
                 ];
             });
 
