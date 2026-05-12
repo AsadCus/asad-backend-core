@@ -126,6 +126,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales/{sale}/generate-pdf', [SalesController::class, 'generatePdf'])->name('sales.generate.pdf');
 
     // Customer
+    Route::post('customer/import', [CustomerController::class, 'import'])->name('customer.import');
     Route::resource('customer', CustomerController::class);
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');

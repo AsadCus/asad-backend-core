@@ -30,6 +30,7 @@ interface DataTableToolbarProps<TData> {
     customExports?: CustomExport[];
     showImport?: boolean;
     onImport?: () => void;
+    exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
 }
 
 export function DataTableToolbar<TData>({
@@ -53,6 +54,7 @@ export function DataTableToolbar<TData>({
     customExports,
     showImport = false,
     onImport,
+    exportOptions,
 }: DataTableToolbarProps<TData>) {
     const isFiltered = table.getState().columnFilters.length > 0;
     const showOutsideSearch = searchFilterMode === 'outside';
@@ -164,6 +166,7 @@ export function DataTableToolbar<TData>({
                                 table={table}
                                 filename={exportFilename}
                                 customExports={customExports}
+                                exportOptions={exportOptions}
                             />
                         )}
                     </div>

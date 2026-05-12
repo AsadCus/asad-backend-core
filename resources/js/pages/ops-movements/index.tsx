@@ -1,4 +1,5 @@
 import { ActionType } from '@/components/action-column';
+import { ColumnFilter } from '@/components/column-filter';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ interface OpsMovementDataTableSchema {
     return_date: string | null;
     total_seats: number | null;
     seats_left: number | null;
+    country_name: string | null;
     visa_type: string | null;
     vehicle_type: string | null;
     ticket_type: string | null;
@@ -85,6 +87,16 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         },
     },
     {
+        accessorKey: 'country_name',
+        header: 'Country',
+        meta: { exportable: true },
+        filterFn: 'includesValue',
+        cell: ({ row }) =>
+            row.original.country_name ?? (
+                <span className="text-muted-foreground">-</span>
+            ),
+    },
+    {
         accessorKey: 'departure_date',
         header: 'Departure Date',
         meta: { exportable: true },
@@ -146,6 +158,14 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
     const actions: ActionType[] = ['view'];
     const { opsMovementsForDatatable } = data;
 
+    const countryOptions = [
+        ...new Set(
+            opsMovementsForDatatable
+                .map((r) => r.country_name)
+                .filter((c): c is string => Boolean(c)),
+        ),
+    ].map((c) => ({ value: c, label: c }));
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Ops Movements" />
@@ -192,6 +212,12 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                         }}
                         renderFilter={(table) => (
                             <>
+                                <ColumnFilter
+                                    table={table}
+                                    columnId="country_name"
+                                    title="Country"
+                                    options={countryOptions}
+                                />
                                 <DateRangeFilter
                                     table={table}
                                     columnId="departure_date"

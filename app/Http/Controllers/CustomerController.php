@@ -11,9 +11,11 @@ use App\Services\CustomerService;
 use App\Services\PackageService;
 use App\Services\UserRoles\CustomerUserService;
 use App\Services\UserService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class CustomerController extends Controller
@@ -50,7 +52,7 @@ class CustomerController extends Controller
         $this->packageService = $packageService;
 
         $this->middleware('permission:customer view', ['only' => ['index', 'show']]);
-        $this->middleware('permission:customer create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:customer create', ['only' => ['create', 'store', 'import']]);
         $this->middleware('permission:customer edit', ['only' => ['edit', 'update']]);
         $this->middleware('permission:customer delete', ['only' => ['destroy']]);
     }
@@ -78,6 +80,24 @@ class CustomerController extends Controller
             'dataSales' => [],
             'isCustomer' => true,
         ]);
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate(['data' => ['required', 'array', 'min:1']]);
+
+        $result = $this->customerUserService->importFromPayload($request->input('data'));
+
+        if (! empty($result['errors'])) {
+            $errorLines = collect($result['errors'])
+                ->map(fn ($e) => "Row {$e['row']}: {$e['message']}")
+                ->join(' | ');
+
+            throw ValidationException::withMessages(['import' => $errorLines]);
+        }
+
+        return redirect()->route('customer.index')
+            ->with('success', "Successfully imported {$result['imported']} customer(s).");
     }
 
     public function store(Request $request)

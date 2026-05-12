@@ -16,7 +16,7 @@ class ReportController extends Controller
 
     public function paymentIndex(Request $request)
     {
-        return Inertia::render('reports/payment/index', [
+        return Inertia::render('sales/reports/payment/index', [
             'packageOptions' => $this->packageService->getForFilter(),
             'categoryOptions' => $this->financialTransactionService->getAvailableCategories(),
         ]);
@@ -24,7 +24,7 @@ class ReportController extends Controller
 
     public function closingIndex(Request $request)
     {
-        return Inertia::render('reports/closing/index', [
+        return Inertia::render('sales/reports/closing/index', [
             'packageOptions' => $this->packageService->getForFilter(),
             'categoryOptions' => $this->financialTransactionService->getAvailableCategories(),
         ]);

@@ -35,6 +35,7 @@ type CustomerUserFormHandle = {
         options?: {
             forceFormData?: boolean;
             onError?: (validationErrors: Record<string, string>) => void;
+            onSuccess?: () => void;
             onFinish?: () => void;
         },
     ) => void;
@@ -50,6 +51,7 @@ interface UserFormProps {
     initialData?: UserSchema;
     onSubmit?: (values: UserSchema) => void;
     onCancel?: () => void;
+    onSuccess?: () => void;
     branches?: OptionType[];
     countries?: OptionType[];
     roles?: OptionType[];
@@ -67,6 +69,7 @@ export function UserForm({
     mode,
     initialData,
     onCancel,
+    onSuccess,
     branches = [],
     countries = [],
     roles = [],
@@ -330,6 +333,7 @@ export function UserForm({
         if (isCreate) {
             post(url, {
                 forceFormData: true,
+                onSuccess: () => onSuccess?.(),
                 onError: (validationErrors: Record<string, string>) => {
                     setError(validationErrors);
                     console.error(validationErrors);
@@ -343,6 +347,7 @@ export function UserForm({
             }));
             post(editUrl, {
                 forceFormData: true,
+                onSuccess: () => onSuccess?.(),
                 onError: (validationErrors: Record<string, string>) => {
                     setError(validationErrors);
                     console.error(validationErrors);

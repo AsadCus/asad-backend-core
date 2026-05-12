@@ -22,7 +22,7 @@ class OpsMovementService
     public function getForDataTable(array $filters = [])
     {
         $packageQuery = Package::query()
-            ->with(['accommodations', 'manifests.members']);
+            ->with(['country', 'accommodations', 'manifests.members']);
 
         $this->applyOperationsCountryScope($packageQuery);
 
@@ -59,6 +59,7 @@ class OpsMovementService
                     'return_date' => $package->return_date_formatted,
                     'total_seats' => $package->total_seats,
                     'seats_left' => $package->seats_left,
+                    'country_name' => $package->country?->name,
                     'visa_type' => $package->visa_type,
                     'vehicle_type' => $package->vehicle_type,
                     'ticket_type' => $package->ticket_type,
