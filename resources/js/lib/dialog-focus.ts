@@ -57,6 +57,29 @@ export function handleDialogTabKey(event: DialogTabKeyEvent): void {
         '[tabindex]:not([tabindex="-1"])',
     ].join(', ');
 
+    const findScrollParent = (element: HTMLElement): HTMLElement | null => {
+        let current: HTMLElement | null = element.parentElement;
+
+        while (current) {
+            const style = window.getComputedStyle(current);
+            const overflowY = style.overflowY;
+            if (
+                (overflowY === 'auto' || overflowY === 'scroll') &&
+                current.scrollHeight > current.clientHeight
+            ) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+
+        return null;
+    };
+
+    const activeElement = document.activeElement as HTMLElement | null;
+    const activeScrollParent = activeElement
+        ? findScrollParent(activeElement)
+        : null;
+
     const focusableElements = Array.from(
         dialogContent.querySelectorAll<HTMLElement>(focusableSelectors),
     ).filter((element) => {
@@ -78,6 +101,10 @@ export function handleDialogTabKey(event: DialogTabKeyEvent): void {
             return false;
         }
 
+        if (activeScrollParent && !activeScrollParent.contains(element)) {
+            return false;
+        }
+
         return element.getClientRects().length > 0;
     });
 
@@ -85,7 +112,6 @@ export function handleDialogTabKey(event: DialogTabKeyEvent): void {
         return;
     }
 
-    const activeElement = document.activeElement as HTMLElement | null;
     const currentIndex = activeElement
         ? focusableElements.indexOf(activeElement)
         : -1;

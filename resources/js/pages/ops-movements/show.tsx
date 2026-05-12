@@ -29,7 +29,8 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
     const { auth } = usePage<SharedData>().props;
     const canEditOpsMovement =
         auth?.permissions?.includes('ops-movement edit') ?? false;
-    const canManageBudget = auth?.roles?.includes('admin') ?? false;
+    const canManageBudget =
+        auth?.roles?.includes('admin') || auth?.roles?.includes('superadmin');
     const [budgetSnapshot, setBudgetSnapshot] = useState<{
         budget: OpsBudgetTitleSchema[];
         budget_currency: string;

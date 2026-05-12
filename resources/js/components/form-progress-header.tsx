@@ -41,7 +41,7 @@ export function FormProgressHeader({
     }, [sections]);
 
     return (
-        <div className="sticky top-0 z-50 mb-2 rounded-md border border-primary bg-primary/5 px-4 backdrop-blur">
+        <div className="sticky top-0 z-50 mb-2 rounded-md border border-primary bg-primary/5 px-4 backdrop-blur-3xl">
             <div className="space-y-4 py-4">
                 {/* Header Info */}
                 <div className="flex items-center justify-between">

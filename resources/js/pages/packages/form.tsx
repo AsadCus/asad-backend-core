@@ -1674,7 +1674,7 @@ export default function PackageForm({
                                                             v || null,
                                                         )
                                                     }
-                                                    placeholder="e.g., KLIA"
+                                                    placeholder="e.g., SIN"
                                                 />
                                             </FormField>
                                             <FormField
@@ -1701,7 +1701,7 @@ export default function PackageForm({
                                                             v || null,
                                                         )
                                                     }
-                                                    placeholder="e.g., Jeddah"
+                                                    placeholder="e.g., JED"
                                                 />
                                             </FormField>
                                         </div>

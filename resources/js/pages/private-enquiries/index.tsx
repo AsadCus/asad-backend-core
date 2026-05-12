@@ -675,7 +675,7 @@ export default function Index({ data }: PrivateEnquiriesProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                    <div className="h-full w-full flex-1 overflow-y-auto px-2 pb-2">
                         {privateFlowStep === 'package' && (
                             <PackageForm
                                 mode="create"
