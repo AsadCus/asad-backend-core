@@ -246,7 +246,8 @@ export default function Dashboard({ data }: DashboardProps) {
     const isSuperadmin = auth.roles.includes('superadmin');
     const isAdmin = auth.roles.includes('admin');
     const isSales = auth.roles.includes('sales');
-    const canViewClosingReport = isSales || isAdmin || isSuperadmin;
+    // const canViewClosingReport = isSales || isAdmin || isSuperadmin;
+    const canViewClosingReport = false;
     const scopeMode = (auth.scope_mode ?? 'country') as 'country' | 'branch';
     const scopeCountryOptions = useMemo(
         () =>
@@ -961,118 +962,156 @@ export default function Dashboard({ data }: DashboardProps) {
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <Popover
-                                        open={isExportPopoverOpen}
-                                        onOpenChange={setIsExportPopoverOpen}
-                                    >
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                type="button"
-                                                variant="default"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                Export Report
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                            className="w-auto p-3"
-                                            align="start"
-                                            side="bottom"
-                                            sideOffset={4}
+                                <div className="hidden">
+                                    <div className="flex items-center gap-2">
+                                        <Popover
+                                            open={isExportPopoverOpen}
+                                            onOpenChange={
+                                                setIsExportPopoverOpen
+                                            }
                                         >
-                                            <div className="flex gap-3">
-                                                <div className="space-y-2">
-                                                    <div className="hidden space-y-1">
-                                                        <p className="font-medium">
-                                                            Departure Group
-                                                            (Package)
-                                                        </p>
-                                                        <MultiSelect
-                                                            options={
-                                                                groupedPackageOptions
-                                                            }
-                                                            onValueChange={
-                                                                setExportPackageIds
-                                                            }
-                                                            defaultValue={
-                                                                exportPackageIds
-                                                            }
-                                                            placeholder="Select package..."
-                                                            maxCount={0}
-                                                        />
-                                                    </div>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="default"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Export Report
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent
+                                                className="w-auto p-3"
+                                                align="start"
+                                                side="bottom"
+                                                sideOffset={4}
+                                            >
+                                                <div className="flex gap-3">
+                                                    <div className="space-y-2">
+                                                        <div className="hidden space-y-1">
+                                                            <p className="font-medium">
+                                                                Departure Group
+                                                                (Package)
+                                                            </p>
+                                                            <MultiSelect
+                                                                options={
+                                                                    groupedPackageOptions
+                                                                }
+                                                                onValueChange={
+                                                                    setExportPackageIds
+                                                                }
+                                                                defaultValue={
+                                                                    exportPackageIds
+                                                                }
+                                                                placeholder="Select package..."
+                                                                maxCount={0}
+                                                            />
+                                                        </div>
 
-                                                    <div className="hidden space-y-1">
-                                                        <p className="font-medium">
-                                                            Category
-                                                        </p>
-                                                        <MultiSelect
-                                                            options={
-                                                                formattedCategoryOptions
-                                                            }
-                                                            onValueChange={
-                                                                setExportCategoryIds
-                                                            }
-                                                            defaultValue={
-                                                                exportCategoryIds
-                                                            }
-                                                            placeholder="Select category..."
-                                                            maxCount={0}
-                                                        />
-                                                    </div>
+                                                        <div className="hidden space-y-1">
+                                                            <p className="font-medium">
+                                                                Category
+                                                            </p>
+                                                            <MultiSelect
+                                                                options={
+                                                                    formattedCategoryOptions
+                                                                }
+                                                                onValueChange={
+                                                                    setExportCategoryIds
+                                                                }
+                                                                defaultValue={
+                                                                    exportCategoryIds
+                                                                }
+                                                                placeholder="Select category..."
+                                                                maxCount={0}
+                                                            />
+                                                        </div>
 
-                                                    <Calendar
-                                                        mode="range"
-                                                        numberOfMonths={1}
-                                                        selected={
-                                                            exportSelectedRange
-                                                        }
-                                                        defaultMonth={
-                                                            exportSelectedRange?.from
-                                                        }
-                                                        onSelect={(range) => {
-                                                            if (!range?.from) {
+                                                        <Calendar
+                                                            mode="range"
+                                                            numberOfMonths={1}
+                                                            selected={
+                                                                exportSelectedRange
+                                                            }
+                                                            defaultMonth={
+                                                                exportSelectedRange?.from
+                                                            }
+                                                            onSelect={(
+                                                                range,
+                                                            ) => {
+                                                                if (
+                                                                    !range?.from
+                                                                ) {
+                                                                    setExportDateRange(
+                                                                        {
+                                                                            from: todayDisplayDate,
+                                                                            to: undefined,
+                                                                        },
+                                                                    );
+
+                                                                    return;
+                                                                }
+
                                                                 setExportDateRange(
                                                                     {
-                                                                        from: todayDisplayDate,
-                                                                        to: undefined,
+                                                                        from: formatDateForDisplay(
+                                                                            range.from,
+                                                                        ),
+                                                                        to: range.to
+                                                                            ? formatDateForDisplay(
+                                                                                  range.to,
+                                                                              )
+                                                                            : undefined,
                                                                     },
                                                                 );
+                                                            }}
+                                                            className="rounded-lg border shadow-sm"
+                                                        />
 
-                                                                return;
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            className="w-full"
+                                                            disabled={
+                                                                isLoadingPaymentSummary
                                                             }
+                                                            onClick={
+                                                                handleExportPaymentSummaryPdf
+                                                            }
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                            Export
+                                                        </Button>
 
-                                                            setExportDateRange({
-                                                                from: formatDateForDisplay(
-                                                                    range.from,
+                                                        <div className="mt-3 flex flex-col gap-1 border-t pt-3 md:hidden">
+                                                            <p className="mb-2 text-sm font-medium">
+                                                                Quick Select
+                                                            </p>
+
+                                                            {dailyReceivedQuickOptions.map(
+                                                                (item) => (
+                                                                    <Button
+                                                                        key={
+                                                                            item.value
+                                                                        }
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="justify-start"
+                                                                        onClick={() =>
+                                                                            applyQuickDate(
+                                                                                item.value,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.label
+                                                                        }
+                                                                    </Button>
                                                                 ),
-                                                                to: range.to
-                                                                    ? formatDateForDisplay(
-                                                                          range.to,
-                                                                      )
-                                                                    : undefined,
-                                                            });
-                                                        }}
-                                                        className="rounded-lg border shadow-sm"
-                                                    />
+                                                            )}
+                                                        </div>
+                                                    </div>
 
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        className="w-full"
-                                                        disabled={
-                                                            isLoadingPaymentSummary
-                                                        }
-                                                        onClick={
-                                                            handleExportPaymentSummaryPdf
-                                                        }
-                                                    >
-                                                        <Download className="h-4 w-4" />
-                                                        Export
-                                                    </Button>
-
-                                                    <div className="mt-3 flex flex-col gap-1 border-t pt-3 md:hidden">
+                                                    <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
                                                         <p className="mb-2 text-sm font-medium">
                                                             Quick Select
                                                         </p>
@@ -1098,33 +1137,9 @@ export default function Dashboard({ data }: DashboardProps) {
                                                         )}
                                                     </div>
                                                 </div>
-
-                                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
-                                                    <p className="mb-2 text-sm font-medium">
-                                                        Quick Select
-                                                    </p>
-
-                                                    {dailyReceivedQuickOptions.map(
-                                                        (item) => (
-                                                            <Button
-                                                                key={item.value}
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="justify-start"
-                                                                onClick={() =>
-                                                                    applyQuickDate(
-                                                                        item.value,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {item.label}
-                                                            </Button>
-                                                        ),
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
                                 </div>
                             </div>
 
