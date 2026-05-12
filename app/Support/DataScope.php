@@ -86,7 +86,7 @@ class DataScope
 
         return self::enabled()
             && $resolvedUser !== null
-            && self::hasRole($resolvedUser, ['admin', 'sales']);
+            && self::hasRole($resolvedUser, ['superadmin', 'admin', 'sales']);
     }
 
     /**
@@ -123,7 +123,7 @@ class DataScope
             return $query;
         }
 
-        $selectedCountryIds = self::selectedCountryIds($resolvedUser);
+        $selectedCountryIds = self::scopedCountryIds($resolvedUser);
 
         return $query->where(function (Builder $scopedQuery) use ($selectedCountryIds): void {
             if (! empty($selectedCountryIds)) {
