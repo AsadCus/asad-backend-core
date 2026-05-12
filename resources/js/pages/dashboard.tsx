@@ -245,8 +245,8 @@ export default function Dashboard({ data }: DashboardProps) {
     // roles
     const isSuperadmin = auth.roles.includes('superadmin');
     const isAdmin = auth.roles.includes('admin');
-    const isGhostSuperadmin = isSuperadmin && Boolean(auth.is_ghost_user);
     const isSales = auth.roles.includes('sales');
+    const canViewClosingReport = isSales || isAdmin || isSuperadmin;
     const scopeMode = (auth.scope_mode ?? 'country') as 'country' | 'branch';
     const scopeCountryOptions = useMemo(
         () =>
@@ -1178,7 +1178,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         </div>
                     )}
 
-                    {(isGhostSuperadmin || false) && (
+                    {canViewClosingReport && (
                         <div>
                             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
                                 <div>

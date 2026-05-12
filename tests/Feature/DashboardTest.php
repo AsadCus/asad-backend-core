@@ -7,7 +7,6 @@ use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
-use App\Models\GhostUser;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Package;
@@ -1195,55 +1194,33 @@ class DashboardTest extends TestCase
         );
     }
 
-    public function test_closing_report_export_is_forbidden_for_non_ghost_admins(): void
+    public function test_closing_report_export_returns_pdf_for_sales_admin_and_superadmin(): void
     {
         Role::findOrCreate('superadmin', 'web');
-
-        $admin = User::factory()->create();
-        $admin->assignRole('superadmin');
-
-        $response = $this->actingAs($admin)->get(route('dashboard.closing-report-export', [
-            'period' => 'monthly',
-            'month' => now()->format('Y-m'),
-        ]));
-
-        $response->assertForbidden();
-    }
-
-    public function test_closing_report_export_returns_pdf_for_ghost_admin_with_and_without_category_filter(): void
-    {
-        Role::findOrCreate('superadmin', 'web');
-
-        $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('superadmin');
-
-        GhostUser::create([
-            'user_id' => (int) $ghostAdmin->id,
-        ]);
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('sales', 'web');
 
         $this->createClosingReportReceipt('Category Alpha', 100);
         $this->createClosingReportReceipt('Category Beta', 250);
 
         $this->requireRoute('dashboard.closing-report-export');
 
-        $filteredResponse = $this->actingAs($ghostAdmin)->get(route('dashboard.closing-report-export', [
-            'period' => 'daily',
-            'range_start_utc' => now()->startOfDay()->toIso8601String(),
-            'range_end_utc' => now()->endOfDay()->toIso8601String(),
-            'categories' => 'Category Alpha',
-        ]));
+        $rolesToCheck = ['superadmin', 'admin', 'sales'];
 
-        $filteredResponse->assertOk();
-        $filteredResponse->assertHeader('content-type', 'application/pdf');
+        foreach ($rolesToCheck as $role) {
+            $user = User::factory()->create();
+            $user->assignRole($role);
 
-        $allCategoriesResponse = $this->actingAs($ghostAdmin)->get(route('dashboard.closing-report-export', [
-            'period' => 'daily',
-            'range_start_utc' => now()->startOfDay()->toIso8601String(),
-            'range_end_utc' => now()->endOfDay()->toIso8601String(),
-        ]));
+            $filteredResponse = $this->actingAs($user)->get(route('dashboard.closing-report-export', [
+                'period' => 'daily',
+                'range_start_utc' => now()->startOfDay()->toIso8601String(),
+                'range_end_utc' => now()->endOfDay()->toIso8601String(),
+                'categories' => 'Category Alpha',
+            ]));
 
-        $allCategoriesResponse->assertOk();
-        $allCategoriesResponse->assertHeader('content-type', 'application/pdf');
+            $filteredResponse->assertOk();
+            $filteredResponse->assertHeader('content-type', 'application/pdf');
+        }
     }
 
     private function createClosingReportReceipt(string $categoryLabel, int $amount): void

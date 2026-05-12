@@ -86,8 +86,9 @@ export function AppSidebar() {
     const isOperationsOnlyRole =
         roles.includes('operations') && roles.length === 1;
     const isSuperadmin = roles.includes('superadmin');
-    const isGhostSuperadmin = isSuperadmin && Boolean(auth?.is_ghost_user);
-    const canViewSalesReports = roles.includes('sales') || isSuperadmin;
+    const canViewSalesReports =
+        roles.includes('sales') || roles.includes('admin') || isSuperadmin;
+    const canViewClosingReport = canViewSalesReports;
 
     const mainNavItems: NavItem[] = isOperationsOnlyRole
         ? [
@@ -211,7 +212,7 @@ export function AppSidebar() {
                                                       href: paymentReport.index.url(),
                                                       icon: Wallet,
                                                   },
-                                                  ...(isGhostSuperadmin
+                                                  ...(canViewClosingReport
                                                       ? [
                                                             {
                                                                 title: 'Closing Report',

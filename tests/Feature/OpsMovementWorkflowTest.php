@@ -380,9 +380,9 @@ class OpsMovementWorkflowTest extends TestCase
         ]);
 
         $payload = [
-            'ops_base' => 'KL Base',
+            'ops_base' => 'SIN Base',
             'infotech_ref' => 'INFO-9988',
-            'location' => 'KLIA Terminal 1',
+            'location' => 'SIN Terminal 1',
             'doa_by' => 'Amir',
             'doa_datetime' => '2026-01-08 05:30:00',
             'vehicle_type' => 'Bus Updated',
@@ -531,9 +531,9 @@ class OpsMovementWorkflowTest extends TestCase
 
         $manifest->refresh();
 
-        $this->assertSame('KL Base', data_get($manifest->ops_movement_extension, 'ops_base'));
+        $this->assertSame('SIN Base', data_get($manifest->ops_movement_extension, 'ops_base'));
         $this->assertSame('INFO-9988', data_get($manifest->ops_movement_extension, 'infotech_ref'));
-        $this->assertSame('KLIA Terminal 1', data_get($manifest->ops_movement_extension, 'location'));
+        $this->assertSame('SIN Terminal 1', data_get($manifest->ops_movement_extension, 'location'));
         $this->assertSame('Amir', data_get($manifest->ops_movement_extension, 'doa_by'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_submitted_to_z_umrah'));
         $this->assertTrue((bool) data_get($manifest->ops_movement_extension, 'visa_approved'));
