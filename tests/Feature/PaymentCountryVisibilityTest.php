@@ -33,7 +33,7 @@ class PaymentCountryVisibilityTest extends TestCase
         $this->assertIndexVisibility($viewerMalaysia, ['MY', 'BOTH', 'GLOBAL']);
         $this->assertIndexVisibility($viewerSingapore, ['SG', 'BOTH', 'GLOBAL']);
         $this->assertIndexVisibility($viewerBoth, ['MY', 'SG', 'BOTH', 'GLOBAL']);
-        $this->assertIndexVisibility($viewerNoSelected, ['GLOBAL']);
+        $this->assertIndexVisibility($viewerNoSelected, ['MY', 'SG', 'BOTH', 'GLOBAL']);
 
         $this->assertSame(4, count($fixtures));
     }
@@ -111,8 +111,8 @@ class PaymentCountryVisibilityTest extends TestCase
         $this->actingAs($viewerNoSelected)
             ->getJson(route('dashboard.fiscal-year-sales', ['financial_year_id' => $financialYear->id]))
             ->assertOk()
-            ->assertJsonPath('count', 1)
-            ->assertJsonPath('amount', 400);
+            ->assertJsonPath('count', 4)
+            ->assertJsonPath('amount', 1000);
 
         $this->actingAs($viewerMalaysia)
             ->getJson(route('dashboard.payment-report', ['period' => 'daily']))
@@ -129,8 +129,8 @@ class PaymentCountryVisibilityTest extends TestCase
         $this->actingAs($viewerNoSelected)
             ->getJson(route('dashboard.payment-report', ['period' => 'daily']))
             ->assertOk()
-            ->assertJsonPath('receipt_count', 1)
-            ->assertJsonPath('total_amount', 400);
+            ->assertJsonPath('receipt_count', 4)
+            ->assertJsonPath('total_amount', 1000);
     }
 
     /**
