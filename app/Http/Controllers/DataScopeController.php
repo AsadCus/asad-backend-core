@@ -14,7 +14,7 @@ class DataScopeController extends Controller
         $user = $request->user();
 
         abort_if(
-            $user === null || ! DataScope::hasRole($user, ['admin', 'sales', 'operations']),
+            $user === null || ! DataScope::hasRole($user, ['superadmin', 'admin', 'sales', 'operations']),
             403,
         );
 
