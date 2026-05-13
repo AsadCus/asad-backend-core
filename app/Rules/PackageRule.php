@@ -2,12 +2,14 @@
 
 namespace App\Rules;
 
+use Illuminate\Validation\Rule;
+
 class PackageRule
 {
     public function rules(?int $id = null): array
     {
         return [
-            'package_number' => ['nullable', 'string', 'max:100'],
+            'package_number' => ['nullable', 'string', 'max:100', Rule::unique('packages', 'package_number')->ignore($id)],
             'package_number_format_id' => ['nullable', 'integer', 'exists:numbering_formats,id'],
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:open,full,closed,ongoing,completed'],

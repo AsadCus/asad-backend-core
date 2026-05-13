@@ -36,7 +36,6 @@ interface ParsedCustomerPayload extends Record<string, FormDataConvertible> {
     email: string;
     contact?: string | null;
     password?: string | null;
-    customer_number?: string | null;
     nric_number?: string | null;
     nationality?: string | null;
     gender?: string | null;
@@ -119,7 +118,6 @@ function parseCustomerImportFile(workbook: WorkBook): ParsedCustomerPayload[] {
         email: cell(row.email),
         contact: cellOrNull(row.contact),
         password: cellOrNull(row.password),
-        customer_number: cellOrNull(row.customer_number),
         nric_number: cellOrNull(row.nric_number),
         nationality: cellOrNull(row.nationality),
         gender: cellOrNull(row.gender),
@@ -179,7 +177,6 @@ export function generateCustomerImportTemplate(): void {
         'email',
         'contact',
         'password',
-        'customer_number',
         'nric_number',
         'nationality',
         'gender',
@@ -202,7 +199,6 @@ export function generateCustomerImportTemplate(): void {
         'ahmad.ali@example.com',
         '0123456789',
         'secret123',
-        '',
         '900101011234',
         'Malaysian',
         'male',
@@ -253,11 +249,6 @@ export function generateCustomerImportTemplate(): void {
         ],
 
         // customer record
-        [
-            'customer_number',
-            'no',
-            'Leave blank to auto-generate using the numbering format.',
-        ],
         ['nric_number', 'no', 'National ID / IC number'],
         ['nationality', 'no', 'E.g. Malaysian, Indonesian, Saudi'],
         ['gender', 'no', 'male / female'],
@@ -330,7 +321,8 @@ export function generateCustomerImportTemplate(): void {
     instrWs['!cols'] = [{ wch: 55 }, { wch: 12 }, { wch: 72 }];
 
     // Bold: section headers (col A only) and the column-header row
-    const boldColA = new Set([0, 3, 24]);
+    // Row 25 = "Tips & Common Errors" (shifted -1 after customer_number removal).
+    const boldColA = new Set([0, 3, 25]);
     const boldAllCols = new Set([4]);
 
     instrRows.forEach((row, r) => {
