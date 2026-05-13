@@ -214,10 +214,11 @@ export default function PrivateEnquiryForm({
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600">
+        <div className="flex items-center justify-center bg-white p-4">
+            {/* <div className="flex min-h-screen items-center justify-center bg-orange-50 p-4 dark:bg-gray-600"> */}
             <Head title={title} />
 
-            <Card className="w-full gap-0 border-0 shadow-md md:max-w-[90%]">
+            <Card className="w-full gap-0 border-1 shadow-sm md:max-w-[90%]">
                 <CardHeader className="pb-6">
                     <CardTitle className="text-4xl font-light">
                         Private Umrah Enquiry Form

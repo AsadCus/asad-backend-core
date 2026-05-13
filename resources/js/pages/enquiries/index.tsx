@@ -699,7 +699,7 @@ export default function EnquiriesIndex({ data }: EnquiriesProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="h-full w-full flex-1 overflow-y-auto px-2 pb-2">
+                    <div className="h-full w-full flex-1 overflow-y-auto p-2">
                         {privateFlowStep === 'package' && (
                             <PackageForm
                                 mode="create"
