@@ -95,6 +95,7 @@ interface ParsedOfficial {
 }
 
 interface ParsedPackagePayload {
+    package_number?: string | null;
     name: string;
     status: string;
     total_seats: number;
@@ -196,16 +197,29 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
         }),
     );
 
-    const flights = parseSheetRows(workbook, 'Flights', (row) => ({
-        from: cell(row.from) || undefined,
-        to: cell(row.to) || undefined,
-        description: cell(row.description) || undefined,
-        airline: cell(row.airline) || undefined,
-        pnr: cell(row.pnr) || undefined,
-        departure_datetime: cell(row.departure_datetime) || undefined,
-        arrival_datetime: cell(row.arrival_datetime) || undefined,
-        remarks: cell(row.remarks) || undefined,
-    }));
+    const flights = parseSheetRows(workbook, 'Flights', (row) => {
+        const depDate = cell(row.departure_date);
+        const depTime = cell(row.departure_time);
+        const arrDate = cell(row.arrival_date);
+        const arrTime = cell(row.arrival_time);
+
+        return {
+            from: cell(row.from) || undefined,
+            to: cell(row.to) || undefined,
+            description: cell(row.description) || undefined,
+            airline: cell(row.airline) || undefined,
+            pnr: cell(row.pnr) || undefined,
+            departure_datetime:
+                depDate && depTime
+                    ? `${depDate} ${depTime}`
+                    : depDate || depTime || undefined,
+            arrival_datetime:
+                arrDate && arrTime
+                    ? `${arrDate} ${arrTime}`
+                    : arrDate || arrTime || undefined,
+            remarks: cell(row.remarks) || undefined,
+        };
+    });
 
     const trainTickets = parseSheetRows(workbook, 'Train_Tickets', (row) => ({
         from: cell(row.from) || undefined,
@@ -255,6 +269,7 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
     }));
 
     return {
+        package_number: cell(pkg.package_number) || null,
         name: cell(pkg.name),
         status: cell(pkg.status) || 'open',
         total_seats: Number(pkg.total_seats) || 0,
@@ -887,6 +902,7 @@ export function generatePackageImportTemplate(): void {
     addSheet(
         'Package',
         [
+            'package_number',
             'name',
             'status',
             'total_seats',
@@ -911,6 +927,7 @@ export function generatePackageImportTemplate(): void {
             'remarks',
         ],
         [
+            '',
             'Umrah Package 2025',
             'open',
             40,
@@ -972,8 +989,10 @@ export function generatePackageImportTemplate(): void {
             'description',
             'airline',
             'pnr',
-            'departure_datetime',
-            'arrival_datetime',
+            'departure_date',
+            'departure_time',
+            'arrival_date',
+            'arrival_time',
             'remarks',
         ],
         [
@@ -982,8 +1001,10 @@ export function generatePackageImportTemplate(): void {
             'Departure',
             'Malaysia Airlines',
             'ABC123',
-            '01 January 2025 08:00',
-            '01 January 2025 12:00',
+            '01 January 2025',
+            '08:00',
+            '01 January 2025',
+            '12:00',
             '',
         ],
     );
@@ -1079,6 +1100,11 @@ export function generatePackageImportTemplate(): void {
         [_, _, _],
         ['PACKAGE SHEET', _, _],
         ['Column', 'Required?', 'Valid Values / Notes'],
+        [
+            'package_number',
+            'optional',
+            'Leave blank to auto-generate using the numbering format. e.g.  PKG-001',
+        ],
         ['name', 'REQUIRED', 'Any text. e.g.  Umrah Package Jan 2025'],
         ['status', 'REQUIRED', 'open | full | closed | ongoing | completed'],
         ['total_seats', 'REQUIRED', 'Whole number ≥ 1. e.g.  40'],
@@ -1175,15 +1201,17 @@ export function generatePackageImportTemplate(): void {
         ['airline', 'optional', 'e.g.  Malaysia Airlines | AirAsia'],
         ['pnr', 'optional', 'Booking reference code. e.g.  ABC123'],
         [
-            'departure_datetime',
+            'departure_date',
             'optional',
-            'Date + time. e.g.  01 January 2025 08:00',
+            'Date. e.g.  01 January 2025  or  2025-01-01',
         ],
+        ['departure_time', 'optional', 'Time in HH:MM. e.g.  08:00'],
         [
-            'arrival_datetime',
+            'arrival_date',
             'optional',
-            'Date + time. e.g.  01 January 2025 12:00',
+            'Date. e.g.  01 January 2025  or  2025-01-01',
         ],
+        ['arrival_time', 'optional', 'Time in HH:MM. e.g.  12:00'],
         ['remarks', 'optional', 'Any notes.'],
         [_, _, _],
         ['TRAIN_TICKETS SHEET', _, _],
@@ -1267,8 +1295,10 @@ export function generatePackageImportTemplate(): void {
     ];
 
     // Section header rows (bold col A only) and column-header rows (bold A+B+C)
-    const boldColA = new Set([0, 2, 9, 34, 47, 58, 65, 72, 79, 86, 97]);
-    const boldAllCols = new Set([10, 35, 48, 59, 66, 73, 80, 87]);
+    // Row offsets account for: package_number row added to Package section (+1),
+    // and departure_date/time + arrival_date/time replacing 2 combined fields (+2 net).
+    const boldColA = new Set([0, 2, 9, 35, 48, 61, 69, 77, 86, 100]);
+    const boldAllCols = new Set([10, 36, 49, 62, 70, 78, 87]);
 
     const instructionsWs = utils.aoa_to_sheet(instructionsData);
 
