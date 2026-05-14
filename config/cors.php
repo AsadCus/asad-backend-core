@@ -2,7 +2,19 @@
 
 return [
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'up'],
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+        'login',
+        'logout',
+        'up',
+        // Fortify-served 2FA endpoints (called directly by SPA from settings page)
+        'user/two-factor-authentication',
+        'user/confirmed-two-factor-authentication',
+        'user/two-factor-qr-code',
+        'user/two-factor-secret-key',
+        'user/two-factor-recovery-codes',
+    ],
 
     'allowed_methods' => ['*'],
 
