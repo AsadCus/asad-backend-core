@@ -2,7 +2,7 @@ import { useColorTheme } from '@/hooks/use-color-theme';
 import { cn } from '@/lib/utils';
 
 const colorThemes = [
-    { name: 'default', color: 'bg-primary' },
+    { name: 'default', color: 'bg-[oklch(57.678%_0.15043_41.264)] dark:bg-white' },
     { name: 'red', color: 'bg-red-500' },
     { name: 'rose', color: 'bg-rose-500' },
     { name: 'orange', color: 'bg-orange-500' },
@@ -27,9 +27,7 @@ export default function ColorThemeSwitcher() {
                     }
                     className={cn(
                         'h-8 w-8 rounded-full border-2 border-transparent transition-all',
-                        theme.color === 'bg-primary'
-                            ? 'bg-primary dark:bg-white'
-                            : theme.color,
+                        theme.color,
                         colorTheme === theme.name &&
                             'ring-2 ring-primary ring-offset-2 dark:ring-white',
                     )}
