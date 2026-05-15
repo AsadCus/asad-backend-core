@@ -2,13 +2,14 @@ import '../css/app.css';
 
 import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { initializeColorTheme } from './hooks/use-color-theme';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-router.on('invalid', (event) => {
+router.on('httpException', (event) => {
     const statusCode = event.detail.response.status;
 
     if (statusCode !== 401 && statusCode !== 419) {
@@ -28,11 +29,17 @@ const cleanApp = () => {
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    resolve: (name) =>
-        resolvePageComponent(
+    resolve: async (name): Promise<ComponentType> => {
+        const module = await resolvePageComponent(
             `./pages/${name}.tsx`,
             import.meta.glob('./pages/**/*.tsx'),
-        ),
+        );
+
+        return (
+            (module as { default?: ComponentType }).default ??
+            (module as ComponentType)
+        );
+    },
     setup({ el, App, props }) {
         const root = createRoot(el);
 

@@ -297,7 +297,7 @@ export function DatePickerField({
                                                 );
                                             }}
                                         >
-                                            <SelectTrigger className="w-[70px]">
+                                            <SelectTrigger className="w-17.5">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -329,7 +329,7 @@ export function DatePickerField({
                                                 );
                                             }}
                                         >
-                                            <SelectTrigger className="w-[70px]">
+                                            <SelectTrigger className="w-17.5">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -350,7 +350,7 @@ export function DatePickerField({
                                 )}
                             </div>
                             {quickDate && (
-                                <div className="flex min-w-[160px] flex-col gap-1 border-l p-3">
+                                <div className="flex min-w-40 flex-col gap-1 border-l p-3">
                                     <p className="mb-2 text-sm font-medium">
                                         Quick Select
                                     </p>

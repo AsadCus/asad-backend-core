@@ -6,7 +6,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editPassword } from '@/routes/password';
 import { edit } from '@/routes/profile';
 import { edit as editReportTemplate } from '@/routes/report-template';
-// import { show } from '@/routes/two-factor';
+import { show } from '@/routes/two-factor';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
@@ -22,11 +22,11 @@ const sidebarNavItems: NavItem[] = [
         href: editPassword(),
         icon: null,
     },
-    // {
-    //     title: 'Two-Factor Auth',
-    //     href: show(),
-    //     icon: null,
-    // },
+    {
+        title: 'Two-Factor Auth',
+        href: show(),
+        icon: null,
+    },
 ];
 
 const adminOnlySidebarNavItems: NavItem[] = [

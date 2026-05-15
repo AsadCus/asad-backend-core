@@ -229,7 +229,7 @@ export function FinancialYearForm({
                     {!isView && (
                         <Button
                             type="submit"
-                            className="min-w-[140px]"
+                            className="min-w-35"
                             disabled={processing}
                         >
                             {isEdit ? 'Update' : 'Create'}

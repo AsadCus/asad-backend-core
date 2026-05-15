@@ -290,495 +290,523 @@ export default function Appearance({
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
                     <div className="w-full space-y-6 lg:flex-1">
                         <HeadingSmall
-                        title="Appearance settings"
-                        description="Customize your appearance preferences"
-                    />
+                            title="Appearance settings"
+                            description="Customize your appearance preferences"
+                        />
 
-                    {/* Success Message */}
-                    {showSuccess && (
-                        <Card className="border-green-200 bg-green-50">
-                            <CardContent className="flex items-center gap-2 py-3">
-                                <Check className="h-5 w-5 text-green-600" />
-                                <span className="text-base font-medium text-green-800">
-                                    Appearance settings saved successfully!
-                                </span>
-                            </CardContent>
-                        </Card>
-                    )}
+                        {/* Success Message */}
+                        {showSuccess && (
+                            <Card className="border-green-200 bg-green-50">
+                                <CardContent className="flex items-center gap-2 py-3">
+                                    <Check className="h-5 w-5 text-green-600" />
+                                    <span className="text-base font-medium text-green-800">
+                                        Appearance settings saved successfully!
+                                    </span>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                    {/* Theme Switcher */}
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold">
-                                        Theme
-                                    </h3>
-                                    <p className="text-base text-muted-foreground">
-                                        Choose your preferred color theme (saved
-                                        to your browser)
-                                    </p>
-                                </div>
-                                <AppearanceTabs />
-                                <div className="space-y-2">
-                                    <Label>Color Theme</Label>
-                                    <ColorThemeSwitcher />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Admin Settings */}
-                    {isAdmin && (
+                        {/* Theme Switcher */}
                         <Card>
-                            <CardContent className="pt-6">
-                                <div className="space-y-6">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-lg font-semibold">
-                                                Global Appearance Settings
-                                            </h3>
-                                            <p className="text-base text-muted-foreground">
-                                                Set default appearance for all
-                                                users (saved to database)
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={resetToDefault}
-                                            className="gap-2"
-                                        >
-                                            <RotateCcw className="h-4 w-4" />
-                                            Reset
-                                        </Button>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">
+                                            Theme
+                                        </h3>
+                                        <p className="text-base text-muted-foreground">
+                                            Choose your preferred color theme
+                                            (saved to your browser)
+                                        </p>
                                     </div>
-
-                                    {/* Primary Brand Color */}
-                                    <div className="space-y-3">
-                                        <Label>Primary Brand Color</Label>
-                                        <div className="grid grid-cols-6 gap-2">
-                                            {primaryColors.map((preset) => (
-                                                <ColorPresetButton
-                                                    key={preset.color}
-                                                    color={preset.color}
-                                                    name={preset.name}
-                                                    isSelected={
-                                                        form.primary_color ===
-                                                        preset.color
-                                                    }
-                                                    onClick={() =>
-                                                        update(
-                                                            'primary_color',
-                                                            preset.color,
-                                                        )
-                                                    }
-                                                />
-                                            ))}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="color"
-                                                value={
-                                                    form.primary_color ||
-                                                    '#3b82f6'
-                                                }
-                                                onChange={(e) =>
-                                                    update(
-                                                        'primary_color',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="h-10 w-20 cursor-pointer"
-                                            />
-                                            <Input
-                                                type="text"
-                                                placeholder="#3b82f6"
-                                                value={form.primary_color || ''}
-                                                onChange={(e) =>
-                                                    update(
-                                                        'primary_color',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="flex-1"
-                                            />
-                                        </div>
+                                    <AppearanceTabs />
+                                    <div className="space-y-2">
+                                        <Label>Color Theme</Label>
+                                        <ColorThemeSwitcher />
                                     </div>
-
-                                    {/* Border Radius */}
-                                    <div className="space-y-3">
-                                        <Label>Border Radius</Label>
-                                        <div className="grid grid-cols-5 gap-2">
-                                            {borderRadiusOptions.map(
-                                                (option) => (
-                                                    <Button
-                                                        key={option.value}
-                                                        type="button"
-                                                        variant={
-                                                            form.border_radius ===
-                                                            option.value
-                                                                ? 'default'
-                                                                : 'outline'
-                                                        }
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            update(
-                                                                'border_radius',
-                                                                option.value,
-                                                            )
-                                                        }
-                                                        className="flex flex-col gap-1 py-3"
-                                                    >
-                                                        <div
-                                                            className="h-6 w-6 border-2 border-current"
-                                                            style={{
-                                                                borderRadius:
-                                                                    option.value,
-                                                            }}
-                                                        />
-                                                        <span className="text-sm">
-                                                            {option.name}
-                                                        </span>
-                                                    </Button>
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Auth Card Background Presets */}
-                                    <div className="space-y-3">
-                                        <Label>Auth Card Background</Label>
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-muted-foreground">
-                                                Light theme presets
-                                            </p>
-                                            <div className="grid grid-cols-5 gap-2">
-                                                {presetColors.card_light.map(
-                                                    (preset) => (
-                                                        <ColorPresetButton
-                                                            key={preset.color}
-                                                            color={preset.color}
-                                                            name={preset.name}
-                                                            isSelected={
-                                                                form.auth_card_bg ===
-                                                                preset.color
-                                                            }
-                                                            onClick={() =>
-                                                                update(
-                                                                    'auth_card_bg',
-                                                                    preset.color,
-                                                                )
-                                                            }
-                                                        />
-                                                    ),
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-muted-foreground">
-                                                Dark theme presets
-                                            </p>
-                                            <div className="grid grid-cols-5 gap-2">
-                                                {presetColors.card_dark.map(
-                                                    (preset) => (
-                                                        <ColorPresetButton
-                                                            key={preset.color}
-                                                            color={preset.color}
-                                                            name={preset.name}
-                                                            isSelected={
-                                                                form.auth_card_bg ===
-                                                                preset.color
-                                                            }
-                                                            onClick={() =>
-                                                                update(
-                                                                    'auth_card_bg',
-                                                                    preset.color,
-                                                                )
-                                                            }
-                                                        />
-                                                    ),
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="color"
-                                                value={
-                                                    form.auth_card_bg ||
-                                                    '#ffffff'
-                                                }
-                                                onChange={(e) =>
-                                                    update(
-                                                        'auth_card_bg',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="h-10 w-20 cursor-pointer"
-                                            />
-                                            <Input
-                                                type="text"
-                                                placeholder="#ffffff or rgb(255,255,255)"
-                                                value={form.auth_card_bg || ''}
-                                                onChange={(e) =>
-                                                    update(
-                                                        'auth_card_bg',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="flex-1"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Auth Background */}
-                                    <div className="space-y-3">
-                                        <Label>Auth Page Background</Label>
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-muted-foreground">
-                                                Solid colors
-                                            </p>
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {presetColors.backgrounds.map(
-                                                    (preset) => (
-                                                        <ColorPresetButton
-                                                            key={preset.color}
-                                                            color={preset.color}
-                                                            name={preset.name}
-                                                            isSelected={
-                                                                form.auth_bg ===
-                                                                preset.color
-                                                            }
-                                                            onClick={() =>
-                                                                update(
-                                                                    'auth_bg',
-                                                                    preset.color,
-                                                                )
-                                                            }
-                                                        />
-                                                    ),
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-muted-foreground">
-                                                Gradients
-                                            </p>
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {presetColors.gradients.map(
-                                                    (preset) => (
-                                                        <ColorPresetButton
-                                                            key={preset.color}
-                                                            color={preset.color}
-                                                            name={preset.name}
-                                                            isSelected={
-                                                                form.auth_bg ===
-                                                                preset.color
-                                                            }
-                                                            onClick={() =>
-                                                                update(
-                                                                    'auth_bg',
-                                                                    preset.color,
-                                                                )
-                                                            }
-                                                        />
-                                                    ),
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="color"
-                                                value={
-                                                    form.auth_bg || '#f3f4f6'
-                                                }
-                                                onChange={(e) =>
-                                                    update(
-                                                        'auth_bg',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="h-10 w-20 cursor-pointer"
-                                            />
-                                            <Input
-                                                type="text"
-                                                placeholder="#f3f4f6 or linear-gradient(...)"
-                                                value={form.auth_bg || ''}
-                                                onChange={(e) =>
-                                                    update(
-                                                        'auth_bg',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="flex-1"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Save Button with Confirmation */}
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                className="w-full"
-                                                disabled={isSubmitting}
-                                            >
-                                                {isSubmitting
-                                                    ? 'Saving...'
-                                                    : 'Save Appearance Settings'}
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>
-                                                    Save appearance settings?
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will apply the
-                                                    appearance changes to all
-                                                    users. Make sure you've
-                                                    previewed the changes in
-                                                    both light and dark modes.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>
-                                                    Cancel
-                                                </AlertDialogCancel>
-                                                <AlertDialogAction
-                                                    onClick={submit}
-                                                >
-                                                    Save Changes
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
                                 </div>
                             </CardContent>
                         </Card>
-                    )}
-                </div>
 
-                {/* Right Column (Previews) */}
-                <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
-                    {isAdmin && (
+                        {/* Component Preview */}
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <Label>Live Preview</Label>
-                                        <div className="flex gap-1 rounded-md border p-1">
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={
-                                                    previewMode === 'light'
-                                                        ? 'default'
-                                                        : 'ghost'
-                                                }
-                                                onClick={() =>
-                                                    setPreviewMode('light')
-                                                }
-                                                className="gap-2"
-                                            >
-                                                <Sun className="h-4 w-4" />
-                                                Light
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={
-                                                    previewMode === 'dark'
-                                                        ? 'default'
-                                                        : 'ghost'
-                                                }
-                                                onClick={() =>
-                                                    setPreviewMode('dark')
-                                                }
-                                                className="gap-2"
-                                            >
-                                                <Moon className="h-4 w-4" />
-                                                Dark
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={
-                                                    previewMode === 'both'
-                                                        ? 'default'
-                                                        : 'ghost'
-                                                }
-                                                onClick={() =>
-                                                    setPreviewMode('both')
-                                                }
-                                            >
-                                                Both
-                                            </Button>
-                                        </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold">
+                                            Component Preview
+                                        </h3>
+                                        <p className="text-base text-muted-foreground">
+                                            Preview of UI components with
+                                            current theme
+                                        </p>
                                     </div>
-
-                                    <div className="mt-4">
-                                        {previewMode === 'both' ? (
-                                            <div className="flex flex-col gap-4">
-                                                <ThemePreview
-                                                    settings={form}
-                                                    mode="light"
-                                                />
-                                                <ThemePreview
-                                                    settings={form}
-                                                    mode="dark"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <ThemePreview
-                                                settings={form}
-                                                mode={previewMode}
-                                            />
-                                        )}
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button>Primary</Button>
+                                        <Button variant={'secondary'}>
+                                            Secondary
+                                        </Button>
+                                        <Button variant={'outline'}>
+                                            Outline
+                                        </Button>
+                                        <Button variant={'ghost'}>Ghost</Button>
                                     </div>
+                                    <Input
+                                        placeholder="Input example"
+                                        className="max-w-sm"
+                                        style={{
+                                            borderRadius:
+                                                form.border_radius || undefined,
+                                        }}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
-                    )}
 
-                    {/* Component Preview */}
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold">
-                                        Component Preview
-                                    </h3>
-                                    <p className="text-base text-muted-foreground">
-                                        Preview of UI components with current
-                                        theme
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        style={{
-                                            background:
-                                                form.primary_color || undefined,
-                                        }}
-                                    >
-                                        Primary
-                                    </Button>
-                                    <Button variant={'secondary'}>
-                                        Secondary
-                                    </Button>
-                                    <Button variant={'outline'}>Outline</Button>
-                                    <Button variant={'ghost'}>Ghost</Button>
-                                </div>
-                                <Input
-                                    placeholder="Input example"
-                                    className="max-w-sm"
-                                    style={{
-                                        borderRadius:
-                                            form.border_radius || undefined,
-                                    }}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                        {/* Admin Settings */}
+                        {isAdmin && (
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <div className="space-y-6">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold">
+                                                    Global Appearance Settings
+                                                </h3>
+                                                <p className="text-base text-muted-foreground">
+                                                    Set default appearance for
+                                                    all users (saved to
+                                                    database)
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={resetToDefault}
+                                                className="gap-2"
+                                            >
+                                                <RotateCcw className="h-4 w-4" />
+                                                Reset
+                                            </Button>
+                                        </div>
+
+                                        {/* Primary Brand Color */}
+                                        <div className="space-y-3">
+                                            <Label>Primary Brand Color</Label>
+                                            <div className="grid grid-cols-6 gap-2">
+                                                {primaryColors.map((preset) => (
+                                                    <ColorPresetButton
+                                                        key={preset.color}
+                                                        color={preset.color}
+                                                        name={preset.name}
+                                                        isSelected={
+                                                            form.primary_color ===
+                                                            preset.color
+                                                        }
+                                                        onClick={() =>
+                                                            update(
+                                                                'primary_color',
+                                                                preset.color,
+                                                            )
+                                                        }
+                                                    />
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="color"
+                                                    value={
+                                                        form.primary_color ||
+                                                        '#3b82f6'
+                                                    }
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'primary_color',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-10 w-20 cursor-pointer"
+                                                />
+                                                <Input
+                                                    type="text"
+                                                    placeholder="#3b82f6"
+                                                    value={
+                                                        form.primary_color || ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'primary_color',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="flex-1"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Border Radius */}
+                                        <div className="space-y-3">
+                                            <Label>Border Radius</Label>
+                                            <div className="grid grid-cols-5 gap-2">
+                                                {borderRadiusOptions.map(
+                                                    (option) => (
+                                                        <Button
+                                                            key={option.value}
+                                                            type="button"
+                                                            variant={
+                                                                form.border_radius ===
+                                                                option.value
+                                                                    ? 'default'
+                                                                    : 'outline'
+                                                            }
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                update(
+                                                                    'border_radius',
+                                                                    option.value,
+                                                                )
+                                                            }
+                                                            className="flex flex-col gap-1 py-3"
+                                                        >
+                                                            <div
+                                                                className="h-6 w-6 border-2 border-current"
+                                                                style={{
+                                                                    borderRadius:
+                                                                        option.value,
+                                                                }}
+                                                            />
+                                                            <span className="text-sm">
+                                                                {option.name}
+                                                            </span>
+                                                        </Button>
+                                                    ),
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Auth Card Background Presets */}
+                                        <div className="space-y-3">
+                                            <Label>Auth Card Background</Label>
+                                            <div className="space-y-2">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Light theme presets
+                                                </p>
+                                                <div className="grid grid-cols-5 gap-2">
+                                                    {presetColors.card_light.map(
+                                                        (preset) => (
+                                                            <ColorPresetButton
+                                                                key={
+                                                                    preset.color
+                                                                }
+                                                                color={
+                                                                    preset.color
+                                                                }
+                                                                name={
+                                                                    preset.name
+                                                                }
+                                                                isSelected={
+                                                                    form.auth_card_bg ===
+                                                                    preset.color
+                                                                }
+                                                                onClick={() =>
+                                                                    update(
+                                                                        'auth_card_bg',
+                                                                        preset.color,
+                                                                    )
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Dark theme presets
+                                                </p>
+                                                <div className="grid grid-cols-5 gap-2">
+                                                    {presetColors.card_dark.map(
+                                                        (preset) => (
+                                                            <ColorPresetButton
+                                                                key={
+                                                                    preset.color
+                                                                }
+                                                                color={
+                                                                    preset.color
+                                                                }
+                                                                name={
+                                                                    preset.name
+                                                                }
+                                                                isSelected={
+                                                                    form.auth_card_bg ===
+                                                                    preset.color
+                                                                }
+                                                                onClick={() =>
+                                                                    update(
+                                                                        'auth_card_bg',
+                                                                        preset.color,
+                                                                    )
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="color"
+                                                    value={
+                                                        form.auth_card_bg ||
+                                                        '#ffffff'
+                                                    }
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'auth_card_bg',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-10 w-20 cursor-pointer"
+                                                />
+                                                <Input
+                                                    type="text"
+                                                    placeholder="#ffffff or rgb(255,255,255)"
+                                                    value={
+                                                        form.auth_card_bg || ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'auth_card_bg',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="flex-1"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Auth Background */}
+                                        <div className="space-y-3">
+                                            <Label>Auth Page Background</Label>
+                                            <div className="space-y-2">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Solid colors
+                                                </p>
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {presetColors.backgrounds.map(
+                                                        (preset) => (
+                                                            <ColorPresetButton
+                                                                key={
+                                                                    preset.color
+                                                                }
+                                                                color={
+                                                                    preset.color
+                                                                }
+                                                                name={
+                                                                    preset.name
+                                                                }
+                                                                isSelected={
+                                                                    form.auth_bg ===
+                                                                    preset.color
+                                                                }
+                                                                onClick={() =>
+                                                                    update(
+                                                                        'auth_bg',
+                                                                        preset.color,
+                                                                    )
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Gradients
+                                                </p>
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {presetColors.gradients.map(
+                                                        (preset) => (
+                                                            <ColorPresetButton
+                                                                key={
+                                                                    preset.color
+                                                                }
+                                                                color={
+                                                                    preset.color
+                                                                }
+                                                                name={
+                                                                    preset.name
+                                                                }
+                                                                isSelected={
+                                                                    form.auth_bg ===
+                                                                    preset.color
+                                                                }
+                                                                onClick={() =>
+                                                                    update(
+                                                                        'auth_bg',
+                                                                        preset.color,
+                                                                    )
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="color"
+                                                    value={
+                                                        form.auth_bg ||
+                                                        '#f3f4f6'
+                                                    }
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'auth_bg',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-10 w-20 cursor-pointer"
+                                                />
+                                                <Input
+                                                    type="text"
+                                                    placeholder="#f3f4f6 or linear-gradient(...)"
+                                                    value={form.auth_bg || ''}
+                                                    onChange={(e) =>
+                                                        update(
+                                                            'auth_bg',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="flex-1"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Save Button with Confirmation */}
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    className="w-full"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    {isSubmitting
+                                                        ? 'Saving...'
+                                                        : 'Save Appearance Settings'}
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>
+                                                        Save appearance
+                                                        settings?
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This will apply the
+                                                        appearance changes to
+                                                        all users. Make sure
+                                                        you've previewed the
+                                                        changes in both light
+                                                        and dark modes.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>
+                                                        Cancel
+                                                    </AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={submit}
+                                                    >
+                                                        Save Changes
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+
+                    {/* Right Column (Previews) */}
+                    <div className="w-full space-y-6 lg:sticky lg:top-6 lg:w-[45%] xl:w-[40%]">
+                        {isAdmin && (
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <Label>Live Preview</Label>
+                                            <div className="flex gap-1 rounded-md border p-1">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={
+                                                        previewMode === 'light'
+                                                            ? 'default'
+                                                            : 'ghost'
+                                                    }
+                                                    onClick={() =>
+                                                        setPreviewMode('light')
+                                                    }
+                                                    className="gap-2"
+                                                >
+                                                    <Sun className="h-4 w-4" />
+                                                    Light
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={
+                                                        previewMode === 'dark'
+                                                            ? 'default'
+                                                            : 'ghost'
+                                                    }
+                                                    onClick={() =>
+                                                        setPreviewMode('dark')
+                                                    }
+                                                    className="gap-2"
+                                                >
+                                                    <Moon className="h-4 w-4" />
+                                                    Dark
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={
+                                                        previewMode === 'both'
+                                                            ? 'default'
+                                                            : 'ghost'
+                                                    }
+                                                    onClick={() =>
+                                                        setPreviewMode('both')
+                                                    }
+                                                >
+                                                    Both
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4">
+                                            {previewMode === 'both' ? (
+                                                <div className="flex flex-col gap-4">
+                                                    <ThemePreview
+                                                        settings={form}
+                                                        mode="light"
+                                                    />
+                                                    <ThemePreview
+                                                        settings={form}
+                                                        mode="dark"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <ThemePreview
+                                                    settings={form}
+                                                    mode={previewMode}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                     </div>
                 </div>
             </SettingsLayout>

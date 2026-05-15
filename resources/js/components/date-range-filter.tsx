@@ -263,7 +263,7 @@ export function DateRangeFilter<TData>({
                             </div>
 
                             {quickDate && (
-                                <div className="hidden min-w-[160px] flex-col gap-1 border-l pl-4 md:flex">
+                                <div className="hidden min-w-40 flex-col gap-1 border-l pl-4 md:flex">
                                     <p className="mb-2 text-sm font-medium">
                                         Quick Select
                                     </p>
