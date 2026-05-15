@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
 use App\Http\Controllers\Api\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Api\Master\FinancialYearController as MasterFinancialYearController;
+use App\Http\Controllers\Api\Master\MasterStatsController;
 use App\Http\Controllers\Api\Master\UserController as MasterUserController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
@@ -30,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 
     Route::post('/data-scope/countries', [DataScopeController::class, 'updateCountries']);
+
+    Route::get('/master/stats', MasterStatsController::class);
 
     Route::apiResource('/master/country', MasterCountryController::class);
     Route::apiResource('/master/branch', MasterBranchController::class);
