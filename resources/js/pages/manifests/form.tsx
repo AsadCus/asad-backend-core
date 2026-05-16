@@ -35,7 +35,8 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import {
     AlertCircle,
     ArrowLeft,
@@ -1836,6 +1837,9 @@ export default function ManifestForm({
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
 
+    const { auth } = usePage<SharedData>().props;
+    const isSuperadmin = auth.roles.includes('superadmin');
+
     const packageOptions = dataPackage as PackageForManifestOption[];
     const defaults = buildDefaultData(initialData);
 
@@ -3458,6 +3462,8 @@ export default function ManifestForm({
                                 setIsMemberDetailDialogOpen(true);
                             }}
                             onRowsChange={updateFromMembers}
+                            showExportPayment={isSuperadmin}
+                            manifestNumber={data.manifest_number}
                         />
                     </TabsContent>
 

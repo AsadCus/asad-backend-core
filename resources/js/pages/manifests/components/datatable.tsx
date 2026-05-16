@@ -51,11 +51,13 @@ import { CSS } from '@dnd-kit/utilities';
 import {
     ChevronDown,
     ChevronRight,
+    Download,
     EllipsisVertical,
     ExternalLink,
     FileText,
     GripVertical,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -196,6 +198,8 @@ interface ManifestDatatableProps {
     onRowsChange: (rows: MemberWithUI[]) => void;
     onMoveToHolding?: (member: MemberWithUI) => void;
     onViewMember?: (member: MemberWithUI) => void;
+    showExportPayment?: boolean;
+    manifestNumber?: string | null;
 }
 
 function normalizeRoomLocationKey(value: string): string {
@@ -441,6 +445,8 @@ export default function ManifestDatatable({
     onRowsChange,
     onMoveToHolding,
     onViewMember,
+    showExportPayment = false,
+    manifestNumber,
 }: ManifestDatatableProps) {
     const isGrouped =
         mode === 'members' ||
@@ -1248,6 +1254,147 @@ export default function ManifestDatatable({
         }
 
         handleFlatDrag(activeId, overId);
+    };
+
+    const handleExportPayment = () => {
+        const groupIndexMap = new Map<string, number>();
+        groups.forEach((group, index) => {
+            groupIndexMap.set(group.key, index + 1);
+        });
+
+        const sharingPlanLabels: Record<string, string> = {
+            quad: 'Quad',
+            triple: 'Triple',
+            double: 'Double',
+            twin: 'Twin',
+            single: 'Single',
+            child_with_bed: 'Child With Bed',
+            child_no_bed: 'Child No Bed',
+            infant: 'Infant',
+        };
+
+        const exportMembers = rows.filter((member) => !member.package_official_id);
+        const safeManifestNumber = String(manifestNumber ?? '').trim() || 'Draft';
+        const exportDate = new Date().toLocaleDateString('en-MY', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        const exportDateISO = new Date().toISOString().slice(0, 10);
+
+        const wb = XLSX.utils.book_new();
+
+        // --- Instructions sheet ---
+        const instructionsRows: (string | number)[][] = [
+            ['Manifest Payment Summary Export'],
+            [],
+            ['Manifest Number', safeManifestNumber],
+            ['Export Date', exportDate],
+            ['Total Members', exportMembers.length],
+            [],
+            ['Column Descriptions'],
+            ['Column', 'Description'],
+            ['No.', 'Sequential row number'],
+            ['Name', 'Member name as per passport'],
+            ['Group', 'Sharing group (e.g. Group 1, Group 2)'],
+            [
+                'Room Type',
+                'Room sharing plan (Single / Double / Triple / Quad / Child With Bed / Child No Bed / Infant)',
+            ],
+            ['Discount', 'Discount amount'],
+            ['Date of Deposit Payment', 'Date when first deposit payment was received'],
+            ['Deposit Payment', 'First deposit payment amount'],
+            ['Date of Second Payment', 'Date when second payment was received'],
+            ['Second Payment', 'Second payment amount'],
+            ['Date of Third Payment', 'Date when third payment was received'],
+            ['Third Payment', 'Third payment amount'],
+            ['Balance Due', 'Remaining outstanding balance'],
+            ['Package Price', 'Total package price for this member'],
+            [
+                'Payment Status',
+                'Pending Payment | Partially Paid | Fully Paid | Overpaid | Trip Cancelled',
+            ],
+            [],
+            ['Notes'],
+            ['- Payment amounts are raw numbers (no currency symbol)'],
+            ['- Official members (tour guides / coordinators) are excluded'],
+            ['- Reflects data at time of export; unsaved changes are not included'],
+        ];
+
+        const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsRows);
+        wsInstructions['!cols'] = [{ wch: 28 }, { wch: 80 }];
+        XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
+        // --- Payment Summary sheet ---
+        const headers = [
+            'No.',
+            'Name',
+            'Group',
+            'Room Type',
+            'Discount',
+            'Date of Deposit Payment',
+            'Deposit Payment',
+            'Date of Second Payment',
+            'Second Payment',
+            'Date of Third Payment',
+            'Third Payment',
+            'Balance Due',
+            'Package Price',
+            'Payment Status',
+        ];
+
+        const dataRows = exportMembers.map((member, index) => {
+            const groupKey = member.sharing_group_key ?? '';
+            const groupIndex = groupIndexMap.get(groupKey);
+            const groupLabel = groupIndex !== undefined ? `Group ${groupIndex}` : '';
+            const roomType =
+                sharingPlanLabels[String(member.sharing_plan ?? '').toLowerCase()] ??
+                member.sharing_plan ??
+                '';
+            const status = String(member.status ?? '');
+            const paymentStatus =
+                confirmationMemberStatusLabels[status] ?? status;
+
+            return [
+                index + 1,
+                member.name_as_per_passport ?? '',
+                groupLabel,
+                roomType,
+                member.discount ?? '',
+                member.date_of_deposit_payment ?? '',
+                member.deposit_payment ?? '',
+                member.date_of_second_payment ?? '',
+                member.second_payment ?? '',
+                member.date_of_third_payment ?? '',
+                member.third_payment ?? '',
+                member.balance_due ?? '',
+                member.package_price ?? '',
+                paymentStatus,
+            ];
+        });
+
+        const wsData = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+        wsData['!cols'] = [
+            { wch: 6 },
+            { wch: 40 },
+            { wch: 12 },
+            { wch: 16 },
+            { wch: 12 },
+            { wch: 24 },
+            { wch: 16 },
+            { wch: 24 },
+            { wch: 16 },
+            { wch: 24 },
+            { wch: 16 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 18 },
+        ];
+        wsData['!freeze'] = { xSplit: 0, ySplit: 1 };
+        XLSX.utils.book_append_sheet(wb, wsData, 'Payment Summary');
+
+        const fileName = `Manifest Payment Summary - ${safeManifestNumber} - ${exportDateISO}.xlsx`;
+        XLSX.writeFile(wb, fileName);
     };
 
     const getColumnCount = (): number => {
@@ -3935,6 +4082,17 @@ export default function ManifestDatatable({
         <div className="overflow-hidden rounded-md border">
             {isGrouped && groups.length > 0 && (
                 <div className="flex items-center justify-end gap-2 border-b bg-muted/20 px-3 py-2">
+                    {mode === 'members' && showExportPayment && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExportPayment}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            Export Payment
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         variant="outline"
