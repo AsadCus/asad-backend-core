@@ -57,6 +57,16 @@ class Quotation extends Model
         return $this->belongsTo(User::class, 'handled_by');
     }
 
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function order(): HasOne
     {
         return $this->hasOne(Order::class);

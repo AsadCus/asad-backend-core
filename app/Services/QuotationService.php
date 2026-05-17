@@ -51,6 +51,8 @@ class QuotationService
                 'quotationItems',
                 'order.invoices.receipt',
                 'handledBy:id,name',
+                'country:id,name',
+                'branch:id,name',
             ])->withTrashed()
         )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
@@ -80,7 +82,9 @@ class QuotationService
                     'sales_id' => $q->handledBy?->id ?? '-',
                     'sales_name' => $q->handledBy?->name ?? '-',
                     'country_id' => $q->country_id,
+                    'country_name' => $q->country?->name ?? '-',
                     'branch_id' => $q->branch_id,
+                    'branch_name' => $q->branch?->name ?? '-',
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,

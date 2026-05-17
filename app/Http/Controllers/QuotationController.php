@@ -140,7 +140,11 @@ class QuotationController extends Controller
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
-        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment(
+            null,
+            isset($data['data']['country_id']) ? (int) $data['data']['country_id'] : null,
+            isset($data['data']['branch_id']) ? (int) $data['data']['branch_id'] : null,
+        );
 
         return Inertia::render('quotations/edit', [
             'data' => $data,
