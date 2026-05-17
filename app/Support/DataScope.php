@@ -305,11 +305,11 @@ class DataScope
     {
         $query->where(function (Builder $creatorQuery): void {
             $creatorQuery
-                ->whereDoesntHave('createdBy.sales')
-                ->whereDoesntHave('createdBy.admin');
-        })->orWhereHas('createdBy.sales', function (Builder $salesQuery): void {
+                ->whereDoesntHave('handledBy.sales')
+                ->whereDoesntHave('handledBy.admin');
+        })->orWhereHas('handledBy.sales', function (Builder $salesQuery): void {
             self::applyGlobalCountryConstraint($salesQuery);
-        })->orWhereHas('createdBy.admin', function (Builder $adminQuery): void {
+        })->orWhereHas('handledBy.admin', function (Builder $adminQuery): void {
             self::applyGlobalCountryConstraint($adminQuery);
         });
     }

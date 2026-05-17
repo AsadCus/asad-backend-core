@@ -31,7 +31,7 @@ export const quotationSchema = z.object({
     branch_id: z.number().nullable().optional(),
     sales_id: z.number().nullable().optional(),
     sales_name: z.string().nullable().optional(),
-    created_by: z.number().nullable().optional(),
+    handled_by: z.number().nullable().optional(),
     nric_number: z.string().nullable().optional(),
     customer_number: z.string().nullable().optional(),
     customer_name: z.string().nullable().optional(),

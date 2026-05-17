@@ -372,14 +372,14 @@ class EnquirySalesWorkflowTest extends TestCase
 
         $quotationA = Quotation::create([
             'customer_id' => $customerA->id,
-            'created_by' => $salesA->id,
+            'handled_by' => $salesA->id,
             'quotation_date' => now()->toDateString(),
             'status' => 'draft',
         ]);
 
         $quotationB = Quotation::create([
             'customer_id' => $customerB->id,
-            'created_by' => $salesB->id,
+            'handled_by' => $salesB->id,
             'quotation_date' => now()->toDateString(),
             'status' => 'draft',
         ]);
@@ -509,7 +509,7 @@ class EnquirySalesWorkflowTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => (int) $customerId,
             'customer_confirmation_id' => $group->id,
-            'created_by' => $salesB->id,
+            'handled_by' => $salesB->id,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'full',
@@ -589,7 +589,7 @@ class EnquirySalesWorkflowTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => (int) $customerId,
             'customer_confirmation_id' => $group->id,
-            'created_by' => $handledBy,
+            'handled_by' => $handledBy,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'full',

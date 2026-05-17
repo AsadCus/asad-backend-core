@@ -187,9 +187,9 @@ class QuotationController extends Controller
                 'subject_type' => 'Quotation',
                 'subject_id' => $quotation->id,
                 'quotation_number' => $quotation->quotation_number,
-                'assigned_to' => $quotation->created_by,
+                'assigned_to' => $quotation->handled_by,
             ])
-            ->log('Quotation assigned to salesperson #'.$quotation->created_by.' for quotation #'.$quotation->quotation_number);
+            ->log('Quotation assigned to salesperson #'.$quotation->handled_by.' for quotation #'.$quotation->quotation_number);
 
         return redirect()->route('quotation.index')->with('success', 'Quotation handled successfully.');
     }

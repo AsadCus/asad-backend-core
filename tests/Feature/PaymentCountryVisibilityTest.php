@@ -207,7 +207,7 @@ class PaymentCountryVisibilityTest extends TestCase
         $quotation = Quotation::create([
             'quotation_number' => 'Q-'.$suffix,
             'customer_id' => $customer->id,
-            'created_by' => $creator->id,
+            'handled_by' => $creator->id,
             'country_id' => $countryId,
             'quotation_date' => now()->toDateString(),
             'expiry_date' => now()->addDays(7)->toDateString(),

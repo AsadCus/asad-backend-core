@@ -34,12 +34,12 @@ class ReceiptService
     public function getForDataTable(array $filters = [])
     {
         return DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
-            Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.customerConfirmation.package:id,package_number,name', 'invoice.order.quotation.createdBy:id,name']),
+            Receipt::with(['invoice.order.quotation.customer.user', 'invoice.order.quotation.customerConfirmation.enquiry.handledBy:id,name', 'invoice.order.quotation.customerConfirmation.package:id,package_number,name', 'invoice.order.quotation.handledBy:id,name']),
             'invoice.order.quotation'
         )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('invoice.order.quotation', function ($quotationQuery) use ($value) {
-                    $quotationQuery->where('created_by', $value);
+                    $quotationQuery->where('handled_by', $value);
                 });
             })
             ->orderBy('receipt_number', 'desc')->get()->map(function ($r) {
@@ -55,8 +55,8 @@ class ReceiptService
                     'customer_name' => $r->invoice?->order->quotation->customer->user->name ?? '-',
                     'package_name' => $r->invoice?->order->quotation->customerConfirmation?->package?->name ?? '',
                     'package_number' => $r->invoice?->order->quotation->customerConfirmation?->package?->package_number ?? '',
-                    'sales_id' => $r->invoice?->order->quotation->createdBy?->id ?? '-',
-                    'sales_name' => $r->invoice?->order->quotation->createdBy?->name ?? '-',
+                    'sales_id' => $r->invoice?->order->quotation->handledBy?->id ?? '-',
+                    'sales_name' => $r->invoice?->order->quotation->handledBy?->name ?? '-',
                     'amount' => $this->formatService->cleanDecimal($r->amount),
                     'receipt_date' => $r->receipt_date_formatted,
                     'payment_method' => $r->payment_method,

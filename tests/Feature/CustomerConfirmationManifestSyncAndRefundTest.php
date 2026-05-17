@@ -1451,7 +1451,7 @@ class CustomerConfirmationManifestSyncAndRefundTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => $primaryCustomer->id,
             'customer_confirmation_id' => $group->id,
-            'created_by' => $authUser->id,
+            'handled_by' => $authUser->id,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(30)->format('Y-m-d'),
             'payment_plan' => 'full',

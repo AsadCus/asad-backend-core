@@ -40,12 +40,12 @@ class OrderService
     public function getForDataTable(array $filters = [])
     {
         return DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
-            Order::with(['quotation.customer.user', 'quotation.customerConfirmation.package:id,package_number,name', 'quotation.createdBy:id,name', 'invoices.receipt']),
+            Order::with(['quotation.customer.user', 'quotation.customerConfirmation.package:id,package_number,name', 'quotation.handledBy:id,name', 'invoices.receipt']),
             'quotation'
         )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('quotation', function ($quotationQuery) use ($value) {
-                    $quotationQuery->where('created_by', $value);
+                    $quotationQuery->where('handled_by', $value);
                 });
             })->orderBy('order_number', 'desc')->get()->map(function ($o) {
                 $hasReceipts = $o->invoices->some(function ($invoice) {
@@ -63,8 +63,8 @@ class OrderService
                     'customer_name' => $o->quotation->customer->user->name ?? '-',
                     'package_number' => $o->quotation->customerConfirmation?->package?->package_number ?? '',
                     'package_name' => $o->quotation->customerConfirmation?->package?->name ?? '',
-                    'sales_id' => $o->quotation->createdBy?->id ?? '-',
-                    'sales_name' => $o->quotation->createdBy?->name ?? '-',
+                    'sales_id' => $o->quotation->handledBy?->id ?? '-',
+                    'sales_name' => $o->quotation->handledBy?->name ?? '-',
                     'payment_plan' => $o->payment_plan,
                     'created_at' => $o->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $o->updated_at?->translatedFormat('d F Y'),
@@ -85,8 +85,8 @@ class OrderService
                                 'customer_name' => $i->order->quotation->customer->user->name ?? '-',
                                 'package_name' => $i->order->quotation->customerConfirmation?->package?->name ?? '',
                                 'package_number' => $i->order->quotation->customerConfirmation?->package?->package_number ?? '',
-                                'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
-                                'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
+                                'sales_id' => $i->order->quotation->handledBy?->id ?? '-',
+                                'sales_name' => $i->order->quotation->handledBy?->name ?? '-',
                                 'description' => $i->description,
                                 'amount' => $this->formatService->cleanDecimal($i->amount),
                                 'invoice_date' => $i->invoice_date_formatted,

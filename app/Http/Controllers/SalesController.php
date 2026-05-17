@@ -273,7 +273,7 @@ class SalesController extends Controller
     {
         $invoices = Invoice::query()
             ->whereHas('order.quotation', function ($query) use ($salesUserId): void {
-                $query->where('created_by', $salesUserId);
+                $query->where('handled_by', $salesUserId);
             })
             ->whereNotIn('status', [InvoiceStatus::Cancelled, InvoiceStatus::Refund])
             ->orderBy('invoice_date')

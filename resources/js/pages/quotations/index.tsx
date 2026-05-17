@@ -346,7 +346,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                 }
 
                                 const isUnassigned =
-                                    !q.sales_id && !q.created_by;
+                                    !q.sales_id && !q.handled_by;
                                 if (hasEditPermission && isUnassigned) {
                                     if (isSuperadmin) {
                                         rowActions.push('quotation-handle');

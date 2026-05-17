@@ -213,7 +213,7 @@ class DashboardTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => $payerCustomer->id,
             'customer_confirmation_id' => $confirmation->id,
-            'created_by' => $maker->id,
+            'handled_by' => $maker->id,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'full',
@@ -626,7 +626,7 @@ class DashboardTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => $customer->id,
             'customer_confirmation_id' => $confirmation->id,
-            'created_by' => $maker->id,
+            'handled_by' => $maker->id,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'installment',
@@ -757,7 +757,7 @@ class DashboardTest extends TestCase
         $quotation = Quotation::create([
             'customer_id' => $customer->id,
             'customer_confirmation_id' => $confirmation->id,
-            'created_by' => $maker->id,
+            'handled_by' => $maker->id,
             'quotation_date' => now()->format('Y-m-d'),
             'expiry_date' => now()->addDays(7)->format('Y-m-d'),
             'payment_plan' => 'installment',
@@ -1241,7 +1241,7 @@ class DashboardTest extends TestCase
             'payment_method' => 'cash',
             'status' => 'converted',
             'description' => 'Closing report test quotation',
-            'created_by' => $author->id,
+            'handled_by' => $author->id,
         ]);
 
         $rootHeader = QuotationItem::create([
