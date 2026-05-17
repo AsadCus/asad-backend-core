@@ -10,10 +10,30 @@
     @php
         $sectionSpacingPreset = $branding['section_spacing_preset'] ?? 'normal';
         $moduleSpacing = [
-            'compact' => ['block' => '8px', 'title_bottom' => '12px', 'subtitle_top' => '8px', 'subtitle_bottom' => '6px'],
-            'normal' => ['block' => '10px', 'title_bottom' => '20px', 'subtitle_top' => '16px', 'subtitle_bottom' => '8px'],
-            'relaxed' => ['block' => '16px', 'title_bottom' => '28px', 'subtitle_top' => '22px', 'subtitle_bottom' => '12px'],
-        ][$sectionSpacingPreset] ?? ['block' => '10px', 'title_bottom' => '20px', 'subtitle_top' => '16px', 'subtitle_bottom' => '8px'];
+            'compact' => [
+                'block' => '8px',
+                'title_bottom' => '12px',
+                'subtitle_top' => '8px',
+                'subtitle_bottom' => '6px',
+            ],
+            'normal' => [
+                'block' => '10px',
+                'title_bottom' => '20px',
+                'subtitle_top' => '16px',
+                'subtitle_bottom' => '8px',
+            ],
+            'relaxed' => [
+                'block' => '16px',
+                'title_bottom' => '28px',
+                'subtitle_top' => '22px',
+                'subtitle_bottom' => '12px',
+            ],
+        ][$sectionSpacingPreset] ?? [
+            'block' => '10px',
+            'title_bottom' => '20px',
+            'subtitle_top' => '16px',
+            'subtitle_bottom' => '8px',
+        ];
     @endphp
     <style>
         /* Sales uses 45/55 logo/info split */
@@ -164,13 +184,13 @@
             <table class="payment-table">
                 <thead>
                     <tr>
-                        <th>Installment</th>
+                        <th>Instalment</th>
                         <th>Paid / Total</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (($data['payment_info'] ?? []) as $paymentRow)
+                    @foreach ($data['payment_info'] ?? [] as $paymentRow)
                         <tr>
                             <td>{{ $paymentRow['label'] ?? '-' }}</td>
                             <td>{{ number_format((float) ($paymentRow['amount_paid'] ?? 0), 2, '.', ',') }} /
@@ -186,7 +206,7 @@
         <div class="footer-section">
             @php
                 $activeNotes = collect($data['notes'] ?? [])
-                    ->filter(fn ($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
+                    ->filter(fn($n) => !empty(trim(strip_tags($n['description'] ?? ''))))
                     ->sortBy('sort_order')
                     ->values();
             @endphp
@@ -195,9 +215,9 @@
             @include('partials.report-notes')
 
             {{-- Module footer text from Report Template Settings --}}
-                @if (! empty($branding['footer_text']))
-                    <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
-                @endif
+            @if (!empty($branding['footer_text']))
+                <div class="footer-note">{!! nl2br(e($branding['footer_text'])) !!}</div>
+            @endif
 
             @include('partials.report-signature-stamp')
         </div>

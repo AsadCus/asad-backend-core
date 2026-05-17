@@ -40,7 +40,7 @@ export const orderValidationSchema = orderSchema.superRefine((data, ctx) => {
         } else if (Math.floor(parsedCount) < 3) {
             ctx.addIssue({
                 path: ['installment_invoice_count'],
-                message: 'Installment requires at least 3 invoices',
+                message: 'Instalment requires at least 3 invoices',
                 code: z.ZodIssueCode.custom,
             });
         }

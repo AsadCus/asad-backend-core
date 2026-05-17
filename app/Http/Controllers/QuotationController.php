@@ -346,7 +346,7 @@ class QuotationController extends Controller
         $paymentPlanLabel = match ($paymentPlan) {
             'direct' => 'Direct',
             'full' => 'Full Payment',
-            'installment' => 'Installment',
+            'installment' => 'Instalment',
             default => ucfirst($paymentPlan),
         };
 
@@ -374,7 +374,7 @@ class QuotationController extends Controller
             $paymentPlanLabel = match ($paymentPlan) {
                 'direct' => 'Direct',
                 'full' => 'Full Payment',
-                'installment' => 'Installment',
+                'installment' => 'Instalment',
                 default => ucfirst($paymentPlan),
             };
 

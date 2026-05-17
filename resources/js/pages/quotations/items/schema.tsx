@@ -93,6 +93,6 @@ export type QuotationItemsSchema = z.infer<typeof quotationItemsSchema>;
 
 export const type = [
     { label: 'Service', value: 'service' },
-    { label: 'Installment', value: 'installment' },
+    { label: 'Instalment', value: 'installment' },
     { label: 'Insurance', value: 'insurance' },
 ];
