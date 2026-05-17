@@ -1,0 +1,293 @@
+import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
+import { Search, Sparkles, BookOpen, ListChecks, Lightbulb, ChevronRight, ArrowRight } from 'lucide-react';
+import { useMemo } from 'react';
+import { getModuleIcon, slugify, matchesQuery } from '../lib/doc-utils';
+
+function findPlaybook(
+    documentation: DocumentationPageProps['documentation'],
+    group: MenuGroup,
+): ModulePlaybook | undefined {
+    const menuSlug = slugify(group.menu);
+    return documentation.modulePlaybooks.find(
+        (p) => p.id === `${menuSlug}-module` || slugify(p.title) === `${menuSlug}-module`,
+    );
+}
+
+/* ─── Hero ─────────────────────────────────────────────────── */
+
+function HeroSection({
+    title,
+    searchQuery,
+    onSearchChange,
+}: {
+    title: string;
+    searchQuery: string;
+    onSearchChange: (q: string) => void;
+}) {
+    return (
+        <section className="relative overflow-hidden bg-gradient-to-br from-orange-600 via-orange-700 to-amber-800 dark:from-orange-900 dark:via-amber-950 dark:to-slate-950">
+            {/* decorative circles */}
+            <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-white/5" />
+            <div className="pointer-events-none absolute -right-16 -bottom-16 h-96 w-96 rounded-full bg-white/5" />
+            <div className="pointer-events-none absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5" />
+
+            <div className="relative mx-auto max-w-4xl px-6 py-16 text-center md:py-20">
+                <h1 className="text-3xl font-bold tracking-tight text-white md:text-5xl">
+                    How can we help?
+                </h1>
+                <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-orange-100/80 md:text-lg">
+                    Browse the {title} — step-by-step guides, module playbooks, and operational workflows for your travel management system.
+                </p>
+
+                <div className="relative mx-auto mt-8 max-w-xl">
+                    <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-orange-300" />
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        placeholder="Search modules, procedures, guides..."
+                        className="w-full rounded-xl border border-white/20 bg-white/10 py-3.5 pr-4 pl-12 text-white shadow-lg backdrop-blur-sm transition-all placeholder:text-orange-200/60 focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20 focus:outline-none"
+                    />
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/* ─── Module Card ──────────────────────────────────────────── */
+
+function ModuleCard({
+    group,
+    playbook,
+    onClick,
+}: {
+    group: MenuGroup;
+    playbook?: ModulePlaybook;
+    onClick: () => void;
+}) {
+    const Icon = getModuleIcon(group.menu);
+    const procedureCount = playbook?.procedures?.length ?? group.how_to.length;
+    const description = playbook?.overview ?? group.purpose;
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="group flex flex-col rounded-2xl border border-sidebar-border/70 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-md dark:bg-slate-900/60 dark:hover:border-orange-700"
+        >
+            <div className="flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 transition-colors group-hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400 dark:group-hover:bg-orange-900/50">
+                    <Icon className="h-6 w-6" />
+                </div>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    {procedureCount} {procedureCount === 1 ? 'guide' : 'guides'}
+                </span>
+            </div>
+
+            <h3 className="mt-4 text-lg font-semibold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400">
+                {group.menu.replace(/ Module$/i, '')}
+            </h3>
+            <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                {description}
+            </p>
+
+            <div className="mt-4 flex items-center text-sm font-medium text-orange-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-orange-400">
+                Browse guides <ChevronRight className="ml-1 h-4 w-4" />
+            </div>
+        </button>
+    );
+}
+
+/* ─── Quick Reference Cards ────────────────────────────────── */
+
+function QuickReferenceSection({
+    documentation,
+}: Pick<DocumentationPageProps, 'documentation'>) {
+    const cards = [
+        {
+            icon: Sparkles,
+            title: 'Core Workflows',
+            description: 'End-to-end flows connecting sales, operations, and reporting.',
+            count: documentation.coreWorkflows.length,
+            color: 'amber',
+        },
+        {
+            icon: BookOpen,
+            title: 'How-To Guides',
+            description: 'Task-focused guides for common operational actions.',
+            count: documentation.howToGuides.length,
+            color: 'emerald',
+        },
+        {
+            icon: ListChecks,
+            title: 'Status Guidance',
+            description: 'Keep status usage consistent across the team.',
+            count: documentation.commonStatuses.length,
+            color: 'violet',
+        },
+        {
+            icon: Lightbulb,
+            title: 'Operational Tips',
+            description: 'Practical reminders for clean data and predictable processes.',
+            count: documentation.tips.length,
+            color: 'rose',
+        },
+    ];
+
+    const colorMap: Record<string, string> = {
+        amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+        emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+        violet: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
+        rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
+    };
+
+    return (
+        <section className="mx-auto max-w-6xl px-6 py-12">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                Quick Reference
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+                Cross-module resources to guide your daily operations.
+            </p>
+
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {cards.map((card) => (
+                    <div
+                        key={card.title}
+                        className="rounded-2xl border border-sidebar-border/70 bg-white p-5 shadow-sm dark:bg-slate-900/60"
+                    >
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[card.color]}`}>
+                            <card.icon className="h-5 w-5" />
+                        </div>
+                        <h3 className="mt-3 text-base font-semibold text-foreground">{card.title}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{card.description}</p>
+                        <p className="mt-2 text-xs font-medium text-muted-foreground">{card.count} items</p>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+/* ─── Roles Preview ────────────────────────────────────────── */
+
+function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documentation'>) {
+    return (
+        <section className="mx-auto max-w-6xl px-6 pb-12">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                Roles & Access
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+                Understand what each role does and what it should focus on every day.
+            </p>
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {documentation.roleGuide.map((role) => (
+                    <div
+                        key={role.role}
+                        className="rounded-2xl border border-sidebar-border/70 bg-white p-5 shadow-sm dark:bg-slate-900/60"
+                    >
+                        <h3 className="text-lg font-semibold text-foreground">{role.role}</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{role.scope}</p>
+                        <ul className="mt-3 space-y-1.5">
+                            {role.primary_actions.map((action) => (
+                                <li key={action} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                    <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500" />
+                                    <span>{action}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+/* ─── Footer Info ──────────────────────────────────────────── */
+
+function FooterInfo({ documentation }: Pick<DocumentationPageProps, 'documentation'>) {
+    return (
+        <footer className="border-t border-sidebar-border/70 bg-slate-50 dark:bg-slate-950/40">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 px-6 py-6 text-sm text-muted-foreground">
+                <span>Version <strong className="text-foreground">{documentation.manual.version}</strong></span>
+                <span className="hidden h-4 w-px bg-sidebar-border/70 sm:block" />
+                <span>Updated <strong className="text-foreground">{documentation.manual.date}</strong></span>
+                <span className="hidden h-4 w-px bg-sidebar-border/70 sm:block" />
+                <span>Author <strong className="text-foreground">{documentation.manual.author}</strong></span>
+            </div>
+        </footer>
+    );
+}
+
+/* ─── Home View (main export) ──────────────────────────────── */
+
+export function HomeView({
+    documentation,
+    searchQuery,
+    onSearchChange,
+    onModuleClick,
+}: {
+    documentation: DocumentationPageProps['documentation'];
+    searchQuery: string;
+    onSearchChange: (q: string) => void;
+    onModuleClick: (group: MenuGroup) => void;
+}) {
+    const moduleGroups = documentation.menuGroups;
+
+    const filteredGroups = useMemo(() => {
+        if (!searchQuery) return moduleGroups;
+        return moduleGroups.filter((group) => {
+            const playbook = findPlaybook(documentation, group);
+            const body = [
+                group.menu, group.module, group.purpose,
+                ...group.features, ...group.how_to,
+                playbook?.overview ?? '',
+                ...(playbook?.highlights ?? []),
+                ...(playbook?.procedures.flatMap((p) => [p.name, ...p.steps.map((s) => typeof s === 'string' ? s : s.text)]) ?? []),
+            ].join(' ');
+            return matchesQuery(body, searchQuery);
+        });
+    }, [documentation, moduleGroups, searchQuery]);
+
+    return (
+        <div>
+            <HeroSection
+                title={documentation.manual.title}
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
+            />
+
+            {/* Module Grid */}
+            <section className="mx-auto max-w-6xl px-6 py-12">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                    Browse by Module
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Select a module to view its guides and step-by-step procedures.
+                </p>
+
+                {filteredGroups.length === 0 && (
+                    <div className="mt-8 rounded-2xl border border-dashed border-sidebar-border/70 p-12 text-center">
+                        <Search className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                        <p className="mt-3 text-muted-foreground">No modules match "{searchQuery}"</p>
+                    </div>
+                )}
+
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredGroups.map((group) => (
+                        <ModuleCard
+                            key={group.menu}
+                            group={group}
+                            playbook={findPlaybook(documentation, group)}
+                            onClick={() => onModuleClick(group)}
+                        />
+                    ))}
+                </div>
+            </section>
+
+            <QuickReferenceSection documentation={documentation} />
+            <RolesPreview documentation={documentation} />
+            <FooterInfo documentation={documentation} />
+        </div>
+    );
+}

@@ -90,7 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Documentation
-    Route::get('documentations', [DocumentationController::class, 'index'])
+    Route::get('api/support/documentation', [DocumentationController::class, 'index'])
         ->name('documentations.index');
 
     // Masters

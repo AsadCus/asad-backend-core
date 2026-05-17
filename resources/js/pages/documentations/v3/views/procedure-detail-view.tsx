@@ -1,0 +1,186 @@
+import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
+import { ChevronRight, Home, ExternalLink } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { getModuleIcon, slugify } from '../lib/doc-utils';
+
+function findPlaybook(
+    documentation: DocumentationPageProps['documentation'],
+    group: MenuGroup,
+): ModulePlaybook | undefined {
+    const menuSlug = slugify(group.menu);
+    return documentation.modulePlaybooks.find(
+        (p) => p.id === `${menuSlug}-module` || slugify(p.title) === `${menuSlug}-module`,
+    );
+}
+
+function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
+    return (
+        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            {items.map((item, i) => (
+                <span key={item.label} className="flex items-center gap-1.5">
+                    {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                    {item.onClick ? (
+                        <button
+                            type="button"
+                            onClick={item.onClick}
+                            className="transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                        >
+                            {i === 0 ? <Home className="h-4 w-4" /> : item.label}
+                        </button>
+                    ) : (
+                        <span className="font-medium text-foreground">{item.label}</span>
+                    )}
+                </span>
+            ))}
+        </nav>
+    );
+}
+
+export function ProcedureDetailView({
+    documentation,
+    moduleGroup,
+    procedureIndex,
+    onBackToModule,
+    onBackToHome,
+}: {
+    documentation: DocumentationPageProps['documentation'];
+    moduleGroup: MenuGroup;
+    procedureIndex: number;
+    onBackToModule: () => void;
+    onBackToHome: () => void;
+}) {
+    const Icon = getModuleIcon(moduleGroup.menu);
+    const playbook = findPlaybook(documentation, moduleGroup);
+    const moduleName = moduleGroup.menu.replace(/ Module$/i, '');
+    const procedure = playbook?.procedures?.[procedureIndex];
+
+    if (!procedure) {
+        return (
+            <div className="mx-auto max-w-4xl px-6 py-8">
+                <Breadcrumb items={[
+                    { label: 'Home', onClick: onBackToHome },
+                    { label: moduleName, onClick: onBackToModule },
+                    { label: 'Not Found' },
+                ]} />
+                <div className="mt-8 rounded-2xl border border-dashed border-sidebar-border/70 p-12 text-center">
+                    <p className="text-muted-foreground">Procedure not found.</p>
+                    <button type="button" onClick={onBackToModule} className="mt-4 text-sm text-orange-600 hover:underline">
+                        ← Back to {moduleName}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto max-w-4xl px-6 py-8">
+            {/* Breadcrumb */}
+            <Breadcrumb items={[
+                { label: 'Home', onClick: onBackToHome },
+                { label: moduleName, onClick: onBackToModule },
+                { label: procedure.name },
+            ]} />
+
+            {/* Procedure Header */}
+            <div className="mt-6 rounded-2xl border border-sidebar-border/70 bg-white p-6 shadow-sm dark:bg-slate-900/60">
+                <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
+                        <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                                {procedure.name}
+                            </h1>
+                            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-950/40 dark:text-orange-400">
+                                {procedure.steps.length} steps
+                            </span>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {moduleName} — operational procedure
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Steps */}
+            <div className="mt-8">
+                <h2 className="text-lg font-semibold text-foreground">Step-by-Step Instructions</h2>
+
+                <div className="relative mt-5">
+                    {/* Vertical line */}
+                    <div className="absolute top-0 bottom-0 left-[1.125rem] w-px bg-orange-100 dark:bg-orange-900/50" />
+
+                    <div className="space-y-4">
+                        {procedure.steps.map((step, i) => {
+                            const text = typeof step === 'string' ? step : step.text;
+                            const path = typeof step === 'string' ? undefined : step.path;
+
+                            return (
+                                <div key={i} className="relative flex items-start gap-4 pl-0">
+                                    {/* Step number */}
+                                    <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-orange-200 bg-white text-sm font-bold text-orange-600 dark:border-orange-800 dark:bg-slate-900 dark:text-orange-400">
+                                        {i + 1}
+                                    </div>
+
+                                    {/* Step content */}
+                                    <div className="flex-1 rounded-xl border border-sidebar-border/70 bg-white p-4 shadow-sm dark:bg-slate-900/60">
+                                        <p className="text-sm leading-relaxed text-foreground">{text}</p>
+                                        {path && (
+                                            <Link
+                                                href={path}
+                                                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 transition-colors hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
+                                            >
+                                                <ExternalLink className="h-3 w-3" />
+                                                Open in app
+                                            </Link>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="mt-8 flex items-center justify-between pb-8">
+                <button
+                    type="button"
+                    onClick={onBackToModule}
+                    className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground dark:hover:bg-slate-900"
+                >
+                    ← Back to {moduleName}
+                </button>
+
+                {/* Next/Prev procedure */}
+                {playbook && playbook.procedures.length > 1 && (
+                    <div className="flex gap-2">
+                        {procedureIndex > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
+                            >
+                                ← Previous
+                            </button>
+                        )}
+                        {procedureIndex < playbook.procedures.length - 1 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
+                            >
+                                Next →
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

@@ -20,7 +20,22 @@ class DocumentationService
             'bibliography' => [
                 ['id' => 'dashboard-module', 'title' => 'Dashboard Module'],
                 ['id' => 'master-module', 'title' => 'Master Module'],
+                ['id' => 'sales-module', 'title' => 'Sales Module'],
+                ['id' => 'customer-module', 'title' => 'Customer Module'],
                 ['id' => 'enquiry-module', 'title' => 'Enquiry Module'],
+                ['id' => 'confirmed-customer-module', 'title' => 'Confirmed Customer Module'],
+                ['id' => 'quotation-module', 'title' => 'Quotation Module'],
+                ['id' => 'invoice-module', 'title' => 'Invoice Module'],
+                ['id' => 'receipt-module', 'title' => 'Receipt Module'],
+                ['id' => 'change-package-module', 'title' => 'Change Package Module'],
+                ['id' => 'refund-module', 'title' => 'Refund Module'],
+                ['id' => 'customer-holding-area-module', 'title' => 'Customer Holding Area Module'],
+                ['id' => 'completed-customer-module', 'title' => 'Completed Customer Module'],
+                ['id' => 'cancelled-customer-module', 'title' => 'Cancelled Customer Module'],
+                ['id' => 'ops-movement-module', 'title' => 'Ops Movement Module'],
+                ['id' => 'pif-module', 'title' => 'PIF Module'],
+                ['id' => 'itinerary-module', 'title' => 'Itinerary Module'],
+                ['id' => 'budget-module', 'title' => 'Budget Module'],
                 ['id' => 'roles-access', 'title' => 'Roles and Access'],
                 ['id' => 'menu-structure', 'title' => 'Menu Structure'],
                 ['id' => 'menus-modules', 'title' => 'Menus and Modules'],
@@ -122,108 +137,7 @@ class DocumentationService
                     'children' => ['Activity timeline', 'Change summary', 'Audit tracing'],
                 ],
             ],
-            'modulePlaybooks' => [
-                [
-                    'id' => 'dashboard-module',
-                    'title' => 'Dashboard Module',
-                    'overview' => 'Dashboard is used to monitor revenue trends, payment movement, and customer activity. Use this module as your first stop for daily visibility and management reporting.',
-                    'highlights' => [
-                        'Total Sales for Fiscal Year',
-                        'Daily Payment Snapshot',
-                        'Recent Customer Activity',
-                    ],
-                    'procedures' => [
-                        [
-                            'name' => 'How to review fiscal year sales',
-                            'steps' => [
-                                'Open Dashboard from sidebar.',
-                                'Select fiscal year from filter control.',
-                                'Review totals, trend charts, and payment summary widgets.',
-                            ],
-                        ],
-                    ],
-                ],
-                [
-                    'id' => 'master-module',
-                    'title' => 'Master Module',
-                    'overview' => 'Master menu is the central system configuration area. It controls user roles, location scopes, fiscal-year boundaries, and reusable sales configuration.',
-                    'highlights' => [
-                        'Add and maintain users by role.',
-                        'Maintain country and branch access boundaries.',
-                        'Maintain fiscal year defaults and product/service references.',
-                    ],
-                    'procedures' => [
-                        [
-                            'name' => 'How to add new user',
-                            'steps' => [
-                                'Open Master and click Add New User.',
-                                'Fill name and unique email address.',
-                                'Select role and location scope, then submit.',
-                            ],
-                        ],
-                        [
-                            'name' => 'How to add new country',
-                            'steps' => [
-                                'Open Master -> Country.',
-                                'Click Add and enter country details.',
-                                'Save and verify it appears in list.',
-                            ],
-                        ],
-                        [
-                            'name' => 'How to add fiscal year',
-                            'steps' => [
-                                'Open Master -> Fiscal Year.',
-                                'Create record with start and end date.',
-                                'Set as default when activating a new accounting period.',
-                            ],
-                        ],
-                        [
-                            'name' => 'How to add product and services item',
-                            'steps' => [
-                                'Open Master -> Products and Services.',
-                                'Add item header and sub-header.',
-                                'Save item and use it in quotation/order workflows.',
-                            ],
-                        ],
-                    ],
-                ],
-                [
-                    'id' => 'enquiry-module',
-                    'title' => 'Enquiry Module',
-                    'overview' => 'Enquiries are generated from website forms and operational follow-up. Sales team handles two categories: general enquiry and private enquiry.',
-                    'highlights' => [
-                        'General Enquiry and Private Enquiry intake.',
-                        'Status transitions and remark tracking.',
-                        'Conversion into confirmed customer groups.',
-                    ],
-                    'procedures' => [
-                        [
-                            'name' => 'How to change status from New Lead to Contacted',
-                            'steps' => [
-                                'Open Enquiry Dashboard.',
-                                'Open status action on selected enquiry row.',
-                                'Choose Contacted and save transition.',
-                            ],
-                        ],
-                        [
-                            'name' => 'How to add remarks on enquiry',
-                            'steps' => [
-                                'Open enquiry row actions and choose Remarks.',
-                                'Type follow-up summary or call outcome.',
-                                'Save remark for team visibility.',
-                            ],
-                        ],
-                        [
-                            'name' => 'How private enquiry flows to package and customer',
-                            'steps' => [
-                                'Confirm private enquiry from dashboard.',
-                                'Create customer confirmation group and assign package context.',
-                                'Continue with financial documents and manifest preparation.',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
+            'modulePlaybooks' => $this->getModulePlaybooks(),
             'menuGroups' => [
                 [
                     'menu' => 'Dashboard',
@@ -513,4 +427,16 @@ class DocumentationService
             ],
         ];
     }
+
+    /**
+     * Module Playbooks â€” All 18 modules from PM Manual Register.
+     * Data is stored in DocumentationModulePlaybooks for maintainability.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function getModulePlaybooks(): array
+    {
+        return DocumentationModulePlaybooks::all();
+    }
 }
+
