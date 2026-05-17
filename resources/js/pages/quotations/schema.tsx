@@ -109,7 +109,7 @@ export type SetDataFn = <K extends keyof QuotationSchema>(
 export const paymentPlans = [
     // { label: 'Direct', value: 'direct' },
     { label: 'Full Payment', value: 'full' },
-    { label: 'Installment', value: 'installment' },
+    { label: 'Instalment', value: 'installment' },
 ];
 
 export const statuses = [

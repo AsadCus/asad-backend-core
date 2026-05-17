@@ -2092,7 +2092,7 @@ export default function OrderForm({
                                     />
 
                                     {data.payment_plan === 'installment' && (
-                                        <FormField label="Installment Invoice Count">
+                                        <FormField label="Instalment Invoice Count">
                                             <ProperInput
                                                 value={
                                                     data.installment_invoice_count ??
