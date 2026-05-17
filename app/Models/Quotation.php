@@ -25,7 +25,7 @@ class Quotation extends Model
         'customer_confirmation_id',
         'country_id',
         'branch_id',
-        'created_by',
+        'handled_by',
         'description',
         'payment_plan',
         'extensions',
@@ -52,9 +52,19 @@ class Quotation extends Model
         return $this->belongsTo(CustomerConfirmation::class);
     }
 
-    public function createdBy(): BelongsTo
+    public function handledBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'handled_by');
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function order(): HasOne

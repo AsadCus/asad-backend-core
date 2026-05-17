@@ -2127,7 +2127,7 @@ class CustomerConfirmationFormTest extends TestCase
         $response
             ->assertRedirect(route('quotation.edit', ['quotation' => (int) $quotation->id]))
             ->assertSessionHas('success', '1 quotation(s) created successfully.');
-        $this->assertSame((int) $this->adminUser->id, (int) $quotation->created_by);
+        $this->assertSame((int) $this->adminUser->id, (int) $quotation->handled_by);
     }
 
     public function test_generate_quotations_wraps_member_items_under_umrah_packages_header(): void

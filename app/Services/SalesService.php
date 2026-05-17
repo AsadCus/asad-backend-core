@@ -55,7 +55,7 @@ class SalesService
         });
     }
 
-    public function getForQuotationAssignment(?User $user = null): array
+    public function getForQuotationAssignment(?User $user = null, ?int $forceCountryId = null, ?int $forceBranchId = null): array
     {
         $resolvedUser = $user ?? auth()->user();
 
@@ -63,9 +63,19 @@ class SalesService
             ->whereNull('deleted_at')
             ->with('sales');
 
-        if (DataScope::enabled() && $resolvedUser instanceof User) {
-            $scopeMode = DataScope::mode();
+        $scopeMode = DataScope::mode();
 
+        if ($forceCountryId !== null || $forceBranchId !== null) {
+            if ($scopeMode === 'branch' && $forceBranchId !== null && $forceBranchId > 0) {
+                $query->whereHas('sales', function (Builder $salesQuery) use ($forceBranchId): void {
+                    $this->applyMatchingBranchConstraint($salesQuery, [$forceBranchId]);
+                });
+            } elseif ($forceCountryId !== null && $forceCountryId > 0) {
+                $query->whereHas('sales', function (Builder $salesQuery) use ($forceCountryId): void {
+                    $this->applyMatchingCountryConstraint($salesQuery, [$forceCountryId]);
+                });
+            }
+        } elseif (DataScope::enabled() && $resolvedUser instanceof User) {
             if ($scopeMode === 'branch') {
                 $branchIds = DataScope::scopedBranchIds($resolvedUser);
 

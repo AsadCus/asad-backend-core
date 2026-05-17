@@ -39,7 +39,7 @@ class InvoiceService
                 'order.quotation.customer.user',
                 'order.quotation.customerConfirmation.enquiry.handledBy:id,name',
                 'order.quotation.customerConfirmation.package:id,package_number,name,status',
-                'order.quotation.createdBy:id,name',
+                'order.quotation.handledBy:id,name',
                 'quotationItems:id,is_header,customer_confirmation_member_id',
             ])
                 ->with('receipt:id,invoice_id')
@@ -49,7 +49,7 @@ class InvoiceService
         )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
                 $q->whereHas('order.quotation', function ($quotationQuery) use ($value) {
-                    $quotationQuery->where('created_by', $value);
+                    $quotationQuery->where('handled_by', $value);
                 });
             })
             ->orderBy('invoice_number', 'desc')
@@ -131,8 +131,8 @@ class InvoiceService
                 'package_status' => $i->order->quotation->customerConfirmation?->package?->status ?? null,
                 'is_package_receipt_locked' => $isPackageReceiptLocked,
                 'has_linked_member_paid_history_for_receipt' => $hasLinkedMemberWithPaidHistory,
-                'sales_id' => $i->order->quotation->createdBy?->id ?? '-',
-                'sales_name' => $i->order->quotation->createdBy?->name ?? '-',
+                'sales_id' => $i->order->quotation->handledBy?->id ?? '-',
+                'sales_name' => $i->order->quotation->handledBy?->name ?? '-',
                 'description' => $i->description,
                 'amount' => $this->formatService->cleanDecimal($i->amount),
                 'invoice_date' => $i->invoice_date_formatted,
@@ -155,7 +155,7 @@ class InvoiceService
         )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
                 $query->whereHas('order.quotation', function ($quotationQuery) use ($value) {
-                    $quotationQuery->where('created_by', $value);
+                    $quotationQuery->where('handled_by', $value);
                 });
             })
             ->get()

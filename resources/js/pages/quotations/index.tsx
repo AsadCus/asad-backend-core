@@ -122,6 +122,16 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'country_name',
+        header: 'Country',
+        meta: { exportable: true },
+    },
+    {
+        accessorKey: 'branch_name',
+        header: 'Branch',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'description',
         header: 'Description',
         meta: { exportable: true },
@@ -346,7 +356,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                 }
 
                                 const isUnassigned =
-                                    !q.sales_id && !q.created_by;
+                                    !q.sales_id && !q.handled_by;
                                 if (hasEditPermission && isUnassigned) {
                                     if (isSuperadmin) {
                                         rowActions.push('quotation-handle');
@@ -489,6 +499,8 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     package_number: false,
                                     package_name: false,
                                     sales_id: false,
+                                    country_name: false,
+                                    branch_name: false,
                                     description: false,
                                     expiry_date: false,
                                     items_count: false,

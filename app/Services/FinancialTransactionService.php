@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
+use App\Models\Package;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Support\DataScope;
@@ -405,7 +406,7 @@ class FinancialTransactionService
 
     public function getAvailableCategories(): array
     {
-        $categories = \App\Models\QuotationItem::where('is_header', true)
+        $categories = QuotationItem::where('is_header', true)
             ->whereNotNull('description')
             ->distinct()
             ->pluck('description')
@@ -444,7 +445,7 @@ class FinancialTransactionService
                 'invoice.quotationItems.parent.parent',
                 'invoice.quotationItems.confirmationMember.confirmation.package',
                 'invoice.order.invoices',
-                'invoice.order.quotation.createdBy',
+                'invoice.order.quotation.handledBy',
                 'invoice.order.quotation.customerConfirmation.package',
             ])
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
@@ -575,14 +576,14 @@ class FinancialTransactionService
                     '__row_sequence' => ++$rowSequence,
                     'amount' => round($receiptAmount, 2),
                     'total_sale' => round($receiptAmount, 2),
-                    'maker' => (string) ($quotation?->createdBy?->name ?? ''),
+                    'maker' => (string) ($quotation?->handledBy?->name ?? ''),
                     'remarks' => $this->resolveReceiptRemark($invoice),
                 ];
 
                 continue;
             }
 
-            $maker = (string) ($quotation?->createdBy?->name ?? '');
+            $maker = (string) ($quotation?->handledBy?->name ?? '');
             $remarks = $this->resolveReceiptRemark($invoice);
 
             $itemsWithBase = $items->map(function (QuotationItem $item): array {
@@ -1076,7 +1077,7 @@ class FinancialTransactionService
                 'invoice.quotationItems.parent.parent',
                 'invoice.quotationItems.confirmationMember.confirmation.package',
                 'invoice.order.invoices',
-                'invoice.order.quotation.createdBy',
+                'invoice.order.quotation.handledBy',
                 'invoice.order.quotation.customerConfirmation.package',
             ])
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
@@ -1295,7 +1296,7 @@ class FinancialTransactionService
         $packageInfo = null;
         if (! empty($packageIds)) {
             if (count($packageIds) === 1) {
-                $pkg = \App\Models\Package::find($packageIds[0]);
+                $pkg = Package::find($packageIds[0]);
                 if ($pkg) {
                     $packageInfo = [
                         'id' => $pkg->id,

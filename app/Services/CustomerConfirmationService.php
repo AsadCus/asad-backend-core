@@ -2936,7 +2936,7 @@ class CustomerConfirmationService
             $newQuotation = Quotation::create([
                 'customer_id' => $targetLeaderCustomerId,
                 'customer_confirmation_id' => $newGroup->id,
-                'created_by' => $sourceQuotation->created_by ?? auth()->id(),
+                'handled_by' => $sourceQuotation->handled_by ?? auth()->id(),
                 'quotation_date' => optional($sourceQuotation->quotation_date)?->format('Y-m-d') ?? now()->format('Y-m-d'),
                 'expiry_date' => optional($sourceQuotation->expiry_date)?->format('Y-m-d') ?? now()->addDays(30)->format('Y-m-d'),
                 'description' => $sourceQuotation->description,
@@ -4658,7 +4658,7 @@ class CustomerConfirmationService
      * with the cost derived from the package sharing-plan price.
      *
      * @param  array<int, int[]>  $payerToMembers  Maps payer member ID → array of member IDs they pay for.
-     * @return \App\Models\Quotation[]
+     * @return Quotation[]
      */
     public function generateQuotationsFromConfirmation(int $confirmationId, array $payerToMembers): array
     {
@@ -4686,7 +4686,7 @@ class CustomerConfirmationService
                 $quotation = Quotation::create([
                     'customer_id' => $payerMember->customer->id,
                     'customer_confirmation_id' => $confirmationId,
-                    'created_by' => auth()->id(),
+                    'handled_by' => auth()->id(),
                     'quotation_date' => now()->format('Y-m-d'),
                     'expiry_date' => now()->addDays(30)->format('Y-m-d'),
                     'payment_plan' => 'full',

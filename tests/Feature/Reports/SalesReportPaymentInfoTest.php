@@ -57,7 +57,7 @@ class SalesReportPaymentInfoTest extends TestCase
 
         $quotation = Quotation::create([
             'customer_id' => $customer->id,
-            'created_by' => $salesUser->id,
+            'handled_by' => $salesUser->id,
             'quotation_date' => '2026-04-01',
             'expiry_date' => '2026-05-01',
             'payment_plan' => 'installment',

@@ -50,11 +50,13 @@ class QuotationService
                 'customerConfirmation.package:id,package_number,name',
                 'quotationItems',
                 'order.invoices.receipt',
-                'createdBy:id,name',
+                'handledBy:id,name',
+                'country:id,name',
+                'branch:id,name',
             ])->withTrashed()
         )
             ->when($filters['sales_id'] ?? null, function ($q, $value) {
-                $q->where('created_by', $value);
+                $q->where('handled_by', $value);
             })->when($filters['status'] ?? null, function ($q, $value) {
                 $q->where('status', $value);
             })->when($filters['customer_id'] ?? null, function ($q, $value) {
@@ -76,11 +78,13 @@ class QuotationService
                     'customer_name' => $q->customer->user->name ?? '-',
                     'package_number' => $q->customerConfirmation?->package?->package_number ?? '',
                     'package_name' => $q->customerConfirmation?->package?->name ?? '',
-                    'salesperson_id' => $q->created_by,
-                    'sales_id' => $q->createdBy?->id ?? '-',
-                    'sales_name' => $q->createdBy?->name ?? '-',
+                    'salesperson_id' => $q->handled_by,
+                    'sales_id' => $q->handledBy?->id ?? '-',
+                    'sales_name' => $q->handledBy?->name ?? '-',
                     'country_id' => $q->country_id,
+                    'country_name' => $q->country?->name ?? '-',
                     'branch_id' => $q->branch_id,
+                    'branch_name' => $q->branch?->name ?? '-',
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
@@ -104,7 +108,7 @@ class QuotationService
             Quotation::query()->select('id', 'quotation_number')
         )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
-                $query->where('created_by', $value);
+                $query->where('handled_by', $value);
             })
             ->get()
             ->map(function ($q) {
@@ -129,7 +133,7 @@ class QuotationService
                 ->whereDoesntHave('order')
         )
             ->when($filters['sales_id'] ?? null, function ($query, $value) {
-                $query->where('created_by', $value);
+                $query->where('handled_by', $value);
             })
             ->get()
             ->map(function ($q) {
@@ -491,7 +495,7 @@ class QuotationService
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
                 'country_id' => $assignment['country_id'],
                 'branch_id' => $assignment['branch_id'],
-                'created_by' => $assignment['salesperson_id'],
+                'handled_by' => $assignment['salesperson_id'],
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
@@ -555,7 +559,7 @@ class QuotationService
             'quotation_number' => $quotation->quotation_number,
             'customer_confirmation_id' => $quotation->customer_confirmation_id,
             'customer_id' => $quotation->customer_id,
-            'salesperson_id' => $quotation->created_by,
+            'salesperson_id' => $quotation->handled_by,
             'country_id' => $quotation->country_id,
             'branch_id' => $quotation->branch_id,
             'customer_number' => $quotation->customer->customer_number ?? '',
@@ -911,7 +915,7 @@ class QuotationService
             if ($assignment) {
                 $updatePayload['country_id'] = $assignment['country_id'];
                 $updatePayload['branch_id'] = $assignment['branch_id'];
-                $updatePayload['created_by'] = $assignment['salesperson_id'];
+                $updatePayload['handled_by'] = $assignment['salesperson_id'];
             }
 
             $quotation->update($updatePayload);
@@ -992,7 +996,7 @@ class QuotationService
         return DB::transaction(function () use ($quotationId, $salespersonId) {
             $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($quotationId);
 
-            if ($quotation->created_by) {
+            if ($quotation->handled_by) {
                 throw ValidationException::withMessages([
                     'salesperson_id' => 'Quotation already has a salesperson assigned.',
                 ]);
@@ -1020,7 +1024,7 @@ class QuotationService
                 $this->assertSalespersonMatchesQuotationScope($quotation, $salesperson);
 
                 $quotation->update([
-                    'created_by' => $salesperson->id,
+                    'handled_by' => $salesperson->id,
                 ]);
 
                 return $quotation->fresh();
@@ -1030,7 +1034,7 @@ class QuotationService
                 $this->assertUserMatchesQuotationScope($quotation, $actor);
 
                 $quotation->update([
-                    'created_by' => $actor->id,
+                    'handled_by' => $actor->id,
                 ]);
 
                 return $quotation->fresh();

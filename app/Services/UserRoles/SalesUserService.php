@@ -223,13 +223,13 @@ class SalesUserService
             ? DataScope::assignableBranchIds($user)
             : DataScope::assignableCountryIds($user);
 
-        $query = Quotation::query()->where('created_by', $user->id);
+        $query = Quotation::query()->where('handled_by', $user->id);
 
         if (! empty($scopedIds)) {
             $query->whereNotIn($column, $scopedIds);
         }
 
-        return $query->update(['created_by' => null]);
+        return $query->update(['handled_by' => null]);
     }
 
     /**
