@@ -185,7 +185,7 @@ const getColumns = (
 ];
 
 export default function ReceiptsIndex({ data }: ReceiptsProps) {
-    const { receiptsForDatatable, invoices, customers, salespersons } = data;
+    const { receiptsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
@@ -371,12 +371,6 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                         columnId="invoice_status"
                                         title="Status"
                                         options={invoiceStatuses}
-                                    />
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="invoice_id"
-                                        title="Invoice"
-                                        options={invoices}
                                     />
                                     <ColumnFilter
                                         table={table}

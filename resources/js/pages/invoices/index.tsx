@@ -359,7 +359,7 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
 ];
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
-    const { invoicesForDatatable, quotations, customers, salespersons } = data;
+    const { invoicesForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
@@ -632,12 +632,6 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         columnId="status"
                                         title="Status"
                                         options={invoiceIndexFilterStatuses}
-                                    />
-                                    <ColumnFilter
-                                        table={table}
-                                        columnId="quotation_id"
-                                        title="Quotation"
-                                        options={quotations}
                                     />
                                     <ColumnFilter
                                         table={table}
