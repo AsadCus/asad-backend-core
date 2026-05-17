@@ -317,6 +317,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('quotation-handle') && (
+                <Item onClick={() => onAction?.('quotation-handle', row)}>
+                    Handle
+                </Item>
+            )}
+
             {actions.includes('enable-customer') && (
                 <Item onClick={() => onAction?.('enable-customer', row)}>
                     Enable Customer

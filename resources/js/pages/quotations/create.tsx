@@ -30,6 +30,7 @@ interface CreateQuotationProps {
             }
         >;
         defaultExtensions?: z.infer<typeof quotationExtensionSchema>[];
+        salespersons?: Array<{ value: number | string; label: string }>;
     };
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
@@ -78,6 +79,7 @@ export default function CreateQuotation({
                         defaultExtensions={data.defaultExtensions}
                         prefilledCustomerId={prefilledCustomerId}
                         prefilledCustomerData={prefilledCustomerData}
+                        salespersons={data.salespersons}
                         onCancel={handleCancel}
                     />
                 </div>

@@ -486,62 +486,72 @@ export default function GeneralEnquiryForm({
                         {isCreate && !isView && customerOptions.length > 0 && (
                             <div className="flex flex-col justify-start md:flex-row md:justify-end">
                                 <div className="w-full md:w-auto md:max-w-[320px]">
-                                    <ProperInputSelect
-                                        id="existing_customer_id"
-                                        options={customerOptions.map(
-                                            (customer) => ({
-                                                value: String(customer.value),
-                                                label: customer.label,
-                                            }),
-                                        )}
-                                        value={selectedExistingCustomerId}
-                                        onValueChange={(nextValue) => {
-                                            if (Array.isArray(nextValue)) {
-                                                return;
-                                            }
+                                    <FormField
+                                        label="Existing Customer"
+                                        fieldRequirementsProps={{
+                                            hint: 'Optional: select a customer to auto-fill contact details.',
+                                        }}
+                                    >
+                                        <ProperInputSelect
+                                            id="existing_customer_id"
+                                            options={customerOptions.map(
+                                                (customer) => ({
+                                                    value: String(
+                                                        customer.value,
+                                                    ),
+                                                    label: customer.label,
+                                                }),
+                                            )}
+                                            value={selectedExistingCustomerId}
+                                            onValueChange={(nextValue) => {
+                                                if (Array.isArray(nextValue)) {
+                                                    return;
+                                                }
 
-                                            const nextId = String(
-                                                nextValue ?? '',
-                                            ).trim();
-                                            setSelectedExistingCustomerId(
-                                                nextId,
-                                            );
-
-                                            if (nextId.length === 0) {
-                                                return;
-                                            }
-
-                                            const selectedCustomer =
-                                                customerOptions.find(
-                                                    (customer) =>
-                                                        String(
-                                                            customer.value,
-                                                        ) === nextId,
+                                                const nextId = String(
+                                                    nextValue ?? '',
+                                                ).trim();
+                                                setSelectedExistingCustomerId(
+                                                    nextId,
                                                 );
 
-                                            if (!selectedCustomer) {
-                                                return;
-                                            }
+                                                if (nextId.length === 0) {
+                                                    return;
+                                                }
 
-                                            setData(
-                                                'name',
-                                                selectedCustomer.name ?? '',
-                                            );
-                                            setData(
-                                                'contact_number',
-                                                selectedCustomer.contact_number ??
-                                                    '',
-                                            );
-                                            setData(
-                                                'email',
-                                                selectedCustomer.email ?? '',
-                                            );
-                                        }}
-                                        placeholder="Search & select customer..."
-                                        maxWidth="320px"
-                                        responsive={true}
-                                        disabled={processing}
-                                    />
+                                                const selectedCustomer =
+                                                    customerOptions.find(
+                                                        (customer) =>
+                                                            String(
+                                                                customer.value,
+                                                            ) === nextId,
+                                                    );
+
+                                                if (!selectedCustomer) {
+                                                    return;
+                                                }
+
+                                                setData(
+                                                    'name',
+                                                    selectedCustomer.name ?? '',
+                                                );
+                                                setData(
+                                                    'contact_number',
+                                                    selectedCustomer.contact_number ??
+                                                        '',
+                                                );
+                                                setData(
+                                                    'email',
+                                                    selectedCustomer.email ??
+                                                        '',
+                                                );
+                                            }}
+                                            placeholder="Search & select customer..."
+                                            maxWidth="320px"
+                                            responsive={true}
+                                            disabled={processing}
+                                        />
+                                    </FormField>
                                 </div>
                             </div>
                         )}

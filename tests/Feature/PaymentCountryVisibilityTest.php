@@ -186,17 +186,17 @@ class PaymentCountryVisibilityTest extends TestCase
         $creatorGlobal = $this->createScopedUser('sales', [], []);
 
         return [
-            'MY' => $this->createPaymentGraph('MY', $creatorMalaysia, 100),
-            'SG' => $this->createPaymentGraph('SG', $creatorSingapore, 200),
-            'BOTH' => $this->createPaymentGraph('BOTH', $creatorBoth, 300),
-            'GLOBAL' => $this->createPaymentGraph('GLOBAL', $creatorGlobal, 400),
+            'MY' => $this->createPaymentGraph('MY', $creatorMalaysia, 100, $malaysiaCountryId),
+            'SG' => $this->createPaymentGraph('SG', $creatorSingapore, 200, $singaporeCountryId),
+            'BOTH' => $this->createPaymentGraph('BOTH', $creatorBoth, 300, null),
+            'GLOBAL' => $this->createPaymentGraph('GLOBAL', $creatorGlobal, 400, null),
         ];
     }
 
     /**
      * @return array{quotation: Quotation, order: Order, invoice: Invoice, receipt: Receipt}
      */
-    private function createPaymentGraph(string $suffix, User $creator, float $amount): array
+    private function createPaymentGraph(string $suffix, User $creator, float $amount, ?int $countryId = null): array
     {
         $customerUser = User::factory()->create();
         $customer = Customer::create([
@@ -208,6 +208,7 @@ class PaymentCountryVisibilityTest extends TestCase
             'quotation_number' => 'Q-'.$suffix,
             'customer_id' => $customer->id,
             'created_by' => $creator->id,
+            'country_id' => $countryId,
             'quotation_date' => now()->toDateString(),
             'expiry_date' => now()->addDays(7)->toDateString(),
             'payment_plan' => 'full',

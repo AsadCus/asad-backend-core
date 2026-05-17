@@ -14,6 +14,7 @@ export interface Auth {
     scope_labels?: string[];
     scope_country_options?: Array<{ id: number; label: string }>;
     scope_selected_country_ids?: number[];
+    scope_selected_branch_ids?: number[];
 }
 
 export interface BreadcrumbItem {

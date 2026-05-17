@@ -19,6 +19,10 @@ import { OptionType, SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
+import {
+    QuotationHandleDialog,
+    SalespersonOption,
+} from './components/quotation-handle-dialog';
 import QuotationPreviewModal from './components/quotation-preview-modal';
 import {
     getAvailableQuotationActions,
@@ -37,7 +41,7 @@ interface QuotationsProps {
     data: {
         quotationsForDatatable: QuotationSchema[];
         customers: OptionType[];
-        salespersons: OptionType[];
+        salespersons: SalespersonOption[];
     };
 }
 
@@ -176,9 +180,34 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
+    const isSalesOrAdmin =
+        auth.roles.includes('sales') || auth.roles.includes('admin');
     const userPermissions = auth.permissions || [];
+    const scopeMode = (auth.scope_mode === 'branch' ? 'branch' : 'country') as
+        | 'country'
+        | 'branch';
+    const scopeCountryIds = auth.scope_selected_country_ids ?? [];
+    const scopeBranchIds = auth.scope_selected_branch_ids ?? [];
     const columns = useMemo(() => getColumns(), []);
     const actions: ActionType[] = [];
+
+    const salespersonsForFilter = useMemo(
+        () =>
+            salespersons.map((option) => ({
+                value: String(option.value),
+                label: option.label,
+            })),
+        [salespersons],
+    );
+
+    const quotationIsInUserScope = (q: QuotationSchema): boolean => {
+        if (scopeMode === 'branch') {
+            const branchId = Number(q.branch_id ?? 0);
+            return branchId > 0 && scopeBranchIds.includes(branchId);
+        }
+        const countryId = Number(q.country_id ?? 0);
+        return countryId > 0 && scopeCountryIds.includes(countryId);
+    };
 
     if (userPermissions.includes('quotation create')) actions.push('add');
     if (userPermissions.includes('quotation view'))
@@ -210,6 +239,9 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const [selectedQuotationForPreview, setSelectedQuotationForPreview] =
         useState<QuotationSchema | null>(null);
     const [previewItems, setPreviewItems] = useState<QuotationItemSchema[]>([]);
+    const [handleDialogOpen, setHandleDialogOpen] = useState(false);
+    const [selectedQuotationForHandle, setSelectedQuotationForHandle] =
+        useState<QuotationSchema | null>(null);
     const handleQuotationStatusAction = (
         action: ActionType,
         quotation: QuotationSchema,
@@ -313,6 +345,19 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     );
                                 }
 
+                                const isUnassigned =
+                                    !q.sales_id && !q.created_by;
+                                if (hasEditPermission && isUnassigned) {
+                                    if (isSuperadmin) {
+                                        rowActions.push('quotation-handle');
+                                    } else if (
+                                        isSalesOrAdmin &&
+                                        quotationIsInUserScope(q)
+                                    ) {
+                                        rowActions.push('quotation-handle');
+                                    }
+                                }
+
                                 if (
                                     hasDeletePermission &&
                                     !['converted', 'cancelled'].includes(
@@ -379,6 +424,27 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                             action,
                                             row!.original,
                                         );
+                                        return;
+                                    } else if (action === 'quotation-handle') {
+                                        const target = row!.original;
+                                        if (isSuperadmin) {
+                                            setSelectedQuotationForHandle(
+                                                target,
+                                            );
+                                            setHandleDialogOpen(true);
+                                        } else {
+                                            confirm({
+                                                title: 'Handle Quotation',
+                                                message: `Assign quotation "${target.quotation_number}" to yourself?`,
+                                                confirmText: 'Assign',
+                                                cancelText: 'Cancel',
+                                                onConfirm: () => {
+                                                    router.post(
+                                                        `/quotation/${quotationId}/handle`,
+                                                    );
+                                                },
+                                            });
+                                        }
                                         return;
                                     } else if (action === 'delete') {
                                         confirm({
@@ -450,7 +516,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                             table={table}
                                             columnId="sales_id"
                                             title="Salesperson"
-                                            options={salespersons}
+                                            options={salespersonsForFilter}
                                         />
                                     )}
                                     <DateRangeFilter
@@ -493,6 +559,20 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                     onOpenChange={setPreviewModalOpen}
                 />
             )}
+
+            <QuotationHandleDialog
+                quotationId={selectedQuotationForHandle?.id}
+                quotationNumber={selectedQuotationForHandle?.quotation_number ?? undefined}
+                quotationCountryId={selectedQuotationForHandle?.country_id ?? null}
+                quotationBranchId={selectedQuotationForHandle?.branch_id ?? null}
+                scopeMode={scopeMode}
+                salespersons={salespersons}
+                isOpen={handleDialogOpen}
+                onClose={() => {
+                    setHandleDialogOpen(false);
+                    setSelectedQuotationForHandle(null);
+                }}
+            />
         </>
     );
 }

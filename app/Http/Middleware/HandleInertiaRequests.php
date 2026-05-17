@@ -70,6 +70,7 @@ class HandleInertiaRequests extends Middleware
                 'scope_labels' => $user ? $this->resolveScopeLabels($user) : [],
                 'scope_country_options' => $user ? $this->resolveScopeCountryOptions($user) : [],
                 'scope_selected_country_ids' => $user ? DataScope::scopedCountryIds($user) : [],
+                'scope_selected_branch_ids' => $user ? DataScope::scopedBranchIds($user) : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

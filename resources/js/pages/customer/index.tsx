@@ -20,11 +20,11 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
+import { UserSchema } from '../masters/users/schema';
 import {
     CustomerImportDialog,
     generateCustomerImportTemplate,
 } from './import-dialog';
-import { UserSchema } from '../masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -164,9 +164,12 @@ export default function Customer({ data }: CustomerProps) {
                             searchFilterMode="outside"
                             columnFilterMode="outside"
                             addButtonText="Add New Customer"
-                            showImport={userPermissions.includes('customer create')}
+                            showImport={userPermissions.includes(
+                                'customer create',
+                            )}
                             onImport={() => setImportOpen(true)}
                             customExports={customExports}
+                            exportOptions={['excel', 'pdf']}
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
@@ -174,7 +177,7 @@ export default function Customer({ data }: CustomerProps) {
                                     if (q.is_active === false) {
                                         rowActions.push('enable-customer');
                                     } else {
-                                        rowActions.push('disable-customer');
+                                        // rowActions.push('disable-customer');
                                     }
                                 }
 
@@ -227,6 +230,11 @@ export default function Customer({ data }: CustomerProps) {
                                             },
                                         });
                                     }
+                                }
+                            }}
+                            onRowDoubleClick={(row) => {
+                                if (row.id) {
+                                    router.get(edit(row.id).url);
                                 }
                             }}
                             initialState={{
