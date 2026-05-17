@@ -13,6 +13,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Support\DataScope;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 class SalesService
 {
@@ -47,7 +48,80 @@ class SalesService
                 'value' => $q->id,
                 'label' => $q->name,
                 'branch_id' => $q->sales->branch_id ?? null,
+                'branch_ids' => $q->sales->branch_ids ?? [],
+                'country_id' => $q->sales->country_id ?? null,
+                'country_ids' => $q->sales->country_ids ?? [],
             ];
+        });
+    }
+
+    public function getForQuotationAssignment(?User $user = null): array
+    {
+        $resolvedUser = $user ?? auth()->user();
+
+        $query = User::role(['admin', 'sales'])
+            ->whereNull('deleted_at')
+            ->with('sales');
+
+        if (DataScope::enabled() && $resolvedUser instanceof User) {
+            $scopeMode = DataScope::mode();
+
+            if ($scopeMode === 'branch') {
+                $branchIds = DataScope::scopedBranchIds($resolvedUser);
+
+                if (! empty($branchIds)) {
+                    $query->whereHas('sales', function (Builder $salesQuery) use ($branchIds): void {
+                        $this->applyMatchingBranchConstraint($salesQuery, $branchIds);
+                    });
+                }
+            } else {
+                $countryIds = DataScope::scopedCountryIds($resolvedUser);
+
+                if (! empty($countryIds)) {
+                    $query->whereHas('sales', function (Builder $salesQuery) use ($countryIds): void {
+                        $this->applyMatchingCountryConstraint($salesQuery, $countryIds);
+                    });
+                }
+            }
+        }
+
+        return $query->get()->map(function (User $user) {
+            return [
+                'value' => $user->id,
+                'label' => $user->name,
+                'branch_id' => $user->sales->branch_id ?? null,
+                'branch_ids' => $user->sales->branch_ids ?? [],
+                'country_id' => $user->sales->country_id ?? null,
+                'country_ids' => $user->sales->country_ids ?? [],
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @param  array<int, int>  $countryIds
+     */
+    private function applyMatchingCountryConstraint(Builder $query, array $countryIds): void
+    {
+        $query->where(function (Builder $countryQuery) use ($countryIds): void {
+            $countryQuery->whereIn('country_id', $countryIds);
+
+            foreach ($countryIds as $countryId) {
+                $countryQuery->orWhereJsonContains('country_ids', (int) $countryId);
+            }
+        });
+    }
+
+    /**
+     * @param  array<int, int>  $branchIds
+     */
+    private function applyMatchingBranchConstraint(Builder $query, array $branchIds): void
+    {
+        $query->where(function (Builder $branchQuery) use ($branchIds): void {
+            $branchQuery->whereIn('branch_id', $branchIds);
+
+            foreach ($branchIds as $branchId) {
+                $branchQuery->orWhereJsonContains('branch_ids', (int) $branchId);
+            }
         });
     }
 

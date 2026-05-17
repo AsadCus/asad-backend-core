@@ -50,7 +50,7 @@ class QuotationController extends Controller
 
         $data['quotationsForDatatable'] = $this->quotationService->getForDataTable($filters);
         $data['customers'] = $this->customerService->getForFilter();
-        $data['salespersons'] = $this->salesService->getForFilter();
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('quotations/index', [
             'data' => $data,
@@ -70,6 +70,7 @@ class QuotationController extends Controller
             ->filter(fn ($extension) => ($extension['type'] ?? null) !== 'discount')
             ->values()
             ->all();
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         $prefilledCustomerId = $request->input('customer_id');
         $prefilledCustomerData = null;
@@ -119,6 +120,7 @@ class QuotationController extends Controller
             (int) ($data['data']['customer_confirmation_id'] ?? 0) ?: null
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('quotations/view', [
             'data' => $data,
@@ -138,6 +140,7 @@ class QuotationController extends Controller
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('quotations/edit', [
             'data' => $data,
@@ -165,6 +168,30 @@ class QuotationController extends Controller
 
         return redirect()->route('quotation.index')
             ->with('success', 'Quotation updated successfully');
+    }
+
+    public function handle(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'salesperson_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        $quotation = $this->quotationService->handleAssignment(
+            (int) $id,
+            isset($validated['salesperson_id']) ? (int) $validated['salesperson_id'] : null,
+        );
+
+        activity()
+            ->performedOn($quotation)
+            ->withProperties([
+                'subject_type' => 'Quotation',
+                'subject_id' => $quotation->id,
+                'quotation_number' => $quotation->quotation_number,
+                'assigned_to' => $quotation->created_by,
+            ])
+            ->log('Quotation assigned to salesperson #'.$quotation->created_by.' for quotation #'.$quotation->quotation_number);
+
+        return redirect()->route('quotation.index')->with('success', 'Quotation handled successfully.');
     }
 
     public function readyQuotation($id)

@@ -30,6 +30,7 @@ export type ActionType =
     | 'quotation-status-reject'
     | 'quotation-status-expire'
     | 'quotation-status-cancel'
+    | 'quotation-handle'
     | 'enquiry-status-contacted'
     | 'enquiry-status-confirmed'
     | 'add-remark'

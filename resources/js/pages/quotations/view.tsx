@@ -19,6 +19,7 @@ interface ViewQuotationProps {
             address?: string | null;
             email?: string | null;
         }>;
+        salespersons?: Array<{ value: number | string; label: string }>;
     };
 }
 
@@ -54,6 +55,7 @@ export default function ViewQuotation({ data }: ViewQuotationProps) {
                         statuses={statuses}
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}
+                        salespersons={data.salespersons}
                         onCancel={handleCancel}
                     />
                 </div>

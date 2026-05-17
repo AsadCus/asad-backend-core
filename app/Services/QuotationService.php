@@ -14,6 +14,7 @@ use App\Models\PaymentMethodMaster;
 use App\Models\Quotation;
 use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
+use App\Models\User;
 use App\Support\DataScope;
 use App\Support\InvoiceStatus;
 use Carbon\Carbon;
@@ -75,8 +76,11 @@ class QuotationService
                     'customer_name' => $q->customer->user->name ?? '-',
                     'package_number' => $q->customerConfirmation?->package?->package_number ?? '',
                     'package_name' => $q->customerConfirmation?->package?->name ?? '',
+                    'salesperson_id' => $q->created_by,
                     'sales_id' => $q->createdBy?->id ?? '-',
                     'sales_name' => $q->createdBy?->name ?? '-',
+                    'country_id' => $q->country_id,
+                    'branch_id' => $q->branch_id,
                     'description' => $q->description ?? '-',
                     'quotation_date' => $q->quotation_date_formatted,
                     'expiry_date' => $q->expiry_date_formatted,
@@ -474,6 +478,8 @@ class QuotationService
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
 
+            $assignment = $this->resolveSalespersonAssignmentForStore($data);
+
             $quotation = Quotation::create([
                 'quotation_number' => $this->numberingService->ensureNumber(
                     'quotation',
@@ -483,7 +489,9 @@ class QuotationService
                 ),
                 'customer_id' => $data['customer_id'] ?? null,
                 'customer_confirmation_id' => $data['customer_confirmation_id'] ?? null,
-                'created_by' => auth()->user()?->id,
+                'country_id' => $assignment['country_id'],
+                'branch_id' => $assignment['branch_id'],
+                'created_by' => $assignment['salesperson_id'],
                 'quotation_date' => $data['quotation_date'] ?? null,
                 'expiry_date' => $data['expiry_date'] ?? null,
                 'payment_plan' => $data['payment_plan'] ?? 'full',
@@ -547,6 +555,9 @@ class QuotationService
             'quotation_number' => $quotation->quotation_number,
             'customer_confirmation_id' => $quotation->customer_confirmation_id,
             'customer_id' => $quotation->customer_id,
+            'salesperson_id' => $quotation->created_by,
+            'country_id' => $quotation->country_id,
+            'branch_id' => $quotation->branch_id,
             'customer_number' => $quotation->customer->customer_number ?? '',
             'customer_name' => $quotation->customer->user->name ?? '',
             'nric_number' => $quotation->customer->nric_number ?? '',
@@ -710,6 +721,147 @@ class QuotationService
         };
     }
 
+    /**
+     * @return array{salesperson_id: ?int, country_id: ?int, branch_id: ?int}
+     */
+    private function resolveSalespersonAssignmentForStore(array $data): array
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            return [
+                'salesperson_id' => isset($data['salesperson_id']) ? (int) $data['salesperson_id'] : null,
+                'country_id' => null,
+                'branch_id' => null,
+            ];
+        }
+
+        if ($actor->hasRole('superadmin')) {
+            return $this->resolveSuperadminSalespersonAssignment($actor, $data['salesperson_id'] ?? null, true);
+        }
+
+        if ($actor->hasRole('admin') || $actor->hasRole('sales')) {
+            return $this->buildSalespersonAssignmentPayload($actor);
+        }
+
+        return [
+            'salesperson_id' => null,
+            'country_id' => null,
+            'branch_id' => null,
+        ];
+    }
+
+    /**
+     * @return array{salesperson_id: ?int, country_id: ?int, branch_id: ?int}|null
+     */
+    private function resolveSalespersonAssignmentForUpdate(array $data): ?array
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User || ! $actor->hasRole('superadmin')) {
+            return null;
+        }
+
+        return $this->resolveSuperadminSalespersonAssignment($actor, $data['salesperson_id'] ?? null, true);
+    }
+
+    /**
+     * @return array{salesperson_id: ?int, country_id: ?int, branch_id: ?int}
+     */
+    private function resolveSuperadminSalespersonAssignment(User $actor, mixed $salespersonId, bool $requireSelection): array
+    {
+        $resolvedId = (int) $salespersonId;
+
+        if ($resolvedId <= 0) {
+            if ($requireSelection) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Salesperson is required for superadmin users.',
+                ]);
+            }
+
+            return [
+                'salesperson_id' => null,
+                'country_id' => null,
+                'branch_id' => null,
+            ];
+        }
+
+        if ($actor->id === $resolvedId) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Salesperson must be a sales/admin user, not the superadmin account.',
+            ]);
+        }
+
+        $salesperson = $this->resolveSalespersonUser($resolvedId);
+
+        $this->assertSalespersonMatchesActorScope($actor, $salesperson);
+
+        return $this->buildSalespersonAssignmentPayload($salesperson);
+    }
+
+    private function resolveSalespersonUser(int $salespersonId): User
+    {
+        $salesperson = User::query()
+            ->with(['sales', 'admin'])
+            ->find($salespersonId);
+
+        if (! $salesperson) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Selected salesperson is invalid.',
+            ]);
+        }
+
+        if ($salesperson->hasRole('superadmin') || ! $salesperson->hasRole(['admin', 'sales'])) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Salesperson must have admin or sales role.',
+            ]);
+        }
+
+        return $salesperson;
+    }
+
+    /**
+     * @return array{salesperson_id: ?int, country_id: ?int, branch_id: ?int}
+     */
+    private function buildSalespersonAssignmentPayload(User $salesperson): array
+    {
+        $countryId = DataScope::scopedCountryId($salesperson);
+        $branchId = DataScope::scopedBranchId($salesperson);
+
+        return [
+            'salesperson_id' => $salesperson->id,
+            'country_id' => $countryId,
+            'branch_id' => $branchId,
+        ];
+    }
+
+    private function assertSalespersonMatchesActorScope(User $actor, User $salesperson): void
+    {
+        $scopeMode = DataScope::mode();
+
+        if ($scopeMode === 'branch') {
+            $actorBranchIds = DataScope::assignableBranchIds($actor);
+            $salespersonBranchIds = DataScope::assignableBranchIds($salesperson);
+
+            if (empty(array_intersect($actorBranchIds, $salespersonBranchIds))) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Selected salesperson is outside of your branch scope.',
+                ]);
+            }
+
+            return;
+        }
+
+        $actorCountryIds = DataScope::scopedCountryIds($actor);
+        $salespersonCountryIds = DataScope::assignableCountryIds($salesperson);
+
+        if (empty(array_intersect($actorCountryIds, $salespersonCountryIds))) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Selected salesperson is outside of your country scope.',
+            ]);
+        }
+    }
+
     public function update(array $data, int $id): Quotation
     {
         return DB::transaction(function () use ($data, $id) {
@@ -735,7 +887,7 @@ class QuotationService
                 $data['expiry_date'] = Carbon::parse($data['expiry_date'])->format('Y-m-d');
             }
 
-            $quotation->update([
+            $updatePayload = [
                 'quotation_number' => array_key_exists('quotation_number', $data)
                     ? $this->numberingService->ensureNumber(
                         'quotation',
@@ -752,7 +904,17 @@ class QuotationService
                 'description' => $data['description'] ?? null,
                 'status' => $data['status'] ?? $quotation->status?->value,
                 'reason' => $data['reason'] ?? $quotation->reason,
-            ]);
+            ];
+
+            $assignment = $this->resolveSalespersonAssignmentForUpdate($data);
+
+            if ($assignment) {
+                $updatePayload['country_id'] = $assignment['country_id'];
+                $updatePayload['branch_id'] = $assignment['branch_id'];
+                $updatePayload['created_by'] = $assignment['salesperson_id'];
+            }
+
+            $quotation->update($updatePayload);
 
             if (array_key_exists('items', $data) && is_array($data['items'])) {
                 $this->validateCustomerConfirmationMemberSharingPlans(
@@ -823,6 +985,111 @@ class QuotationService
 
             return $quotation->fresh();
         });
+    }
+
+    public function handleAssignment(int $quotationId, ?int $salespersonId = null): Quotation
+    {
+        return DB::transaction(function () use ($quotationId, $salespersonId) {
+            $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(Quotation::query())->findOrFail($quotationId);
+
+            if ($quotation->created_by) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Quotation already has a salesperson assigned.',
+                ]);
+            }
+
+            $actor = auth()->user();
+
+            if (! $actor instanceof User) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Unable to resolve the current user.',
+                ]);
+            }
+
+            if ($actor->hasRole('superadmin')) {
+                $resolvedId = (int) ($salespersonId ?? 0);
+
+                if ($resolvedId <= 0) {
+                    throw ValidationException::withMessages([
+                        'salesperson_id' => 'Salesperson is required for superadmin users.',
+                    ]);
+                }
+
+                $salesperson = $this->resolveSalespersonUser($resolvedId);
+
+                $this->assertSalespersonMatchesQuotationScope($quotation, $salesperson);
+
+                $quotation->update([
+                    'created_by' => $salesperson->id,
+                ]);
+
+                return $quotation->fresh();
+            }
+
+            if ($actor->hasRole('admin') || $actor->hasRole('sales')) {
+                $this->assertUserMatchesQuotationScope($quotation, $actor);
+
+                $quotation->update([
+                    'created_by' => $actor->id,
+                ]);
+
+                return $quotation->fresh();
+            }
+
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'You are not allowed to handle this quotation.',
+            ]);
+        });
+    }
+
+    private function assertUserMatchesQuotationScope(Quotation $quotation, User $user): void
+    {
+        $scopeMode = DataScope::mode();
+
+        if ($scopeMode === 'branch') {
+            $branchId = (int) ($quotation->branch_id ?? 0);
+
+            if ($branchId <= 0 || ! in_array($branchId, DataScope::assignableBranchIds($user), true)) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Quotation is outside of your branch scope.',
+                ]);
+            }
+
+            return;
+        }
+
+        $countryId = (int) ($quotation->country_id ?? 0);
+
+        if ($countryId <= 0 || ! in_array($countryId, DataScope::scopedCountryIds($user), true)) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Quotation is outside of your country scope.',
+            ]);
+        }
+    }
+
+    private function assertSalespersonMatchesQuotationScope(Quotation $quotation, User $salesperson): void
+    {
+        $scopeMode = DataScope::mode();
+
+        if ($scopeMode === 'branch') {
+            $branchId = (int) ($quotation->branch_id ?? 0);
+
+            if ($branchId <= 0 || ! in_array($branchId, DataScope::assignableBranchIds($salesperson), true)) {
+                throw ValidationException::withMessages([
+                    'salesperson_id' => 'Salesperson must match the quotation branch.',
+                ]);
+            }
+
+            return;
+        }
+
+        $countryId = (int) ($quotation->country_id ?? 0);
+
+        if ($countryId <= 0 || ! in_array($countryId, DataScope::assignableCountryIds($salesperson), true)) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => 'Salesperson must match the quotation country.',
+            ]);
+        }
     }
 
     /**

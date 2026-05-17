@@ -23,6 +23,8 @@ class Quotation extends Model
         'expiry_date',
         'customer_id',
         'customer_confirmation_id',
+        'country_id',
+        'branch_id',
         'created_by',
         'description',
         'payment_plan',

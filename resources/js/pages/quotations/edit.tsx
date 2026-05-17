@@ -32,6 +32,7 @@ interface EditQuotationProps {
                 is_active?: boolean;
             }
         >;
+        salespersons?: Array<{ value: number | string; label: string }>;
     };
 }
 
@@ -68,6 +69,7 @@ export default function EditQuotation({ data }: EditQuotationProps) {
                         customerConfirmations={data.customerConfirmations}
                         activeCustomers={data.activeCustomers ?? []}
                         extensionMasters={data.quotationExtensionMasters}
+                        salespersons={data.salespersons}
                         onCancel={handleCancel}
                     />
                 </div>

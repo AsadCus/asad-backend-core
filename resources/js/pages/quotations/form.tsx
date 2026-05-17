@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { navigateToSection } from '@/lib/navigation-helper';
 import { formatDateForDisplay } from '@/lib/utils';
 import { show as showCustomerConfirmation } from '@/routes/customer-confirmations';
-import { OptionType } from '@/types';
-import { useForm } from '@inertiajs/react';
+import { OptionType, SharedData } from '@/types';
+import { useForm, usePage } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,6 +51,7 @@ interface QuotationFormProps {
     defaultExtensions?: QuotationSchema['extensions'];
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
+    salespersons?: Array<{ value: number | string; label: string }>;
     onCancel?: () => void;
 }
 
@@ -268,11 +269,29 @@ export function QuotationForm({
     extensionMasters = [],
     prefilledCustomerId,
     prefilledCustomerData,
+    salespersons = [],
     onCancel,
 }: QuotationFormProps) {
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
+
+    const { auth } = usePage<SharedData>().props;
+    const authRoles = auth?.roles ?? [];
+    const isSuperadmin = authRoles.includes('superadmin');
+    const isSalesOrAdmin =
+        authRoles.includes('sales') || authRoles.includes('admin');
+    const authUserId =
+        auth?.user?.id != null ? Number(auth.user.id) : null;
+
+    const salespersonOptions = useMemo<OptionType[]>(
+        () =>
+            (salespersons ?? []).map((option) => ({
+                label: option.label,
+                value: String(option.value),
+            })),
+        [salespersons],
+    );
 
     const initialNotes: NoteSchema[] = (
         initialData?.notes?.length ? initialData.notes : quotationNotes
@@ -284,6 +303,11 @@ export function QuotationForm({
 
     const today = formatDateForDisplay(new Date());
 
+    const initialSalespersonId =
+        isCreate && isSalesOrAdmin && !isSuperadmin && authUserId
+            ? authUserId
+            : (initialData?.salesperson_id ?? null);
+
     const initialFormState: QuotationSchema = {
         id: undefined,
         quotation_number: '',
@@ -292,6 +316,7 @@ export function QuotationForm({
         expiry_date: today,
         customer_id: undefined,
         customer_confirmation_id: undefined,
+        salesperson_id: initialSalespersonId,
         customer_name: '',
         nric_number: '',
         customer_contact: '',
@@ -1658,6 +1683,9 @@ export function QuotationForm({
                         selectedMemberIds={effectiveSelectedMemberIds}
                         customerOptions={customerOptions}
                         selectedCustomerValue={selectedCustomerValue}
+                        salespersonOptions={salespersonOptions}
+                        salespersonDisabled={isSalesOrAdmin && !isSuperadmin}
+                        salespersonRequired={isSuperadmin}
                         quotationNumberError={
                             errorMap.quotation_number ??
                             errorMap.number_format_id

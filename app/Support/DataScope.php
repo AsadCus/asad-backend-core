@@ -123,27 +123,22 @@ class DataScope
             return $query;
         }
 
-        $selectedCountryIds = self::scopedCountryIds($resolvedUser);
+        $scopeMode = self::mode();
+        $scopedIds = $scopeMode === 'branch'
+            ? self::scopedBranchIds($resolvedUser)
+            : self::scopedCountryIds($resolvedUser);
+        $column = $scopeMode === 'branch' ? 'branch_id' : 'country_id';
 
-        return $query->where(function (Builder $scopedQuery) use ($selectedCountryIds): void {
-            if (! empty($selectedCountryIds)) {
-                $scopedQuery->where(function (Builder $visibleQuery) use ($selectedCountryIds): void {
-                    $visibleQuery
-                        ->whereHas('createdBy.sales', function (Builder $salesQuery) use ($selectedCountryIds): void {
-                            self::applyMatchingCountryConstraint($salesQuery, $selectedCountryIds);
-                        })
-                        ->orWhereHas('createdBy.admin', function (Builder $adminQuery) use ($selectedCountryIds): void {
-                            self::applyMatchingCountryConstraint($adminQuery, $selectedCountryIds);
-                        })
-                        ->orWhere(function (Builder $globalCreatorQuery): void {
-                            self::applyGlobalCreatorConstraint($globalCreatorQuery);
-                        });
-                });
+        return $query->where(function (Builder $scopedQuery) use ($scopedIds, $column): void {
+            if (! empty($scopedIds)) {
+                $scopedQuery
+                    ->whereIn($column, $scopedIds)
+                    ->orWhereNull($column);
 
                 return;
             }
 
-            self::applyGlobalCreatorConstraint($scopedQuery);
+            $scopedQuery->whereNull($column);
         });
     }
 

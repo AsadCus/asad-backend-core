@@ -4,8 +4,10 @@ namespace App\Services\UserRoles;
 
 use App\Models\Branch;
 use App\Models\Country;
+use App\Models\Quotation;
 use App\Models\Sales;
 use App\Models\User;
+use App\Support\DataScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -198,13 +200,36 @@ class SalesUserService
                 ]);
             }
 
+            $unassignedCount = $this->releaseOutOfScopeQuotations($user->fresh('sales'));
+
             activity()
                 ->performedOn($user)
-                ->withProperties(['subject_type' => $roleLabel.'User', 'subject_id' => $user->id ?? null])
+                ->withProperties([
+                    'subject_type' => $roleLabel.'User',
+                    'subject_id' => $user->id ?? null,
+                    'quotations_unassigned' => $unassignedCount,
+                ])
                 ->log($roleLabel.'User updated successfully #'.($user->id ?? null));
 
             return $user;
         });
+    }
+
+    private function releaseOutOfScopeQuotations(User $user): int
+    {
+        $scopeMode = DataScope::mode();
+        $column = $scopeMode === 'branch' ? 'branch_id' : 'country_id';
+        $scopedIds = $scopeMode === 'branch'
+            ? DataScope::assignableBranchIds($user)
+            : DataScope::assignableCountryIds($user);
+
+        $query = Quotation::query()->where('created_by', $user->id);
+
+        if (! empty($scopedIds)) {
+            $query->whereNotIn($column, $scopedIds);
+        }
+
+        return $query->update(['created_by' => null]);
     }
 
     /**

@@ -194,6 +194,7 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             showImport={true}
                             onImport={() => setImportOpen(true)}
                             customExports={customExports}
+                            exportOptions={['excel', 'pdf']}
                             onAction={(action, row) => {
                                 if (action === 'add') {
                                     router.get(create().url);

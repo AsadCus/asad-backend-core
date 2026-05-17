@@ -33,6 +33,10 @@ interface Props {
     selectedMemberIds?: number[];
     customerOptions?: OptionType[];
     selectedCustomerValue?: number | string | null;
+    salespersonOptions?: OptionType[];
+    salespersonDisabled?: boolean;
+    salespersonRequired?: boolean;
+    onSalespersonChange?: (value: string | number) => void;
     onCustomerConfirmationChange?: (value: string | number) => void;
     onSelectedMembersChange?: (memberIds: number[]) => void;
     onCustomerChange?: (value: string | number) => void;
@@ -52,6 +56,10 @@ export default function QuotationInformationSection({
     selectedMemberIds = [],
     customerOptions = [],
     selectedCustomerValue = null,
+    salespersonOptions = [],
+    salespersonDisabled = false,
+    salespersonRequired = false,
+    onSalespersonChange,
     onCustomerConfirmationChange,
     onSelectedMembersChange,
     onCustomerChange,
@@ -239,6 +247,41 @@ export default function QuotationInformationSection({
                                 </dl>
                             </div>
                         )}
+                    </FormField>
+
+                    <FormField
+                        label="Salesperson"
+                        htmlFor="salesperson_id"
+                        fieldRequirementsProps={{
+                            required: salespersonRequired,
+                            hint: salespersonDisabled
+                                ? 'Auto-assigned to the logged-in user'
+                                : 'Select a sales or admin user in your scope',
+                        }}
+                    >
+                        <div id="salesperson_id" tabIndex={-1}>
+                            <Combobox
+                                disabled={isView || salespersonDisabled}
+                                value={
+                                    data.salesperson_id != null
+                                        ? String(data.salesperson_id)
+                                        : ''
+                                }
+                                onChange={(value) => {
+                                    const next = Number(value);
+                                    if (Number.isNaN(next) || next <= 0) {
+                                        setData('salesperson_id', null);
+                                        onSalespersonChange?.('');
+                                        return;
+                                    }
+                                    setData('salesperson_id', next);
+                                    onSalespersonChange?.(next);
+                                }}
+                                options={salespersonOptions}
+                                placeholder="Select salesperson"
+                            />
+                        </div>
+                        {renderError('salesperson_id')}
                     </FormField>
                 </section>
 

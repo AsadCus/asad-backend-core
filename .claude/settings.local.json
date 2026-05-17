@@ -7,7 +7,13 @@
       "Bash(vendor/bin/pint --dirty)",
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "mcp__laravel-boost__application-info"
+      "mcp__laravel-boost__application-info",
+      "Bash(rtk ls *)",
+      "Bash(awk '/^    public function update/,/^    }$/' \"/Users/asad/Desktop/Asad Workspace/Projects/travel-management-system/app/Services/QuotationService.php\")",
+      "Bash(rtk tsc *)",
+      "Bash(rtk npm *)",
+      "Bash(rtk lint *)",
+      "Bash(rtk git *)"
     ]
   }
 }
