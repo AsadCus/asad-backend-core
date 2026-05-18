@@ -103,6 +103,27 @@ export function ProcedureDetailView({
                 </div>
             </div>
 
+            {/* Screenshot Frame (Placeholder or Real) */}
+            <div className="mt-8">
+                {procedure.screenshot ? (
+                    <div className="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-white shadow-sm dark:bg-slate-900/60">
+                        <img 
+                            src={procedure.screenshot} 
+                            alt={`Screenshot for ${procedure.name}`} 
+                            className="h-auto w-full object-cover"
+                        />
+                    </div>
+                ) : (
+                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sidebar-border/70 bg-slate-50/50 text-muted-foreground dark:bg-slate-900/20">
+                        <div className="rounded-full bg-slate-100 p-3 dark:bg-slate-800">
+                            <Icon className="h-6 w-6 opacity-50" />
+                        </div>
+                        <p className="mt-4 text-sm font-medium">Screenshot / Visual Guide</p>
+                        <p className="mt-1 text-xs opacity-70">Image placeholder for this procedure</p>
+                    </div>
+                )}
+            </div>
+
             {/* Steps */}
             <div className="mt-8">
                 <h2 className="text-lg font-semibold text-foreground">Step-by-Step Instructions</h2>

@@ -12,7 +12,7 @@ import { ProcedureDetailView } from './views/procedure-detail-view';
 import { useDocNavigation } from './hooks/use-doc-navigation';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Documentation', href: '/api/support/documentation' },
+    { title: 'Documentation', href: 'support/documentation' },
 ];
 
 function DocLayout({ children }: { children: ReactNode }) {

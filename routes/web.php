@@ -90,7 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Documentation
-    Route::get('api/support/documentation', [DocumentationController::class, 'index'])
+    Route::get('support/documentation', [DocumentationController::class, 'index'])
         ->name('documentations.index');
 
     // Masters
@@ -285,5 +285,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';
