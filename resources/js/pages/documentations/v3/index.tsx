@@ -64,6 +64,7 @@ export default function DocumentationV3Index({ documentation }: DocumentationPag
                         procedureIndex={nav.selectedProcedure}
                         onBackToModule={() => nav.goToModule(nav.selectedModule!)}
                         onBackToHome={nav.goHome}
+                        onProcedureChange={nav.goToProcedure}
                     />
                 )}
             </div>

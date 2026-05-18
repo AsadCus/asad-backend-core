@@ -42,12 +42,14 @@ export function ProcedureDetailView({
     procedureIndex,
     onBackToModule,
     onBackToHome,
+    onProcedureChange,
 }: {
     documentation: DocumentationPageProps['documentation'];
     moduleGroup: MenuGroup;
     procedureIndex: number;
     onBackToModule: () => void;
     onBackToHome: () => void;
+    onProcedureChange: (index: number) => void;
 }) {
     const Icon = getModuleIcon(moduleGroup.menu);
     const playbook = findPlaybook(documentation, moduleGroup);
@@ -181,6 +183,7 @@ export function ProcedureDetailView({
                             <button
                                 type="button"
                                 onClick={() => {
+                                    onProcedureChange(procedureIndex - 1);
                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
@@ -192,6 +195,7 @@ export function ProcedureDetailView({
                             <button
                                 type="button"
                                 onClick={() => {
+                                    onProcedureChange(procedureIndex + 1);
                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
