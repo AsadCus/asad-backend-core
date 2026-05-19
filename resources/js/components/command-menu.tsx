@@ -33,7 +33,7 @@ export function CommandMenu({
     setOpen,
 }: {
     open: boolean;
-    setOpen: (open: boolean) => void;
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
