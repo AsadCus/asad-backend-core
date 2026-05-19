@@ -7,25 +7,25 @@ export default function AppLogo() {
                 {/* <AppLogoIcon className="size-5 fill-current text-white dark:text-black" /> */}
                 <img
                     src="/compact-logo-primary.png"
-                    alt="KTMS"
+                    alt="TMS"
                     className="hidden w-4"
                     // className="hidden w-4 not-dark:block"
                 />
                 <img
                     src="/compact-logo-light.png"
-                    alt="KTMS"
+                    alt="TMS"
                     // className="hidden w-4"
                     className="hidden w-4 not-dark:block"
                 />
                 <img
                     src="/compact-logo-dark.png"
-                    alt="KTMS"
+                    alt="TMS"
                     className="hidden w-4 dark:block"
                 />
             </div>
             <div className="ml-1 grid flex-1 text-left text-base">
                 <span className="mb-0.5 truncate leading-tight font-semibold">
-                    KTMS
+                    TMS
                 </span>
             </div>
         </>
