@@ -7,9 +7,12 @@ function findPlaybook(
     documentation: DocumentationPageProps['documentation'],
     group: MenuGroup,
 ): ModulePlaybook | undefined {
-    const menuSlug = slugify(group.menu);
+    const menuSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
     return documentation.modulePlaybooks.find(
-        (p) => p.id === `${menuSlug}-module` || slugify(p.title) === `${menuSlug}-module`,
+        (p) => {
+            const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
+            return playbookSlug === menuSlug || p.id === `${menuSlug}-module` || p.id === menuSlug;
+        }
     );
 }
 

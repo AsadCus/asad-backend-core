@@ -3,7 +3,7 @@
 namespace App\Services;
 
 /**
- * Module Playbooks — All 18 modules from PM Manual Register.
+ * Module Playbooks — All 13 modules from KTS Manual v1.
  *
  * This file contains the static documentation playbook data for all modules.
  * Separated from DocumentationService for maintainability.
@@ -13,831 +13,698 @@ namespace App\Services;
 class DocumentationModulePlaybooks
 {
     /**
-     * Get all 18 module playbooks.
+     * Get all 13 module playbooks.
      *
      * @return array<int, array<string, mixed>>
      */
     public static function all(): array
     {
-        return array_merge(
-            static::modules1to9(),
-            static::modules10to18(),
-        );
-    }
-
-    /**
-     * Modules 1.0–9.0: Dashboard, Master, Sales, Customer, Enquiry,
-     * Confirmed Customer, Quotation, Invoice, Receipt.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public static function modules1to9(): array
-    {
         return [
-        // ─── 1.0 Dashboard Module ───
-        [
-            'id' => 'dashboard-module',
-            'title' => 'Dashboard Module',
-            'overview' => 'The Dashboard provides a real-time overview of your business performance. Use it to monitor total sales by fiscal year, track ongoing travel packages, and review recent customer activity at a glance.',
-            'highlights' => [
-                'Fiscal year sales summary',
-                'Ongoing package tracking',
-                'Recent customer activity feed',
+            // ─── 1. Dashboard Modules ───
+            [
+                'id' => 'dashboard-module',
+                'title' => 'Dashboard Modules',
+                'overview' => 'The Dashboard Module provides a centralized operational view for sales performance, daily collections, upcoming departures, and recent customer interest. It is primarily used by SuperAdmin, Sales, and Admin users for daily monitoring and quick decision-making.',
+                'highlights' => [
+                    'Total Sales for Fiscal Year',
+                    'Daily Payment',
+                    'Upcoming Departures',
+                    'Recent Customers',
+                    'Fiscal year-based dashboard filtering',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'Total Sales for Fiscal Year',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open the Dashboard and locate the Total Sales for Fiscal Year widget.',
+                            'Use the fiscal year dropdown selector to switch the reporting year.',
+                            'Review FYTD transaction count (FYTD #) and FYTD sales amount (FYTD $).',
+                            'Use this metric for month-end and year-end performance checks.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Daily Payment',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Dashboard and review the Daily Payment widget.',
+                            'Confirm total payment received for the day.',
+                            'Review grouped payment categories to identify major inflow sources.',
+                            'Use this data for daily reconciliation with finance records.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Upcoming Departures',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Review the Upcoming Departures section on Dashboard.',
+                            'Validate departure date, package name, and available seat count.',
+                            'Prioritize packages with nearest departure dates for operations follow-up.',
+                            'Click View All to open complete departure listing when deeper checks are needed.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Recent Customers',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open the Recent Customers panel from Dashboard.',
+                            'Review newly interested leads and their contact references.',
+                            'Use this list as follow-up queue for Sales conversion activities.',
+                            'Coordinate with enquiry and quotation flow for fast response.',
+                        ],
+                    ],
+                ],
             ],
-            'procedures' => [
-                [
-                    'name' => 'Total Sales for Fiscal Year',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Dashboard from the sidebar.', 'path' => '/dashboard'],
-                        'Select the desired fiscal year from the filter control at the top of the page.',
-                        'Review the total sales figure displayed in the summary widget.',
-                        'Observe the sales trend chart for monthly breakdown.',
-                        'Use the export button to download the payment summary report if needed.',
-                    ],
-                ],
-                [
-                    'name' => 'Ongoing Package',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Dashboard from the sidebar.', 'path' => '/dashboard'],
-                        'Locate the Ongoing Package widget on the dashboard.',
-                        'Review the list of active travel packages with their departure dates.',
-                        'Check the seat occupancy status for each listed package.',
-                    ],
-                ],
-                [
-                    'name' => 'Recent Customers',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Dashboard from the sidebar.', 'path' => '/dashboard'],
-                        'Locate the Recent Customers widget on the dashboard.',
-                        'Review the latest customer entries with their registration dates.',
-                        'Click on a customer name to navigate to their detail page.',
-                    ],
-                ],
-            ],
-        ],
 
-        // ─── 2.0 Master Module ───
-        [
-            'id' => 'master-module',
-            'title' => 'Master Module',
-            'overview' => 'The Master module is the central configuration area for the system. Superadmin users manage user accounts, country references, fiscal year periods, and product and service catalogs here. All settings configured in this module are referenced across the entire system.',
-            'highlights' => [
-                'User role management',
-                'Country and branch configuration',
-                'Fiscal year period control',
-                'Product and services catalog',
-                'Payment method and extension setup',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Add New User',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master from the sidebar.', 'path' => '/master'],
-                        'Click on the User Management section.',
-                        'Select the user role category (Superadmin, Admin, Sales, Operations, or Customer).',
-                        'Click the Create button.',
-                        'Fill in the user\'s full name.',
-                        'Enter a unique email address.',
-                        'Set the password for the new user.',
-                        'Select the appropriate role from the dropdown.',
-                        'Configure the location scope if applicable.',
-                        'Click Save to create the user.',
-                        'Verify the new user appears in the user list.',
-                    ],
+            // ─── 2. Master Modules ───
+            [
+                'id' => 'master-module',
+                'title' => 'Master Modules',
+                'overview' => 'The Master Module is the core configuration center for users, countries, fiscal years, and operational finance presets. It is mainly managed by SuperAdmin to keep data scope, financial setup, and governance consistent across countries.',
+                'highlights' => [
+                    'User Roles and Add New User',
+                    'Add New Country',
+                    'Add New Fiscal Year',
+                    'Country-based access control',
                 ],
-                [
-                    'name' => 'Add New Country',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master > Country.', 'path' => '/master/country'],
-                        'Click the Create button.',
-                        'Enter the country name.',
-                        'Fill in the country code.',
-                        'Click Save to confirm.',
-                        'Verify the new country appears in the country list.',
+                'procedures' => [
+                    [
+                        'name' => 'User Roles',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Define SuperAdmin with full control over users, countries, fiscal years, and package governance.',
+                            'Define Sales for enquiry-to-sales pipeline including quotation, invoice, and receipt activities.',
+                            'Define Admin similar to Sales but without Daily and Closing report access.',
+                            'Define Operations for itinerary, booklet, and operational exports without budget editing rights.',
+                        ],
                     ],
-                ],
-                [
-                    'name' => 'Add New Fiscal Year',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master > Fiscal Year.', 'path' => '/master/financial-year'],
-                        'Click the Create button.',
-                        'Enter the fiscal year label.',
-                        'Set the start date for the fiscal period.',
-                        'Set the end date for the fiscal period.',
-                        'Click Save to create the fiscal year record.',
-                        'Click Set Default on the new fiscal year row if it should be the active period.',
+                    [
+                        'name' => 'Add New User',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Navigate to Master and select Add New User.',
+                            'Choose the role based on scope: SuperAdmin, Sales, Admin, or Operations.',
+                            'Fill in identity and login details for the user account.',
+                            'Assign country location for scoped roles to enforce country-specific visibility.',
+                            'Click Create and verify new user appears in the user list.',
+                        ],
                     ],
-                ],
-                [
-                    'name' => 'Add New Product and Services',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master > Products and Services.', 'path' => '/master'],
-                        'Click the Create button.',
-                        'Enter the product or service name.',
-                        'Fill in the item header and sub-header details.',
-                        'Set the default pricing if applicable.',
-                        'Click Save to add the item to the catalog.',
-                        'Verify the item appears in the product and services list.',
+                    [
+                        'name' => 'Add New Country',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Master > Country.',
+                            'Click Add and enter the country name.',
+                            'Save the country record.',
+                            'Use this country for user assignment and country-scoped transaction visibility.',
+                        ],
                     ],
-                ],
-                [
-                    'name' => 'Add New Payment Method',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master from the sidebar.', 'path' => '/master'],
-                        'Navigate to the Payment Method section.',
-                        'Click the Create button.',
-                        'Enter the payment method name (e.g., Bank Transfer, Cash, Credit Card).',
-                        'Fill in any additional configuration details.',
-                        'Click Save to confirm.',
-                        'Verify the new payment method appears in the list.',
-                    ],
-                ],
-                [
-                    'name' => 'Add New Payment Extension',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Master from the sidebar.', 'path' => '/master'],
-                        'Navigate to the Payment Extension section.',
-                        'Click the Create button.',
-                        'Enter the payment extension name.',
-                        'Configure the extension parameters.',
-                        'Click Save to confirm.',
-                        'Verify the new payment extension appears in the list.',
+                    [
+                        'name' => 'Add New Fiscal Year',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Master > Fiscal Year and click Add.',
+                            'Set start date and end date for the financial period.',
+                            'Enable Set as Default when this fiscal year should drive dashboard and reports.',
+                            'Save and confirm fiscal year is selectable in dashboard filters.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 3.0 Sales Module ───
-        [
-            'id' => 'sales-module',
-            'title' => 'Sales Module',
-            'overview' => 'The Sales module provides reporting tools for tracking daily payments and generating closing reports. Use this module to monitor collection progress and produce summary reports for management review.',
-            'highlights' => [
-                'Daily payment report generation',
-                'Closing report by fiscal period',
-                'Date range and category filtering',
-                'PDF export for audit and sharing',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Daily Payment Report',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Reports > Payment from the sidebar.', 'path' => '/reports/payment'],
-                        'Select the fiscal year from the filter control.',
-                        'Set the date range for the report period.',
-                        'Select the package filter if needed.',
-                        'Select one or more category filters.',
-                        'Review the payment records displayed in the list view.',
-                        'Click Export to download the report as a PDF.',
+            // ─── 3. Product and Services ───
+            [
+                'id' => 'product-and-services',
+                'title' => 'Product and Services',
+                'overview' => 'The Product and Services module manages reusable invoice items, payment methods, payment extensions, tax extensions, and discount rules. It standardizes costing behavior across quotation and invoice workflows.',
+                'highlights' => [
+                    'Add New Product and Services',
+                    'Add New Payment Method',
+                    'Add New Payment Extension',
+                    'Add New GST Extension',
+                    'Add New Discount',
+                    'Reusable financial rules for invoicing',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'Add New Product and Services',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Product and Services and click Add.',
+                            'Enter item name (header) and item details (sub header).',
+                            'Set default quantity and cost when required for faster quotation usage.',
+                            'Mark status active and save.',
+                            'Use consistent naming to reduce billing mistakes.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add New Payment Method',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Payment Method settings under Product and Services.',
+                            'Add payment method name such as Bank Transfer, Card, or Cash.',
+                            'Set default method if it should be preselected on invoices.',
+                            'Set status to active and save to publish the method in dropdowns.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add New Payment Extension',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Create a new extension under Product and Services.',
+                            'Set extension type and naming for surcharge behavior.',
+                            'Choose calculation mode: Fixed Amount or Percentage.',
+                            'Input value and activate the extension.',
+                            'Link extension to specific payment methods when required.',
+                            'Save and validate invoice calculation behavior.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add New GST Extension',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Create a new extension from Product and Services.',
+                            'Set name such as GST 7% and choose TYPE as TAX.',
+                            'Set calculation mode to Percentage.',
+                            'Enter tax value (for example 7).',
+                            'Mark as active so tax appears in invoice calculations.',
+                            'Save and confirm tax appears correctly on sample invoices.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add New Discount',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Add a new extension record from Product and Services.',
+                            'Enter discount name and set TYPE to Discount.',
+                            'Choose calculation mode: Percentage or Fixed Amount.',
+                            'Enter discount value (for example 10 or 500).',
+                            'Activate the discount so it is available during invoicing.',
+                            'Save and validate discount output on quotation or invoice preview.',
+                        ],
                     ],
                 ],
-                [
-                    'name' => 'Closing Reports',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Reports > Closing from the sidebar.', 'path' => '/reports/closing'],
-                        'Select the fiscal year from the filter control.',
-                        'Set the date range for the closing period.',
-                        'Select one or more category filters.',
-                        'Review the closing summary data in the list view.',
-                        'Click Export to download the closing report as a PDF.',
-                    ],
-                ],
             ],
-        ],
 
-        // ─── 4.0 Customer Module ───
-        [
-            'id' => 'customer-module',
-            'title' => 'Customer Module',
-            'overview' => 'The Customer module manages all customer profile records. Customers can be created manually or auto-generated when an enquiry is converted to a confirmed customer. Use this module to search, view, and maintain customer data.',
-            'highlights' => [
-                'Customer profile management',
-                'Manual and auto-created records',
-                'Import and export capabilities',
-                'Enable and disable customer status',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Add New Customer',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Customer from the sidebar.', 'path' => '/customer'],
-                        'Search existing records to avoid creating duplicates.',
-                        'Click the Create button.',
-                        'Fill in the customer\'s full name.',
-                        'Enter the customer\'s contact number.',
-                        'Enter the customer\'s email address.',
-                        'Fill in the customer\'s identification details.',
-                        'Enter the customer\'s address information.',
-                        'Click Save to create the customer record.',
-                        'Verify the new customer appears in the customer list.',
+            // ─── 4. Enquiry Modules ───
+            [
+                'id' => 'enquiry-module',
+                'title' => 'Enquiry Modules',
+                'overview' => 'The Enquiry Module captures lead intake from website and walk-in channels. It supports general and private enquiry flows, status progression, remarks, and conversion into Confirmed Customer records.',
+                'highlights' => [
+                    'Change status from New Lead to Contacted',
+                    'Add a New General Enquiry',
+                    'Add a New Private Enquiry',
+                    'Country-scoped enquiry visibility',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'New Lead to Contacted and add remarks',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Enquiry Dashboard and find the target lead.',
+                            'Right click the enquiry and open Enquiry Status.',
+                            'Set status to Contacted after first outreach attempt.',
+                            'Add structured remarks including needs, budget, preferred travel period, and follow-up date.',
+                            'Use remarks to maintain clean handoff between Sales and Admin.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add a New General Enquiry (Walk-in Customer)',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Navigate to General Enquiry and click Create New General Enquiry.',
+                            'Optionally choose package preference when customer already has one.',
+                            'Select country correctly to enforce country-based access and reporting.',
+                            'Fill mandatory customer and contact fields.',
+                            'Save enquiry and assign for follow-up conversion pipeline.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add a New Private Enquiry (Walk-in Customer)',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Navigate to Private Enquiry and click Create New Private Enquiry.',
+                            'Select customer country and ensure ownership scope is correct.',
+                            'Capture mandatory contact data and private package intent.',
+                            'Include special requirements and timing details in remarks.',
+                            'Create record for custom package qualification and conversion.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 5.0 Enquiry Module ───
-        [
-            'id' => 'enquiry-module',
-            'title' => 'Enquiry Module',
-            'overview' => 'The Enquiry module is the primary intake point for new customer interest. Sales users manage two types of enquiries: General (group/open packages) and Private (individual/custom packages). Enquiries follow a status flow from New Lead to Contacted to Confirmed Customer.',
-            'highlights' => [
-                'General and Private enquiry intake',
-                'Lead status progression tracking',
-                'Remark and follow-up logging',
-                'Direct conversion to confirmed customer',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Change New Lead to Contacted',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Enquiry from the sidebar.', 'path' => '/enquiries'],
-                        'Locate the enquiry with "New Lead" status in the list view.',
-                        'Click on the enquiry row to open the detail view.',
-                        'Click the status action button.',
-                        'Select "Contacted" from the status options.',
-                        'Confirm the status change.',
-                        'Verify the status badge updates to "Contacted".',
-                    ],
+            // ─── 5. Customer ───
+            [
+                'id' => 'customer-module',
+                'title' => 'Customer',
+                'overview' => 'The Customer module stores customer master records for both manually added and enquiry-converted customers. Mandatory fields are enough for initial creation, while profile completion can happen later.',
+                'highlights' => [
+                    'Add New Customer manually',
+                    'Use as base profile before confirmation flow',
                 ],
-                [
-                    'name' => 'Add Remarks on Enquiry',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Enquiry from the sidebar.', 'path' => '/enquiries'],
-                        'Click on the target enquiry row to open the detail view.',
-                        'Locate the Remarks section.',
-                        'Click the Add Remark button.',
-                        'Type the follow-up summary or call outcome in the text field.',
-                        'Click Save to record the remark.',
-                        'Verify the remark appears in the remarks timeline.',
-                    ],
-                ],
-                [
-                    'name' => 'Change Contacted to a Confirmed Customer',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Enquiry from the sidebar.', 'path' => '/enquiries'],
-                        'Locate the enquiry with "Contacted" status in the list view.',
-                        'Click on the enquiry row to open the detail view.',
-                        'Review the enquiry qualification data and customer information.',
-                        'Click the Confirm action button.',
-                        'Select the travel package to assign the customer to.',
-                        'Fill in any additional confirmation details.',
-                        'Click Confirm to create the confirmed customer group.',
-                        'Verify the enquiry status changes to "Confirmed".',
-                    ],
-                ],
-                [
-                    'name' => 'Create New General Enquiry (Walk-In)',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Enquiry > General Enquiry from the sidebar.', 'path' => '/enquiries'],
-                        'Click the Create button.',
-                        'Fill in the customer\'s full name.',
-                        'Enter the customer\'s contact number.',
-                        'Enter the customer\'s email address.',
-                        'Select the package of interest from the dropdown.',
-                        'Fill in the number of travellers.',
-                        'Add any notes or special requirements.',
-                        'Click Save to create the general enquiry.',
-                        'Verify the new enquiry appears in the list with "New Lead" status.',
-                    ],
-                ],
-                [
-                    'name' => 'Create New Private Enquiry (Walk-In)',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Enquiry > Private Enquiry from the sidebar.', 'path' => '/enquiries'],
-                        'Click the Create button.',
-                        'Fill in the customer\'s full name.',
-                        'Enter the customer\'s contact number.',
-                        'Enter the customer\'s email address.',
-                        'Specify the preferred travel dates.',
-                        'Fill in the number of travellers.',
-                        'Describe the custom package requirements.',
-                        'Add any notes or special requests.',
-                        'Click Save to create the private enquiry.',
-                        'Verify the new enquiry appears in the list with "New Lead" status.',
+                'procedures' => [
+                    [
+                        'name' => 'Add New Customer',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Customer menu and click Add New Customer.',
+                            'Fill mandatory fields including basic identity and contact details.',
+                            'Save customer even if extended travel documents are not ready yet.',
+                            'Update additional profile fields later through edit flow or one-time link process.',
+                            'Use this record as source for quotation or confirmed customer workflows.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 6.0 Confirmed Customer Module ───
-        [
-            'id' => 'confirmed-customer-module',
-            'title' => 'Confirmed Customer Module',
-            'overview' => 'The Confirmed Customer module manages customer groups that have been confirmed for a travel package. Each confirmed customer group contains one or more participants (members) who will be travelling together. Use this module to add participants, track payment progress, and manage the group lifecycle.',
-            'highlights' => [
-                'Confirmed customer group management',
-                'Participant and member registration',
-                'Package assignment tracking',
-                'Payment progress monitoring',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Add New Participants within Customer',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Confirmed Customer from the sidebar.', 'path' => '/confirmed-customer'],
-                        'Locate the confirmed customer group in the list view.',
-                        'Click on the customer group to open the detail view.',
-                        'Click the Add Participant button.',
-                        'Fill in the participant\'s full name.',
-                        'Enter the participant\'s identification number.',
-                        'Fill in the participant\'s contact details.',
-                        'Enter the participant\'s passport information.',
-                        'Click Save to add the participant to the group.',
-                        'Verify the new participant appears in the group member list.',
+            // ─── 6. Sales ───
+            [
+                'id' => 'sales-module',
+                'title' => 'Sales',
+                'overview' => 'The Sales Module manages the full commercial lifecycle: reports, quotation generation, quotation-to-invoice conversion, instalment handling, and receipt issuance. It is the primary revenue execution area.',
+                'highlights' => [
+                    'Generate Daily Received and Closing Reports',
+                    'Create and Split Quotations',
+                    'Convert Quotations to Invoices and manage Instalment Plans',
+                    'Generate and Recreate Receipts',
+                    'Track additional invoice items and adjustments',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'Generate Daily Received Report',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Sales Report > Daily Received.',
+                            'Choose date or date range using date picker.',
+                            'Apply filters to load payment data.',
+                            'Review totals and transaction listing before export.',
+                            'Export report for finance reconciliation.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Generate Closing Report',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Sales Report > Closing Report.',
+                            'Filter by package or category as needed.',
+                            'Set date range and apply filter.',
+                            'Review output rows for accuracy.',
+                            'Export report for management summary and audit use.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Create a Quotation for non-umrah Services',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Quotation and create a new quotation.',
+                            'Select existing customer and set quotation plus validity dates.',
+                            'Set description and choose payment plan (Full or Instalment).',
+                            'Add service items with quantity and pricing details.',
+                            'Apply discounts or extensions where applicable.',
+                            'Set status to Ready for Conversion and save.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Create a Quotation for Umrah Confirmed Customer',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click on the Confirmed Customer menu.',
+                            'Select the customer and click the option to Create Quotation.',
+                            'For a single quotation, ensure the Payer for all members is assigned to the main customer.',
+                            'Review the quotation details.',
+                            'Click Create Quotation.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Create a Split Quotation',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click on the Confirmed Customer menu, select customer, and click Create Quotation.',
+                            'In the quotation pop-up, review the list of members.',
+                            'For members who require separate quotations, click the payee dropdown beside their names and select the respective Payer name.',
+                            'Click Close after updating all required payees, then click Create Quotation.',
+                            'The quotations will appear as draft. Click any generated quotation to change details.',
+                            'Change status to Ready, then click Update.',
+                        ],
+                    ],
+                    [
+                        'name' => 'How to Convert a Quotation to an Invoice',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open quotation list and select a Ready quotation.',
+                            'Change status to Accept Quotation through options menu.',
+                            'Choose payment plan and review line items via Expand All.',
+                            'Set payment method, invoice date, and due date.',
+                            'Create invoice and verify generated amount including payment extension impact.',
+                        ],
+                    ],
+                    [
+                        'name' => 'How to Generate an Invoice for an Instalment Plan',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Go to the List of Quotations menu.',
+                            'Select the quotation and right-click to convert the quotation to an invoice.',
+                            'Change the Payment Plan to Instalment.',
+                            'To change the deposit value type, select either Fixed Amount or Percentage and enter the value.',
+                            'Review all invoice details by clicking Expand All.',
+                            'Click Create.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add More Invoices Within the Umrah Package',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click Add Invoice.',
+                            'Expand the new invoice section.',
+                            'Click Add Items.',
+                            'Click Select Item.',
+                            'Select Umrah Packages under Customer Confirmation Items.',
+                            'Modify the amount manually for all invoices if required.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Add More Items',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click Add Item.',
+                            'Click Select Item.',
+                            'Select the desired item from the list.',
+                            'Add a description for the selected item.',
+                            'Enter the amount.',
+                            'Click Create.',
+                        ],
+                    ],
+                    [
+                        'name' => 'How to Generate a Receipt',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click the Invoice menu.',
+                            'Select the invoice to generate the receipt.',
+                            'Verify that the received amount matches the invoice amount, then click Create.',
+                            'Review and edit the receipt form if required.',
+                            'Click Create.',
+                        ],
+                    ],
+                    [
+                        'name' => 'How to Recreate a Receipt',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Invoice menu and select invoice to be settled.',
+                            'Verify received amount against invoice total and payment method.',
+                            'Create receipt and review generated receipt data.',
+                            'Finalize receipt so invoice status updates to Paid.',
+                            'Use receipt output for customer and accounting records.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 7.0 Quotation Module ───
-        [
-            'id' => 'quotation-module',
-            'title' => 'Quotation Module',
-            'overview' => 'The Quotation module handles the creation and management of price quotations for confirmed customers. Quotations can be created from a confirmed customer record, split for separate billing, or converted into invoices once accepted. Only quotations with an "Accepted" status can proceed to invoice generation.',
-            'highlights' => [
-                'Quotation creation from confirmed customer',
-                'Quotation splitting for separate billing',
-                'Status management (Draft, Accepted, Rejected)',
-                'Conversion to invoice workflow',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Convert Confirmed Customer Quotation',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Confirmed Customer from the sidebar.', 'path' => '/confirmed-customer'],
-                        'Locate the confirmed customer group in the list view.',
-                        'Click on the customer group to open the detail view.',
-                        'Click the Create Quotation action button.',
-                        'Review the pre-filled customer and package details.',
-                        'Verify the line items, pricing, and taxes.',
-                        'Click Save to generate the quotation.',
-                        'Verify the quotation appears in the Sales > Quotation list.',
-                    ],
+            // ─── 7. Confirmed Customer ───
+            [
+                'id' => 'confirmed-customer',
+                'title' => 'Confirmed Customer',
+                'overview' => 'The Confirmed Customer module handles post-conversion customer management including participant grouping, self-service data completion links, holding-area transfers, and cancellation refunds.',
+                'highlights' => [
+                    'Add Participants Within the Main Customer',
+                    'Create a One-Time Link for Customers to Update Their Details',
+                    'How to Move Members to the Holding Area',
+                    'How to Process a Customer Refund for trip cancellation',
+                    'Group-based traveler management before manifest finalization',
                 ],
-                [
-                    'name' => 'Split Quotation',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Quotation from the sidebar.', 'path' => '/sales'],
-                        'Locate the quotation to split in the list view.',
-                        'Click on the quotation to open the detail view.',
-                        'Click the Split action button.',
-                        'Select the members to separate into a new quotation.',
-                        'Review the split pricing allocation for each group.',
-                        'Click Confirm to execute the split.',
-                        'Verify both quotations appear in the list with correct amounts.',
+                'procedures' => [
+                    [
+                        'name' => 'Add Participants Within the Main Customer',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open Confirmed Customer and edit the main customer record.',
+                            'Add participant from existing customer list or create new participant profile.',
+                            'Assign pricing plan and relationship under group customer section.',
+                            'Complete mandatory fields and upload passport plus photo assets.',
+                            'Save update and confirm participant appears in group listing.',
+                        ],
                     ],
-                ],
-                [
-                    'name' => 'Create New Quotation',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Quotation from the sidebar.', 'path' => '/sales'],
-                        'Click the Create button.',
-                        'Select the customer from the customer dropdown.',
-                        'Select the travel package.',
-                        'Add line items for products and services.',
-                        'Set the pricing, discounts, and tax configuration.',
-                        'Review the quotation total.',
-                        'Click Save to create the quotation.',
-                        'Verify the new quotation appears in the list with "Draft" status.',
+                    [
+                        'name' => 'Create a One-Time Link for Customers to Update Their Details',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Use Options menu and select Copy One-Time Link.',
+                            'Send secure link to customer via approved communication channel.',
+                            'Ask customer to complete remaining profile and document fields before departure cutoff.',
+                            'Track completion and follow up for missing mandatory fields.',
+                        ],
                     ],
-                ],
-                [
-                    'name' => 'Convert Quotation to Invoice',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Quotation from the sidebar.', 'path' => '/sales'],
-                        'Locate the quotation with "Accepted" status in the list view.',
-                        'Click on the quotation to open the detail view.',
-                        'Click the Convert to Invoice action button.',
-                        'Review the invoice details pre-filled from the quotation.',
-                        'Confirm the conversion.',
-                        'Verify the invoice appears in the Sales > Invoice list.',
+                    [
+                        'name' => 'How to Move Members to the Holding Area',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click Options and select Move to Holding Area.',
+                            'In the pop-up form, select the package that the customer intends to change to, or leave it empty.',
+                            'Select the desired customer.',
+                            'Click Move Selected Members.',
+                        ],
+                    ],
+                    [
+                        'name' => 'How to Process a Customer Refund for trip cancellation',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Click Options and select Refund.',
+                            'In the Create Refund Receipt menu, select Trip Cancelled - Refund.',
+                            'Select the Refund Mode and Payment Method for the refund.',
+                            'Enter the refund amount and add a description.',
+                            'Click Refund Receipt.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 8.0 Invoice Module ───
-        [
-            'id' => 'invoice-module',
-            'title' => 'Invoice Module',
-            'overview' => 'The Invoice module manages billing documents generated from accepted quotations. Invoices define the payment obligation and can be configured with installment plans to allow customers to pay in scheduled amounts over time.',
-            'highlights' => [
-                'Invoice generation from accepted quotation',
-                'Installment plan configuration',
-                'Payment schedule tracking',
-                'Invoice preview and PDF export',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Create New Invoice',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Invoice from the sidebar.', 'path' => '/sales'],
-                        'Click the Create button.',
-                        'Select the accepted quotation to convert.',
-                        'Review the pre-filled invoice details and line items.',
-                        'Verify the total amount and tax calculations.',
-                        'Set the payment due date.',
-                        'Click Save to create the invoice.',
-                        'Verify the new invoice appears in the invoice list.',
-                    ],
+            // ─── 8. Customer Holding Area ───
+            [
+                'id' => 'customer-holding-area',
+                'title' => 'Customer Holding Area',
+                'overview' => 'Customer Holding Area is a transition workspace for package changes and payment rebalancing scenarios. It supports both overpaid refund paths and higher-tier package upgrade billing paths.',
+                'highlights' => [
+                    'Change Package and Pricing Plan With Overpaid Refund',
+                    'Change Package With Higher Pricing Plan',
+                    'Temporary reassignment before final package confirmation',
                 ],
-                [
-                    'name' => 'Change Installment Plan',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Invoice from the sidebar.', 'path' => '/sales'],
-                        'Locate the invoice in the list view.',
-                        'Click on the invoice to open the detail view.',
-                        'Click the Installment Plan action button.',
-                        'Set the number of installments.',
-                        'Configure the amount and due date for each installment.',
-                        'Click Save to update the installment plan.',
-                        'Verify the installment schedule displays correctly on the invoice.',
+                'procedures' => [
+                    [
+                        'name' => 'Change Package and Pricing Plan With Overpaid Refund',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Move selected customer from Confirmed Customer to Holding Area.',
+                            'Assign the customer to the new package from Holding Area options.',
+                            'Return to Confirmed Customer and verify payment status shows Overpaid.',
+                            'Create refund receipt with purpose Overpaid Refund and correct refund mode.',
+                            'Confirm refund amount, description, and submit refund receipt.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Change Package With Higher Pricing Plan',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Move customer to Holding Area before package change.',
+                            'Select higher-tier package and move selected members back to confirmed flow.',
+                            'Check updated payment status and expected balance due.',
+                            'Create balance invoice for pricing difference.',
+                            'Track payment and issue receipt after settlement.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 9.0 Receipt Module ───
-        [
-            'id' => 'receipt-module',
-            'title' => 'Receipt Module',
-            'overview' => 'The Receipt module records payment collections against invoices. A receipt is issued each time a payment is received from a customer. If a receipt was issued with an error, the Recreate function allows generating a corrected version.',
-            'highlights' => [
-                'Payment collection recording',
-                'Receipt generation and printing',
-                'Receipt recreation for error correction',
-                'Payment method tracking',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Create and Recreate Receipt',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Sales > Receipt from the sidebar.', 'path' => '/sales'],
-                        'Click the Create button.',
-                        'Select the invoice to record payment against.',
-                        'Enter the payment amount received.',
-                        'Select the payment method from the dropdown.',
-                        'Fill in the payment reference number if applicable.',
-                        'Click Save to generate the receipt.',
-                        'Click Preview to review the receipt before printing.',
-                        'Click Print to produce the receipt document.',
-                        'To recreate a receipt, locate the original receipt in the list.',
-                        'Click the Recreate action button on the receipt row.',
-                        'Review and correct the receipt details.',
-                        'Click Save to generate the corrected receipt.',
+            // ─── 9. Completed Customer ───
+            [
+                'id' => 'completed-customer',
+                'title' => 'Completed Customer',
+                'overview' => 'The Completed Customer module is an archival reference for travelers who have finished their trip. It supports historical lookup, performance review, and repeat-customer follow-up workflows.',
+                'highlights' => [
+                    'View Completed Customers',
+                    'Post-trip reference and retention analysis',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'View Completed Customers',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open the Completed Customer menu.',
+                            'Filter by package or period to review completed trip records.',
+                            'Check historical payment and participation references when needed.',
+                            'Use this data for repeat-customer offers and post-trip analysis.',
+                        ],
                     ],
                 ],
             ],
-        ],
-        ];
-    }
 
-    /**
-     * Modules 10.0–18.0: Change Package, Refund, Customer Holding Area,
-     * Completed Customer, Cancelled Customer, Ops Movement, PIF, Itinerary, Budget.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public static function modules10to18(): array
-    {
-        return [
-        // ─── 10.0 Change Package Module ───
-        [
-            'id' => 'change-package-module',
-            'title' => 'Change Package Module',
-            'overview' => 'The Change Package module allows confirmed customers to be moved to a different travel package. When a package change is processed, the previous package slot is released and the customer is reassigned to the new package with updated pricing and schedule details.',
-            'highlights' => [
-                'Package reassignment for confirmed customers',
-                'Automatic slot release from previous package',
-                'Pricing recalculation on transfer',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Change Package for Confirmed Customer',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Confirmed Customer from the sidebar.', 'path' => '/confirmed-customer'],
-                        'Locate the confirmed customer group in the list view.',
-                        'Click on the customer group to open the detail view.',
-                        'Click the Change Package action button.',
-                        'Select the new travel package from the dropdown.',
-                        'Review the updated pricing and schedule details.',
-                        'Confirm the package change.',
-                        'Verify the customer is now assigned to the new package.',
-                        'Verify the previous package slot has been released.',
+            // ─── 10. Cancelled Customer ───
+            [
+                'id' => 'cancelled-customer',
+                'title' => 'Cancelled Customer',
+                'overview' => 'The Cancelled Customer module stores cancellation and refund outcomes for audit and service improvement. It helps teams review cancellation causes and verify refund traceability.',
+                'highlights' => [
+                    'View Cancelled Customers',
+                    'Cancellation and refund trace history',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'View Cancelled Customers',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Open the Cancelled Customer menu.',
+                            'Review cancelled records with related refund context.',
+                            'Check reason trends for service and process improvement.',
+                            'Use records as audit support for finance and operations.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 11.0 Refund Module ───
-        [
-            'id' => 'refund-module',
-            'title' => 'Refund Module',
-            'overview' => 'The Refund module handles two refund scenarios: overpayment refunds when a customer has paid more than the invoice total, and cancellation refunds when a customer cancels their trip. Refund amounts for cancellations are calculated based on the applicable cancellation policy.',
-            'highlights' => [
-                'Overpayment refund processing',
-                'Trip cancellation refund handling',
-                'Cancellation policy-based calculation',
-                'Refund status tracking',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Overpaid Pricing',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        'Open the customer\'s invoice from the Sales module.',
-                        'Identify the overpaid amount by comparing total paid against invoice total.',
-                        'Click the Refund action button.',
-                        'Select "Overpaid" as the refund type.',
-                        'Verify the overpaid amount displayed.',
-                        'Enter the refund payment method details.',
-                        'Click Confirm to process the overpayment refund.',
-                        'Verify the refund record appears with the correct amount.',
-                    ],
+            // ─── 11. Package ───
+            [
+                'id' => 'package-module',
+                'title' => 'Package',
+                'overview' => 'The Package module is the master source for operational and manifest generation. Once created, related Manifest and Ops Movement records are initialized automatically and reused downstream.',
+                'highlights' => [
+                    'Create New Package',
+                    'Master source for Manifest and Ops Movement',
                 ],
-                [
-                    'name' => 'Refund for Trip Cancellation',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Confirmed Customer from the sidebar.', 'path' => '/confirmed-customer'],
-                        'Locate the customer group requesting cancellation.',
-                        'Click on the customer group to open the detail view.',
-                        'Click the Cancel action button.',
-                        'Select the cancellation reason from the dropdown.',
-                        'Review the refund amount calculated based on the cancellation policy.',
-                        'Adjust the refund amount if a partial refund is applicable.',
-                        'Enter the refund payment method details.',
-                        'Click Confirm to process the cancellation refund.',
-                        'Verify the customer is moved to Cancelled Customer.',
-                        'Verify the refund record is created with the correct status.',
+                'procedures' => [
+                    [
+                        'name' => 'Create New Package',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Complete Package Information with package code, location, dates, status, and seat capacity.',
+                            'Fill Pricing section for all applicable plans used by customer confirmation flow.',
+                            'Add Flight details including route, airline, PNR, and schedule values.',
+                            'Add Transportation, Visa, Vehicle, Train, and Accommodation details for operations readiness.',
+                            'Configure Rawdah Tasreeh and Officials sections where required.',
+                            'Review package inclusions and save as master operational baseline.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 12.0 Customer Holding Area Module ───
-        [
-            'id' => 'customer-holding-area-module',
-            'title' => 'Customer Holding Area Module',
-            'overview' => 'The Customer Holding Area temporarily holds customers with unresolved statuses, such as pending package decisions or incomplete documentation. Customers in the holding area can be reassigned to a new package when their situation is resolved.',
-            'highlights' => [
-                'Temporary customer holding management',
-                'Package reassignment capability',
-                'Unresolved status tracking',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Assign to New Package',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        'Open Customer Holding Area from the sidebar.',
-                        'Locate the customer in the holding area list view.',
-                        'Click on the customer to open the detail view.',
-                        'Review the customer\'s current status and holding reason.',
-                        'Click the Assign to Package action button.',
-                        'Select the new travel package from the dropdown.',
-                        'Review the package details and pricing.',
-                        'Click Confirm to assign the customer to the new package.',
-                        'Verify the customer is moved out of the holding area.',
-                        'Verify the customer appears in the Confirmed Customer list under the new package.',
+            // ─── 12. Manifest ───
+            [
+                'id' => 'manifest-module',
+                'title' => 'Manifest',
+                'overview' => 'The Manifest module centralizes traveler-level package data including payment status, room assignment, attendance tracking, and required travel documents. Manifest records are generated automatically per package.',
+                'highlights' => [
+                    'Main',
+                    'Room List',
+                    'Name List Course & Collection Item',
+                    'Upload Documents (Flight Tickets, Visa, Train Tickets, Hotel, Passport, Photo, Receipt)',
+                    'Room grouping and document completeness control',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'Main',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Review traveler records in Main table for the selected package.',
+                            'Verify gender and payment status fields before downstream operations.',
+                            'Check discount visibility and receipt availability.',
+                            'Use this table as baseline validation before rooming and document checks.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Room List (Location 01 and 02)',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Assign customers into room groups using drag-and-drop handle.',
+                            'Ensure grouped members share compatible pricing plans.',
+                            'Reset room structure when regrouping is required.',
+                            'Duplicate Location 01 grouping to Location 02 when operationally applicable.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Name List Course & Collection Item',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Mark course attendance per traveler.',
+                            'Mark collection-item completion per traveler.',
+                            'Use this tab as readiness checklist before departure.',
+                        ],
+                    ],
+                    [
+                        'name' => 'Upload Documents',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'Upload flight ticket references for package travel routes.',
+                            'Upload visa, train, and hotel documents by tab.',
+                            'Upload passport and photo manually when one-time link completion is missing.',
+                            'Upload receipt attachments to maintain payment evidence traceability.',
+                            'Complete all critical document tabs before operational handoff.',
+                        ],
                     ],
                 ],
             ],
-        ],
 
-        // ─── 13.0 Completed Customer Module ───
-        [
-            'id' => 'completed-customer-module',
-            'title' => 'Completed Customer Module',
-            'overview' => 'The Completed Customer module provides a read-only view of customer records whose trips have been completed. No edits are allowed in this module. Use it to reference historical trip data, payment records, and customer details for completed journeys.',
-            'highlights' => [
-                'Read-only completed trip records',
-                'Historical payment and trip data',
-                'Customer journey archive',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'View Completed Customer Records',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        'Open Completed Customer from the sidebar.',
-                        'Browse the list of completed customer groups.',
-                        'Use the search or filter controls to locate a specific customer.',
-                        'Click on a customer group to view the detail page.',
-                        'Review the trip details, package information, and travel dates.',
-                        'Review the payment history and receipt records.',
-                        'Review the participant list and their travel documentation status.',
+            // ─── 13. Ops Movement ───
+            [
+                'id' => 'ops-movement',
+                'title' => 'Ops Movement',
+                'overview' => 'Ops Movement consolidates operational execution data through five sections: Operations Movement, PIF, Itinerary, Booklet, and Budget. Most fields are derived from Package and Manifest data with role-based edit control.',
+                'highlights' => [
+                    'User Access & Permissions',
+                    'PIF and itinerary-centric operations governance',
+                ],
+                'procedures' => [
+                    [
+                        'name' => 'User Access & Permissions',
+                        'type' => 'article',
+                        'status' => 'done',
+                        'steps' => [
+                            'SuperAdmin can edit Ops Movement structure, PIF controls, and Budget data.',
+                            'Operations can upload itinerary and booklet files, view operational records, and export reports.',
+                            'Operations users do not edit protected operational master fields.',
+                            'Use role boundaries to preserve governance and auditability.',
+                        ],
                     ],
                 ],
             ],
-        ],
-
-        // ─── 14.0 Cancelled Customer Module ───
-        [
-            'id' => 'cancelled-customer-module',
-            'title' => 'Cancelled Customer Module',
-            'overview' => 'The Cancelled Customer module provides a read-only historical view of customer records that were cancelled. Use this module to review cancellation reasons, check refund statuses, and reference historical data for reporting purposes.',
-            'highlights' => [
-                'Read-only cancellation records',
-                'Cancellation reason documentation',
-                'Refund status visibility',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'View Cancelled Customer Records',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        'Open Cancelled Customer from the sidebar.',
-                        'Browse the list of cancelled customer groups.',
-                        'Use the search or filter controls to locate a specific customer.',
-                        'Click on a customer group to view the detail page.',
-                        'Review the cancellation reason displayed on the record.',
-                        'Check the refund status and refund amount details.',
-                        'Review the original trip and payment history for reference.',
-                    ],
-                ],
-            ],
-        ],
-
-        // ─── 15.0 Ops Movement Module ───
-        [
-            'id' => 'ops-movement-module',
-            'title' => 'Ops Movement Module',
-            'overview' => 'The Ops Movement module is used by the Operations team to record ground movement details for each travel package. Movement records are linked to manifest data and track the operational logistics required for trip execution.',
-            'highlights' => [
-                'Ground movement recording per package',
-                'Manifest data linkage',
-                'Operations logistics tracking',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Record Ops Movement Details',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Ops Movement from the sidebar.', 'path' => '/ops-movements'],
-                        'Locate the package in the ops movement list view.',
-                        'Click on the package to open the movement detail page.',
-                        'Fill in the ground transportation details.',
-                        'Enter the movement schedule and timing information.',
-                        'Record the vehicle and driver assignment details.',
-                        'Fill in any special logistics notes.',
-                        'Click Save to record the movement details.',
-                        'Verify the movement record is linked to the correct manifest.',
-                    ],
-                ],
-            ],
-        ],
-
-        // ─── 16.0 PIF Module ───
-        [
-            'id' => 'pif-module',
-            'title' => 'PIF Module',
-            'overview' => 'The PIF (Passenger Information Form) module generates operational exports used by the field team before departure. The PIF export contains essential passenger details required for ground operations and immigration processing.',
-            'highlights' => [
-                'Passenger Information Form generation',
-                'Pre-departure operational export',
-                'PDF export for field team distribution',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Generate PIF Export',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Ops Movement from the sidebar.', 'path' => '/ops-movements'],
-                        'Locate the package in the ops movement list view.',
-                        'Click on the package to open the detail page.',
-                        'Navigate to the PIF section.',
-                        'Review the passenger information data for completeness.',
-                        'Click the Export PIF button.',
-                        'Select the export format (PDF).',
-                        'Save or print the generated PIF document.',
-                        'Distribute the PIF to the field team before departure.',
-                    ],
-                ],
-            ],
-        ],
-
-        // ─── 17.0 Itinerary Module ───
-        [
-            'id' => 'itinerary-module',
-            'title' => 'Itinerary Module',
-            'overview' => 'The Itinerary module generates day-by-day travel schedule exports for each package. The itinerary is used by the Operations team for trip planning and shared with customers as a reference for their journey.',
-            'highlights' => [
-                'Day-by-day schedule generation',
-                'Per-package itinerary export',
-                'Customer-shareable travel plan',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Generate Itinerary Export',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Ops Movement from the sidebar.', 'path' => '/ops-movements'],
-                        'Locate the package in the ops movement list view.',
-                        'Click on the package to open the detail page.',
-                        'Navigate to the Itinerary section.',
-                        'Review the day-by-day schedule for accuracy.',
-                        'Verify accommodation, transport, and activity details for each day.',
-                        'Click the Export Itinerary button.',
-                        'Select the export format (PDF).',
-                        'Save or print the generated itinerary document.',
-                        'Share the itinerary with customers and the operations field team.',
-                    ],
-                ],
-            ],
-        ],
-
-        // ─── 18.0 Budget Module ───
-        [
-            'id' => 'budget-module',
-            'title' => 'Budget Module',
-            'overview' => 'The Budget module tracks estimated versus actual costs for each travel package. Operations teams use this module for financial reconciliation, comparing planned expenses against real spending to maintain budget control.',
-            'highlights' => [
-                'Estimated vs actual cost tracking',
-                'Per-package budget breakdown',
-                'Financial reconciliation reporting',
-                'Budget PDF export for audit',
-            ],
-            'procedures' => [
-                [
-                    'name' => 'Record and Review Package Budget',
-                    'type' => 'article',
-                    'status' => 'pending',
-                    'steps' => [
-                        ['text' => 'Open Ops Movement from the sidebar.', 'path' => '/ops-movements'],
-                        'Locate the package in the ops movement list view.',
-                        'Click on the package to open the detail page.',
-                        'Navigate to the Budget section.',
-                        'Enter the estimated cost for each budget category.',
-                        'Fill in the actual cost as expenses are incurred.',
-                        'Review the variance between estimated and actual amounts.',
-                        'Click Save to update the budget record.',
-                        'Click Export Budget to generate the budget report as a PDF.',
-                        'Use the exported report for management review and audit handoff.',
-                    ],
-                ],
-            ],
-        ],
         ];
     }
 }

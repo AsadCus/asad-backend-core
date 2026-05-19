@@ -6,9 +6,12 @@ function findPlaybook(
     documentation: DocumentationPageProps['documentation'],
     group: MenuGroup,
 ): ModulePlaybook | undefined {
-    const menuSlug = slugify(group.menu);
+    const menuSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
     return documentation.modulePlaybooks.find(
-        (p) => p.id === `${menuSlug}-module` || slugify(p.title) === `${menuSlug}-module`,
+        (p) => {
+            const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
+            return playbookSlug === menuSlug || p.id === `${menuSlug}-module` || p.id === menuSlug;
+        },
     );
 }
 
@@ -176,14 +179,14 @@ export function ModuleDetailView({
                 </div>
             )}
 
-            {/* Back button */}
-            <div className="mt-8 pb-8">
+            {/* Bottom utility */}
+            <div className="mt-8 flex items-center justify-end pb-8">
                 <button
                     type="button"
-                    onClick={onBack}
-                    className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground dark:hover:bg-slate-900"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
                 >
-                    ← Back to all modules
+                    Back to top
                 </button>
             </div>
         </div>

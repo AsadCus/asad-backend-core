@@ -1,5 +1,5 @@
 import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
-import { ChevronRight, Home, ExternalLink } from 'lucide-react';
+import { ChevronRight, Home, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { getModuleIcon, slugify } from '../lib/doc-utils';
 
@@ -7,9 +7,12 @@ function findPlaybook(
     documentation: DocumentationPageProps['documentation'],
     group: MenuGroup,
 ): ModulePlaybook | undefined {
-    const menuSlug = slugify(group.menu);
+    const menuSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
     return documentation.modulePlaybooks.find(
-        (p) => p.id === `${menuSlug}-module` || slugify(p.title) === `${menuSlug}-module`,
+        (p) => {
+            const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
+            return playbookSlug === menuSlug || p.id === `${menuSlug}-module` || p.id === menuSlug;
+        },
     );
 }
 
@@ -55,6 +58,8 @@ export function ProcedureDetailView({
     const playbook = findPlaybook(documentation, moduleGroup);
     const moduleName = moduleGroup.menu.replace(/ Module$/i, '');
     const procedure = playbook?.procedures?.[procedureIndex];
+    const hasPrevious = Boolean(playbook && procedureIndex > 0);
+    const hasNext = Boolean(playbook && procedureIndex < playbook.procedures.length - 1);
 
     if (!procedure) {
         return (
@@ -103,6 +108,42 @@ export function ProcedureDetailView({
                         </p>
                     </div>
                 </div>
+
+                {playbook && playbook.procedures.length > 1 && (
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            Step guide {procedureIndex + 1} of {playbook.procedures.length}
+                        </span>
+                        <div className="ml-auto flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!hasPrevious) return;
+                                    onProcedureChange(procedureIndex - 1);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                disabled={!hasPrevious}
+                                className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
+                            >
+                                <ArrowLeft className="h-3.5 w-3.5" />
+                                Previous
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!hasNext) return;
+                                    onProcedureChange(procedureIndex + 1);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                disabled={!hasNext}
+                                className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
+                            >
+                                Next
+                                <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Screenshot Frame (Placeholder or Real) */}
@@ -166,7 +207,7 @@ export function ProcedureDetailView({
                 </div>
             </div>
 
-            {/* Navigation */}
+            {/* Bottom utility */}
             <div className="mt-8 flex items-center justify-between pb-8">
                 <button
                     type="button"
@@ -175,36 +216,13 @@ export function ProcedureDetailView({
                 >
                     ← Back to {moduleName}
                 </button>
-
-                {/* Next/Prev procedure */}
-                {playbook && playbook.procedures.length > 1 && (
-                    <div className="flex gap-2">
-                        {procedureIndex > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onProcedureChange(procedureIndex - 1);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
-                            >
-                                ← Previous
-                            </button>
-                        )}
-                        {procedureIndex < playbook.procedures.length - 1 && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onProcedureChange(procedureIndex + 1);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
-                            >
-                                Next →
-                            </button>
-                        )}
-                    </div>
-                )}
+                <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                >
+                    Back to top
+                </button>
             </div>
         </div>
     );
