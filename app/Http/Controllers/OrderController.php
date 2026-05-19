@@ -54,7 +54,7 @@ class OrderController extends Controller
             $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
 
             $paymentPlan = strtolower((string) ($data['quotation']['payment_plan'] ?? 'direct'));
-            $initialInvoiceCount = $paymentPlan === 'installment' ? 3 : 1;
+            $initialInvoiceCount = max(10, $paymentPlan === 'installment' ? 3 : 1);
             $data['invoiceNumberSeed'] = $this->orderService
                 ->suggestDraftInvoiceNumbers($initialInvoiceCount);
 
@@ -94,6 +94,7 @@ class OrderController extends Controller
         $data['paymentMethods'] = $this->quotationService->getPaymentMethodOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
         $data['defaultPaymentMethod'] = $this->quotationService->getDefaultPaymentMethodValue();
+        $data['invoiceNumberSeed'] = $this->orderService->suggestDraftInvoiceNumbers(5);
 
         return Inertia::render('orders/edit', [
             'data' => $data,

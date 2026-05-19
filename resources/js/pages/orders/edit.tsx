@@ -16,6 +16,10 @@ interface EditOrderProps {
         paymentMethods: OptionType[];
         quotationExtensionMasters: TotalsSummaryExtensionMaster[];
         defaultPaymentMethod: string;
+        invoiceNumberSeed?: {
+            format_id?: number | null;
+            numbers?: string[];
+        };
     };
 }
 
@@ -52,6 +56,12 @@ export default function EditOrder({ data }: EditOrderProps) {
                         paymentMethods={data.paymentMethods}
                         extensionMasters={data.quotationExtensionMasters}
                         defaultPaymentMethod={data.defaultPaymentMethod}
+                        initialInvoiceNumberFormatId={
+                            data.invoiceNumberSeed?.format_id ?? null
+                        }
+                        initialInvoiceNumbers={
+                            data.invoiceNumberSeed?.numbers ?? []
+                        }
                         onCancel={handleCancel}
                     />
                 </div>
