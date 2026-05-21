@@ -178,6 +178,35 @@ export function ProcedureDetailView({
                 )}
             </div>
 
+            {/* Purpose & Features */}
+            {(procedure.purpose || (procedure.features && procedure.features.length > 0)) && (
+                <div className="mt-8 rounded-2xl border border-sidebar-border/70 bg-white p-6 shadow-sm dark:bg-slate-900/60">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                            <Icon className="h-5 w-5" />
+                        </div>
+                        <h2 className="text-lg font-semibold text-foreground">Overview & Features</h2>
+                    </div>
+                    {procedure.purpose && (
+                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                            {procedure.purpose}
+                        </p>
+                    )}
+                    {procedure.features && procedure.features.length > 0 && (
+                        <ul className="mt-5 space-y-2">
+                            {procedure.features.map((feature, i) => (
+                                <li key={i} className="flex items-start gap-3">
+                                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+                                        ✓
+                                    </span>
+                                    <span className="text-sm text-foreground">{feature}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+
             {/* Screenshot Frame (Placeholder or Real) */}
             <div className="mt-8">
                 {procedure.screenshot ? (

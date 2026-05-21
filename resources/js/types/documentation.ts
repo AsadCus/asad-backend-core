@@ -29,6 +29,8 @@ export interface PlaybookStep {
 export interface PlaybookProcedure {
     name: string;
     screenshot?: string;
+    purpose?: string;
+    features?: string[];
     steps: PlaybookStep[];
 }
 
