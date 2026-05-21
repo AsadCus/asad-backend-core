@@ -52,14 +52,40 @@ export function ProcedureDetailView({
     procedureIndex: number;
     onBackToModule: () => void;
     onBackToHome: () => void;
-    onProcedureChange: (index: number) => void;
+    onProcedureChange: (group: MenuGroup, index: number) => void;
 }) {
     const Icon = getModuleIcon(moduleGroup.menu);
     const playbook = findPlaybook(documentation, moduleGroup);
     const moduleName = moduleGroup.menu.replace(/ Module$/i, '');
     const procedure = playbook?.procedures?.[procedureIndex];
-    const hasPrevious = Boolean(playbook && procedureIndex > 0);
-    const hasNext = Boolean(playbook && procedureIndex < playbook.procedures.length - 1);
+    // Cross-module navigation
+    const menuGroups = documentation.menuGroups;
+    const currentModuleIndex = menuGroups.findIndex(g => g.menu === moduleGroup.menu);
+
+    let prevModuleGroup: MenuGroup | null = null;
+    let prevProcedureIndex = 0;
+    for (let i = currentModuleIndex - 1; i >= 0; i--) {
+        const pb = findPlaybook(documentation, menuGroups[i]);
+        if (pb && pb.procedures.length > 0) {
+            prevModuleGroup = menuGroups[i];
+            prevProcedureIndex = pb.procedures.length - 1;
+            break;
+        }
+    }
+
+    let nextModuleGroup: MenuGroup | null = null;
+    for (let i = currentModuleIndex + 1; i < menuGroups.length; i++) {
+        const pb = findPlaybook(documentation, menuGroups[i]);
+        if (pb && pb.procedures.length > 0) {
+            nextModuleGroup = menuGroups[i];
+            break;
+        }
+    }
+
+    const canGoPrevInModule = Boolean(playbook && procedureIndex > 0);
+    const canGoNextInModule = Boolean(playbook && procedureIndex < playbook.procedures.length - 1);
+    const hasPrevious = canGoPrevInModule || prevModuleGroup !== null;
+    const hasNext = canGoNextInModule || nextModuleGroup !== null;
 
     if (!procedure) {
         return (
@@ -109,7 +135,7 @@ export function ProcedureDetailView({
                     </div>
                 </div>
 
-                {playbook && playbook.procedures.length > 1 && (
+                {playbook && (hasPrevious || hasNext) && (
                     <div className="mt-5 flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             Step guide {procedureIndex + 1} of {playbook.procedures.length}
@@ -119,8 +145,11 @@ export function ProcedureDetailView({
                                 type="button"
                                 onClick={() => {
                                     if (!hasPrevious) return;
-                                    onProcedureChange(procedureIndex - 1);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    if (canGoPrevInModule) {
+                                        onProcedureChange(moduleGroup, procedureIndex - 1);
+                                    } else if (prevModuleGroup) {
+                                        onProcedureChange(prevModuleGroup, prevProcedureIndex);
+                                    }
                                 }}
                                 disabled={!hasPrevious}
                                 className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
@@ -132,8 +161,11 @@ export function ProcedureDetailView({
                                 type="button"
                                 onClick={() => {
                                     if (!hasNext) return;
-                                    onProcedureChange(procedureIndex + 1);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    if (canGoNextInModule) {
+                                        onProcedureChange(moduleGroup, procedureIndex + 1);
+                                    } else if (nextModuleGroup) {
+                                        onProcedureChange(nextModuleGroup, 0);
+                                    }
                                 }}
                                 disabled={!hasNext}
                                 className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"

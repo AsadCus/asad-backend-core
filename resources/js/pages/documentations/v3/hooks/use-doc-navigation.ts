@@ -30,6 +30,14 @@ export function useDocNavigation(documentation: DocumentationPageProps['document
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
+    const goToModuleProcedure = useCallback((group: MenuGroup, index: number) => {
+        setView('procedure');
+        setSelectedModule(group);
+        setSelectedProcedure(index);
+        setSearchQuery('');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
     return {
         view,
         selectedModule,
@@ -39,5 +47,6 @@ export function useDocNavigation(documentation: DocumentationPageProps['document
         goHome,
         goToModule,
         goToProcedure,
+        goToModuleProcedure,
     };
 }
