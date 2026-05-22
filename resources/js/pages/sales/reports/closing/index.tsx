@@ -323,6 +323,9 @@ export default function ClosingReportIndex({
                             customExports={customExports}
                             exportOptions={['excel']}
                             initialState={{
+                                columnVisibility: {
+                                    day_name: false,
+                                },
                                 pagination: { pageIndex: 0, pageSize: 25 },
                             }}
                         />

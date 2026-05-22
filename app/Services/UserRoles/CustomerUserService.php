@@ -70,6 +70,7 @@ class CustomerUserService
 
             try {
                 $item['role'] = 'customer';
+                $item['password_confirmation'] = $item['password'] ?? null;
 
                 $validator = Validator::make($item, $userRule->rules('customer'));
 

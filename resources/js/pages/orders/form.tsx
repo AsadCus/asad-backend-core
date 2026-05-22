@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { InvoiceHeader } from '../invoices/components/invoice-header';
 import {
     calculateTotal,
+    collectAllItems,
     collectWithChildren,
     normalizeItems,
 } from '../invoices/lib/utils';
@@ -466,7 +467,7 @@ function applySeededInvoiceNumbering(
     );
 
     if (hasSeededNumber) {
-        if (normalizedSeededNumbers.length === invoices.length) {
+        if (normalizedSeededNumbers.length >= invoices.length) {
             const result = invoices.map((invoice, index) => ({
                 ...invoice,
                 invoice_number: normalizedSeededNumbers[index] ?? '',
@@ -740,7 +741,9 @@ export default function OrderForm({
                   initialData.payment_plan === 'installment'
                       ? sanitizeInstallmentInvoiceCount(
                             initialData.installment_invoice_count ??
-                                initialData.invoices?.length ??
+                                (initialData.invoices ?? []).filter(
+                                    (inv) => !isRefundInvoice(inv),
+                                ).length ??
                                 3,
                         )
                       : sanitizeInstallmentInvoiceCount(
@@ -840,8 +843,12 @@ export default function OrderForm({
                     autoFillInvoiceDates(
                         buildInvoicesFromItems(
                             paymentPlan,
-                            quotationItemsToInvoiceItems(quotation),
-                            Number(quotation.total_amount ?? 0),
+                            isCreate
+                                ? quotationItemsToInvoiceItems(quotation)
+                                : collectAllItems(editableInvoices),
+                            isCreate
+                                ? Number(quotation.total_amount ?? 0)
+                                : undefined,
                             depositType,
                             depositValue,
                             quotation.extensions ?? [],
@@ -993,6 +1000,8 @@ export default function OrderForm({
                     normalizedRebuiltInvoices,
                     {
                         sourceInvoices: editableInvoices,
+                        seededNumbers: normalizedInitialInvoiceNumbers,
+                        preferredFormatId: initialInvoiceNumberFormatId,
                     },
                 );
 
@@ -1037,6 +1046,8 @@ export default function OrderForm({
                 normalizedRebuiltInvoices,
                 {
                     sourceInvoices: editableInvoices,
+                    seededNumbers: normalizedInitialInvoiceNumbers,
+                    preferredFormatId: initialInvoiceNumberFormatId,
                 },
             );
 
@@ -1108,6 +1119,8 @@ export default function OrderForm({
                 nextEditableInvoices,
                 {
                     sourceInvoices: editableInvoices,
+                    seededNumbers: normalizedInitialInvoiceNumbers,
+                    preferredFormatId: initialInvoiceNumberFormatId,
                 },
             );
 
@@ -1118,7 +1131,11 @@ export default function OrderForm({
                 invoices: [...numberedInvoices, ...refundInvoices],
             };
         },
-        [defaultPaymentMethod],
+        [
+            defaultPaymentMethod,
+            normalizedInitialInvoiceNumbers,
+            initialInvoiceNumberFormatId,
+        ],
     );
 
     function addInvoice() {
@@ -1148,6 +1165,8 @@ export default function OrderForm({
             ],
             {
                 sourceInvoices: editableInvoices,
+                seededNumbers: normalizedInitialInvoiceNumbers,
+                preferredFormatId: initialInvoiceNumberFormatId,
             },
         );
         setData('invoices', [...newInvoices, ...refundInvoices]);
@@ -2057,6 +2076,11 @@ export default function OrderForm({
                                                     ? 500
                                                     : data.deposit_value;
 
+                                            const editableCount =
+                                                splitInvoicesByRefundStatus(
+                                                    data.invoices,
+                                                ).editableInvoices.length;
+
                                             setData({
                                                 ...data,
                                                 payment_plan: v,
@@ -2064,8 +2088,7 @@ export default function OrderForm({
                                                     v === 'installment'
                                                         ? sanitizeInstallmentInvoiceCount(
                                                               data.installment_invoice_count ??
-                                                                  data.invoices
-                                                                      .length ??
+                                                                  editableCount ??
                                                                   3,
                                                           )
                                                         : data.installment_invoice_count,
@@ -2080,9 +2103,7 @@ export default function OrderForm({
                                                         v === 'installment'
                                                             ? sanitizeInstallmentInvoiceCount(
                                                                   data.installment_invoice_count ??
-                                                                      data
-                                                                          .invoices
-                                                                          .length ??
+                                                                      editableCount ??
                                                                       3,
                                                               )
                                                             : data.installment_invoice_count,

@@ -236,7 +236,7 @@ function Preview({
 
                                             <TableCell>
                                                 <div
-                                                    className="tiptap m-3 w-full rounded-lg border p-3 text-wrap"
+                                                    className="tiptap w-full rounded-lg border p-3 text-wrap"
                                                     dangerouslySetInnerHTML={{
                                                         __html:
                                                             note.description ??
