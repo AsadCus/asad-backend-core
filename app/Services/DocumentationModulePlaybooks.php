@@ -45,8 +45,9 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Open the Dashboard and locate the Total Sales for Fiscal Year widget.',
-                                'path' => '/dashboard',
+                                'text' => 'Contoh instruksi langkah dengan visual.',
+                                'path' => '/fitur-terkait',
+                                'screenshot' => '/documentations/sample-step.png'
                             ],
                             'Use the fiscal year dropdown selector to switch the reporting year.',
                             'Review FYTD transaction count (FYTD #) and FYTD sales amount (FYTD $).',

@@ -106,7 +106,7 @@ export function ProcedureDetailView({
     }
 
     return (
-        <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="resource-content-wrap mx-auto max-w-4xl px-6 py-8">
             {/* Breadcrumb */}
             <Breadcrumb items={[
                 { label: 'Home', onClick: onBackToHome },
@@ -207,27 +207,6 @@ export function ProcedureDetailView({
                 </div>
             )}
 
-            {/* Screenshot Frame (Placeholder or Real) */}
-            <div className="mt-8">
-                {procedure.screenshot ? (
-                    <div className="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-white shadow-sm dark:bg-slate-900/60">
-                        <img 
-                            src={procedure.screenshot} 
-                            alt={`Screenshot for ${procedure.name}`} 
-                            className="h-auto w-full object-cover"
-                        />
-                    </div>
-                ) : (
-                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sidebar-border/70 bg-slate-50/50 text-muted-foreground dark:bg-slate-900/20">
-                        <div className="rounded-full bg-slate-100 p-3 dark:bg-slate-800">
-                            <Icon className="h-6 w-6 opacity-50" />
-                        </div>
-                        <p className="mt-4 text-sm font-medium">Screenshot / Visual Guide</p>
-                        <p className="mt-1 text-xs opacity-70">Image placeholder for this procedure</p>
-                    </div>
-                )}
-            </div>
-
             {/* Steps */}
             <div className="mt-8">
                 <h2 className="text-lg font-semibold text-foreground">Step-by-Step Instructions</h2>
@@ -240,6 +219,37 @@ export function ProcedureDetailView({
                         {procedure.steps.map((step, i) => {
                             const text = typeof step === 'string' ? step : step.text;
                             const path = typeof step === 'string' ? undefined : step.path;
+                            const screenshot = typeof step === 'string' ? undefined : (step as any).screenshot;
+
+                            // Helper for rendering step text with Note/Insight/Prerequisite styles
+                            const renderStepText = (content: string) => {
+                                const match = content.match(/^(Note|Insight|Prerequisite):\s*(.*)/i);
+                                if (match) {
+                                    const type = match[1].toLowerCase();
+                                    const textBody = match[2];
+                                    
+                                    if (type === 'note') {
+                                        return (
+                                            <div className="tips-note mt-1 mb-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300">
+                                                <strong className="font-semibold">Note:</strong> {textBody}
+                                            </div>
+                                        );
+                                    } else if (type === 'insight') {
+                                        return (
+                                            <div className="tips-insight mt-1 mb-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">
+                                                <strong className="font-semibold">Insight:</strong> {textBody}
+                                            </div>
+                                        );
+                                    } else if (type === 'prerequisite') {
+                                        return (
+                                            <div className="tips-prerequisites mt-1 mb-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300">
+                                                <strong className="font-semibold">Prerequisite:</strong> {textBody}
+                                            </div>
+                                        );
+                                    }
+                                }
+                                return <p className="text-sm leading-relaxed text-foreground">{content}</p>;
+                            };
 
                             return (
                                 <div key={i} className="relative flex items-start gap-4 pl-0">
@@ -250,11 +260,20 @@ export function ProcedureDetailView({
 
                                     {/* Step content */}
                                     <div className="flex-1 rounded-xl border border-sidebar-border/70 bg-white p-4 shadow-sm dark:bg-slate-900/60">
-                                        <p className="text-sm leading-relaxed text-foreground">{text}</p>
+                                        {renderStepText(text)}
+                                        
+                                        {screenshot && (
+                                            <img 
+                                                src={screenshot} 
+                                                alt={`Visual guide for step ${i + 1}`} 
+                                                className="mt-3 rounded-xl border border-slate-200 shadow-sm max-w-full h-auto dark:border-slate-800"
+                                            />
+                                        )}
+                                        
                                         {path && (
                                             <Link
                                                 href={path}
-                                                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 transition-colors hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
+                                                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 transition-colors hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
                                             >
                                                 <ExternalLink className="h-3 w-3" />
                                                 Open in app
@@ -279,7 +298,14 @@ export function ProcedureDetailView({
                 </button>
                 <button
                     type="button"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    onClick={() => {
+                        const contentArea = document.getElementById('doc-content-area');
+                        if (contentArea) {
+                            contentArea.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    }}
                     className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
                 >
                     Back to top

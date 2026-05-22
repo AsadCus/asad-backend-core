@@ -68,7 +68,7 @@ export function CommandMenu({
         {
             label: 'Documentation',
             icon: BookOpen,
-            onSelect: () => runCommand(() => router.visit('/support/documentation')),
+            onSelect: () => runCommand(() => router.visit('/documentation')),
         },
     ];
 
@@ -115,7 +115,7 @@ export function CommandMenu({
         {
             label: 'Open documentation and search modules',
             icon: Search,
-            onSelect: () => runCommand(() => router.visit('/support/documentation')),
+            onSelect: () => runCommand(() => router.visit('/documentation')),
         },
     ];
 

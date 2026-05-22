@@ -183,7 +183,14 @@ export function ModuleDetailView({
             <div className="mt-8 flex items-center justify-end pb-8">
                 <button
                     type="button"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    onClick={() => {
+                        const contentArea = document.getElementById('doc-content-area');
+                        if (contentArea) {
+                            contentArea.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    }}
                     className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
                 >
                     Back to top

@@ -1,42 +1,88 @@
-import { type DocumentationPageProps, type MenuGroup } from '@/types/documentation';
-import { useState, useCallback } from 'react';
+import { type DocumentationData, type ModulePlaybook, type MenuGroup } from '@/types/documentation';
+import { useState, useCallback, useMemo } from 'react';
+import { router } from '@inertiajs/react';
+import { slugify } from '../lib/doc-utils';
 
 export type DocView = 'home' | 'module' | 'procedure';
 
-export function useDocNavigation(documentation: DocumentationPageProps['documentation']) {
-    const [view, setView] = useState<DocView>('home');
-    const [selectedModule, setSelectedModule] = useState<MenuGroup | null>(null);
-    const [selectedProcedure, setSelectedProcedure] = useState<number | null>(null);
+/**
+ * Find the matching ModulePlaybook for a given MenuGroup.
+ */
+function findPlaybook(documentation: DocumentationData, group: MenuGroup): ModulePlaybook | undefined {
+    const menuSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
+    return documentation.modulePlaybooks.find((p) => {
+        const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
+        return playbookSlug === menuSlug || p.id === `${menuSlug}-module` || p.id === menuSlug;
+    });
+}
+
+export function useDocNavigation(
+    documentation: DocumentationData,
+    moduleSlug?: string | null,
+    procedureSlug?: string | null,
+) {
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Derive view from URL slugs
+    const view: DocView = useMemo(() => {
+        if (moduleSlug && procedureSlug) return 'procedure';
+        if (moduleSlug) return 'module';
+        return 'home';
+    }, [moduleSlug, procedureSlug]);
+
+    // Resolve selected module from slug
+    const selectedModule: MenuGroup | null = useMemo(() => {
+        if (!moduleSlug) return null;
+        return documentation.menuGroups.find((g) => {
+            const gSlug = slugify(g.menu.replace(/ Modules?$/i, ''));
+            return gSlug === moduleSlug;
+        }) ?? null;
+    }, [moduleSlug, documentation.menuGroups]);
+
+    // Resolve selected procedure index from slug
+    const selectedProcedure: number | null = useMemo(() => {
+        if (!selectedModule || !procedureSlug) return null;
+        const playbook = findPlaybook(documentation, selectedModule);
+        if (!playbook) return null;
+        const idx = playbook.procedures.findIndex(
+            (p) => slugify(p.name) === procedureSlug,
+        );
+        return idx >= 0 ? idx : null;
+    }, [selectedModule, procedureSlug, documentation]);
+
     const goHome = useCallback(() => {
-        setView('home');
-        setSelectedModule(null);
-        setSelectedProcedure(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        router.visit('/documentation', { preserveState: true, preserveScroll: false });
     }, []);
 
     const goToModule = useCallback((group: MenuGroup) => {
-        setView('module');
-        setSelectedModule(group);
-        setSelectedProcedure(null);
-        setSearchQuery('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const slug = slugify(group.menu.replace(/ Modules?$/i, ''));
+        router.visit(`/documentation/${slug}`, { preserveState: true, preserveScroll: false });
     }, []);
 
-    const goToProcedure = useCallback((index: number) => {
-        setView('procedure');
-        setSelectedProcedure(index);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+    const goToProcedure = useCallback(
+        (index: number) => {
+            if (!selectedModule) return;
+            const mSlug = slugify(selectedModule.menu.replace(/ Modules?$/i, ''));
+            const playbook = findPlaybook(documentation, selectedModule);
+            const proc = playbook?.procedures?.[index];
+            if (!proc) return;
+            const pSlug = slugify(proc.name);
+            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false });
+        },
+        [selectedModule, documentation],
+    );
 
-    const goToModuleProcedure = useCallback((group: MenuGroup, index: number) => {
-        setView('procedure');
-        setSelectedModule(group);
-        setSelectedProcedure(index);
-        setSearchQuery('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+    const goToModuleProcedure = useCallback(
+        (group: MenuGroup, index: number) => {
+            const mSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
+            const playbook = findPlaybook(documentation, group);
+            const proc = playbook?.procedures?.[index];
+            if (!proc) return;
+            const pSlug = slugify(proc.name);
+            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false });
+        },
+        [documentation],
+    );
 
     return {
         view,

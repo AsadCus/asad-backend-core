@@ -386,7 +386,7 @@ export function AppSidebar() {
             ? [
                 {
                     title: 'Documentation',
-                    href: '/support/documentation',
+                    href: '/documentation',
                     icon: BookOpen,
                 },
             ]

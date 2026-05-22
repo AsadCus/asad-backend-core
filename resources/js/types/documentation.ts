@@ -24,6 +24,7 @@ export interface MenuStructureItem {
 export interface PlaybookStep {
     text: string;
     path?: string;
+    screenshot?: string;
 }
 
 export interface PlaybookProcedure {
@@ -93,4 +94,6 @@ export interface DocumentationData {
 
 export interface DocumentationPageProps {
     documentation: DocumentationData;
+    moduleSlug?: string | null;
+    procedureSlug?: string | null;
 }
