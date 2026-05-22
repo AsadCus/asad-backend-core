@@ -34,8 +34,8 @@ class DocumentationIndexData
     public static function getManual(): array
     {
         return [
-            'title' => 'Documentation - Travel Management System Manual',
-            'version' => '1.1',
+            'title' => 'Documentation - KTS Manual',
+            'version' => '1.0',
             'date' => '11 April 2026',
             'author' => 'Kherman',
         ];
@@ -130,8 +130,8 @@ class DocumentationIndexData
                     'Add New Product and Services',
                     'Add New Payment Method',
                     'Add New Payment Extension',
-                    'Add New GST Extension',
-                    'Add New Discount',
+                    'Add New Tax Extensions',
+                    'Add New Discount Extensions',
                 ],
             ],
             [
@@ -248,8 +248,8 @@ class DocumentationIndexData
                     'Add New Product and Services',
                     'Add New Payment Method',
                     'Add New Payment Extension',
-                    'Add New GST Extension',
-                    'Add New Discount',
+                    'Add New Tax Extensions',
+                    'Add New Discount Extensions',
                 ],
                 'how_to' => [],
             ],
