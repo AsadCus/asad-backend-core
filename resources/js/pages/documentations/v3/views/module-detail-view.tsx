@@ -17,20 +17,27 @@ function findPlaybook(
 
 function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
     return (
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             {items.map((item, i) => (
                 <span key={item.label} className="flex items-center gap-1.5">
-                    {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                    {i > 0 && <ChevronRight className="h-4 w-4 shrink-0" />}
                     {item.onClick ? (
                         <button
                             type="button"
                             onClick={item.onClick}
-                            className="transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                            className="font-medium transition-colors hover:text-orange-600 dark:hover:text-orange-400"
                         >
-                            {i === 0 ? <Home className="h-4 w-4" /> : item.label}
+                            {i === 0 ? (
+                                <span className="flex items-center gap-1.5">
+                                    <Home className="h-4 w-4" />
+                                    <span>{item.label}</span>
+                                </span>
+                            ) : (
+                                item.label
+                            )}
                         </button>
                     ) : (
-                        <span className="font-medium text-foreground">{item.label}</span>
+                        <span className="font-semibold text-foreground">{item.label}</span>
                     )}
                 </span>
             ))}
@@ -61,7 +68,7 @@ export function ModuleDetailView({
             {/* Breadcrumb */}
             <Breadcrumb
                 items={[
-                    { label: 'Home', onClick: onBack },
+                    { label: 'Documentation', onClick: onBack },
                     { label: moduleName },
                 ]}
             />

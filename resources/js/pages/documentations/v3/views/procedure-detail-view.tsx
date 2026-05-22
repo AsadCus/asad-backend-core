@@ -1,5 +1,5 @@
 import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook, type PlaybookContentBlock, type PlaybookStep } from '@/types/documentation';
-import { ChevronRight, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
+import { ChevronRight, Home, ArrowLeft, ArrowRight, ExternalLink } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { getModuleIcon, slugify } from '../lib/doc-utils';
 
@@ -18,20 +18,27 @@ function findPlaybook(
 
 function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
     return (
-        <nav className="flex flex-wrap items-center gap-1.5 border-b border-sidebar-border/70 pb-4 text-xs text-muted-foreground">
+        <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             {items.map((item, i) => (
                 <span key={item.label} className="flex items-center gap-1.5">
-                    {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                    {i > 0 && <ChevronRight className="h-4 w-4 shrink-0" />}
                     {item.onClick ? (
                         <button
                             type="button"
                             onClick={item.onClick}
-                            className="font-medium uppercase tracking-wide transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                            className="font-medium transition-colors hover:text-orange-600 dark:hover:text-orange-400"
                         >
-                            {item.label}
+                            {i === 0 ? (
+                                <span className="flex items-center gap-1.5">
+                                    <Home className="h-4 w-4" />
+                                    <span>{item.label}</span>
+                                </span>
+                            ) : (
+                                item.label
+                            )}
                         </button>
                     ) : (
-                        <span className="font-semibold uppercase tracking-wide text-foreground">{item.label}</span>
+                        <span className="font-semibold text-foreground">{item.label}</span>
                     )}
                 </span>
             ))}
