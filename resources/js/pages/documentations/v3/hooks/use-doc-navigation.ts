@@ -51,12 +51,12 @@ export function useDocNavigation(
     }, [selectedModule, procedureSlug, documentation]);
 
     const goHome = useCallback(() => {
-        router.visit('/documentation', { preserveState: true, preserveScroll: false });
+        router.visit('/documentation', { preserveState: true, preserveScroll: false, replace: false });
     }, []);
 
     const goToModule = useCallback((group: MenuGroup) => {
         const slug = slugify(group.menu.replace(/ Modules?$/i, ''));
-        router.visit(`/documentation/${slug}`, { preserveState: true, preserveScroll: false });
+        router.visit(`/documentation/${slug}`, { preserveState: true, preserveScroll: false, replace: false });
     }, []);
 
     const goToProcedure = useCallback(
@@ -67,7 +67,7 @@ export function useDocNavigation(
             const proc = playbook?.procedures?.[index];
             if (!proc) return;
             const pSlug = slugify(proc.name);
-            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false });
+            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false, replace: false });
         },
         [selectedModule, documentation],
     );
@@ -79,7 +79,7 @@ export function useDocNavigation(
             const proc = playbook?.procedures?.[index];
             if (!proc) return;
             const pSlug = slugify(proc.name);
-            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false });
+            router.visit(`/documentation/${mSlug}/${pSlug}`, { preserveState: true, preserveScroll: false, replace: false });
         },
         [documentation],
     );

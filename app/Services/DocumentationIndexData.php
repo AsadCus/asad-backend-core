@@ -34,10 +34,8 @@ class DocumentationIndexData
     public static function getManual(): array
     {
         return [
-            'title' => 'Documentation - KTS Manual',
-            'version' => '1.0',
-            'date' => '11 April 2026',
-            'author' => 'Kherman',
+            'title'     => 'Documentation - ' . config('app.name') . ' Manual',
+            'copyright' => 'Copyright @2026 by Qiub Pte Ltd',
         ];
     }
 
@@ -73,6 +71,15 @@ class DocumentationIndexData
     public static function getRoleGuide(): array
     {
         return [
+            [
+                'role' => 'Admin',
+                'scope' => 'Oversee operational and sales activities with elevated access across modules.',
+                'primary_actions' => [
+                    'Monitor and manage sales and operations workflows.',
+                    'Access reports, user activity, and financial summaries.',
+                    'Support superadmin in governance and configuration tasks.',
+                ],
+            ],
             [
                 'role' => 'Superadmin',
                 'scope' => 'Manage core setup, system modules, package creation, manifests, and governance controls.',

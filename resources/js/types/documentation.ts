@@ -1,8 +1,6 @@
 export interface ManualInfo {
     title: string;
-    version: string;
-    date: string;
-    author: string;
+    copyright: string;
 }
 
 export interface BibliographyItem {
@@ -21,10 +19,18 @@ export interface MenuStructureItem {
     children: string[];
 }
 
+export interface PlaybookContentBlock {
+    type: 'text' | 'image';
+    text?: string;
+    src?: string;
+    alt?: string;
+}
+
 export interface PlaybookStep {
-    text: string;
+    text?: string;
     path?: string;
     screenshot?: string;
+    content_blocks?: PlaybookContentBlock[];
 }
 
 export interface PlaybookProcedure {

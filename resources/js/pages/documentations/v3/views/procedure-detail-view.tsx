@@ -1,5 +1,5 @@
-import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
-import { ChevronRight, Home, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
+import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook, type PlaybookContentBlock, type PlaybookStep } from '@/types/documentation';
+import { ChevronRight, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { getModuleIcon, slugify } from '../lib/doc-utils';
 
@@ -18,7 +18,7 @@ function findPlaybook(
 
 function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
     return (
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <nav className="flex flex-wrap items-center gap-1.5 border-b border-sidebar-border/70 pb-4 text-xs text-muted-foreground">
             {items.map((item, i) => (
                 <span key={item.label} className="flex items-center gap-1.5">
                     {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
@@ -26,17 +26,41 @@ function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[
                         <button
                             type="button"
                             onClick={item.onClick}
-                            className="transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                            className="font-medium uppercase tracking-wide transition-colors hover:text-orange-600 dark:hover:text-orange-400"
                         >
-                            {i === 0 ? <Home className="h-4 w-4" /> : item.label}
+                            {item.label}
                         </button>
                     ) : (
-                        <span className="font-medium text-foreground">{item.label}</span>
+                        <span className="font-semibold uppercase tracking-wide text-foreground">{item.label}</span>
                     )}
                 </span>
             ))}
         </nav>
     );
+}
+
+function resolveStepBlocks(step: string | PlaybookStep): PlaybookContentBlock[] {
+    if (typeof step === 'string') {
+        return [{ type: 'text', text: step }];
+    }
+
+    if (step.content_blocks && step.content_blocks.length > 0) {
+        return step.content_blocks;
+    }
+
+    const blocks: PlaybookContentBlock[] = [];
+    if (step.text) {
+        blocks.push({ type: 'text', text: step.text });
+    }
+    if (step.screenshot) {
+        blocks.push({
+            type: 'image',
+            src: step.screenshot,
+            alt: step.text ? `Visual guide: ${step.text}` : 'Step visual guide',
+        });
+    }
+
+    return blocks;
 }
 
 export function ProcedureDetailView({
@@ -45,14 +69,12 @@ export function ProcedureDetailView({
     procedureIndex,
     onBackToModule,
     onBackToHome,
-    onProcedureChange,
 }: {
     documentation: DocumentationPageProps['documentation'];
     moduleGroup: MenuGroup;
     procedureIndex: number;
     onBackToModule: () => void;
     onBackToHome: () => void;
-    onProcedureChange: (group: MenuGroup, index: number) => void;
 }) {
     const Icon = getModuleIcon(moduleGroup.menu);
     const playbook = findPlaybook(documentation, moduleGroup);
@@ -63,12 +85,10 @@ export function ProcedureDetailView({
     const currentModuleIndex = menuGroups.findIndex(g => g.menu === moduleGroup.menu);
 
     let prevModuleGroup: MenuGroup | null = null;
-    let prevProcedureIndex = 0;
     for (let i = currentModuleIndex - 1; i >= 0; i--) {
         const pb = findPlaybook(documentation, menuGroups[i]);
         if (pb && pb.procedures.length > 0) {
             prevModuleGroup = menuGroups[i];
-            prevProcedureIndex = pb.procedures.length - 1;
             break;
         }
     }
@@ -84,14 +104,35 @@ export function ProcedureDetailView({
 
     const canGoPrevInModule = Boolean(playbook && procedureIndex > 0);
     const canGoNextInModule = Boolean(playbook && procedureIndex < playbook.procedures.length - 1);
-    const hasPrevious = canGoPrevInModule || prevModuleGroup !== null;
-    const hasNext = canGoNextInModule || nextModuleGroup !== null;
+    const prevPlaybook = prevModuleGroup ? findPlaybook(documentation, prevModuleGroup) : null;
+    const nextPlaybook = nextModuleGroup ? findPlaybook(documentation, nextModuleGroup) : null;
+    const previousProcedure = canGoPrevInModule
+        ? playbook?.procedures?.[procedureIndex - 1]
+        : prevPlaybook?.procedures?.[prevPlaybook.procedures.length - 1] ?? null;
+    const nextProcedure = canGoNextInModule
+        ? playbook?.procedures?.[procedureIndex + 1]
+        : nextPlaybook?.procedures?.[0] ?? null;
+
+    const previousHref = canGoPrevInModule
+        ? `/documentation/${slugify(moduleGroup.menu.replace(/ Modules?$/i, ''))}/${slugify(playbook!.procedures[procedureIndex - 1].name)}`
+        : prevModuleGroup && previousProcedure
+            ? `/documentation/${slugify(prevModuleGroup.menu.replace(/ Modules?$/i, ''))}/${slugify(previousProcedure.name)}`
+            : null;
+
+    const nextHref = canGoNextInModule
+        ? `/documentation/${slugify(moduleGroup.menu.replace(/ Modules?$/i, ''))}/${slugify(playbook!.procedures[procedureIndex + 1].name)}`
+        : nextModuleGroup && nextProcedure
+            ? `/documentation/${slugify(nextModuleGroup.menu.replace(/ Modules?$/i, ''))}/${slugify(nextProcedure.name)}`
+            : null;
+
+    const previousLabel = previousProcedure?.name ?? 'No previous procedure';
+    const nextLabel = nextProcedure?.name ?? 'No next procedure';
 
     if (!procedure) {
         return (
-            <div className="mx-auto max-w-4xl px-6 py-8">
+            <div className="mx-auto max-w-5xl px-8 py-8">
                 <Breadcrumb items={[
-                    { label: 'Home', onClick: onBackToHome },
+                    { label: 'Documentation', onClick: onBackToHome },
                     { label: moduleName, onClick: onBackToModule },
                     { label: 'Not Found' },
                 ]} />
@@ -106,10 +147,10 @@ export function ProcedureDetailView({
     }
 
     return (
-        <div className="resource-content-wrap mx-auto max-w-4xl px-6 py-8">
+        <div className="resource-content-wrap mx-auto max-w-5xl px-8 py-8">
             {/* Breadcrumb */}
             <Breadcrumb items={[
-                { label: 'Home', onClick: onBackToHome },
+                { label: 'Documentation', onClick: onBackToHome },
                 { label: moduleName, onClick: onBackToModule },
                 { label: procedure.name },
             ]} />
@@ -135,44 +176,87 @@ export function ProcedureDetailView({
                     </div>
                 </div>
 
-                {playbook && (hasPrevious || hasNext) && (
-                    <div className="mt-5 flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                            Step guide {procedureIndex + 1} of {playbook.procedures.length}
-                        </span>
-                        <div className="ml-auto flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!hasPrevious) return;
-                                    if (canGoPrevInModule) {
-                                        onProcedureChange(moduleGroup, procedureIndex - 1);
-                                    } else if (prevModuleGroup) {
-                                        onProcedureChange(prevModuleGroup, prevProcedureIndex);
-                                    }
-                                }}
-                                disabled={!hasPrevious}
-                                className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
-                            >
-                                <ArrowLeft className="h-3.5 w-3.5" />
-                                Previous
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!hasNext) return;
-                                    if (canGoNextInModule) {
-                                        onProcedureChange(moduleGroup, procedureIndex + 1);
-                                    } else if (nextModuleGroup) {
-                                        onProcedureChange(nextModuleGroup, 0);
-                                    }
-                                }}
-                                disabled={!hasNext}
-                                className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-900"
-                            >
-                                Next
-                                <ArrowRight className="h-3.5 w-3.5" />
-                            </button>
+                {playbook && (
+                    <div className="mt-6 rounded-2xl border border-sidebar-border/70 bg-white p-4 shadow-sm dark:bg-slate-900/60">
+                        <div className="flex flex-wrap items-center gap-2 border-b border-sidebar-border/60 pb-3">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                Step guide {procedureIndex + 1} of {playbook.procedures.length}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                                Navigate within this playbook or jump to the adjacent module.
+                            </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {previousHref ? (
+                                <Link
+                                    href={previousHref}
+                                    preserveScroll={false}
+                                    replace={false}
+                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
+                                >
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground transition-colors group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                            Previous
+                                        </span>
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground transition-colors group-hover:text-orange-700 dark:group-hover:text-orange-300">
+                                            {previousLabel}
+                                        </span>
+                                    </span>
+                                </Link>
+                            ) : (
+                                <div className="flex min-h-[96px] items-center gap-4 rounded-2xl border border-dashed border-sidebar-border/70 px-4 py-4 text-left opacity-60 dark:border-slate-800">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground dark:border-slate-800 dark:bg-slate-900">
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                            Previous
+                                        </span>
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground">
+                                            No previous procedure
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
+
+                            {nextHref ? (
+                                <Link
+                                    href={nextHref}
+                                    preserveScroll={false}
+                                    replace={false}
+                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
+                                >
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground transition-colors group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
+                                        <ArrowRight className="h-5 w-5" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                            Next
+                                        </span>
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground transition-colors group-hover:text-orange-700 dark:group-hover:text-orange-300">
+                                            {nextLabel}
+                                        </span>
+                                    </span>
+                                </Link>
+                            ) : (
+                                <div className="flex min-h-[96px] items-center gap-4 rounded-2xl border border-dashed border-sidebar-border/70 px-4 py-4 text-left opacity-60 dark:border-slate-800">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground dark:border-slate-800 dark:bg-slate-900">
+                                        <ArrowRight className="h-5 w-5" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                            Next
+                                        </span>
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground">
+                                            No next procedure
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -188,9 +272,9 @@ export function ProcedureDetailView({
                         <h2 className="text-lg font-semibold text-foreground">Overview & Features</h2>
                     </div>
                     {procedure.purpose && (
-                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                            {procedure.purpose}
-                        </p>
+                        <div className="prose prose-sm mt-4 max-w-none leading-7 text-muted-foreground dark:prose-invert prose-p:my-0">
+                            <p>{procedure.purpose}</p>
+                        </div>
                     )}
                     {procedure.features && procedure.features.length > 0 && (
                         <ul className="mt-5 space-y-2">
@@ -217,9 +301,8 @@ export function ProcedureDetailView({
 
                     <div className="space-y-4">
                         {procedure.steps.map((step, i) => {
-                            const text = typeof step === 'string' ? step : step.text;
                             const path = typeof step === 'string' ? undefined : step.path;
-                            const screenshot = typeof step === 'string' ? undefined : (step as any).screenshot;
+                            const blocks = resolveStepBlocks(step);
 
                             // Helper for rendering step text with Note/Insight/Prerequisite styles
                             const renderStepText = (content: string) => {
@@ -248,7 +331,7 @@ export function ProcedureDetailView({
                                         );
                                     }
                                 }
-                                return <p className="text-sm leading-relaxed text-foreground">{content}</p>;
+                                return <p className="leading-7 text-foreground">{content}</p>;
                             };
 
                             return (
@@ -260,15 +343,32 @@ export function ProcedureDetailView({
 
                                     {/* Step content */}
                                     <div className="flex-1 rounded-xl border border-sidebar-border/70 bg-white p-4 shadow-sm dark:bg-slate-900/60">
-                                        {renderStepText(text)}
-                                        
-                                        {screenshot && (
-                                            <img 
-                                                src={screenshot} 
-                                                alt={`Visual guide for step ${i + 1}`} 
-                                                className="mt-3 rounded-xl border border-slate-200 shadow-sm max-w-full h-auto dark:border-slate-800"
-                                            />
-                                        )}
+                                        <div className="space-y-3">
+                                            {blocks.map((block, blockIndex) => {
+                                                if (block.type === 'image' && block.src) {
+                                                    return (
+                                                        <figure key={`image-${i}-${blockIndex}`} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-950/40">
+                                                            <img
+                                                                src={block.src}
+                                                                alt={block.alt ?? `Visual guide for step ${i + 1}`}
+                                                                className="h-auto w-full"
+                                                                loading="lazy"
+                                                            />
+                                                        </figure>
+                                                    );
+                                                }
+
+                                                if (block.type === 'text' && block.text) {
+                                                    return (
+                                                        <div key={`text-${i}-${blockIndex}`} className="prose prose-sm max-w-none text-[15px] dark:prose-invert prose-p:my-2 prose-p:leading-7">
+                                                            {renderStepText(block.text)}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return null;
+                                            })}
+                                        </div>
                                         
                                         {path && (
                                             <Link

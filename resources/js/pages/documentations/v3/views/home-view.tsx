@@ -1,5 +1,5 @@
 import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
-import { Search, Sparkles, BookOpen, ListChecks, Lightbulb, ChevronRight, ArrowRight } from 'lucide-react';
+import { Search, BookOpen, ArrowRight, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { getModuleIcon, slugify, matchesQuery } from '../lib/doc-utils';
 
@@ -101,77 +101,6 @@ function ModuleCard({
     );
 }
 
-/* ─── Quick Reference Cards ────────────────────────────────── */
-
-function QuickReferenceSection({
-    documentation,
-}: Pick<DocumentationPageProps, 'documentation'>) {
-    const cards = [
-        {
-            icon: Sparkles,
-            title: 'Core Workflows',
-            description: 'End-to-end flows connecting sales, operations, and reporting.',
-            count: documentation.coreWorkflows.length,
-            color: 'amber',
-        },
-        {
-            icon: BookOpen,
-            title: 'How-To Guides',
-            description: 'Task-focused guides for common operational actions.',
-            count: documentation.howToGuides.length,
-            color: 'emerald',
-        },
-        {
-            icon: ListChecks,
-            title: 'Status Guidance',
-            description: 'Keep status usage consistent across the team.',
-            count: documentation.commonStatuses.length,
-            color: 'violet',
-        },
-        {
-            icon: Lightbulb,
-            title: 'Operational Tips',
-            description: 'Practical reminders for clean data and predictable processes.',
-            count: documentation.tips.length,
-            color: 'rose',
-        },
-    ];
-
-    const colorMap: Record<string, string> = {
-        amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
-        emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
-        violet: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
-        rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
-    };
-
-    return (
-        <section className="mx-auto max-w-6xl px-6 py-12">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                Quick Reference
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-                Cross-module resources to guide your daily operations.
-            </p>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {cards.map((card) => (
-                    <div
-                        key={card.title}
-                        className="rounded-2xl border border-sidebar-border/70 bg-white p-5 shadow-sm dark:bg-slate-900/60"
-                    >
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[card.color]}`}>
-                            <card.icon className="h-5 w-5" />
-                        </div>
-                        <h3 className="mt-3 text-base font-semibold text-foreground">{card.title}</h3>
-                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{card.description}</p>
-                        <p className="mt-2 text-xs font-medium text-muted-foreground">{card.count} items</p>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}
-
 /* ─── Roles Preview ────────────────────────────────────────── */
 
 function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documentation'>) {
@@ -183,7 +112,7 @@ function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documenta
             <p className="mt-2 text-sm text-muted-foreground">
                 Understand what each role does and what it should focus on every day.
             </p>
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
                 {documentation.roleGuide.map((role) => (
                     <div
                         key={role.role}
@@ -212,11 +141,7 @@ function FooterInfo({ documentation }: Pick<DocumentationPageProps, 'documentati
     return (
         <footer className="border-t border-sidebar-border/70 bg-slate-50 dark:bg-slate-950/40">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 px-6 py-6 text-sm text-muted-foreground">
-                <span>Version <strong className="text-foreground">{documentation.manual.version}</strong></span>
-                <span className="hidden h-4 w-px bg-sidebar-border/70 sm:block" />
-                <span>Updated <strong className="text-foreground">{documentation.manual.date}</strong></span>
-                <span className="hidden h-4 w-px bg-sidebar-border/70 sm:block" />
-                <span>Author <strong className="text-foreground">{documentation.manual.author}</strong></span>
+                <span>{documentation.manual.copyright}</span>
             </div>
         </footer>
     );
@@ -246,7 +171,20 @@ export function HomeView({
                 ...group.features, ...group.how_to,
                 playbook?.overview ?? '',
                 ...(playbook?.highlights ?? []),
-                ...(playbook?.procedures.flatMap((p) => [p.name, ...p.steps.map((s) => typeof s === 'string' ? s : s.text)]) ?? []),
+                ...(playbook?.procedures.flatMap((p) => [
+                    p.name,
+                    ...p.steps.flatMap((s) => {
+                        if (typeof s === 'string') {
+                            return [s];
+                        }
+
+                        const contentBlocksText = (s.content_blocks ?? [])
+                            .filter((block) => block.type === 'text' && Boolean(block.text))
+                            .map((block) => block.text as string);
+
+                        return [s.text ?? '', ...contentBlocksText];
+                    }),
+                ]) ?? []),
             ].join(' ');
             return matchesQuery(body, searchQuery);
         });
@@ -288,7 +226,6 @@ export function HomeView({
                 </div>
             </section>
 
-            <QuickReferenceSection documentation={documentation} />
             <RolesPreview documentation={documentation} />
             <FooterInfo documentation={documentation} />
         </div>

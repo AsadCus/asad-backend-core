@@ -3,7 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { Toaster } from '@/components/ui/sonner';
 import { type BreadcrumbItem, SharedData } from '@/types';
 import { type DocumentationPageProps, type ModulePlaybook, type MenuGroup } from '@/types/documentation';
-import { Head, usePage, router } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Search, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
@@ -82,26 +82,27 @@ function DocSidebar({
                 ...group.features, ...group.how_to,
                 playbook?.overview ?? '',
                 ...(playbook?.highlights ?? []),
-                ...(playbook?.procedures.flatMap((p) => [p.name, ...p.steps.map((s) => typeof s === 'string' ? s : s.text)]) ?? []),
+                ...(playbook?.procedures.flatMap((p) => [
+                    p.name,
+                    ...p.steps.flatMap((s) => {
+                        if (typeof s === 'string') {
+                            return [s];
+                        }
+
+                        const contentBlocksText = (s.content_blocks ?? [])
+                            .filter((block) => block.type === 'text' && Boolean(block.text))
+                            .map((block) => block.text as string);
+
+                        return [s.text ?? '', ...contentBlocksText];
+                    }),
+                ]) ?? []),
             ].join(' ');
             return matchesQuery(body, searchQuery);
         });
     }, [documentation, moduleGroups, searchQuery]);
 
-    const toggleModule = (slug: string) => {
-        setExpandedModules((prev) => {
-            const next = new Set(prev);
-            if (next.has(slug)) {
-                next.delete(slug);
-            } else {
-                next.add(slug);
-            }
-            return next;
-        });
-    };
-
     return (
-        <aside className="sidebar-lhs-parent flex h-full w-[280px] shrink-0 flex-col border-r border-sidebar-border/70 bg-white dark:bg-slate-900/80">
+        <aside className="sidebar-lhs-parent sticky top-0 flex h-[calc(100vh-4rem)] w-[300px] shrink-0 flex-col overflow-hidden border-r border-sidebar-border/70 bg-white dark:bg-slate-900/80">
             {/* Title */}
             <div className="border-b border-sidebar-border/70 px-4 py-4">
                 <div className="flex items-center gap-2">
@@ -110,9 +111,7 @@ function DocSidebar({
                         {documentation.manual.title}
                     </h2>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                    v{documentation.manual.version}
-                </p>
+
             </div>
 
             {/* Search */}
@@ -150,15 +149,11 @@ function DocSidebar({
                         <div key={group.menu} className="mb-0.5">
                             {/* Module item */}
                             <div className="flex items-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (procedures.length > 0) {
-                                            toggleModule(gSlug);
-                                        }
-                                        router.visit(`/documentation/${gSlug}`, { preserveScroll: false });
-                                    }}
-                                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                                <Link
+                                    href={`/documentation/${gSlug}`}
+                                    preserveScroll={false}
+                                    replace={false}
+                                    className={`flex flex-1 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
                                         isActiveModule && !activeProcedureSlug
                                             ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
                                             : isActiveModule
@@ -168,12 +163,22 @@ function DocSidebar({
                                 >
                                     <Icon className="h-3.5 w-3.5 shrink-0" />
                                     <span className="flex-1 truncate">{group.menu.replace(/ Module$/i, '')}</span>
-                                    {procedures.length > 0 && (
-                                        isExpanded
-                                            ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                            : <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                    )}
-                                </button>
+                                </Link>
+                                {procedures.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedModules((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(gSlug)) { next.delete(gSlug); } else { next.add(gSlug); }
+                                            return next;
+                                        })}
+                                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    >
+                                        {isExpanded
+                                            ? <ChevronDown className="h-3 w-3" />
+                                            : <ChevronRight className="h-3 w-3" />}
+                                    </button>
+                                )}
                             </div>
 
                             {/* Procedures sub-list */}
@@ -184,23 +189,22 @@ function DocSidebar({
                                         const isActive = isActiveModule && activeProcedureSlug === pSlug;
 
                                         return (
-                                            <button
+                                            <Link
                                                 key={proc.name}
-                                                type="button"
-                                                onClick={() => {
-                                                    router.visit(`/documentation/${gSlug}/${pSlug}`, { preserveScroll: false });
-                                                }}
-                                                className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] transition-colors ${
+                                                href={`/documentation/${gSlug}/${pSlug}`}
+                                                preserveScroll={false}
+                                                replace={false}
+                                                className={`flex w-full items-center gap-1.5 border-l-2 px-2 py-1.5 text-left text-[11px] transition-colors ${
                                                     isActive
-                                                        ? 'bg-orange-50 font-semibold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
-                                                        : 'text-muted-foreground hover:bg-slate-50 hover:text-foreground dark:hover:bg-slate-800'
+                                                        ? 'rounded-r-md border-orange-500 bg-orange-50 font-bold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
+                                                        : 'rounded-r-md border-transparent text-muted-foreground hover:border-slate-200 hover:bg-slate-50 hover:text-foreground dark:hover:border-slate-700 dark:hover:bg-slate-800'
                                                 }`}
                                             >
                                                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[9px] font-bold text-muted-foreground">
                                                     {String(idx + 1).padStart(2, '0')}
                                                 </span>
                                                 <span className="line-clamp-2">{proc.name}</span>
-                                            </button>
+                                            </Link>
                                         );
                                     })}
                                 </div>
@@ -213,7 +217,7 @@ function DocSidebar({
             {/* Footer info */}
             <div className="border-t border-sidebar-border/70 px-4 py-3">
                 <p className="text-[10px] text-muted-foreground">
-                    Updated {documentation.manual.date} · {documentation.manual.author}
+                    {documentation.manual.copyright}
                 </p>
             </div>
         </aside>
@@ -247,7 +251,7 @@ export default function DocumentationV3Index({ documentation, moduleSlug, proced
 
                 {isDetailView && !isHomeView && (
                     /* KONDISI B: Detail views — two-column with sidebar */
-                    <div className="flex h-[calc(100vh-4rem)]">
+                    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
                         <DocSidebar
                             documentation={documentation}
                             activeModuleSlug={moduleSlug}
@@ -255,7 +259,7 @@ export default function DocumentationV3Index({ documentation, moduleSlug, proced
                             searchQuery={nav.searchQuery}
                             onSearchChange={nav.setSearchQuery}
                         />
-                        <div id="doc-content-area" className="resource-content-wrap flex-1 overflow-y-auto">
+                        <div id="doc-content-area" className="resource-content-wrap min-w-0 flex-1 overflow-y-auto bg-slate-50/60 dark:bg-slate-950">
                             {nav.view === 'module' && nav.selectedModule && (
                                 <ModuleDetailView
                                     documentation={documentation}
@@ -271,7 +275,6 @@ export default function DocumentationV3Index({ documentation, moduleSlug, proced
                                     procedureIndex={nav.selectedProcedure}
                                     onBackToModule={() => nav.goToModule(nav.selectedModule!)}
                                     onBackToHome={nav.goHome}
-                                    onProcedureChange={nav.goToModuleProcedure}
                                 />
                             )}
                         </div>

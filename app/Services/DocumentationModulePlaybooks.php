@@ -19,7 +19,7 @@ class DocumentationModulePlaybooks
      */
     public static function all(): array
     {
-        return [
+        $modules = [
             // ─── 1. Dashboard Modules ───
             [
                 'id' => 'dashboard-module',
@@ -45,9 +45,31 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Contoh instruksi langkah dengan visual.',
-                                'path' => '/fitur-terkait',
-                                'screenshot' => '/documentations/sample-step.png'
+                                'path' => '/dashboard',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Open Dashboard and locate the Total Sales for Fiscal Year card in the KPI section.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/total-sales-widget.png',
+                                        'alt' => 'Total Sales for Fiscal Year KPI widget',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use the fiscal year selector to change the current reporting period.',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Compare FYTD # and FYTD $ with your monthly target to identify if sales are on track.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/fiscal-year-selector.png',
+                                        'alt' => 'Fiscal year selector inside dashboard card',
+                                    ],
+                                ],
                             ],
                             'Use the fiscal year dropdown selector to switch the reporting year.',
                             'Review FYTD transaction count (FYTD #) and FYTD sales amount (FYTD $).',
@@ -65,12 +87,49 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Open Dashboard and review the Daily Payment widget.',
+                                'path' => '/dashboard',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Open Dashboard and review the Daily Payment widget.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/daily-payment-widget.png',
+                                        'alt' => 'Daily Payment widget on dashboard',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Confirm total payment received for the day.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review grouped payment categories to identify major inflow sources.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/daily-payment-categories.png',
+                                        'alt' => 'Daily payment categories grouped by type',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use this data for daily reconciliation with finance records.',
+                                    ],
+                                ],
                                 'path' => '/dashboard',
                             ],
-                            'Confirm total payment received for the day.',
-                            'Review grouped payment categories to identify major inflow sources.',
-                            'Use this data for daily reconciliation with finance records.',
                         ],
                     ],
                     [
@@ -86,12 +145,49 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Review the Upcoming Departures section on Dashboard.',
+                                'path' => '/dashboard',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the Upcoming Departures section on Dashboard.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/upcoming-departures-widget.png',
+                                        'alt' => 'Upcoming Departures widget overview',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Validate departure date, package name, and available seat count.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Prioritize packages with nearest departure dates for operations follow-up.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/upcoming-departures-list.png',
+                                        'alt' => 'Upcoming departures sorted by nearest date',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click View All to open complete departure listing when deeper checks are needed.',
+                                    ],
+                                ],
                                 'path' => '/dashboard',
                             ],
-                            'Validate departure date, package name, and available seat count.',
-                            'Prioritize packages with nearest departure dates for operations follow-up.',
-                            'Click View All to open complete departure listing when deeper checks are needed.',
                         ],
                     ],
                     [
@@ -106,12 +202,49 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Open the Recent Customers panel from Dashboard.',
+                                'path' => '/dashboard',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Open the Recent Customers panel from Dashboard.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/recent-customers-panel.png',
+                                        'alt' => 'Recent Customers panel with newest enquiries',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review newly interested leads and their contact references.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use this list as follow-up queue for Sales conversion activities.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/dashboard/recent-customers-followup.png',
+                                        'alt' => 'Recent customers list used as follow-up queue',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Coordinate with enquiry and quotation flow for fast response.',
+                                    ],
+                                ],
                                 'path' => '/dashboard',
                             ],
-                            'Review newly interested leads and their contact references.',
-                            'Use this list as follow-up queue for Sales conversion activities.',
-                            'Coordinate with enquiry and quotation flow for fast response.',
                         ],
                     ],
                 ],
@@ -134,10 +267,43 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'SuperAdmin: Full system access and configuration control — manage users, countries, fiscal years, package governance, financial and fiscal configurations, and budgeting processes. Maintains overall system administration.',
-                            'Sales: Manage enquiries and customer records, access the Sales Module (quotation, invoice, receipt), manage manifests, perform administrative sales tasks, and manage Daily Report and Closing Report.',
-                            'Admin: Same access as Sales — manage enquiries, customer records, Sales Module, and manifests — but does NOT have permission to manage Daily Reports and Closing Reports.',
-                            'Operations: Manage operational movements, PIF, itineraries, booklets, and coordinate operational workflows. Operations users do NOT have access to budgeting processes.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'SuperAdmin: Full system access and configuration control — manage users, countries, fiscal years, package governance, financial and fiscal configurations, and budgeting processes. Maintains overall system administration.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Sales: Manage enquiries and customer records, access the Sales Module (quotation, invoice, receipt), manage manifests, perform administrative sales tasks, and manage Daily Report and Closing Report.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Admin: Same access as Sales — manage enquiries, customer records, Sales Module, and manifests — but does NOT have permission to manage Daily Reports and Closing Reports.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Operations: Manage operational movements, PIF, itineraries, booklets, and coordinate operational workflows. Operations users do NOT have access to budgeting processes.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/master/user-roles-matrix.png',
+                                        'alt' => 'User role scope matrix for master module',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -146,12 +312,44 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the User menu to select the appropriate User Role.',
+                                'path' => '/master/user',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the User menu to select the appropriate User Role.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/master/add-user-form.png',
+                                        'alt' => 'Create user form in master user page',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Fill in the user information and account details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the assigned Country Location.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create to save the new user.',
+                                    ],
+                                ],
                                 'path' => '/master/user',
                             ],
-                            'Fill in the user information and account details.',
-                            'Select the assigned Country Location.',
-                            'Click Create to save the new user.',
                         ],
                     ],
                     [
@@ -160,12 +358,44 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on Country in the Master settings.',
+                                'path' => '/master/country',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on Country in the Master settings.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/master/country-settings.png',
+                                        'alt' => 'Country settings page in master module',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the Country Name.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
                                 'path' => '/master/country',
                             ],
-                            'Click Add.',
-                            'Enter the Country Name.',
-                            'Click Create.',
                         ],
                     ],
                     [
@@ -174,13 +404,52 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on Fiscal Year in the Master settings.',
+                                'path' => '/master/financial-year',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on Fiscal Year in the Master settings.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/master/fiscal-year-settings.png',
+                                        'alt' => 'Fiscal year settings page',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the Start Date and End Date.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Set as Default if applicable.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
                                 'path' => '/master/financial-year',
                             ],
-                            'Click Add.',
-                            'Enter the Start Date and End Date.',
-                            'Select Set as Default if applicable.',
-                            'Click Create.',
                         ],
                     ],
                 ],
@@ -206,13 +475,52 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Products and Services Menu and click on Add Item.',
+                                'path' => '/product-services',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Products and Services Menu and click on Add Item.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/product-services/add-item-form.png',
+                                        'alt' => 'Add item panel in product and services module',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the Item Header.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the Item Sub Header.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add quantity and costing if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
                                 'path' => '/product-services',
                             ],
-                            'Enter the Item Header.',
-                            'Enter the Item Sub Header.',
-                            'Add quantity and costing if required.',
-                            'Click Save.',
                         ],
                     ],
                     [
@@ -226,12 +534,44 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Products and Services Menu and enter the new Payment Method Name.',
+                                'path' => '/product-services',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Products and Services Menu and enter the new Payment Method Name.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/product-services/payment-method-form.png',
+                                        'alt' => 'Payment method form fields',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Tick Default to set it as the default invoice payment method.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Tick Active to display it in the payment method dropdown.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
                                 'path' => '/product-services',
                             ],
-                            'Tick Default to set it as the default invoice payment method.',
-                            'Tick Active to display it in the payment method dropdown.',
-                            'Click Save.',
                         ],
                     ],
                     [
@@ -245,15 +585,68 @@ class DocumentationModulePlaybooks
                         ],
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Products and Services Menu and enter the Payment Extension Name.',
+                                'path' => '/product-services',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Products and Services Menu and enter the Payment Extension Name.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/product-services/payment-extension-form.png',
+                                        'alt' => 'Payment extension form in product and services',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Others.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Choose the calculation type.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the calculation value.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Tick Active.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Tick Link to Payment Method if applicable.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
                                 'path' => '/product-services',
                             ],
-                            'Select Others.',
-                            'Choose the calculation type.',
-                            'Enter the calculation value.',
-                            'Tick Active.',
-                            'Tick Link to Payment Method if applicable.',
-                            'Click Save.',
                         ],
                     ],
                     [
@@ -262,16 +655,76 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Products and Services Menu.',
+                                'path' => '/product-services',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Products and Services Menu.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/product-services/tax-extension-form.png',
+                                        'alt' => 'Tax extension setup form',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add GST to name of extension.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select TAX in drop down menu for TYPE.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Percentage for Calculation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Set Value eg. 7.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Set Status to Active to show in invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
                                 'path' => '/product-services',
                             ],
-                            'Click Add.',
-                            'Add GST to name of extension.',
-                            'Select TAX in drop down menu for TYPE.',
-                            'Select Percentage for Calculation.',
-                            'Set Value eg. 7.',
-                            'Set Status to Active to show in invoice.',
-                            'Click Save.',
                         ],
                     ],
                     [
@@ -280,16 +733,76 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Products and Services Menu.',
+                                'path' => '/product-services',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Products and Services Menu.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/product-services/discount-extension-form.png',
+                                        'alt' => 'Discount extension setup form',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add required name to Name.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Discount in drop down menu for TYPE.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Percentage or Fixed Amount in Calculation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Set Value eg. 500.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Set Status to Active to show in invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
                                 'path' => '/product-services',
                             ],
-                            'Click Add.',
-                            'Add required name to Name.',
-                            'Select Discount in drop down menu for TYPE.',
-                            'Select Percentage or Fixed Amount in Calculation.',
-                            'Set Value eg. 500.',
-                            'Set Status to Active to show in invoice.',
-                            'Click Save.',
                         ],
                     ],
                 ],
@@ -313,17 +826,89 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Go to Enquiry Dashboard.',
+                                'path' => '/enquiries',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to Enquiry Dashboard.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/enquiry/enquiry-dashboard.png',
+                                        'alt' => 'Enquiry dashboard main listing',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Right click on the name.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Mouse over to Enquiry Status.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on Mark as Contacted.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The New Lead status will be changed to Contacted.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Right Click on the enquiry.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Remarks.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/enquiry/enquiry-remarks-modal.png',
+                                        'alt' => 'Remarks modal in enquiry record actions',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Type in remarks.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on Add Remarks.',
+                                    ],
+                                ],
                                 'path' => '/enquiries',
                             ],
-                            'Right click on the name.',
-                            'Mouse over to Enquiry Status.',
-                            'Click on Mark as Contacted.',
-                            'The New Lead status will be changed to Contacted.',
-                            'Right Click on the enquiry.',
-                            'Select Remarks.',
-                            'Type in remarks.',
-                            'Click on Add Remarks.',
                         ],
                     ],
                     [
@@ -332,14 +917,60 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Go to the General Enquiry menu.',
+                                'path' => '/general-enquiries',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the General Enquiry menu.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/enquiry/general-enquiry-create.png',
+                                        'alt' => 'Create general enquiry form',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create New General Enquiry.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select a Package (optional) or leave it empty.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Country.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Fill in all mandatory fields.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create to submit the enquiry.',
+                                    ],
+                                ],
                                 'path' => '/general-enquiries',
                             ],
-                            'Click Create New General Enquiry.',
-                            'Select a Package (optional) or leave it empty.',
-                            'Select the Country.',
-                            'Fill in all mandatory fields.',
-                            'Click Create to submit the enquiry.',
                         ],
                     ],
                     [
@@ -348,13 +979,52 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Go to the Private Enquiry menu.',
+                                'path' => '/private-enquiries',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the Private Enquiry menu.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/enquiry/private-enquiry-create.png',
+                                        'alt' => 'Create private enquiry form',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create New Private Enquiry.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Country.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Fill in all mandatory fields.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create to submit the enquiry.',
+                                    ],
+                                ],
                                 'path' => '/private-enquiries',
                             ],
-                            'Click Create New Private Enquiry.',
-                            'Select the Country.',
-                            'Fill in all mandatory fields.',
-                            'Click Create to submit the enquiry.',
                         ],
                     ],
                 ],
@@ -376,12 +1046,44 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on the Customer menu.',
+                                'path' => '/customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Customer menu.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/customer/customer-create-form.png',
+                                        'alt' => 'Create customer form',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Fill in the mandatory customer details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Additional details may be completed at a later stage.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
                                 'path' => '/customer',
                             ],
-                            'Fill in the mandatory customer details.',
-                            'Additional details may be completed at a later stage.',
-                            'Click Create.',
                         ],
                     ],
                 ],
@@ -406,15 +1108,62 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Select the Daily Received menu.',
                                 'path' => '/reports/payment',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Daily Received menu.',
+                                    ],
+                                ],
                             ],
-                            'Click on the Date Range field.',
-                            'Select the desired date range.',
-                            'Click OK.',
-                            'Click Apply.',
-                            'Click Export.',
-                            'The report will be downloaded to your computer.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Date Range field.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the desired date range.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click OK.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Apply.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Export.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The report will be downloaded to your computer.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -423,15 +1172,62 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Select the Closing Report menu.',
                                 'path' => '/reports/closing',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Closing Report menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the desired Package or Category.',
-                            'Select the desired date range.',
-                            'Click OK.',
-                            'Click Apply.',
-                            'Click Export.',
-                            'The report will be downloaded to your computer.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the desired Package or Category.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the desired date range.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click OK.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Apply.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Export.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The report will be downloaded to your computer.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -440,25 +1236,142 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on the Quotation menu.',
                                 'path' => '/quotation',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Quotation menu.',
+                                    ],
+                                ],
                             ],
-                            'Click Create New Quotation.',
-                            'In the Customer section, do not select any Umrah customer package.',
-                            'Select the customer that has already been added to the customer list.',
-                            'Add the quotation date and validation date. Note: The grand total will be auto-generated automatically.',
-                            'In the Description field, enter the title of the quotation accordingly.',
-                            'Select either Instalments or Full Payment. (Note: This can still be edited later during invoicing.)',
-                            'Click Add Items.',
-                            'Select the required item (e.g. Aqiqah).',
-                            'Add the item description in the description box below the selected item.',
-                            'Enter the quantity and cost.',
-                            'Add any extension such as discounts for individual items if required, or leave blank.',
-                            'Add a total quotation discount if applicable.',
-                            'Add any additional charges if required.',
-                            'Edit the notes section if necessary.',
-                            'Under Status, select Ready for Conversion if the quotation will later be converted into an invoice.',
-                            'Click Create.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create New Quotation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the Customer section, do not select any Umrah customer package.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the customer that has already been added to the customer list.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add the quotation date and validation date. Note: The grand total will be auto-generated automatically.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the Description field, enter the title of the quotation accordingly.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select either Instalments or Full Payment. (Note: This can still be edited later during invoicing.)',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Items.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the required item (e.g. Aqiqah).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add the item description in the description box below the selected item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the quantity and cost.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add any extension such as discounts for individual items if required, or leave blank.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a total quotation discount if applicable.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add any additional charges if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Edit the notes section if necessary.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Under Status, select Ready for Conversion if the quotation will later be converted into an invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -467,13 +1380,46 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on the Confirmed Customer menu.',
                                 'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Confirmed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the customer and click the option to Create Quotation.',
-                            'For a single quotation, ensure the Payer for all members is assigned to the main customer.',
-                            'Review the quotation details.',
-                            'Click Create Quotation.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the customer and click the option to Create Quotation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'For a single quotation, ensure the Payer for all members is assigned to the main customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the quotation details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create Quotation.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -482,21 +1428,110 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on the Confirmed Customer menu.',
                                 'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Confirmed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the customer and click the option to Create Quotation.',
-                            'In the quotation pop-up, review the list of members.',
-                            'For members who require separate quotations, click the payee dropdown beside their names.',
-                            'Select the respective Payer name for each member that requires a separate quotation.',
-                            'Click Close after updating all required payees.',
-                            'Review the quotation arrangement carefully.',
-                            'Click Create Quotation. Note: Multiple quotations will be automatically created based on the selected payees. You may split the quotations into as many separate quotations as needed, depending on the total number of members in the group.',
-                            'The quotations will now appear in the quotation list as draft.',
-                            'Click any of the generated quotation to open it.',
-                            'Change details as required.',
-                            'Change status from Draft to Ready.',
-                            'Click Update. Note: Quotation status must be Ready in order to convert to Invoice.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the customer and click the option to Create Quotation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the quotation pop-up, review the list of members.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'For members who require separate quotations, click the payee dropdown beside their names.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the respective Payer name for each member that requires a separate quotation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Close after updating all required payees.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the quotation arrangement carefully.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create Quotation. Note: Multiple quotations will be automatically created based on the selected payees. You may split the quotations into as many separate quotations as needed, depending on the total number of members in the group.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The quotations will now appear in the quotation list as draft.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click any of the generated quotation to open it.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change details as required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change status from Draft to Ready.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update. Note: Quotation status must be Ready in order to convert to Invoice.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -505,19 +1540,94 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Go to the List of Quotations menu.',
                                 'path' => '/quotation',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the List of Quotations menu.',
+                                    ],
+                                ],
                             ],
-                            'Click Options and change the quotation status to Accept Quotation.',
-                            'Once the quotation is accepted, an Order Form will be automatically generated by the system before the invoice is created.',
-                            'For a full payment invoice, select Full Payment under the Payment Plan section.',
-                            'Click Expand All to review the invoice details.',
-                            'Change the Invoice Name if required.',
-                            'Select the preferred Payment Method. Note: Payment charges are pre-defined in the Payment Extension settings. For example, payment via Visa may include an additional 3% charge on the total invoice amount. Payment Extension settings can be edited in the Product and Services section.',
-                            'Change the Invoice Date and Due Date if required.',
-                            'Add items if required.',
-                            'Add discounts if required.',
-                            'Click Create. Note: The invoice will be generated for the confirmed customer and will appear in the Invoice menu. To edit the invoice, go to the Order menu, right-click on the customer name, and select Edit.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and change the quotation status to Accept Quotation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Once the quotation is accepted, an Order Form will be automatically generated by the system before the invoice is created.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'For a full payment invoice, select Full Payment under the Payment Plan section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Expand All to review the invoice details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change the Invoice Name if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the preferred Payment Method. Note: Payment charges are pre-defined in the Payment Extension settings. For example, payment via Visa may include an additional 3% charge on the total invoice amount. Payment Extension settings can be edited in the Product and Services section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change the Invoice Date and Due Date if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add items if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add discounts if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create. Note: The invoice will be generated for the confirmed customer and will appear in the Invoice menu. To edit the invoice, go to the Order menu, right-click on the customer name, and select Edit.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -526,15 +1636,62 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Go to the List of Quotations menu.',
                                 'path' => '/quotation',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the List of Quotations menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the quotation and right-click to convert the quotation to an invoice.',
-                            'Change the Payment Plan to Instalment.',
-                            'To change the deposit value type, select either Fixed Amount or Percentage.',
-                            'Enter the desired amount or percentage value.',
-                            'Review all invoice details by clicking Expand All.',
-                            'Click Create.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the quotation and right-click to convert the quotation to an invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change the Payment Plan to Instalment.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'To change the deposit value type, select either Fixed Amount or Percentage.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the desired amount or percentage value.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review all invoice details by clicking Expand All.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -542,12 +1699,54 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Add Invoice.',
-                            'Expand the new invoice section.',
-                            'Click Add Items.',
-                            'Click Select Item.',
-                            'Select Umrah Packages under Customer Confirmation Items.',
-                            'Modify the amount manually for all invoices if required.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Expand the new invoice section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Items.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Select Item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Umrah Packages under Customer Confirmation Items.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Modify the amount manually for all invoices if required.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -555,12 +1754,54 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Add Item.',
-                            'Click Select Item.',
-                            'Select the desired item from the list.',
-                            'Add a description for the selected item.',
-                            'Enter the amount.',
-                            'Click Create.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Select Item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the desired item from the list.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a description for the selected item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the amount.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -569,13 +1810,46 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click the Invoice menu.',
                                 'path' => '/invoice',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click the Invoice menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the invoice to generate the receipt.',
-                            'Verify that the received amount matches the invoice amount, then click Create.',
-                            'Review and edit the receipt form if required.',
-                            'Click Create.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the invoice to generate the receipt.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify that the received amount matches the invoice amount, then click Create.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review and edit the receipt form if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -584,13 +1858,46 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click the Invoice menu.',
                                 'path' => '/invoice',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click the Invoice menu.',
+                                    ],
+                                ],
                             ],
-                            'Select the invoice to recreate the receipt.',
-                            'Right-click on the selected invoice.',
-                            'Select Recreate Receipt.',
-                            'Confirm by clicking Recreate Receipt.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the invoice to recreate the receipt.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Right-click on the selected invoice.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select Recreate Receipt.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Confirm by clicking Recreate Receipt.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -615,21 +1922,110 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click on the Confirmed Customer menu.',
                                 'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the Confirmed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Click Options and select Edit for the customer.',
-                            'Click on the drop-down menu.',
-                            'Select the Customer.',
-                            'Click Close.',
-                            'Click Add Customer.',
-                            'Select the Pricing Plan.',
-                            'Add the relationship to the main customer.',
-                            'Fill in all mandatory details.',
-                            'Add additional details if required.',
-                            'Upload the Passport copy.',
-                            'Upload the customer Photo.',
-                            'Click Update.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and select Edit for the customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click on the drop-down menu.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Close.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Pricing Plan.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add the relationship to the main customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Fill in all mandatory details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add additional details if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Upload the Passport copy.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Upload the customer Photo.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -637,8 +2033,22 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Options and select Copy One-Time Link.',
-                            'Send the link to the customer to complete the required details by pasting the link.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and select Copy One-Time Link.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Send the link to the customer to complete the required details by pasting the link.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -646,10 +2056,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Options and select Move to Holding Area.',
-                            'In the pop-up form, select the package that the customer intends to change to, or leave it empty.',
-                            'Select the desired customer.',
-                            'Click Move Selected Members.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and select Move to Holding Area.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the pop-up form, select the package that the customer intends to change to, or leave it empty.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the desired customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Move Selected Members.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -657,13 +2095,62 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Options and select Refund.',
-                            'In the Create Refund Receipt menu, select Trip Cancelled - Refund.',
-                            'Select the Refund Mode.',
-                            'Select the Payment Method for the refund.',
-                            'Enter the refund amount.',
-                            'Add a description for the refund receipt.',
-                            'Click Refund Receipt.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and select Refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the Create Refund Receipt menu, select Trip Cancelled - Refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Refund Mode.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the Payment Method for the refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the refund amount.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a description for the refund receipt.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Refund Receipt.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -686,29 +2173,128 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click the Confirmed Customer menu.',
                                 'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click the Confirmed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Click Options and move the selected customer to the Holding Area.',
                             [
-                                'text' => 'In the Customer Holding Area, click Options for the selected customer.',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and move the selected customer to the Holding Area.',
+                                    ],
+                                ],
+                            ],
+                            [
                                 'path' => '/customer-holding',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the Customer Holding Area, click Options for the selected customer.',
+                                    ],
+                                ],
                             ],
-                            'Move the customer to a new package by selecting the desired package from the list.',
-                            'Click Move Selected Members.',
                             [
-                                'text' => 'Go to the Confirmed Customer menu.',
-                                'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Move the customer to a new package by selecting the desired package from the list.',
+                                    ],
+                                ],
                             ],
-                            'Expand the customer details.',
-                            'The payment status will be reflected as Overpaid.',
-                            'Click Refund.',
-                            'Change the refund purpose by selecting Overpaid Refund.',
-                            'Select the refund mode.',
-                            'Select the payment method for the refund.',
-                            'Enter the refund amount.',
-                            'Add a description for the refund receipt.',
-                            'Click Refund Receipt.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Move Selected Members.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the Confirmed Customer menu.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Expand the customer details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The payment status will be reflected as Overpaid.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Change the refund purpose by selecting Overpaid Refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the refund mode.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the payment method for the refund.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the refund amount.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a description for the refund receipt.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Refund Receipt.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -717,23 +2303,80 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Click the Confirmed Customer menu.',
                                 'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click the Confirmed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Click Options and move the selected customer to the Holding Area.',
                             [
-                                'text' => 'In the Customer Holding Area, click Options for the selected customer.',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and move the selected customer to the Holding Area.',
+                                    ],
+                                ],
+                            ],
+                            [
                                 'path' => '/customer-holding',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'In the Customer Holding Area, click Options for the selected customer.',
+                                    ],
+                                ],
                             ],
-                            'Move the customer to a new package by selecting the desired package from the list.',
-                            'Click Move Selected Members. Note: The selected members will now be assigned to the new package.',
                             [
-                                'text' => 'Go to the Confirmed Customer menu.',
-                                'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Move the customer to a new package by selecting the desired package from the list.',
+                                    ],
+                                ],
                             ],
-                            'Expand the customer details.',
-                            'The payment status will be reflected as Partially Paid.',
-                            'Click Options and select Create Balance Invoice.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Move Selected Members. Note: The selected members will now be assigned to the new package.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'path' => '/confirmed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Go to the Confirmed Customer menu.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Expand the customer details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The payment status will be reflected as Partially Paid.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Options and select Create Balance Invoice.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -755,12 +2398,38 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Open the Completed Customer menu.',
                                 'path' => '/completed-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Open the Completed Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Filter by package or period to review completed trip records.',
-                            'Check historical payment and participation references when needed.',
-                            'Use this data for repeat-customer offers and post-trip analysis.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Filter by package or period to review completed trip records.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Check historical payment and participation references when needed.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use this data for repeat-customer offers and post-trip analysis.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -782,12 +2451,38 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Open the Cancelled Customer menu.',
                                 'path' => '/cancelled-customer',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Open the Cancelled Customer menu.',
+                                    ],
+                                ],
                             ],
-                            'Review cancelled records with related refund context.',
-                            'Check reason trends for service and process improvement.',
-                            'Use records as audit support for finance and operations.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review cancelled records with related refund context.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Check reason trends for service and process improvement.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use records as audit support for finance and operations.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -818,17 +2513,78 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Package module.',
                                 'path' => '/packages',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Package module.',
+                                    ],
+                                ],
                             ],
-                            'Click Create New Package.',
-                            'Package Number: Auto-fills (e.g., KTG2-31); can override if needed.',
-                            'Package Name: Enter descriptive name (include: destination, duration, tier, date).',
-                            'Status: Leave as "Open" (available for new bookings).',
-                            'Package Location: Select destination country.',
-                            'Departure Date: Select date from calendar (must be future date).',
-                            'Return Date: Select return date (must be after departure).',
-                            'Total Seats: Enter total capacity.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Create New Package.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Package Number: Auto-fills (e.g., KTG2-31); can override if needed.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Package Name: Enter descriptive name (include: destination, duration, tier, date).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Status: Leave as "Open" (available for new bookings).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Package Location: Select destination country.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Departure Date: Select date from calendar (must be future date).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Return Date: Select return date (must be after departure).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Total Seats: Enter total capacity.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -836,10 +2592,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Pricing Section".',
-                            'For each pricing plan (Standard, Premium, etc.): fill Plan Name, Price, and Capacity.',
-                            'Leave unused plans empty.',
-                            'Save each plan.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Pricing Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'For each pricing plan (Standard, Premium, etc.): fill Plan Name, Price, and Capacity.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Leave unused plans empty.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save each plan.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -847,15 +2631,78 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Flight Details Section".',
-                            'Enter the flight route description/header (e.g., "Singapore to Jeddah via Doha").',
-                            'From: Select the departure airport from the dropdown (e.g., Singapore, Kuala Lumpur).',
-                            'To: Select the arrival/destination airport from the dropdown (e.g., Jeddah for Umrah, Amman for Jordan).',
-                            'Airline: Enter the airline name and flight number.',
-                            'PNR: Enter the 6-digit airline booking reference code (confirm with the booking agent).',
-                            'Departure Date/Time: Click the calendar picker, select the departure date and time.',
-                            'Arrival Date/Time: Click the calendar picker, select the arrival date and time.',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Flight Details Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the flight route description/header (e.g., "Singapore to Jeddah via Doha").',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'From: Select the departure airport from the dropdown (e.g., Singapore, Kuala Lumpur).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'To: Select the arrival/destination airport from the dropdown (e.g., Jeddah for Umrah, Amman for Jordan).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Airline: Enter the airline name and flight number.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'PNR: Enter the 6-digit airline booking reference code (confirm with the booking agent).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Departure Date/Time: Click the calendar picker, select the departure date and time.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Arrival Date/Time: Click the calendar picker, select the arrival date and time.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -863,10 +2710,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Transportation Plan Section".',
-                            'Click "Add Transportation".',
-                            'Enter transportation details: Route, Vehicle Type, Transportation Provider, and Date/Time.',
-                            'Click Add again for each transportation leg.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Transportation Plan Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click "Add Transportation".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter transportation details: Route, Vehicle Type, Transportation Provider, and Date/Time.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add again for each transportation leg.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -874,10 +2749,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Visa Section".',
-                            'Select visa type from dropdown (Umrah, Hajj, or Tourist Visa).',
-                            'Enter visa details: Required documents, Processing time, and Expiry validity.',
-                            'Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Visa Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select visa type from dropdown (Umrah, Hajj, or Tourist Visa).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter visa details: Required documents, Processing time, and Expiry validity.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -885,10 +2788,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Vehicle Section".',
-                            'Enter Driver 1 details: Name, License Number, Contact Phone, Vehicle Make/Model, and License Plate.',
-                            'Enter Driver 2 details if applicable.',
-                            'Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Vehicle Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter Driver 1 details: Name, License Number, Contact Phone, Vehicle Make/Model, and License Plate.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter Driver 2 details if applicable.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -896,10 +2827,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Train Ticket Details Section".',
-                            'Click "Add Train".',
-                            'Enter: Train Description, Ticket Type, and additional fields (departure time, class, seats).',
-                            'Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Train Ticket Details Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click "Add Train".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter: Train Description, Ticket Type, and additional fields (departure time, class, seats).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -907,11 +2866,46 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Scroll to "Accommodations Section".',
-                            'Click "Add Accommodation".',
-                            'Enter details: Location, Hotel Name, Hotel Category, Room Type, Check-In Date, Check-Out Date, and Number of Rooms.',
-                            'Click Add again to add additional hotels.',
-                            'Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Scroll to "Accommodations Section".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click "Add Accommodation".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter details: Location, Hotel Name, Hotel Category, Room Type, Check-In Date, Check-Out Date, and Number of Rooms.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add again to add additional hotels.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -919,11 +2913,46 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Click Add Rawdah Tasreeh.',
-                            'Enter the visit date.',
-                            'Select the gender category (Men or Women).',
-                            'Enter the allocated visit time.',
-                            'Enter the total number of visitors for the selected slot.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Add Rawdah Tasreeh.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the visit date.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the gender category (Men or Women).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the allocated visit time.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the total number of visitors for the selected slot.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -931,9 +2960,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Select the official type from the dropdown menu.',
-                            'Enter the official’s name (required).',
-                            'Enter the hotel location.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the official type from the dropdown menu.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the official’s name (required).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter the hotel location.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -941,10 +2991,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Inclusions section of the package details.',
-                            'Select the checkbox for each service included in the package (e.g., Flight, Hotel, Transport, Visa, Insurance).',
-                            'Add custom text or notes for inclusions if required.',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Inclusions section of the package details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the checkbox for each service included in the package (e.g., Flight, Hotel, Transport, Visa, Insurance).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add custom text or notes for inclusions if required.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -969,10 +3047,22 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to the Manifest module and select a package.',
                                 'path' => '/manifests',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Manifest module and select a package.',
+                                    ],
+                                ],
                             ],
-                            'Click Update Manifest.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update Manifest.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -980,9 +3070,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Locate the Gender column on the Main Dashboard.',
-                            'Verify the gender (Male/Female) for each traveler.',
-                            'If a gender is incorrect, edit it directly (critical for Rawdah Tasreeh registration).',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Locate the Gender column on the Main Dashboard.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify the gender (Male/Female) for each traveler.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'If a gender is incorrect, edit it directly (critical for Rawdah Tasreeh registration).',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -990,9 +3101,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'View the Discount column on the Main Dashboard.',
-                            'Hover over the discount field to see any discount applied to the customer.',
-                            'Verify that the correct pricing adjustments have been applied.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'View the Discount column on the Main Dashboard.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Hover over the discount field to see any discount applied to the customer.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify that the correct pricing adjustments have been applied.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1000,9 +3132,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Check the Payment Date column on the Main Dashboard.',
-                            'Ensure the date recorded matches when the payment was successfully processed.',
-                            'Use this for daily reconciliation and audit trails.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Check the Payment Date column on the Main Dashboard.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Ensure the date recorded matches when the payment was successfully processed.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Use this for daily reconciliation and audit trails.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1010,8 +3163,22 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Receipt Tab.',
-                            'Upload the related payment receipt.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Receipt Tab.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Upload the related payment receipt.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1019,8 +3186,22 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Verify the Payment Status column (e.g., Unpaid, Partially Paid, Fully Paid, Overpaid).',
-                            'The payment status is automatically calculated based on issued invoices and receipts.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify the Payment Status column (e.g., Unpaid, Partially Paid, Fully Paid, Overpaid).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'The payment status is automatically calculated based on issued invoices and receipts.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1028,9 +3209,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Right-click on the official’s name.',
-                            'Assign the official to the intended hotel location.',
-                            'Unassign the official when necessary.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Right-click on the official’s name.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Assign the official to the intended hotel location.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Unassign the official when necessary.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1038,9 +3240,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Airline Name List tab.',
-                            'Review the list of travelers grouped by flight allocations.',
-                            'Verify passenger details match passport data for flight manifest submission.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Airline Name List tab.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the list of travelers grouped by flight allocations.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify passenger details match passport data for flight manifest submission.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1048,12 +3271,54 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Room List – (Location 01).',
-                            'Drag & Drop: Click and hold the 6-dot icon located on the far left of the table row, then drag the customer into the intended room group.',
-                            'Business Rule: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error.',
-                            'To reset the room structure, click "Reset This Room List Structure".',
-                            'Select the target replication source if applicable (e.g., replicate from an existing structure).',
-                            'Click Update Manifest to save changes.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Room List – (Location 01).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Drag & Drop: Click and hold the 6-dot icon located on the far left of the table row, then drag the customer into the intended room group.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Business Rule: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'To reset the room structure, click "Reset This Room List Structure".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the target replication source if applicable (e.g., replicate from an existing structure).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update Manifest to save changes.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1061,12 +3326,54 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Room List – (Location 02).',
-                            'Drag & Drop: Click and hold the 6-dot icon located on the far left of the table row, then drag the customer into the intended room group.',
-                            'Business Rule: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error.',
-                            'To replicate room arrangement from Location 01, click "Reset This Room List Structure".',
-                            'Select "Location 01" as the source to duplicate the room structure.',
-                            'Click Update Manifest to save changes.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Room List – (Location 02).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Drag & Drop: Click and hold the 6-dot icon located on the far left of the table row, then drag the customer into the intended room group.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Business Rule: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'To replicate room arrangement from Location 01, click "Reset This Room List Structure".',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select "Location 01" as the source to duplicate the room structure.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update Manifest to save changes.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1074,9 +3381,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Room List for Official Check-In – (Location 01).',
-                            'Verify the room assignments specifically prepared for hotel check-in at Location 01.',
-                            'Print or export the official check-in document for the hotel administration.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Room List for Official Check-In – (Location 01).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify the room assignments specifically prepared for hotel check-in at Location 01.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Print or export the official check-in document for the hotel administration.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1084,9 +3412,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Room List for Official Check-In – (Location 02).',
-                            'Verify the room assignments prepared for hotel check-in at Location 02.',
-                            'Export the official check-in sheet to coordinate with ground officials.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Room List for Official Check-In – (Location 02).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify the room assignments prepared for hotel check-in at Location 02.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Export the official check-in sheet to coordinate with ground officials.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1094,10 +3443,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Name List Course & Collection Item.',
-                            'Mark attendance by checking the Course Attended checkbox for each traveler.',
-                            'Mark gift/kit distribution by checking the Item Collected checkbox.',
-                            'Click Update Manifest to save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Name List Course & Collection Item.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Mark attendance by checking the Course Attended checkbox for each traveler.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Mark gift/kit distribution by checking the Item Collected checkbox.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Update Manifest to save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1105,10 +3482,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Flight Tickets section under Upload Documents.',
-                            'Click Upload and select the airline ticket file (PDF or image).',
-                            'Upload representative samples of flight ticket confirmations.',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Flight Tickets section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload and select the airline ticket file (PDF or image).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Upload representative samples of flight ticket confirmations.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1116,10 +3521,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Visa section under Upload Documents.',
-                            'Click Upload and select the visa approvals or stamps.',
-                            'Ensure files are clear and readable for immigration validation.',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Visa section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload and select the visa approvals or stamps.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Ensure files are clear and readable for immigration validation.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1127,10 +3560,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Train Tickets section under Upload Documents.',
-                            'Click Upload and select the train booking confirmation file.',
-                            'Verify train descriptions (e.g., Jeddah to Madinah Express).',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Train Tickets section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload and select the train booking confirmation file.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify train descriptions (e.g., Jeddah to Madinah Express).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1138,10 +3599,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Hotel section under Upload Documents.',
-                            'Click Upload and select hotel booking confirmations or room charts.',
-                            'Ensure hotel category and check-in/out dates match the package.',
-                            'Click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Hotel section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload and select hotel booking confirmations or room charts.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Ensure hotel category and check-in/out dates match the package.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1149,9 +3638,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Passport section under Upload Documents.',
-                            'If a customer has not uploaded their passport via the one-time link, upload it manually.',
-                            'Select the scanned passport file and click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Passport section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'If a customer has not uploaded their passport via the one-time link, upload it manually.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Select the scanned passport file and click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1159,9 +3669,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Photo section under Upload Documents.',
-                            'Verify that a passport-style photo is uploaded (JPG/PNG).',
-                            'If missing, upload it manually on behalf of the customer and click Save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Photo section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify that a passport-style photo is uploaded (JPG/PNG).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'If missing, upload it manually on behalf of the customer and click Save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1169,9 +3700,23 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Arabic Names section.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Arabic Names section.',
+                                    ],
+                                ],
+                            ],
                             'Verify or enter the customer\'s name in Arabic characters (required for Saudi visa processing).',
-                            'Save the updated name details.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save the updated name details.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1179,10 +3724,38 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to the Receipt section under Upload Documents.',
-                            'Click Upload Receipt to attach bank transfer confirmations or receipts.',
-                            'Validation: A maximum of 3 receipt slots is available per room group for uploading bank transfer confirmations or receipts.',
-                            'Click Save to maintain audit traceability.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to the Receipt section under Upload Documents.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload Receipt to attach bank transfer confirmations or receipts.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Validation: A maximum of 3 receipt slots is available per room group for uploading bank transfer confirmations or receipts.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Save to maintain audit traceability.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -1207,11 +3780,30 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'text' => 'Navigate to Ops Movement and select the desired package.',
                                 'path' => '/ops-movements',
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Ops Movement and select the desired package.',
+                                    ],
+                                ],
                             ],
-                            'Review the auto-populated flight, accommodation, transportation, visa, and guide details.',
-                            'Verify all logistics are synchronized with the package and manifest.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the auto-populated flight, accommodation, transportation, visa, and guide details.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify all logistics are synchronized with the package and manifest.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1219,9 +3811,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Ops Movement > PIF section.',
-                            'Click Generate PIF to compile passenger names, passport numbers, dates of birth, and nationalities.',
-                            'Click Export as PDF to download the passenger manifest for check-in and immigration.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Ops Movement > PIF section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Generate PIF to compile passenger names, passport numbers, dates of birth, and nationalities.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Export as PDF to download the passenger manifest for check-in and immigration.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1229,9 +3842,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Ops Movement > Itinerary section.',
-                            'Click Upload Itinerary and select the day-by-day schedule file (PDF or document).',
-                            'Add a clear description (e.g., "Itinerary - Umrah May 2025") and save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Ops Movement > Itinerary section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload Itinerary and select the day-by-day schedule file (PDF or document).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a clear description (e.g., "Itinerary - Umrah May 2025") and save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1239,9 +3873,30 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Ops Movement > Booklet section.',
-                            'Click Upload Booklet and select the official travel guide document (PDF recommended).',
-                            'Add a description (e.g., "Umrah Package Booklet - May 2025") and save.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Ops Movement > Booklet section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Click Upload Booklet and select the official travel guide document (PDF recommended).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Add a description (e.g., "Umrah Package Booklet - May 2025") and save.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1249,11 +3904,46 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'Navigate to Ops Movement > Budget section.',
-                            'Note: Hanya dapat diakses dan diedit oleh pengguna dengan peran SuperAdmin (SuperAdmin only).',
-                            'Review the auto-calculated revenue derived from confirmed customer invoices.',
-                            'Enter fixed and variable costs (flights, hotels, transport, guides, visa fees).',
-                            'Save to calculate Total Cost, Profit, and Profit Margin %.',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Navigate to Ops Movement > Budget section.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: Hanya dapat diakses dan diedit oleh pengguna dengan peran SuperAdmin (SuperAdmin only).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Review the auto-calculated revenue derived from confirmed customer invoices.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Enter fixed and variable costs (flights, hotels, transport, guides, visa fees).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Save to calculate Total Cost, Profit, and Profit Margin %.',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -1261,13 +3951,116 @@ class DocumentationModulePlaybooks
                         'type' => 'article',
                         'status' => 'done',
                         'steps' => [
-                            'SuperAdmin memiliki otoritas penuh untuk mengedit seluruh section, termasuk detail master operasional dan budget (Full authority to edit all sections, including operational master details and budget).',
-                            'Peran Operations diizinkan melihat informasi, mengunggah itinerary/booklet, dan mengekspor laporan, tetapi TIDAK memiliki izin untuk mengedit data master operasional atau melihat budget (Allowed to view info, upload itinerary/booklet, and export reports, but no permission to edit operational master data or view budget).',
-                            'Peran Sales hanya memiliki akses view-only (informational) pada modul Ops Movement ini (View-only informational access on the Ops Movement module).',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'SuperAdmin memiliki otoritas penuh untuk mengedit seluruh section, termasuk detail master operasional dan budget (Full authority to edit all sections, including operational master details and budget).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Peran Operations diizinkan melihat informasi, mengunggah itinerary/booklet, dan mengekspor laporan, tetapi TIDAK memiliki izin untuk mengedit data master operasional atau melihat budget (Allowed to view info, upload itinerary/booklet, and export reports, but no permission to edit operational master data or view budget).',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Peran Sales hanya memiliki akses view-only (informational) pada modul Ops Movement ini (View-only informational access on the Ops Movement module).',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
             ],
         ];
+
+        return array_map(static function (array $module): array {
+            if (! isset($module['procedures']) || ! is_array($module['procedures'])) {
+                return $module;
+            }
+
+            $module['procedures'] = self::normalizeProcedures($module['procedures']);
+
+            return $module;
+        }, $modules);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $procedures
+     * @return array<int, array<string, mixed>>
+     */
+    private static function normalizeProcedures(array $procedures): array
+    {
+        return array_map(static function (array $procedure): array {
+            $steps = $procedure['steps'] ?? [];
+
+            if (! is_array($steps)) {
+                $steps = [];
+            }
+
+            $procedure['steps'] = self::normalizeSteps($steps);
+
+            return $procedure;
+        }, $procedures);
+    }
+
+    /**
+     * @param  array<int, mixed>  $steps
+     * @return array<int, array<string, mixed>>
+     */
+    private static function normalizeSteps(array $steps): array
+    {
+        return array_map(static function (mixed $step): array {
+            if (is_string($step)) {
+                return [
+                    'content_blocks' => [
+                        [
+                            'type' => 'text',
+                            'text' => $step,
+                        ],
+                    ],
+                ];
+            }
+
+            if (! is_array($step)) {
+                return [
+                    'content_blocks' => [],
+                ];
+            }
+
+            if (isset($step['content_blocks']) && is_array($step['content_blocks'])) {
+                return $step;
+            }
+
+            $normalizedStep = $step;
+            $contentBlocks = [];
+
+            if (isset($step['text']) && is_string($step['text']) && $step['text'] !== '') {
+                $contentBlocks[] = [
+                    'type' => 'text',
+                    'text' => $step['text'],
+                ];
+            }
+
+            if (isset($step['screenshot']) && is_string($step['screenshot']) && $step['screenshot'] !== '') {
+                $contentBlocks[] = [
+                    'type' => 'image',
+                    'src' => $step['screenshot'],
+                    'alt' => 'Step visual guide',
+                ];
+            }
+
+            unset($normalizedStep['text'], $normalizedStep['screenshot']);
+            $normalizedStep['content_blocks'] = $contentBlocks;
+
+            return $normalizedStep;
+        }, $steps);
     }
 }
