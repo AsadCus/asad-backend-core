@@ -294,6 +294,18 @@ class DashboardController extends Controller
             empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
 
+        if (! empty($packageIds) && count($packageIds) > 1 && isset($summary['package'])) {
+            $pkgList = \App\Models\Package::whereIn('id', $packageIds)
+                ->get(['package_number', 'name'])
+                ->map(fn ($p) => $p->package_number.' - '.$p->name)
+                ->implode(', ');
+            $summary['package']['name'] = $pkgList ?: (count($packageIds).' packages');
+        }
+
+        $summary['selected_categories'] = ! empty($categoryIds)
+            ? array_values((array) $categoryIds)
+            : null;
+
         $report = $this->reportTemplateService->build('closing_report', $summary);
         $report['is_pdf'] = true;
 
