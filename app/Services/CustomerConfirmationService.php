@@ -945,6 +945,12 @@ class CustomerConfirmationService
             ->values();
 
         foreach ($invoices as $invoice) {
+            $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+            if ($normalizedStatus === InvoiceStatus::Cancelled) {
+                continue;
+            }
+
             $invoiceItems = $invoice->quotationItems
                 ->filter(fn ($item): bool => ! (bool) $item->is_header)
                 ->values();
@@ -1253,6 +1259,12 @@ class CustomerConfirmationService
                     return null;
                 }
 
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+                if ($normalizedStatus === InvoiceStatus::Cancelled) {
+                    return null;
+                }
+
                 $memberSubtotal = (float) $invoiceItems
                     ->where('customer_confirmation_member_id', $member->id)
                     ->sum(function ($item): float {
@@ -1267,7 +1279,6 @@ class CustomerConfirmationService
                     ->pluck('receipt_date')
                     ->contains(fn ($date): bool => ! empty($date));
 
-                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
                 $isPaid = $normalizedStatus === InvoiceStatus::Paid;
                 $isRefund = $normalizedStatus === InvoiceStatus::Refund;
 
