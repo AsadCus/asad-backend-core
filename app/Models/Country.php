@@ -13,6 +13,7 @@ class Country extends Model
     protected $fillable = [
         'name',
         'adjective',
+        'currency_symbol',
     ];
 
     public function branches(): HasMany

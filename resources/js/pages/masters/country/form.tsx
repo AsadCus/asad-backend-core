@@ -18,6 +18,7 @@ export function CountryForm({ mode, initialData, onCancel }: CountryFormProps) {
     const initialFormState: CountrySchema = {
         name: '',
         adjective: '',
+        currency_symbol: '',
     };
 
     const defaultData = initialData
@@ -106,6 +107,22 @@ export function CountryForm({ mode, initialData, onCancel }: CountryFormProps) {
                             value={data.adjective ?? null}
                             onCommit={(value) => setData('adjective', value)}
                             placeholder="Country adjective"
+                            disabled={isView}
+                        />
+                    </FormField>
+
+                    <FormField
+                        label="Currency Symbol"
+                        htmlFor="currency_symbol"
+                        error={errors.currency_symbol}
+                    >
+                        <ProperInput
+                            id="currency_symbol"
+                            value={data.currency_symbol ?? null}
+                            onCommit={(value) =>
+                                setData('currency_symbol', value)
+                            }
+                            placeholder="e.g. S$"
                             disabled={isView}
                         />
                     </FormField>

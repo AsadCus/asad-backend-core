@@ -94,6 +94,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface FiscalYearTotalSalesType {
     count: number;
     amount: number | string;
+    by_country?: Array<{
+        country_id: number;
+        country_name: string;
+        currency_symbol?: string | null;
+        count: number;
+        amount: number | string;
+    }>;
 }
 
 interface PaymentSummaryCategoryType {
@@ -904,46 +911,59 @@ export default function Dashboard({ data }: DashboardProps) {
                             </div>
                         )}
 
-                    {/* Admin: Fiscal Year - Total Sales (FYTD # and $) */}
+                    {/* Admin: Fiscal Year - Total Sales (FYTD by Country) */}
                     {isSuperadmin && fiscalYearTotalSalesData && (
                         <div>
                             <h2 className="mb-3 text-lg font-semibold">
                                 Fiscal Year - Total Sales
                             </h2>
-                            <div className="grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]">
-                                {/* <div className="mx-auto grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]"> */}
-                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
-                                    <CardHeader className="gap-0">
-                                        <CardTitle className="text-md font-semibold">
-                                            FYTD (#)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">
-                                            {fiscalYearTotalSalesData.count}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Total Number of Sales
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
-                                    <CardHeader className="gap-0">
-                                        <CardTitle className="text-md font-semibold">
-                                            FYTD ($)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">
-                                            {formatCurrency(
-                                                fiscalYearTotalSalesData.amount,
-                                            )}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Total Amount
-                                        </p>
-                                    </CardContent>
-                                </Card>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+                                {(
+                                    fiscalYearTotalSalesData.by_country ?? []
+                                ).flatMap((entry) => [
+                                    <Card
+                                        key={`fytd-count-${entry.country_id}`}
+                                        className="gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                    >
+                                        <CardHeader className="gap-0">
+                                            <CardTitle className="text-md font-semibold">
+                                                FYTD (#) — {entry.country_name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-3xl font-bold">
+                                                {entry.count}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Total Number of Sales
+                                            </p>
+                                        </CardContent>
+                                    </Card>,
+                                    <Card
+                                        key={`fytd-amount-${entry.country_id}`}
+                                        className="gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                    >
+                                        <CardHeader className="gap-0">
+                                            <CardTitle className="text-md font-semibold">
+                                                FYTD (
+                                                {entry.currency_symbol ?? '$'})
+                                                — {entry.country_name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-3xl font-bold">
+                                                {formatCurrency(
+                                                    entry.amount,
+                                                    entry.currency_symbol ??
+                                                        '$',
+                                                )}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Total Amount
+                                            </p>
+                                        </CardContent>
+                                    </Card>,
+                                ])}
                             </div>
                         </div>
                     )}

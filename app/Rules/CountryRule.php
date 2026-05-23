@@ -9,6 +9,7 @@ class CountryRule
         return [
             'name' => ['required', 'string', 'max:255'],
             'adjective' => ['nullable', 'string', 'max:255'],
+            'currency_symbol' => ['nullable', 'string', 'max:16'],
         ];
     }
 }
