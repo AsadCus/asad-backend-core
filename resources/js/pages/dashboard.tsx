@@ -123,6 +123,16 @@ interface PaymentSummaryType {
         label: string;
         amount: number | string;
     }>;
+    by_country?: Array<{
+        country_id: number;
+        country_name: string;
+        currency_symbol?: string | null;
+        categories: Array<{
+            category: string;
+            amount: number | string;
+            receipt_count: number;
+        }>;
+    }>;
 }
 
 interface EnquiryRowType {
@@ -1163,51 +1173,75 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            <div className="space-y-4">
                                 {isLoadingPaymentSummary && (
-                                    <Card className="bg-gradient-to-t from-primary/5 to-card">
-                                        <CardContent className="pt-6">
-                                            <p className="text-base text-muted-foreground">
-                                                Loading payment summary...
-                                            </p>
-                                        </CardContent>
-                                    </Card>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                                        <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                            <CardContent>
+                                                <p className="text-base text-muted-foreground">
+                                                    Loading payment summary...
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
                                 )}
 
                                 {!isLoadingPaymentSummary &&
-                                    paymentSummaryData?.categories?.map(
-                                        (category) => (
-                                            <Card
-                                                key={category.category}
-                                                className="bg-gradient-to-t from-primary/5 to-card"
+                                    (paymentSummaryData?.by_country ?? []).map(
+                                        (entry) => (
+                                            <div
+                                                key={entry.country_id}
+                                                className="space-y-2"
                                             >
-                                                <CardHeader className="gap-1 pb-2">
-                                                    <CardTitle className="text-base font-semibold">
-                                                        {category.category}
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="pt-0">
-                                                    <p className="text-2xl font-bold">
-                                                        {formatCurrency(
-                                                            category.amount,
-                                                        )}
-                                                    </p>
-                                                </CardContent>
-                                            </Card>
+                                                <h3 className="text-base font-semibold">
+                                                    {entry.country_name}
+                                                </h3>
+                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+                                                    {entry.categories.map(
+                                                        (category) => (
+                                                            <Card
+                                                                key={
+                                                                    category.category
+                                                                }
+                                                                className="justify-between gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                                            >
+                                                                <CardHeader className="gap-0">
+                                                                    <CardTitle className="text-base font-semibold">
+                                                                        {
+                                                                            category.category
+                                                                        }
+                                                                    </CardTitle>
+                                                                </CardHeader>
+                                                                <CardContent className="pt-0">
+                                                                    <p className="text-2xl font-bold">
+                                                                        {formatCurrency(
+                                                                            category.amount,
+                                                                            entry.currency_symbol ??
+                                                                                '$',
+                                                                        )}
+                                                                    </p>
+                                                                </CardContent>
+                                                            </Card>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
                                         ),
                                     )}
 
                                 {!isLoadingPaymentSummary &&
-                                    (!paymentSummaryData?.categories ||
-                                        paymentSummaryData.categories.length ===
+                                    (!paymentSummaryData?.by_country ||
+                                        paymentSummaryData.by_country.length ===
                                             0) && (
-                                        <Card className="bg-gradient-to-t from-primary/5 to-card">
-                                            <CardContent>
-                                                <p className="text-base text-muted-foreground">
-                                                    No payment data found.
-                                                </p>
-                                            </CardContent>
-                                        </Card>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                                            <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                                <CardContent>
+                                                    <p className="text-base text-muted-foreground">
+                                                        No payment data found.
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                     )}
                             </div>
                         </div>
