@@ -18,6 +18,7 @@ use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 class DashboardController extends Controller
 {
@@ -182,7 +183,7 @@ class DashboardController extends Controller
         $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         if (! $selectedYear) {
-            return response()->json(['count' => 0, 'amount' => 0]);
+            return response()->json(['count' => 0, 'amount' => 0, 'by_country' => []]);
         }
 
         $data = $this->salesService->getFiscalYearTotalSales($selectedYear);
@@ -263,7 +264,7 @@ class DashboardController extends Controller
         return $pdf->download($filename);
     }
 
-    public function exportClosingReport(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function exportClosingReport(Request $request): Response
     {
         $period = (string) $request->input('period', 'monthly');
         $financialYearId = $request->input('financial_year_id');
@@ -292,6 +293,18 @@ class DashboardController extends Controller
             empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
             empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
+
+        if (! empty($packageIds) && count($packageIds) > 1 && isset($summary['package'])) {
+            $pkgList = \App\Models\Package::whereIn('id', $packageIds)
+                ->get(['package_number', 'name'])
+                ->map(fn ($p) => $p->package_number.' - '.$p->name)
+                ->implode(', ');
+            $summary['package']['name'] = $pkgList ?: (count($packageIds).' packages');
+        }
+
+        $summary['selected_categories'] = ! empty($categoryIds)
+            ? array_values((array) $categoryIds)
+            : null;
 
         $report = $this->reportTemplateService->build('closing_report', $summary);
         $report['is_pdf'] = true;

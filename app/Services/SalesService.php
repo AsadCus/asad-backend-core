@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\DataScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class SalesService
 {
@@ -245,6 +246,7 @@ class SalesService
             return [
                 'count' => 0,
                 'amount' => 0,
+                'by_country' => [],
             ];
         }
 
@@ -278,9 +280,14 @@ class SalesService
             ->count();
         $amount = (clone $transactions)->sum('amount');
 
+        $byCountry = $this->buildFiscalYearCountryBreakdownFromTransactions(
+            $transactions->with(['reference.invoice.order.quotation.country'])->get()
+        );
+
         return [
             'count' => $count,
             'amount' => $this->formatService->cleanDecimal($amount),
+            'by_country' => $byCountry,
         ];
     }
 
@@ -295,6 +302,7 @@ class SalesService
             return [
                 'count' => 0,
                 'amount' => 0,
+                'by_country' => [],
             ];
         }
 
@@ -318,10 +326,81 @@ class SalesService
             ->count();
         $amount = (clone $invoices)->sum('amount');
 
+        $byCountry = $this->buildFiscalYearCountryBreakdownFromInvoices(
+            $invoices->with(['order.quotation.country'])->get()
+        );
+
         return [
             'count' => $count,
             'amount' => $this->formatService->cleanDecimal($amount),
+            'by_country' => $byCountry,
         ];
+    }
+
+    /**
+     * @param  Collection<int, FinancialTransaction>  $transactions
+     * @return array<int, array{country_id:int,country_name:string,currency_symbol:?string,count:int,amount:float}>
+     */
+    private function buildFiscalYearCountryBreakdownFromTransactions($transactions): array
+    {
+        return $transactions
+            ->filter(function (FinancialTransaction $transaction): bool {
+                $countryId = (int) ($transaction->reference?->invoice?->order?->quotation?->country_id ?? 0);
+
+                return $countryId > 0;
+            })
+            ->groupBy(fn (FinancialTransaction $transaction): int => (int) $transaction->reference->invoice->order->quotation->country_id)
+            ->map(function ($countryTransactions, int $countryId): array {
+                $country = $countryTransactions->first()?->reference?->invoice?->order?->quotation?->country;
+                $amount = (float) $countryTransactions->sum(fn (FinancialTransaction $transaction): float => (float) ($transaction->amount ?? 0));
+                $count = $countryTransactions
+                    ->filter(fn (FinancialTransaction $transaction): bool => (float) ($transaction->amount ?? 0) > 0)
+                    ->count();
+
+                return [
+                    'country_id' => $countryId,
+                    'country_name' => (string) ($country?->name ?? 'Unknown'),
+                    'currency_symbol' => $country?->currency_symbol,
+                    'count' => $count,
+                    'amount' => $this->formatService->cleanDecimal($amount),
+                ];
+            })
+            ->sortBy('country_name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, Invoice>  $invoices
+     * @return array<int, array{country_id:int,country_name:string,currency_symbol:?string,count:int,amount:float}>
+     */
+    private function buildFiscalYearCountryBreakdownFromInvoices($invoices): array
+    {
+        return $invoices
+            ->filter(function (Invoice $invoice): bool {
+                $countryId = (int) ($invoice->order?->quotation?->country_id ?? 0);
+
+                return $countryId > 0;
+            })
+            ->groupBy(fn (Invoice $invoice): int => (int) $invoice->order->quotation->country_id)
+            ->map(function ($countryInvoices, int $countryId): array {
+                $country = $countryInvoices->first()?->order?->quotation?->country;
+                $amount = (float) $countryInvoices->sum(fn (Invoice $invoice): float => (float) ($invoice->amount ?? 0));
+                $count = $countryInvoices
+                    ->filter(fn (Invoice $invoice): bool => (float) ($invoice->amount ?? 0) > 0)
+                    ->count();
+
+                return [
+                    'country_id' => $countryId,
+                    'country_name' => (string) ($country?->name ?? 'Unknown'),
+                    'currency_symbol' => $country?->currency_symbol,
+                    'count' => $count,
+                    'amount' => $this->formatService->cleanDecimal($amount),
+                ];
+            })
+            ->sortBy('country_name')
+            ->values()
+            ->all();
     }
 
     /**

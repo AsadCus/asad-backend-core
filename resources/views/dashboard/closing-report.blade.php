@@ -211,12 +211,22 @@
             <th style="width:10%;">Package</th>
             <td style="width:30%;">
                 @if ($packageInfo)
-                    {{ $packageInfo['package_number'] }} &ndash; {{ $packageInfo['name'] }}
+                    @if (($packageInfo['id'] ?? null) === 'multiple')
+                        {{ $packageInfo['name'] }}
+                    @else
+                        {{ $packageInfo['package_number'] }} &ndash; {{ $packageInfo['name'] }}
+                    @endif
                 @else
-                    -
+                    All Packages
                 @endif
             </td>
         </tr>
+        @if (!empty($report['selected_categories']))
+        <tr>
+            <th style="width:10%;">Category</th>
+            <td colspan="5">{{ implode(', ', $report['selected_categories']) }}</td>
+        </tr>
+        @endif
     </table>
 
     {{-- ── Main table ──────────────────────────────────────────── --}}

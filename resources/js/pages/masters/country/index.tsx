@@ -34,6 +34,17 @@ const columns: ColumnDef<CountrySchema>[] = [
         header: 'Name',
         meta: { exportable: true },
     },
+    {
+        accessorKey: 'currency_symbol',
+        header: 'Currency',
+        meta: { exportable: true },
+        cell: ({ row }) =>
+            row.original.currency_symbol ? (
+                <span>{row.original.currency_symbol}</span>
+            ) : (
+                <span className="text-muted-foreground">-</span>
+            ),
+    },
 ];
 
 interface CountryIndexProps {

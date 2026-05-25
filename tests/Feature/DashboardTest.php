@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -370,8 +371,15 @@ class DashboardTest extends TestCase
                 'customer_number' => 'CUST-DB-FYTD-001',
             ]);
 
+            $country = Country::create([
+                'name' => 'Singapore',
+                'adjective' => 'Singaporean',
+                'currency_symbol' => 'S$',
+            ]);
+
             $convertedQuotation = Quotation::create([
                 'customer_id' => $customer->id,
+                'country_id' => $country->id,
                 'quotation_date' => '2026-01-01',
                 'expiry_date' => '2026-01-08',
                 'payment_plan' => 'full',
@@ -507,6 +515,14 @@ class DashboardTest extends TestCase
             $response->assertOk();
             $response->assertJsonPath('count', 3);
             $this->assertSame(800.0, (float) $response->json('amount'));
+
+            $byCountry = $response->json('by_country');
+            $this->assertIsArray($byCountry);
+            $this->assertCount(1, $byCountry);
+            $this->assertSame('Singapore', $byCountry[0]['country_name'] ?? null);
+            $this->assertSame('S$', $byCountry[0]['currency_symbol'] ?? null);
+            $this->assertSame(3, $byCountry[0]['count'] ?? null);
+            $this->assertSame(800.0, (float) ($byCountry[0]['amount'] ?? 0));
         } finally {
             Carbon::setTestNow();
         }
@@ -586,6 +602,7 @@ class DashboardTest extends TestCase
             $response->assertOk();
             $response->assertJsonPath('count', 2);
             $this->assertSame(400.0, (float) $response->json('amount'));
+            $this->assertSame([], $response->json('by_country'));
         } finally {
             Carbon::setTestNow();
             config(['dashboard.use_financial_transactions_for_fytd_total_sales' => false]);
