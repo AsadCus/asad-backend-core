@@ -23,10 +23,10 @@ function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[
                 <span key={item.label} className="flex items-center gap-1.5">
                     {i > 0 && <ChevronRight className="h-4 w-4 shrink-0" />}
                     {item.onClick ? (
-                        <button
+                            <button
                             type="button"
                             onClick={item.onClick}
-                            className="font-medium transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                            className="font-medium hover:text-orange-600 dark:hover:text-orange-400"
                         >
                             {i === 0 ? (
                                 <span className="flex items-center gap-1.5">
@@ -200,16 +200,16 @@ export function ProcedureDetailView({
                                     href={previousHref}
                                     preserveScroll={false}
                                     replace={false}
-                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
+                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
                                 >
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground transition-colors group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
+                                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
                                         <ArrowLeft className="h-5 w-5" />
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                                             Previous
                                         </span>
-                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground transition-colors group-hover:text-orange-700 dark:group-hover:text-orange-300">
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground group-hover:text-orange-700 dark:group-hover:text-orange-300">
                                             {previousLabel}
                                         </span>
                                     </span>
@@ -235,16 +235,16 @@ export function ProcedureDetailView({
                                     href={nextHref}
                                     preserveScroll={false}
                                     replace={false}
-                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
+                                    className="group flex min-h-[96px] items-center gap-4 rounded-2xl border border-sidebar-border/70 bg-slate-50 px-4 py-4 text-left hover:border-orange-200 hover:bg-orange-50/60 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-orange-900/60 dark:hover:bg-orange-950/20"
                                 >
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground transition-colors group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
+                                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sidebar-border/70 bg-white text-muted-foreground group-hover:border-orange-200 group-hover:text-orange-600 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-orange-900/60 dark:group-hover:text-orange-400">
                                         <ArrowRight className="h-5 w-5" />
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                                             Next
                                         </span>
-                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground transition-colors group-hover:text-orange-700 dark:group-hover:text-orange-300">
+                                        <span className="mt-1 block truncate text-sm font-semibold text-foreground group-hover:text-orange-700 dark:group-hover:text-orange-300">
                                             {nextLabel}
                                         </span>
                                     </span>
@@ -380,7 +380,7 @@ export function ProcedureDetailView({
                                         {path && (
                                             <Link
                                                 href={path}
-                                                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 transition-colors hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
+                                                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
                                             >
                                                 <ExternalLink className="h-3 w-3" />
                                                 Open in app
@@ -399,7 +399,7 @@ export function ProcedureDetailView({
                 <button
                     type="button"
                     onClick={onBackToModule}
-                    className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-slate-50 hover:text-foreground dark:hover:bg-slate-900"
+                    className="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm hover:bg-slate-50 hover:text-foreground dark:hover:bg-slate-900"
                 >
                     ← Back to {moduleName}
                 </button>
@@ -413,7 +413,7 @@ export function ProcedureDetailView({
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                     }}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
                 >
                     Back to top
                 </button>

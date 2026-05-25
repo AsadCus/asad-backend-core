@@ -76,10 +76,10 @@ function ModuleCard({
         <button
             type="button"
             onClick={onClick}
-            className="group flex flex-col rounded-2xl border border-sidebar-border/70 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-md dark:bg-slate-900/60 dark:hover:border-orange-700"
+            className="group flex flex-col rounded-2xl border border-sidebar-border/70 bg-white p-6 text-left shadow-sm hover:border-orange-200 dark:bg-slate-900/60 dark:hover:border-orange-700"
         >
             <div className="flex items-start justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 transition-colors group-hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400 dark:group-hover:bg-orange-900/50">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 group-hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400 dark:group-hover:bg-orange-900/50">
                     <Icon className="h-6 w-6" />
                 </div>
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -94,7 +94,7 @@ function ModuleCard({
                 {description}
             </p>
 
-            <div className="mt-4 flex items-center text-sm font-medium text-orange-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-orange-400">
+            <div className="mt-4 flex items-center text-sm font-medium text-orange-600 dark:text-orange-400">
                 Browse guides <ChevronRight className="ml-1 h-4 w-4" />
             </div>
         </button>

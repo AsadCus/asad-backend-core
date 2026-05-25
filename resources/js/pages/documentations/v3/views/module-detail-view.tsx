@@ -18,14 +18,14 @@ function findPlaybook(
 function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
     return (
         <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-            {items.map((item, i) => (
+                    {items.map((item, i) => (
                 <span key={item.label} className="flex items-center gap-1.5">
                     {i > 0 && <ChevronRight className="h-4 w-4 shrink-0" />}
                     {item.onClick ? (
                         <button
                             type="button"
                             onClick={item.onClick}
-                            className="font-medium transition-colors hover:text-orange-600 dark:hover:text-orange-400"
+                                    className="font-medium hover:text-orange-600 dark:hover:text-orange-400"
                         >
                             {i === 0 ? (
                                 <span className="flex items-center gap-1.5">
@@ -108,7 +108,7 @@ export function ModuleDetailView({
                     <div className="mt-4">
                         <a
                             href={moduleGroup.route_path}
-                            className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
+                            className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700"
                         >
                             Open {moduleName} <ArrowRight className="h-4 w-4" />
                         </a>
@@ -134,7 +134,7 @@ export function ModuleDetailView({
                                 key={proc.name}
                                 type="button"
                                 onClick={() => onProcedureClick(i)}
-                                className="group flex w-full items-center justify-between rounded-xl border border-sidebar-border/70 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md dark:bg-slate-900/60 dark:hover:border-orange-700"
+                                className="group flex w-full items-center justify-between rounded-xl border border-sidebar-border/70 bg-white p-5 text-left shadow-sm hover:border-orange-200 dark:bg-slate-900/60 dark:hover:border-orange-700"
                             >
                                 <div className="flex items-start gap-4">
                                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-sm font-bold text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
@@ -149,7 +149,7 @@ export function ModuleDetailView({
                                         </p>
                                     </div>
                                 </div>
-                                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-orange-500" />
+                                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-orange-500" />
                             </button>
                         ))
                     ) : (
@@ -198,7 +198,7 @@ export function ModuleDetailView({
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                     }}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30"
                 >
                     Back to top
                 </button>
