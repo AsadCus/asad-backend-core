@@ -146,7 +146,7 @@ function DocSidebar({
                     const Icon = getModuleIcon(group.menu);
 
                     return (
-                        <div key={group.menu} className={`mb-0.5 rounded-lg ${
+                        <div key={group.menu} className={`mb-0.5 rounded-lg transition-colors duration-150 ease-out ${
                             isActiveModule && !activeProcedureSlug
                                 ? 'bg-orange-50 dark:bg-orange-950/40'
                                 : 'hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -157,7 +157,7 @@ function DocSidebar({
                                     href={`/documentation/${gSlug}`}
                                     preserveScroll={false}
                                     replace={false}
-                                    className={`flex flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs font-medium ${
+                                    className={`flex flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs font-medium transition-colors duration-150 ease-out ${
                                         isActiveModule && !activeProcedureSlug
                                             ? 'text-orange-700 dark:text-orange-300'
                                             : isActiveModule
@@ -180,7 +180,7 @@ function DocSidebar({
                                                 return next;
                                             });
                                         }}
-                                        className={`flex w-9 shrink-0 items-center justify-center rounded-r-lg ${
+                                        className={`flex w-9 shrink-0 items-center justify-center rounded-r-lg transition-colors duration-150 ease-out ${
                                             isActiveModule && !activeProcedureSlug
                                                 ? 'text-orange-700 hover:bg-orange-100 dark:text-orange-300 dark:hover:bg-orange-900/50'
                                                 : 'text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -206,7 +206,7 @@ function DocSidebar({
                                                 href={`/documentation/${gSlug}/${pSlug}`}
                                                 preserveScroll={false}
                                                 replace={false}
-                                                className={`flex w-full items-center gap-1.5 border-l-2 px-2 py-1.5 text-left text-[11px] ${
+                                                className={`flex w-full items-center gap-1.5 border-l-2 px-2 py-1.5 text-left text-[11px] transition-colors duration-150 ease-out ${
                                                     isActive
                                                         ? 'rounded-r-md border-orange-500 bg-orange-50 font-bold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
                                                         : 'rounded-r-md border-transparent text-muted-foreground hover:border-slate-200 hover:bg-slate-50 hover:text-foreground dark:hover:border-slate-700 dark:hover:bg-slate-800'
