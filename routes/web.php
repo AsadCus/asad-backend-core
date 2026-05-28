@@ -90,8 +90,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Documentation
-    Route::get('documentations', [DocumentationController::class, 'index'])
+    Route::get('documentation', [DocumentationController::class, 'index'])
         ->name('documentations.index');
+    Route::get('documentation/{moduleSlug}', [DocumentationController::class, 'showModule'])
+        ->name('documentations.showModule');
+    Route::get('documentation/{moduleSlug}/{procedureSlug}', [DocumentationController::class, 'showProcedure'])
+        ->name('documentations.showProcedure');
 
     // Masters
     Route::prefix('master')->name('master.')->middleware(['role:superadmin'])->group(function () {
@@ -286,5 +290,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';
