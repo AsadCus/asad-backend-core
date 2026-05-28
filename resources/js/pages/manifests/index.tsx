@@ -1,6 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
 import { DataTable } from '@/components/data-table';
+import { CustomExport } from '@/components/data-table-export';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,14 @@ import { edit, index, show } from '@/routes/manifests';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { Download } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { packageStatusColors, packageStatusLabels } from '../packages/schema';
+import {
+    generateManifestImportTemplate,
+    ManifestImportDialog,
+    type ManifestImportOption,
+} from './import-dialog';
 import { type ManifestSchema } from './schema';
 
 type ManifestDataTableSchema = ManifestSchema & {
@@ -142,6 +150,38 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
     if (userPermissions.includes('manifest view')) actions.push('view');
     if (userPermissions.includes('manifest edit')) actions.push('edit');
 
+    const [importOpen, setImportOpen] = useState(false);
+
+    const manifestOptions: ManifestImportOption[] = useMemo(
+        () =>
+            manifestsForDatatable
+                .filter((m) => m.id != null)
+                .map((m) => {
+                    const idValue = Number(m.id);
+                    const parts = [
+                        m.package_number,
+                        m.package_name,
+                        m.departure_date ? `(${m.departure_date})` : null,
+                    ].filter(Boolean);
+                    return {
+                        id: idValue,
+                        label:
+                            parts.length > 0
+                                ? `#${idValue} — ${parts.join(' ')}`
+                                : `Manifest #${idValue}`,
+                    };
+                }),
+        [manifestsForDatatable],
+    );
+
+    const customExports: CustomExport[] = [
+        {
+            label: 'Download Import Template',
+            icon: Download,
+            onClick: generateManifestImportTemplate,
+        },
+    ];
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -158,6 +198,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            showImport={userPermissions.includes(
+                                'manifest edit',
+                            )}
+                            onImport={() => setImportOpen(true)}
+                            customExports={customExports}
                             url={index().url}
                             onAction={(action, row) => {
                                 const manifestId = row?.original.id;
@@ -206,6 +251,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                     </div>
                 </div>
             </AppLayout>
+            <ManifestImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                manifests={manifestOptions}
+            />
         </>
     );
 }

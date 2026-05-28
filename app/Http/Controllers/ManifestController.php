@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ArabicTextHelper;
+use App\Http\Requests\ManifestImportRequest;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -10,6 +11,7 @@ use App\Models\ModelFile;
 use App\Models\Package;
 use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
+use App\Services\ManifestImportService;
 use App\Services\ManifestService;
 use App\Services\PackageSeatService;
 use App\Services\PackageService;
@@ -120,6 +122,35 @@ class ManifestController extends Controller
             'data' => $manifest,
             'dataPackage' => $dataPackage,
         ]);
+    }
+
+    /**
+     * Import a batch of manifest members (with full chain: customer, confirmation,
+     * quotation, order, invoice, receipt) from a parsed Excel payload.
+     */
+    public function import(
+        ManifestImportRequest $request,
+        ManifestImportService $importService,
+        string $id,
+    ): RedirectResponse {
+        $manifest = Manifest::findOrFail($id);
+
+        $result = $importService->importFromPayload(
+            $manifest,
+            (array) $request->input('context', []),
+            (array) $request->input('data', []),
+        );
+
+        if (! empty($result['errors'])) {
+            $errorLines = collect($result['errors'])
+                ->map(fn ($e) => "Row {$e['row']}: {$e['message']}")
+                ->join(' | ');
+
+            throw ValidationException::withMessages(['import' => $errorLines]);
+        }
+
+        return redirect()->route('manifests.edit', ['manifest' => $manifest->id])
+            ->with('success', "Successfully imported {$result['imported']} member(s).");
     }
 
     /**

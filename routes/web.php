@@ -238,6 +238,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Manifests
     Route::resource('manifests', ManifestController::class)->except(['create', 'update', 'destroy']);
+    Route::post('manifests/{id}/import', [ManifestController::class, 'import'])->name('manifests.import');
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');
