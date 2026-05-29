@@ -1373,7 +1373,9 @@ export default function CustomerConfirmationForm({
                                     <ProperInputSelect
                                         mode="multi"
                                         options={customerOptions.map((c) => ({
-                                            label: c.label,
+                                            label: c.name
+                                                ? `${c.name} - ${c.email}`
+                                                : c.email,
                                             value: String(c.value),
                                         }))}
                                         value={selectedCustomerValues}

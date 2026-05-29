@@ -18,8 +18,7 @@ import {
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { type SharedData } from '@/types';
-import { useForm, usePage } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -569,9 +568,9 @@ export default function OpsMovementForm({
     canManageBudget = false,
     onBudgetSnapshotChange,
 }: OpsMovementFormProps) {
-    const { auth } = usePage<SharedData>().props;
-    const isAdminUser = auth?.roles?.includes('admin') ?? false;
-    const canEditOpsAndPif = canEdit && isAdminUser;
+    // Ops Movement & PIF tabs are editable by anyone with the
+    // `ops-movement edit` permission (superadmin & operations).
+    const canEditOpsAndPif = canEdit;
 
     const [activeTab, setActiveTab] = useState('ops-movement');
     const [openOpsSections, setOpenOpsSections] = useState<string[]>([
