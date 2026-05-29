@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormatService;
 use App\Models\FinancialYear;
+use App\Models\Package;
 use App\Services\CountryService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
@@ -322,7 +323,7 @@ class DashboardController extends Controller
         );
 
         if (! empty($packageIds) && count($packageIds) > 1 && isset($summary['package'])) {
-            $pkgList = \App\Models\Package::whereIn('id', $packageIds)
+            $pkgList = Package::whereIn('id', $packageIds)
                 ->get(['package_number', 'name'])
                 ->map(fn ($p) => $p->package_number.' - '.$p->name)
                 ->implode(', ');

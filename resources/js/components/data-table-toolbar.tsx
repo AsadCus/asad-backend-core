@@ -31,6 +31,7 @@ interface DataTableToolbarProps<TData> {
     showImport?: boolean;
     onImport?: () => void;
     exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
+    defaultColumnFilters?: { id: string; value: unknown }[];
 }
 
 export function DataTableToolbar<TData>({
@@ -55,8 +56,13 @@ export function DataTableToolbar<TData>({
     showImport = false,
     onImport,
     exportOptions,
+    defaultColumnFilters = [],
 }: DataTableToolbarProps<TData>) {
-    const isFiltered = table.getState().columnFilters.length > 0;
+    const currentFilters = table.getState().columnFilters;
+    const isFiltered =
+        currentFilters.length > 0 &&
+        JSON.stringify(currentFilters) !==
+            JSON.stringify(defaultColumnFilters);
     const showOutsideSearch = searchFilterMode === 'outside';
     const showOutsideColumnFilters =
         columnFilterMode === 'outside' && Boolean(renderFilter);

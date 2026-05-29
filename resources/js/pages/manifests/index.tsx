@@ -230,9 +230,23 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                     created_at: false,
                                     members_count: false,
                                 },
+                                columnFilters: [
+                                    { id: 'status', value: ['open'] },
+                                ],
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={Object.entries(
+                                            packageStatusLabels,
+                                        ).map(([value, label]) => ({
+                                            value,
+                                            label,
+                                        }))}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="country_name"

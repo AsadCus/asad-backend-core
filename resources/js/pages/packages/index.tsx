@@ -244,9 +244,23 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                     manifests_count: false,
                                     created_at: false,
                                 },
+                                columnFilters: [
+                                    { id: 'status', value: ['open'] },
+                                ],
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={Object.entries(
+                                            packageStatusLabels,
+                                        ).map(([value, label]) => ({
+                                            value,
+                                            label,
+                                        }))}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="country_name"

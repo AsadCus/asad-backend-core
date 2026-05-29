@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Enums\EnquiryStatus;
 use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
-use App\Models\Enquiry;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
@@ -65,42 +63,39 @@ class DashboardTest extends TestCase
             ->assertOk();
     }
 
-    public function test_superadmin_dashboard_recent_customers_use_enquiry_data(): void
+    public function test_superadmin_dashboard_recent_customers_use_customer_data(): void
     {
         Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('customer', 'web');
 
         $superadmin = User::factory()->create();
         $superadmin->assignRole('superadmin');
 
-        $package = Package::create([
-            'name' => 'Recent Customer Package',
-            'status' => 'open',
+        $customerUser = User::factory()->create([
+            'name' => 'Recent Customer',
+            'contact' => '0123456789',
+            'email' => 'recent.customer@example.com',
+        ]);
+        $customerUser->assignRole('customer');
+
+        Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RECENT-001',
         ]);
 
         Carbon::setTestNow(Carbon::parse('2026-04-24 10:30:00'));
 
         try {
-            Enquiry::create([
-                'type' => 'general',
-                'status' => EnquiryStatus::NewLead->value,
-                'name' => 'Recent Customer',
-                'contact_number' => '0123456789',
-                'email' => 'recent.customer@example.com',
-                'created_by' => $superadmin->id,
-                'package_id' => $package->id,
-            ]);
-
             $response = $this->actingAs($superadmin)->get(route('dashboard'));
 
             $response->assertOk();
             $response->assertInertia(
                 fn (Assert $page) => $page
                     ->component('dashboard')
-                    ->has('data.enquiries', 1)
-                    ->where('data.enquiries.0.name', 'Recent Customer')
-                    ->where('data.enquiries.0.package_name', 'Recent Customer Package')
-                    ->where('data.enquiries.0.contact', '0123456789')
-                    ->where('data.enquiries.0.created_at', '24 April 2026')
+                    ->has('data.customers', 1)
+                    ->where('data.customers.0.name', 'Recent Customer')
+                    ->where('data.customers.0.contact', '0123456789')
+                    ->where('data.customers.0.email', 'recent.customer@example.com')
             );
         } finally {
             Carbon::setTestNow();
@@ -1255,7 +1250,7 @@ class DashboardTest extends TestCase
         );
     }
 
-    public function test_closing_report_export_returns_pdf_for_sales_admin_and_superadmin(): void
+    public function test_closing_report_export_returns_pdf_for_superadmin_and_sales_and_forbids_admin(): void
     {
         Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
@@ -1266,9 +1261,9 @@ class DashboardTest extends TestCase
 
         $this->requireRoute('dashboard.closing-report-export');
 
-        $rolesToCheck = ['superadmin', 'admin', 'sales'];
+        $allowedRoles = ['superadmin', 'sales'];
 
-        foreach ($rolesToCheck as $role) {
+        foreach ($allowedRoles as $role) {
             $user = User::factory()->create();
             $user->assignRole($role);
 
@@ -1282,6 +1277,18 @@ class DashboardTest extends TestCase
             $filteredResponse->assertOk();
             $filteredResponse->assertHeader('content-type', 'application/pdf');
         }
+
+        $adminUser = User::factory()->create();
+        $adminUser->assignRole('admin');
+
+        $adminResponse = $this->actingAs($adminUser)->get(route('dashboard.closing-report-export', [
+            'period' => 'daily',
+            'range_start_utc' => now()->startOfDay()->toIso8601String(),
+            'range_end_utc' => now()->endOfDay()->toIso8601String(),
+            'categories' => 'Category Alpha',
+        ]));
+
+        $adminResponse->assertForbidden();
     }
 
     private function createClosingReportReceipt(string $categoryLabel, int $amount): void

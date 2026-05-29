@@ -2,6 +2,7 @@ import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -474,6 +475,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 accessorKey: 'departure_date',
                 header: 'Departure Date',
                 meta: { exportable: true },
+                filterFn: 'dateRangeFilter',
             },
             {
                 accessorKey: 'return_date',
@@ -500,6 +502,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 accessorKey: 'status',
                 header: 'Status',
                 meta: { exportable: true },
+                filterFn: 'includesValue',
                 cell: ({ row }) => {
                     const normalizedStatus = String(row.original.status ?? '')
                         .trim()
@@ -1691,6 +1694,8 @@ export default function Dashboard({ data }: DashboardProps) {
                                     ]}
                                     addButtonText="Create New Package"
                                     url={packageIndex().url}
+                                    searchFilterMode="outside"
+                                    columnFilterMode="outside"
                                     onAction={(action, row) => {
                                         if (action === 'add') {
                                             router.get(packageCreate().url);
@@ -1729,9 +1734,29 @@ export default function Dashboard({ data }: DashboardProps) {
                                         columnVisibility: {
                                             country_id: false,
                                         },
+                                        columnFilters: [
+                                            { id: 'status', value: ['open'] },
+                                        ],
                                     }}
                                     renderFilter={(table) => (
                                         <>
+                                            <ColumnFilter
+                                                table={table}
+                                                columnId="status"
+                                                title="Status"
+                                                options={Object.entries(
+                                                    packageStatusLabels,
+                                                ).map(([value, label]) => ({
+                                                    value,
+                                                    label,
+                                                }))}
+                                            />
+                                            <DateRangeFilter
+                                                table={table}
+                                                columnId="departure_date"
+                                                title="Departure Date"
+                                                quickDate={true}
+                                            />
                                             {scopeMode === 'country' &&
                                                 scopeCountryOptions.length >
                                                     0 && (
@@ -1998,6 +2023,9 @@ export default function Dashboard({ data }: DashboardProps) {
                                         }
                                     }}
                                     initialState={{
+                                        columnVisibility: {
+                                            last_login: false,
+                                        },
                                         pagination: {
                                             pageIndex: 0,
                                             pageSize: 10,

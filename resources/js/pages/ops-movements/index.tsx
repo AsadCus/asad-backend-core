@@ -68,6 +68,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
+        filterFn: 'includesValue',
         cell: ({ row }) => {
             const normalizedStatus = String(row.original.status ?? '')
                 .trim()
@@ -209,9 +210,23 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                                 vehicle_type: false,
                                 ticket_type: false,
                             },
+                            columnFilters: [
+                                { id: 'status', value: ['open'] },
+                            ],
                         }}
                         renderFilter={(table) => (
                             <>
+                                <ColumnFilter
+                                    table={table}
+                                    columnId="status"
+                                    title="Status"
+                                    options={Object.entries(
+                                        packageStatusLabels,
+                                    ).map(([value, label]) => ({
+                                        value,
+                                        label,
+                                    }))}
+                                />
                                 <ColumnFilter
                                     table={table}
                                     columnId="country_name"

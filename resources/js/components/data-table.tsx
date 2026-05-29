@@ -691,6 +691,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         exportOptions={exportOptions}
                         showImport={showImport}
                         onImport={onImport}
+                        defaultColumnFilters={
+                            initialDefaultsRef.current.columnFilters
+                        }
                     />
                 </div>
             </div>

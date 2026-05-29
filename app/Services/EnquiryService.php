@@ -37,6 +37,7 @@ class EnquiryService
                 });
             })
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['status_exclude'] ?? null, fn ($q, $v) => $q->where('status', '!=', $v))
             ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v));
 
         $this->applySalesEnquiryScope($query);
