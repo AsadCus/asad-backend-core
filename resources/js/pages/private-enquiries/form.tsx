@@ -233,7 +233,7 @@ export default function PrivateEnquiryForm({
 
                         {isCreate && !isView && customerOptions.length > 0 && (
                             <div className="flex flex-col justify-start md:flex-row md:justify-end">
-                                <div className="w-full md:w-auto md:max-w-[320px]">
+                                <div className="w-full">
                                     <FormField
                                         label="Existing Customer"
                                         fieldRequirementsProps={{
@@ -247,7 +247,9 @@ export default function PrivateEnquiryForm({
                                                     value: String(
                                                         customer.value,
                                                     ),
-                                                    label: customer.label,
+                                                    label: customer.name
+                                                        ? `${customer.name} - ${customer.email}`
+                                                        : customer.email,
                                                 }),
                                             )}
                                             value={selectedExistingCustomerId}
@@ -302,7 +304,7 @@ export default function PrivateEnquiryForm({
                                                 );
                                             }}
                                             placeholder="Search & select customer..."
-                                            maxWidth="320px"
+                                            maxWidth="480px"
                                             responsive={true}
                                             disabled={processing}
                                         />

@@ -1387,7 +1387,7 @@ export default function CustomerConfirmationForm({
                                             handleMultiSelectChange(nextValue);
                                         }}
                                         placeholder="Search & select customers..."
-                                        maxWidth="320px"
+                                        maxWidth="480px"
                                         responsive={true}
                                         disabled={processing}
                                         maxCount={0}
