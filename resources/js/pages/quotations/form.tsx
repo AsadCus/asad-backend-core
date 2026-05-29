@@ -281,8 +281,7 @@ export function QuotationForm({
     const isSuperadmin = authRoles.includes('superadmin');
     const isSalesOrAdmin =
         authRoles.includes('sales') || authRoles.includes('admin');
-    const authUserId =
-        auth?.user?.id != null ? Number(auth.user.id) : null;
+    const authUserId = auth?.user?.id != null ? Number(auth.user.id) : null;
 
     const salespersonOptions = useMemo<OptionType[]>(
         () =>

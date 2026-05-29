@@ -1,6 +1,4 @@
-import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
-import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
@@ -37,20 +35,12 @@ import {
     resolveQuickDateRange,
     type QuickDateOption,
 } from '@/lib/quick-date';
-import { formatUserTime } from '@/lib/timezone';
 import {
     formatCurrency,
     formatDateForDisplay,
     parseDisplayDate,
 } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import {
-    create as customerCreate,
-    destroy as customerDestroy,
-    edit as customerEdit,
-    index as customerIndex,
-    show as customerShow,
-} from '@/routes/customer';
 import {
     closingReportExport,
     fiscalYearSales,
@@ -257,7 +247,6 @@ interface DashboardProps {
 
 export default function Dashboard({ data }: DashboardProps) {
     const { auth } = usePage<SharedData>().props;
-    const userPermissions = auth.permissions || [];
 
     // roles
     const isSuperadmin = auth.roles.includes('superadmin');
@@ -811,39 +800,45 @@ export default function Dashboard({ data }: DashboardProps) {
         paymentSummaryPeriod,
     ]);
 
-    // actions
-    const actions: ActionType[] = [];
-    if (userPermissions.includes('customer create')) actions.push('add');
-    if (userPermissions.includes('customer view')) actions.push('view');
-    if (userPermissions.includes('customer edit')) actions.push('edit');
-    if (userPermissions.includes('customer delete')) actions.push('delete');
-
     // columns
-    const customerColumns: ColumnDef<UserSchema>[] = [
-        createSelectColumn<UserSchema>(),
-        { accessorKey: 'name', header: 'Name' },
-        { accessorKey: 'email', header: 'Email' },
-        { accessorKey: 'contact', header: 'Contact' },
+    const recentCustomerColumns: ColumnDef<EnquiryRowType>[] = [
         {
-            accessorKey: 'last_login',
-            header: 'Last Login',
+            accessorKey: 'name',
+            header: 'Customer Name',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'package_name',
+            header: 'Interested Package',
             meta: { exportable: true },
             cell: ({ row }) => {
-                const value = row.getValue('last_login');
+                const name = row.original.package_name;
 
-                if (!value)
-                    return <span className="text-muted-foreground">Never</span>;
+                if (!name) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
 
                 return (
-                    <span className="text-base text-muted-foreground capitalize">
-                        {formatUserTime(String(value))}
-                    </span>
+                    <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1 text-base"
+                    >
+                        {name}
+                    </Badge>
                 );
             },
         },
+        {
+            accessorKey: 'created_at',
+            header: 'Date of Enquiry',
+            meta: { exportable: true },
+        },
+        {
+            accessorKey: 'contact',
+            header: 'Contact Information',
+            meta: { exportable: true },
+        },
     ];
-
-    const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const copyPublicEnquiryLink = async (
         enquiryType: 'general' | 'private',
@@ -1924,50 +1919,17 @@ export default function Dashboard({ data }: DashboardProps) {
                                     Recent Customers
                                 </h2>
                                 <Button asChild variant="default">
-                                    <Link href={customerIndex().url}>
+                                    <Link href={enquiriesIndex().url}>
                                         View All
                                     </Link>
                                 </Button>
                             </div>
                             <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                                 <DataTable
-                                    columns={customerColumns}
-                                    data={data.customers || []}
-                                    actions={actions}
-                                    url={customerIndex().url}
-                                    onAction={(action, row) => {
-                                        if (action === 'add') {
-                                            router.get(customerCreate().url);
-                                        }
-
-                                        const userId = row?.original.id;
-
-                                        if (userId !== undefined) {
-                                            if (action === 'view') {
-                                                router.get(
-                                                    customerShow(userId).url,
-                                                );
-                                            } else if (action === 'edit') {
-                                                router.get(
-                                                    customerEdit(userId).url,
-                                                );
-                                            } else if (action === 'delete') {
-                                                confirm({
-                                                    title: 'Delete User',
-                                                    message: `Are you sure you want to delete "${row?.original.name}"?`,
-                                                    confirmText: 'Delete',
-                                                    cancelText: 'Cancel',
-                                                    onConfirm: () => {
-                                                        router.delete(
-                                                            customerDestroy(
-                                                                userId,
-                                                            ).url,
-                                                        );
-                                                    },
-                                                });
-                                            }
-                                        }
-                                    }}
+                                    columns={recentCustomerColumns}
+                                    data={data.enquiries || []}
+                                    actions={[]}
+                                    url={enquiriesIndex().url}
                                     initialState={{
                                         pagination: {
                                             pageIndex: 0,
@@ -1980,7 +1942,6 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
                 </div>
             </AppLayout>
-            <ConfirmDialog />
         </>
     );
 }

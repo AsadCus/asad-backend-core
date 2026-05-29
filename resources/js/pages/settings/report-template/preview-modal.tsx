@@ -57,7 +57,9 @@ export function ReportTemplatePreviewModal({
                 <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <DialogTitle>{moduleLabel} - PDF Preview</DialogTitle>
+                            <DialogTitle>
+                                {moduleLabel} - PDF Preview
+                            </DialogTitle>
                             <DialogDescription>
                                 Live preview reflects current unsaved settings.
                             </DialogDescription>

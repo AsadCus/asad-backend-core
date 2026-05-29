@@ -1,26 +1,23 @@
 import { z } from 'zod';
 import { manifestSchema, memberSchema, type MemberSchema } from './schema';
 
-export const memberValidationSchema = memberSchema.superRefine(
-    (data, ctx) => {
-        // name_as_per_passport
-        if (
-            !data.name_as_per_passport ||
-            data.name_as_per_passport.trim().length === 0
-        ) {
-            ctx.addIssue({
-                path: ['name_as_per_passport'],
-                message: 'Name as per passport is required.',
-                code: z.ZodIssueCode.custom,
-            });
-        }
-    },
-);
+export const memberValidationSchema = memberSchema.superRefine((data, ctx) => {
+    // name_as_per_passport
+    if (
+        !data.name_as_per_passport ||
+        data.name_as_per_passport.trim().length === 0
+    ) {
+        ctx.addIssue({
+            path: ['name_as_per_passport'],
+            message: 'Name as per passport is required.',
+            code: z.ZodIssueCode.custom,
+        });
+    }
+});
 
 export const manifestValidationSchema = manifestSchema.superRefine(
     (data, ctx) => {
-        const members =
-            (data.members as MemberSchema[] | undefined) ?? [];
+        const members = (data.members as MemberSchema[] | undefined) ?? [];
         const packageId = Number(data.package_id ?? 0);
         const inChargeOfficialId = Number(data.in_charge_official_id ?? 0);
 

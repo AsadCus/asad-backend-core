@@ -92,8 +92,10 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
                             disabled={processing}
                             data-test="reset-password-button"
                             style={{
-                                background: appearance?.primary_color || undefined,
-                                borderRadius: appearance?.border_radius || undefined,
+                                background:
+                                    appearance?.primary_color || undefined,
+                                borderRadius:
+                                    appearance?.border_radius || undefined,
                             }}
                         >
                             {processing && (

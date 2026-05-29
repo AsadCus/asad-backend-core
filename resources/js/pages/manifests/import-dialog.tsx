@@ -20,7 +20,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatDateForDisplay } from '@/lib/utils';
-import { importMethod } from '@/routes/manifests';
 import type { FormDataConvertible } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import {
@@ -32,6 +31,11 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import type { WorkBook } from 'xlsx';
 import { read, utils, writeFile } from 'xlsx';
+
+// Wayfinder cannot generate a route for 'import' (reserved JS keyword).
+// Manually construct the URL for POST /manifests/{id}/import.
+const manifestImportUrl = (args: { id: string | number }) =>
+    `/manifests/${args.id}/import`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -286,8 +290,16 @@ export function generateManifestImportTemplate(): void {
             'no',
             'Date format: DD MMM YYYY (e.g. 01 Jan 2020) or YYYY-MM-DD',
         ],
-        ['passport_expiry_date', 'no', 'Date format: DD MMM YYYY or YYYY-MM-DD'],
-        ['passport_place_of_issue', 'no', 'City / country where passport was issued'],
+        [
+            'passport_expiry_date',
+            'no',
+            'Date format: DD MMM YYYY or YYYY-MM-DD',
+        ],
+        [
+            'passport_place_of_issue',
+            'no',
+            'City / country where passport was issued',
+        ],
         ['nationality', 'no', 'E.g. Malaysian, Indonesian, Saudi'],
         ['gender', 'no', 'male / female'],
         [
@@ -458,7 +470,7 @@ export function ManifestImportDialog({
         setIsSubmitting(true);
         setSubmitError(null);
         router.post(
-            importMethod({ id: manifestId }).url,
+            manifestImportUrl({ id: manifestId }),
             {
                 context: { date_of_application: applicationDate },
                 data: parsedRows,

@@ -143,8 +143,8 @@ export function QuotationHandleDialog({
                     <DialogTitle>Handle Quotation</DialogTitle>
                     <DialogDescription>
                         Assign a salesperson to quotation
-                        {quotationNumber ? ` #${quotationNumber}` : ''}.
-                        Only sales/admin users in the same{' '}
+                        {quotationNumber ? ` #${quotationNumber}` : ''}. Only
+                        sales/admin users in the same{' '}
                         {scopeMode === 'branch' ? 'branch' : 'country'} as the
                         quotation are listed.
                     </DialogDescription>
@@ -169,9 +169,7 @@ export function QuotationHandleDialog({
                                 : 'Select salesperson'
                         }
                     />
-                    {error && (
-                        <p className="text-sm text-red-500">{error}</p>
-                    )}
+                    {error && <p className="text-sm text-red-500">{error}</p>}
                 </div>
 
                 <DialogFooter>
@@ -184,9 +182,7 @@ export function QuotationHandleDialog({
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={
-                            isSubmitting || filteredOptions.length === 0
-                        }
+                        disabled={isSubmitting || filteredOptions.length === 0}
                     >
                         {isSubmitting && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -18,7 +18,7 @@ export function CopyLinkButton({ sectionId }: CopyLinkButtonProps) {
     return (
         <button
             onClick={handleCopy}
-            className="ml-2 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+            className="ml-2 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
             title="Copy link to section"
         >
             <Copy className="h-3 w-3" />

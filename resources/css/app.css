@@ -71,9 +71,9 @@
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
     /* --popover-foreground: oklch(57.618% 0.15043 41.264); */
-    --primary: oklch(57.678% 0.15043 41.264);
-    /* --primary: oklch(0.205 0 0); */
-    --primary-foreground: oklch(0.985 0 0);
+    --primary: #c05427;
+    /* TMS default primary color */
+    --primary-foreground: #ffffff;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(57.678% 0.15043 41.264);
     /* --secondary-foreground: oklch(0.205 0 0); */
@@ -96,8 +96,8 @@
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     /* --sidebar-foreground: oklch(57.618% 0.15043 41.264); */
-    --sidebar-primary: oklch(57.678% 0.15043 41.264);
-    /* --sidebar-primary: oklch(0.205 0 0); */
+    --sidebar-primary: #c05427;
+    /* Use TMS primary for sidebar accent */
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);

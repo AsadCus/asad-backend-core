@@ -6,13 +6,13 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-import { type SharedData } from '@/types';
 import { dashboard } from '@/routes';
+import { type SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/react';
 import {
     BookOpen,
-    Fingerprint,
     FileText,
+    Fingerprint,
     LayoutGrid,
     LockKeyhole,
     Palette,
@@ -81,12 +81,14 @@ export function CommandMenu({
         {
             label: 'Password Settings',
             icon: LockKeyhole,
-            onSelect: () => runCommand(() => router.visit('/settings/password')),
+            onSelect: () =>
+                runCommand(() => router.visit('/settings/password')),
         },
         {
             label: 'Two-Factor Auth',
             icon: Fingerprint,
-            onSelect: () => runCommand(() => router.visit('/settings/two-factor')),
+            onSelect: () =>
+                runCommand(() => router.visit('/settings/two-factor')),
         },
     ];
 
@@ -94,7 +96,8 @@ export function CommandMenu({
         {
             label: 'Appearance',
             icon: Palette,
-            onSelect: () => runCommand(() => router.visit('/settings/appearance')),
+            onSelect: () =>
+                runCommand(() => router.visit('/settings/appearance')),
         },
     ];
 
@@ -102,12 +105,16 @@ export function CommandMenu({
         {
             label: 'Report Template',
             icon: FileText,
-            onSelect: () => runCommand(() => router.visit('/settings/report-template')),
+            onSelect: () =>
+                runCommand(() => router.visit('/settings/report-template')),
         },
         {
             label: 'Model Number Formats',
             icon: Settings,
-            onSelect: () => runCommand(() => router.visit('/settings/model-number-formats')),
+            onSelect: () =>
+                runCommand(() =>
+                    router.visit('/settings/model-number-formats'),
+                ),
         },
     ];
 
@@ -127,7 +134,10 @@ export function CommandMenu({
 
                 <CommandGroup heading="Navigation">
                     {navigationActions.map((action) => (
-                        <CommandItem key={action.label} onSelect={action.onSelect}>
+                        <CommandItem
+                            key={action.label}
+                            onSelect={action.onSelect}
+                        >
                             <action.icon className="mr-2 h-4 w-4" />
                             <span>{action.label}</span>
                         </CommandItem>
@@ -136,7 +146,10 @@ export function CommandMenu({
 
                 <CommandGroup heading="Account">
                     {accountActions.map((action) => (
-                        <CommandItem key={action.label} onSelect={action.onSelect}>
+                        <CommandItem
+                            key={action.label}
+                            onSelect={action.onSelect}
+                        >
                             <action.icon className="mr-2 h-4 w-4" />
                             <span>{action.label}</span>
                         </CommandItem>
@@ -145,25 +158,36 @@ export function CommandMenu({
 
                 {(isSuperadmin || isGhostSuperadmin) && (
                     <CommandGroup heading="Admin Settings">
-                        {isSuperadmin && adminActions.map((action) => (
-                            <CommandItem key={action.label} onSelect={action.onSelect}>
-                                <action.icon className="mr-2 h-4 w-4" />
-                                <span>{action.label}</span>
-                            </CommandItem>
-                        ))}
+                        {isSuperadmin &&
+                            adminActions.map((action) => (
+                                <CommandItem
+                                    key={action.label}
+                                    onSelect={action.onSelect}
+                                >
+                                    <action.icon className="mr-2 h-4 w-4" />
+                                    <span>{action.label}</span>
+                                </CommandItem>
+                            ))}
 
-                        {isGhostSuperadmin && ghostActions.map((action) => (
-                            <CommandItem key={action.label} onSelect={action.onSelect}>
-                                <action.icon className="mr-2 h-4 w-4" />
-                                <span>{action.label}</span>
-                            </CommandItem>
-                        ))}
+                        {isGhostSuperadmin &&
+                            ghostActions.map((action) => (
+                                <CommandItem
+                                    key={action.label}
+                                    onSelect={action.onSelect}
+                                >
+                                    <action.icon className="mr-2 h-4 w-4" />
+                                    <span>{action.label}</span>
+                                </CommandItem>
+                            ))}
                     </CommandGroup>
                 )}
 
                 <CommandGroup heading="Quick Helper">
                     {helperActions.map((action) => (
-                        <CommandItem key={action.label} onSelect={action.onSelect}>
+                        <CommandItem
+                            key={action.label}
+                            onSelect={action.onSelect}
+                        >
                             <action.icon className="mr-2 h-4 w-4" />
                             <span>{action.label}</span>
                         </CommandItem>

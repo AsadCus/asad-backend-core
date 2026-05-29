@@ -508,12 +508,12 @@ export function DocumentField({
 
                         {displayFilename && (
                             <div
-                                className="w-full min-w-0 text-center text-sm text-muted-foreground px-1"
+                                className="w-full min-w-0 px-1 text-center text-sm text-muted-foreground"
                                 title={displayFilename}
                                 onClick={(e) => e.stopPropagation()}
                                 {...{ [PREVENT_UPLOAD_CLICK_ATTR]: 'true' }}
                             >
-                                <div className="truncate w-full block">
+                                <div className="block w-full truncate">
                                     {displayFilename}
                                 </div>
                             </div>

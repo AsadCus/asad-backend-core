@@ -574,9 +574,15 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
 
             <QuotationHandleDialog
                 quotationId={selectedQuotationForHandle?.id}
-                quotationNumber={selectedQuotationForHandle?.quotation_number ?? undefined}
-                quotationCountryId={selectedQuotationForHandle?.country_id ?? null}
-                quotationBranchId={selectedQuotationForHandle?.branch_id ?? null}
+                quotationNumber={
+                    selectedQuotationForHandle?.quotation_number ?? undefined
+                }
+                quotationCountryId={
+                    selectedQuotationForHandle?.country_id ?? null
+                }
+                quotationBranchId={
+                    selectedQuotationForHandle?.branch_id ?? null
+                }
                 scopeMode={scopeMode}
                 salespersons={salespersons}
                 isOpen={handleDialogOpen}

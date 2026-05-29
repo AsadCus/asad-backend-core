@@ -104,7 +104,7 @@ class DashboardController extends Controller
                 ];
             }
 
-            $data['customers'] = $this->customerService->getForDataTable($request);
+            $data['enquiries'] = $this->enquiryService->getForDataTable();
 
             $data['packageOptions'] = $this->packageService->getForFilter();
             $data['categoryOptions'] = $this->financialTransactionService->getAvailableCategories();
