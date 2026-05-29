@@ -1,8 +1,8 @@
+import { DatePickerField } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { DatePickerField } from '@/components/date-picker';
 import { useMemo, useRef, useState } from 'react';
 import type {
     SignatureStampLayoutConfig,
@@ -25,7 +25,10 @@ interface SignatureStampLayoutSectionProps {
 
 const PRESET_LAYOUTS: Record<
     'percent' | 'px',
-    Record<SignatureStampPlacementPreset, { stamp: SignatureStampPlacement; signature: SignatureStampPlacement }>
+    Record<
+        SignatureStampPlacementPreset,
+        { stamp: SignatureStampPlacement; signature: SignatureStampPlacement }
+    >
 > = {
     percent: {
         left_side: {
@@ -108,8 +111,14 @@ export function SignatureStampLayoutSection({
 
         return {
             stamp: {
-                left: toCssValue(customSignatureStampLayout.stamp.x, customSignatureStampLayout.unit),
-                top: toCssValue(customSignatureStampLayout.stamp.y, customSignatureStampLayout.unit),
+                left: toCssValue(
+                    customSignatureStampLayout.stamp.x,
+                    customSignatureStampLayout.unit,
+                ),
+                top: toCssValue(
+                    customSignatureStampLayout.stamp.y,
+                    customSignatureStampLayout.unit,
+                ),
                 width: toCssValue(
                     customSignatureStampLayout.stamp.width,
                     customSignatureStampLayout.unit,
@@ -121,8 +130,14 @@ export function SignatureStampLayoutSection({
                 zIndex: customSignatureStampLayout.stamp.z,
             },
             signature: {
-                left: toCssValue(customSignatureStampLayout.signature.x, customSignatureStampLayout.unit),
-                top: toCssValue(customSignatureStampLayout.signature.y, customSignatureStampLayout.unit),
+                left: toCssValue(
+                    customSignatureStampLayout.signature.x,
+                    customSignatureStampLayout.unit,
+                ),
+                top: toCssValue(
+                    customSignatureStampLayout.signature.y,
+                    customSignatureStampLayout.unit,
+                ),
                 width: toCssValue(
                     customSignatureStampLayout.signature.width,
                     customSignatureStampLayout.unit,
@@ -262,11 +277,13 @@ export function SignatureStampLayoutSection({
                 <div className="flex flex-col gap-6">
                     {/* Live preview box */}
                     <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">Layout Preview</Label>
+                        <Label className="text-sm font-medium">
+                            Layout Preview
+                        </Label>
                         <div className="relative h-44 w-full overflow-hidden rounded-md border bg-muted/20">
                             <div className="absolute inset-0 border border-dashed border-muted-foreground/30" />
 
-                            <div className="absolute left-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[10px] text-white">
+                            <div className="absolute top-2 left-2 rounded bg-black/70 px-2 py-0.5 text-[10px] text-white">
                                 Preview Box
                             </div>
 
@@ -327,7 +344,9 @@ export function SignatureStampLayoutSection({
                     {/* Draw Signature */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label className="text-base font-medium">Draw Signature</Label>
+                            <Label className="text-base font-medium">
+                                Draw Signature
+                            </Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -351,7 +370,8 @@ export function SignatureStampLayoutSection({
                             onTouchEnd={handleEndDraw}
                         />
                         <p className="text-xs text-muted-foreground">
-                            Sign in the canvas area. The drawing is saved automatically.
+                            Sign in the canvas area. The drawing is saved
+                            automatically.
                         </p>
                     </div>
                 </div>
@@ -360,7 +380,12 @@ export function SignatureStampLayoutSection({
                 <div className="flex flex-col gap-6">
                     {/* Unit */}
                     <div className="space-y-2">
-                        <Label htmlFor="layout-unit" className="text-base font-medium">Unit</Label>
+                        <Label
+                            htmlFor="layout-unit"
+                            className="text-base font-medium"
+                        >
+                            Unit
+                        </Label>
                         <select
                             id="layout-unit"
                             title="Layout unit"
@@ -370,13 +395,15 @@ export function SignatureStampLayoutSection({
                                     applyPlacementPreset(
                                         {
                                             ...customSignatureStampLayout,
-                                            unit: e.target.value as 'percent' | 'px',
+                                            unit: e.target.value as
+                                                | 'percent'
+                                                | 'px',
                                         },
                                         customSignatureStampLayout.placement,
                                     ),
                                 )
                             }
-                            className="h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                         >
                             <option value="percent">percent</option>
                             <option value="px">px</option>
@@ -387,7 +414,9 @@ export function SignatureStampLayoutSection({
 
                     {/* Placement presets */}
                     <div className="space-y-3">
-                        <Label className="text-base font-medium">Placement</Label>
+                        <Label className="text-base font-medium">
+                            Placement
+                        </Label>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             {(
                                 [
@@ -396,15 +425,18 @@ export function SignatureStampLayoutSection({
                                     ['stack_each_other', 'Stack Each Other'],
                                     ['up_side', 'Up: Stamp, Down: Sign'],
                                     ['down_side', 'Down: Stamp, Up: Sign'],
-                                ] as Array<[SignatureStampPlacementPreset, string]>
+                                ] as Array<
+                                    [SignatureStampPlacementPreset, string]
+                                >
                             ).map(([key, label]) => (
                                 <button
                                     key={key}
                                     type="button"
                                     className={`rounded-lg border px-4 py-3 text-left text-sm transition-all duration-200 ${
-                                        customSignatureStampLayout.placement === key
-                                            ? 'border-[#c05427] bg-[#c05427]/5 text-foreground font-medium ring-1 ring-[#c05427]'
-                                            : 'border-input hover:border-muted-foreground/30 hover:bg-muted/30 text-muted-foreground'
+                                        customSignatureStampLayout.placement ===
+                                        key
+                                            ? 'border-[#c05427] bg-[#c05427]/5 font-medium text-foreground ring-1 ring-[#c05427]'
+                                            : 'border-input text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted/30'
                                     }`}
                                     onClick={() =>
                                         onCustomSignatureStampLayoutChange(
@@ -425,15 +457,22 @@ export function SignatureStampLayoutSection({
 
                     {/* Name and Date */}
                     <div className="space-y-3">
-                        <Label className="text-base font-medium">Name and Date</Label>
+                        <Label className="text-base font-medium">
+                            Name and Date
+                        </Label>
                         <div className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
                             <div className="space-y-2">
-                                <Label htmlFor="signature-stamp-full-name">Full Name</Label>
+                                <Label htmlFor="signature-stamp-full-name">
+                                    Full Name
+                                </Label>
                                 <Input
                                     id="signature-stamp-full-name"
                                     type="text"
                                     placeholder="e.g. John Doe"
-                                    value={customSignatureStampLayout.labels.full_name}
+                                    value={
+                                        customSignatureStampLayout.labels
+                                            .full_name
+                                    }
                                     onChange={(e) =>
                                         onCustomSignatureStampLayoutChange({
                                             ...customSignatureStampLayout,
@@ -451,7 +490,9 @@ export function SignatureStampLayoutSection({
                                 <Label htmlFor="signature-date">Date</Label>
                                 <DatePickerField
                                     id="signature-date"
-                                    value={customSignatureStampLayout.labels.date}
+                                    value={
+                                        customSignatureStampLayout.labels.date
+                                    }
                                     disabled={false}
                                     onChange={(value: string | null) =>
                                         onCustomSignatureStampLayoutChange({
@@ -471,7 +512,9 @@ export function SignatureStampLayoutSection({
 
                     {/* Signature Line Width */}
                     <div className="space-y-3">
-                        <Label className="text-base font-medium">Signature Line Width</Label>
+                        <Label className="text-base font-medium">
+                            Signature Line Width
+                        </Label>
                         <div className="grid grid-cols-4 gap-3">
                             {[
                                 { label: 'Small', value: 1 },
@@ -483,9 +526,10 @@ export function SignatureStampLayoutSection({
                                     key={value}
                                     type="button"
                                     className={`rounded-lg border px-3 py-2.5 text-sm transition-all duration-200 ${
-                                        (customSignatureStampLayout.signatureLineWidth ?? 2) === value
-                                            ? 'border-[#c05427] bg-[#c05427]/5 text-foreground font-medium ring-1 ring-[#c05427]'
-                                            : 'border-input hover:border-muted-foreground/30 hover:bg-muted/30 text-muted-foreground'
+                                        (customSignatureStampLayout.signatureLineWidth ??
+                                            2) === value
+                                            ? 'border-[#c05427] bg-[#c05427]/5 font-medium text-foreground ring-1 ring-[#c05427]'
+                                            : 'border-input text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted/30'
                                     }`}
                                     onClick={() =>
                                         onCustomSignatureStampLayoutChange({
@@ -499,7 +543,8 @@ export function SignatureStampLayoutSection({
                             ))}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Adjust the thickness of the signature line when drawing.
+                            Adjust the thickness of the signature line when
+                            drawing.
                         </p>
                     </div>
                 </div>

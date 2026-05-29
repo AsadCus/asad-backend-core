@@ -806,7 +806,6 @@ export default function Appearance({
                                 </CardContent>
                             </Card>
                         )}
-
                     </div>
                 </div>
             </SettingsLayout>

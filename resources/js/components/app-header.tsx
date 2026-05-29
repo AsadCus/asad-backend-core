@@ -35,8 +35,6 @@ import { CommandMenu } from './command-menu';
 
 const mainNavItems: NavItem[] = [];
 
-
-
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
 
@@ -114,8 +112,6 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                                                 );
                                             })}
                                         </div>
-
-
                                     </div>
                                 </div>
                             </SheetContent>
@@ -183,7 +179,6 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                             >
                                 <Search className="!size-5 opacity-80 group-hover:opacity-100" />
                             </Button>
-
                         </div>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

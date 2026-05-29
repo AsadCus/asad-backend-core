@@ -299,7 +299,6 @@ export default function GeneralEnquiryForm({
                     </form>
                 </CardContent>
             </Card>
-
         </div>
     );
 }

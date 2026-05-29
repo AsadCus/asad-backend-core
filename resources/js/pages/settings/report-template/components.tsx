@@ -86,7 +86,7 @@ export function FileUploadField({
             htmlFor={id}
             error={error}
         >
-            <div className="relative flex w-full flex-col items-center gap-3 rounded-lg border-2 border-dashed p-4 min-w-0 overflow-hidden">
+            <div className="relative flex w-full min-w-0 flex-col items-center gap-3 overflow-hidden rounded-lg border-2 border-dashed p-4">
                 <Input
                     key={inputKey}
                     id={id}
@@ -94,7 +94,7 @@ export function FileUploadField({
                     accept="image/jpeg,image/png,image/jpg"
                     onChange={handleFileChange}
                     autoComplete="off"
-                    className="w-full cursor-pointer text-xs sm:text-sm file:max-w-[100px] sm:file:max-w-none file:truncate"
+                    className="w-full cursor-pointer text-xs file:max-w-[100px] file:truncate sm:text-sm sm:file:max-w-none"
                 />
 
                 <p className="w-full text-center text-xs leading-relaxed text-muted-foreground">
@@ -102,7 +102,7 @@ export function FileUploadField({
                 </p>
 
                 {previewToShow && (
-                    <div className="flex w-full flex-col items-center gap-2 min-w-0">
+                    <div className="flex w-full min-w-0 flex-col items-center gap-2">
                         <div className="relative">
                             <ImagePreviewDialog
                                 imageSrc={previewToShow}
@@ -125,7 +125,7 @@ export function FileUploadField({
 
                         {previewFileName && (
                             <span
-                                className="block w-full max-w-full truncate text-center text-xs sm:text-sm text-muted-foreground"
+                                className="block w-full max-w-full truncate text-center text-xs text-muted-foreground sm:text-sm"
                                 title={previewFileName}
                             >
                                 {previewFileName}
@@ -224,7 +224,8 @@ export function AddModuleDialog() {
                     </div>
                     <div>
                         <Label htmlFor="mod_label">
-                            Display Label <span className="text-red-500">*</span>
+                            Display Label{' '}
+                            <span className="text-red-500">*</span>
                         </Label>
                         <p className="mt-0.5 mb-1 text-sm text-muted-foreground">
                             Shown in the module dropdown. E.g.{' '}

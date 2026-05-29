@@ -57,9 +57,9 @@ import {
     FileText,
     GripVertical,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 import {
     confirmationMemberStatusColors,
     confirmationMemberStatusLabels,
@@ -1273,8 +1273,11 @@ export default function ManifestDatatable({
             infant: 'Infant',
         };
 
-        const exportMembers = rows.filter((member) => !member.package_official_id);
-        const safeManifestNumber = String(manifestNumber ?? '').trim() || 'Draft';
+        const exportMembers = rows.filter(
+            (member) => !member.package_official_id,
+        );
+        const safeManifestNumber =
+            String(manifestNumber ?? '').trim() || 'Draft';
         const exportDate = new Date().toLocaleDateString('en-MY', {
             year: 'numeric',
             month: '2-digit',
@@ -1302,7 +1305,10 @@ export default function ManifestDatatable({
                 'Room sharing plan (Single / Double / Triple / Quad / Child With Bed / Child No Bed / Infant)',
             ],
             ['Discount', 'Discount amount'],
-            ['Date of Deposit Payment', 'Date when first deposit payment was received'],
+            [
+                'Date of Deposit Payment',
+                'Date when first deposit payment was received',
+            ],
             ['Deposit Payment', 'First deposit payment amount'],
             ['Date of Second Payment', 'Date when second payment was received'],
             ['Second Payment', 'Second payment amount'],
@@ -1318,7 +1324,9 @@ export default function ManifestDatatable({
             ['Notes'],
             ['- Payment amounts are raw numbers (no currency symbol)'],
             ['- Official members (tour guides / coordinators) are excluded'],
-            ['- Reflects data at time of export; unsaved changes are not included'],
+            [
+                '- Reflects data at time of export; unsaved changes are not included',
+            ],
         ];
 
         const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsRows);
@@ -1346,9 +1354,12 @@ export default function ManifestDatatable({
         const dataRows = exportMembers.map((member, index) => {
             const groupKey = member.sharing_group_key ?? '';
             const groupIndex = groupIndexMap.get(groupKey);
-            const groupLabel = groupIndex !== undefined ? `Group ${groupIndex}` : '';
+            const groupLabel =
+                groupIndex !== undefined ? `Group ${groupIndex}` : '';
             const roomType =
-                sharingPlanLabels[String(member.sharing_plan ?? '').toLowerCase()] ??
+                sharingPlanLabels[
+                    String(member.sharing_plan ?? '').toLowerCase()
+                ] ??
                 member.sharing_plan ??
                 '';
             const status = String(member.status ?? '');

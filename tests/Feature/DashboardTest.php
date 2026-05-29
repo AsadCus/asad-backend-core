@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EnquiryStatus;
 use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
+use App\Models\Enquiry;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
@@ -61,6 +63,48 @@ class DashboardTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk();
+    }
+
+    public function test_superadmin_dashboard_recent_customers_use_enquiry_data(): void
+    {
+        Role::findOrCreate('superadmin', 'web');
+
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $package = Package::create([
+            'name' => 'Recent Customer Package',
+            'status' => 'open',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-04-24 10:30:00'));
+
+        try {
+            Enquiry::create([
+                'type' => 'general',
+                'status' => EnquiryStatus::NewLead->value,
+                'name' => 'Recent Customer',
+                'contact_number' => '0123456789',
+                'email' => 'recent.customer@example.com',
+                'created_by' => $superadmin->id,
+                'package_id' => $package->id,
+            ]);
+
+            $response = $this->actingAs($superadmin)->get(route('dashboard'));
+
+            $response->assertOk();
+            $response->assertInertia(
+                fn (Assert $page) => $page
+                    ->component('dashboard')
+                    ->has('data.enquiries', 1)
+                    ->where('data.enquiries.0.name', 'Recent Customer')
+                    ->where('data.enquiries.0.package_name', 'Recent Customer Package')
+                    ->where('data.enquiries.0.contact', '0123456789')
+                    ->where('data.enquiries.0.created_at', '24 April 2026')
+            );
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_dashboard_payment_summary_groups_receipts_by_item_header_category(): void

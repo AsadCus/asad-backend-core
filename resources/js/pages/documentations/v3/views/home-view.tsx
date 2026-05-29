@@ -1,19 +1,25 @@
-import { type DocumentationPageProps, type MenuGroup, type ModulePlaybook } from '@/types/documentation';
-import { Search, BookOpen, ArrowRight, ChevronRight } from 'lucide-react';
+import {
+    type DocumentationPageProps,
+    type MenuGroup,
+    type ModulePlaybook,
+} from '@/types/documentation';
+import { ArrowRight, ChevronRight, Search } from 'lucide-react';
 import { useMemo } from 'react';
-import { getModuleIcon, slugify, matchesQuery } from '../lib/doc-utils';
+import { getModuleIcon, matchesQuery, slugify } from '../lib/doc-utils';
 
 function findPlaybook(
     documentation: DocumentationPageProps['documentation'],
     group: MenuGroup,
 ): ModulePlaybook | undefined {
     const menuSlug = slugify(group.menu.replace(/ Modules?$/i, ''));
-    return documentation.modulePlaybooks.find(
-        (p) => {
-            const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
-            return playbookSlug === menuSlug || p.id === `${menuSlug}-module` || p.id === menuSlug;
-        }
-    );
+    return documentation.modulePlaybooks.find((p) => {
+        const playbookSlug = slugify(p.title.replace(/ Modules?$/i, ''));
+        return (
+            playbookSlug === menuSlug ||
+            p.id === `${menuSlug}-module` ||
+            p.id === menuSlug
+        );
+    });
 }
 
 /* ─── Hero ─────────────────────────────────────────────────── */
@@ -28,7 +34,7 @@ function HeroSection({
     onSearchChange: (q: string) => void;
 }) {
     return (
-        <section className="relative overflow-hidden bg-gradient-to-br from-orange-600 via-orange-700 to-amber-800 dark:from-orange-900 dark:via-amber-950 dark:to-slate-950">
+        <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-primary/80 dark:from-primary/90 dark:via-primary/80 dark:to-slate-950">
             {/* decorative circles */}
             <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-white/5" />
             <div className="pointer-events-none absolute -right-16 -bottom-16 h-96 w-96 rounded-full bg-white/5" />
@@ -38,18 +44,19 @@ function HeroSection({
                 <h1 className="text-3xl font-bold tracking-tight text-white md:text-5xl">
                     How can we help?
                 </h1>
-                <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-orange-100/80 md:text-lg">
-                    Browse the {title} — step-by-step guides, module playbooks, and operational workflows for your travel management system.
+                <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
+                    Browse the {title} — step-by-step guides, module playbooks,
+                    and operational workflows for your travel management system.
                 </p>
 
                 <div className="relative mx-auto mt-8 max-w-xl">
-                    <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-orange-300" />
+                    <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-primary-foreground/70" />
                     <input
                         type="search"
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder="Search modules, procedures, guides..."
-                        className="w-full rounded-xl border border-white/20 bg-white/10 py-3.5 pr-4 pl-12 text-white shadow-lg backdrop-blur-sm transition-all placeholder:text-orange-200/60 focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20 focus:outline-none"
+                        className="w-full rounded-xl border border-white/20 bg-white/10 py-3.5 pr-4 pl-12 text-white shadow-lg backdrop-blur-sm transition-all placeholder:text-primary-foreground/60 focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20 focus:outline-none"
                     />
                 </div>
             </div>
@@ -76,10 +83,10 @@ function ModuleCard({
         <button
             type="button"
             onClick={onClick}
-            className="group flex flex-col rounded-2xl border border-sidebar-border/70 bg-white p-6 text-left shadow-sm hover:border-orange-200 dark:bg-slate-900/60 dark:hover:border-orange-700"
+            className="group flex flex-col rounded-2xl border border-sidebar-border/70 bg-white p-6 text-left shadow-sm hover:border-primary/20 dark:bg-slate-900/60 dark:hover:border-primary/70"
         >
             <div className="flex items-start justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 group-hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400 dark:group-hover:bg-orange-900/50">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 dark:bg-primary/10 dark:text-primary/80 dark:group-hover:bg-primary/15">
                     <Icon className="h-6 w-6" />
                 </div>
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -87,14 +94,14 @@ function ModuleCard({
                 </span>
             </div>
 
-            <h3 className="mt-4 text-lg font-semibold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400">
+            <h3 className="mt-4 text-lg font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
                 {group.menu.replace(/ Module$/i, '')}
             </h3>
             <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
                 {description}
             </p>
 
-            <div className="mt-4 flex items-center text-sm font-medium text-orange-600 dark:text-orange-400">
+            <div className="mt-4 flex items-center text-sm font-medium text-primary dark:text-primary/80">
                 Browse guides <ChevronRight className="ml-1 h-4 w-4" />
             </div>
         </button>
@@ -103,14 +110,17 @@ function ModuleCard({
 
 /* ─── Roles Preview ────────────────────────────────────────── */
 
-function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documentation'>) {
+function RolesPreview({
+    documentation,
+}: Pick<DocumentationPageProps, 'documentation'>) {
     return (
         <section className="mx-auto max-w-6xl px-6 pb-12">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
                 Roles & Access
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-                Understand what each role does and what it should focus on every day.
+                Understand what each role does and what it should focus on every
+                day.
             </p>
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
                 {documentation.roleGuide.map((role) => (
@@ -118,12 +128,19 @@ function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documenta
                         key={role.role}
                         className="rounded-2xl border border-sidebar-border/70 bg-white p-5 shadow-sm dark:bg-slate-900/60"
                     >
-                        <h3 className="text-lg font-semibold text-foreground">{role.role}</h3>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{role.scope}</p>
+                        <h3 className="text-lg font-semibold text-foreground">
+                            {role.role}
+                        </h3>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                            {role.scope}
+                        </p>
                         <ul className="mt-3 space-y-1.5">
                             {role.primary_actions.map((action) => (
-                                <li key={action} className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500" />
+                                <li
+                                    key={action}
+                                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                                >
+                                    <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                                     <span>{action}</span>
                                 </li>
                             ))}
@@ -137,7 +154,9 @@ function RolesPreview({ documentation }: Pick<DocumentationPageProps, 'documenta
 
 /* ─── Footer Info ──────────────────────────────────────────── */
 
-function FooterInfo({ documentation }: Pick<DocumentationPageProps, 'documentation'>) {
+function FooterInfo({
+    documentation,
+}: Pick<DocumentationPageProps, 'documentation'>) {
     return (
         <footer className="border-t border-sidebar-border/70 bg-slate-50 dark:bg-slate-950/40">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 px-6 py-6 text-sm text-muted-foreground">
@@ -167,8 +186,11 @@ export function HomeView({
         return moduleGroups.filter((group) => {
             const playbook = findPlaybook(documentation, group);
             const body = [
-                group.menu, group.module, group.purpose,
-                ...group.features, ...group.how_to,
+                group.menu,
+                group.module,
+                group.purpose,
+                ...group.features,
+                ...group.how_to,
                 playbook?.overview ?? '',
                 ...(playbook?.highlights ?? []),
                 ...(playbook?.procedures.flatMap((p) => [
@@ -179,7 +201,11 @@ export function HomeView({
                         }
 
                         const contentBlocksText = (s.content_blocks ?? [])
-                            .filter((block) => block.type === 'text' && Boolean(block.text))
+                            .filter(
+                                (block) =>
+                                    block.type === 'text' &&
+                                    Boolean(block.text),
+                            )
                             .map((block) => block.text as string);
 
                         return [s.text ?? '', ...contentBlocksText];
@@ -204,13 +230,16 @@ export function HomeView({
                     Browse by Module
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    Select a module to view its guides and step-by-step procedures.
+                    Select a module to view its guides and step-by-step
+                    procedures.
                 </p>
 
                 {filteredGroups.length === 0 && (
                     <div className="mt-8 rounded-2xl border border-dashed border-sidebar-border/70 p-12 text-center">
                         <Search className="mx-auto h-10 w-10 text-muted-foreground/40" />
-                        <p className="mt-3 text-muted-foreground">No modules match "{searchQuery}"</p>
+                        <p className="mt-3 text-muted-foreground">
+                            No modules match "{searchQuery}"
+                        </p>
                     </div>
                 )}
 

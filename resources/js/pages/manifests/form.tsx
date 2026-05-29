@@ -35,8 +35,8 @@ import {
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { router, useForm, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
+import { router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowLeft,

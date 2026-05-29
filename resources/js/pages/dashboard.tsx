@@ -84,6 +84,10 @@ import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
 import { packageStatusColors, packageStatusLabels } from './packages/schema';
 
+type CustomerDashboardRow = UserSchema & {
+    package_name?: string | null;
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -198,7 +202,7 @@ interface DashboardProps {
             period_start?: string;
             period_type?: 'year' | 'month';
         }[];
-        customers?: UserSchema[];
+        customers?: CustomerDashboardRow[];
         fiscalYear?: string;
         selectedYearId?: number;
         fiscalYearStartDate?: string;
@@ -819,11 +823,35 @@ export default function Dashboard({ data }: DashboardProps) {
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
     // columns
-    const customerColumns: ColumnDef<UserSchema>[] = [
-        createSelectColumn<UserSchema>(),
-        { accessorKey: 'name', header: 'Name' },
+    const customerColumns: ColumnDef<CustomerDashboardRow>[] = [
+        createSelectColumn<CustomerDashboardRow>(),
+        {
+            accessorKey: 'name',
+            header: 'Name',
+        },
         { accessorKey: 'email', header: 'Email' },
         { accessorKey: 'contact', header: 'Contact' },
+        {
+            accessorKey: 'package_name',
+            header: 'Interested Package',
+            meta: { exportable: true },
+            cell: ({ row }) => {
+                const name = row.original.package_name;
+
+                if (!name) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
+
+                return (
+                    <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1 text-base"
+                    >
+                        {name}
+                    </Badge>
+                );
+            },
+        },
         {
             accessorKey: 'last_login',
             header: 'Last Login',
@@ -831,8 +859,9 @@ export default function Dashboard({ data }: DashboardProps) {
             cell: ({ row }) => {
                 const value = row.getValue('last_login');
 
-                if (!value)
+                if (!value) {
                     return <span className="text-muted-foreground">Never</span>;
+                }
 
                 return (
                     <span className="text-base text-muted-foreground capitalize">

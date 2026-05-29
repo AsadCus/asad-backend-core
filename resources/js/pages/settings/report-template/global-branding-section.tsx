@@ -331,16 +331,25 @@ export function GlobalBrandingSection({
                             <Select
                                 value={data.section_spacing_preset || 'normal'}
                                 onValueChange={(value) =>
-                                    onDataChange('section_spacing_preset', value)
+                                    onDataChange(
+                                        'section_spacing_preset',
+                                        value,
+                                    )
                                 }
                             >
                                 <SelectTrigger id="section_spacing_preset">
                                     <SelectValue placeholder="Select section spacing" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="compact">Compact (8 px)</SelectItem>
-                                    <SelectItem value="normal">Normal (10 px)</SelectItem>
-                                    <SelectItem value="relaxed">Relaxed (16 px)</SelectItem>
+                                    <SelectItem value="compact">
+                                        Compact (8 px)
+                                    </SelectItem>
+                                    <SelectItem value="normal">
+                                        Normal (10 px)
+                                    </SelectItem>
+                                    <SelectItem value="relaxed">
+                                        Relaxed (16 px)
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </FormField>

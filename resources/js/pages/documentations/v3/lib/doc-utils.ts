@@ -1,8 +1,23 @@
 import {
-    LayoutDashboard, Settings, BarChart3, Users, MessageSquare,
-    UserCheck, FileText, FileSpreadsheet, Receipt, ArrowLeftRight,
-    RotateCcw, PauseCircle, CheckCircle2, XCircle, Truck,
-    ClipboardList, Map, Wallet, type LucideIcon,
+    ArrowLeftRight,
+    BarChart3,
+    CheckCircle2,
+    ClipboardList,
+    FileSpreadsheet,
+    FileText,
+    LayoutDashboard,
+    Map,
+    MessageSquare,
+    PauseCircle,
+    Receipt,
+    RotateCcw,
+    Settings,
+    Truck,
+    UserCheck,
+    Users,
+    Wallet,
+    XCircle,
+    type LucideIcon,
 } from 'lucide-react';
 
 const MODULE_ICON_MAP: Record<string, LucideIcon> = {
@@ -33,14 +48,21 @@ const MODULE_ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export function getModuleIcon(menuName: string): LucideIcon {
-    const key = menuName.toLowerCase().replace(/ module$/i, '').trim();
+    const key = menuName
+        .toLowerCase()
+        .replace(/ module$/i, '')
+        .trim();
     return MODULE_ICON_MAP[key] ?? FileText;
 }
 
 export const slugify = (text: string): string =>
-    text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
 
-export const normalizeText = (value: string): string => value.toLowerCase().trim();
+export const normalizeText = (value: string): string =>
+    value.toLowerCase().trim();
 
 export const matchesQuery = (value: string, query: string): boolean =>
     normalizeText(value).includes(normalizeText(query));

@@ -482,8 +482,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Navigate to the Products and Services Menu and click on Add Item.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/product-services/add-item-form.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/product-services/add-item-form.gif',
                                         'alt' => 'Add item panel in product and services module',
                                     ],
                                 ],
@@ -662,8 +662,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Navigate to the Products and Services Menu.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/product-services/tax-extension-form.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/product-services/tax-extension-form.gif',
                                         'alt' => 'Tax extension setup form',
                                     ],
                                 ],
@@ -740,8 +740,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Navigate to the Products and Services Menu.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/product-services/discount-extension-form.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/product-services/discount-extension-form.gif',
                                         'alt' => 'Discount extension setup form',
                                     ],
                                 ],
@@ -833,8 +833,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Go to Enquiry Dashboard.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/enquiry/enquiry-dashboard.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/enquiry/enquiry-dashboard.gif',
                                         'alt' => 'Enquiry dashboard main listing',
                                     ],
                                 ],
@@ -886,8 +886,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Select Remarks.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/enquiry/enquiry-remarks-modal.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/enquiry/enquiry-remarks-modal.gif',
                                         'alt' => 'Remarks modal in enquiry record actions',
                                     ],
                                 ],
@@ -924,8 +924,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Go to the General Enquiry menu.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/enquiry/general-enquiry-create.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/enquiry/general-enquiry-create.gif',
                                         'alt' => 'Create general enquiry form',
                                     ],
                                 ],
@@ -986,8 +986,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Go to the Private Enquiry menu.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/enquiry/private-enquiry-create.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/enquiry/private-enquiry-create.gif',
                                         'alt' => 'Create private enquiry form',
                                     ],
                                 ],
@@ -1053,8 +1053,8 @@ class DocumentationModulePlaybooks
                                         'text' => 'Click on the Customer menu.',
                                     ],
                                     [
-                                        'type' => 'image',
-                                        'src' => '/documentations/customer/customer-create-form.png',
+                                        'type' => 'gif',
+                                        'src' => '/documentations/customer/customer-create-form.gif',
                                         'alt' => 'Create customer form',
                                     ],
                                 ],
@@ -1418,6 +1418,11 @@ class DocumentationModulePlaybooks
                                         'type' => 'text',
                                         'text' => 'Click Create Quotation.',
                                     ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/sales/quotation-created.png',
+                                        'alt' => 'Created quotation for umrah confirmed customer',
+                                    ],
                                 ],
                             ],
                         ],
@@ -1465,6 +1470,11 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Select the respective Payer name for each member that requires a separate quotation.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/sales/split-quotation.png',
+                                        'alt' => 'Split quotation example',
                                     ],
                                 ],
                             ],
@@ -1560,7 +1570,12 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Once the quotation is accepted, an Order Form will be automatically generated by the system before the invoice is created.',
+                                        'text' => 'Once the quotation is accepted, an Order Form will be automatically generated by the system before the invoice is created. The Order Form displays the customer details, selected package, payment plan, invoice summary, payment method, and total amount before the invoice is created.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/sales/ready-quotation.png',
+                                        'alt' => 'Order Form generated after quotation is accepted',
                                     ],
                                 ],
                             ],
@@ -1592,7 +1607,15 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the preferred Payment Method. Note: Payment charges are pre-defined in the Payment Extension settings. For example, payment via Visa may include an additional 3% charge on the total invoice amount. Payment Extension settings can be edited in the Product and Services section.',
+                                        'text' => 'Select the preferred Payment Method.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: Payment charges are pre-defined in the Payment Extension settings. For example, payment via Visa may include an additional 3% charge on the total invoice amount. Payment Extension settings can be edited in the Product and Services section.',
                                     ],
                                 ],
                             ],
@@ -1624,7 +1647,11 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click Create. Note: The invoice will be generated for the confirmed customer and will appear in the Invoice menu. To edit the invoice, go to the Order menu, right-click on the customer name, and select Edit.',
+                                        'text' => 'Click Create.',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: The invoice will be generated for the confirmed customer and will appear in the Invoice menu. To edit the invoice, go to the Order menu, right-click on the customer name, and select Edit.',
                                     ],
                                 ],
                             ],
@@ -1658,6 +1685,11 @@ class DocumentationModulePlaybooks
                                         'type' => 'text',
                                         'text' => 'Change the Payment Plan to Instalment.',
                                     ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/sales/payment-plan-dropdown.png',
+                                        'alt' => 'Drop down menu for Payment Plan',
+                                    ],
                                 ],
                             ],
                             [
@@ -1681,6 +1713,11 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Review all invoice details by clicking Expand All.',
+                                    ],
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/sales/instalment-plan-view.png',
+                                        'alt' => 'Instalment Plan view',
                                     ],
                                 ],
                             ],
@@ -1907,13 +1944,13 @@ class DocumentationModulePlaybooks
             [
                 'id' => 'confirmed-customer',
                 'title' => 'Confirmed Customer',
-                'overview' => 'The Confirmed Customer module handles post-conversion customer management including participant grouping, self-service data completion links, holding-area transfers, and cancellation refunds.',
+                'overview' => 'This module displays the list of customers who have been confirmed from the Enquiry Dashboard.',
                 'highlights' => [
-                    'Add Participants Within the Main Customer',
-                    'Create a One-Time Link for Customers to Update Their Details',
-                    'How to Move Members to the Holding Area',
-                    'How to Process a Customer Refund for trip cancellation',
-                    'Group-based traveler management before manifest finalization',
+                    'Customer Name – Displays the name of the main applicant',
+                    'Members – Displays the total number of applicants within the group',
+                    'Payment Updates – Displays the payment status of the group',
+                    'Package – Displays the selected package name',
+                    'Payment – Displays the total outstanding payment amount',
                 ],
                 'procedures' => [
                     [
@@ -1922,7 +1959,6 @@ class DocumentationModulePlaybooks
                         'status' => 'done',
                         'steps' => [
                             [
-                                'path' => '/confirmed-customer',
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
@@ -1942,7 +1978,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click on the drop-down menu.',
+                                        'text' => 'Note: If the new customer has already been added to the Customer menu, click the field next to Add Customer under the Group Customers section.',
                                     ],
                                 ],
                             ],
@@ -1950,7 +1986,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the Customer.',
+                                        'text' => 'Click on the drop-down menu, select the Customer, and click Close.',
                                     ],
                                 ],
                             ],
@@ -1958,7 +1994,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click Close.',
+                                        'text' => 'Note: If the customer is not listed, click Add Customer.',
                                     ],
                                 ],
                             ],
@@ -1966,7 +2002,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click Add Customer.',
+                                        'text' => 'Select the Pricing Plan, add the relationship to the main customer, and fill in all mandatory details.',
                                     ],
                                 ],
                             ],
@@ -1974,47 +2010,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the Pricing Plan.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Add the relationship to the main customer.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Fill in all mandatory details.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Add additional details if required.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Upload the Passport copy.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Upload the customer Photo.',
+                                        'text' => 'Add additional details if required, upload the Passport copy, and upload the customer Photo.',
                                     ],
                                 ],
                             ],
@@ -2049,6 +2045,15 @@ class DocumentationModulePlaybooks
                                     ],
                                 ],
                             ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/confirmed-customer/one-time-link.png',
+                                        'alt' => 'One time link option',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                     [
@@ -2076,7 +2081,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the desired customer.',
+                                        'text' => 'Select the desired customer and click Move Selected Members.',
                                     ],
                                 ],
                             ],
@@ -2084,7 +2089,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click Move Selected Members.',
+                                        'text' => 'Note: The selected member will be detached from the existing group and moved to the Customer Holding Area menu.',
                                     ],
                                 ],
                             ],
@@ -2115,7 +2120,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the Refund Mode.',
+                                        'text' => 'Select the Refund Mode and Payment Method for the refund.',
                                     ],
                                 ],
                             ],
@@ -2123,7 +2128,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Select the Payment Method for the refund.',
+                                        'text' => 'Enter the refund amount, add a description for the refund receipt, and click Refund Receipt.',
                                     ],
                                 ],
                             ],
@@ -2131,23 +2136,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Enter the refund amount.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Add a description for the refund receipt.',
-                                    ],
-                                ],
-                            ],
-                            [
-                                'content_blocks' => [
-                                    [
-                                        'type' => 'text',
-                                        'text' => 'Click Refund Receipt.',
+                                        'text' => 'Note: The refund receipt will be generated in the Receipt menu. The customer will then be listed in the Cancelled Customer menu.',
                                     ],
                                 ],
                             ],
@@ -2160,11 +2149,10 @@ class DocumentationModulePlaybooks
             [
                 'id' => 'customer-holding-area',
                 'title' => 'Customer Holding Area',
-                'overview' => 'Customer Holding Area is a transition workspace for package changes and payment rebalancing scenarios. It supports both overpaid refund paths and higher-tier package upgrade billing paths.',
+                'overview' => 'The Customer Holding Area is used to temporarily place customers before moving them to a new package or pricing plan.',
                 'highlights' => [
                     'Change Package and Pricing Plan With Overpaid Refund',
                     'Change Package With Higher Pricing Plan',
-                    'Temporary reassignment before final package confirmation',
                 ],
                 'procedures' => [
                     [
@@ -2211,6 +2199,10 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Click Move Selected Members.',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: The selected members will now be assigned to the new package.',
                                     ],
                                 ],
                             ],
@@ -2293,6 +2285,10 @@ class DocumentationModulePlaybooks
                                         'type' => 'text',
                                         'text' => 'Click Refund Receipt.',
                                     ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: The refund receipt will be generated in the Receipt menu. The customer\'s payment status will automatically reflect as Paid.',
+                                    ],
                                 ],
                             ],
                         ],
@@ -2340,7 +2336,11 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Click Move Selected Members. Note: The selected members will now be assigned to the new package.',
+                                        'text' => 'Click Move Selected Members.',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: The selected members will now be assigned to the new package.',
                                     ],
                                 ],
                             ],
@@ -2374,6 +2374,10 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Click Options and select Create Balance Invoice.',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: A new invoice will be generated for the customer. Repeat the receipt creation process once payment has been received from the customer.',
                                     ],
                                 ],
                             ],
@@ -2540,6 +2544,15 @@ class DocumentationModulePlaybooks
                             [
                                 'content_blocks' => [
                                     [
+                                        'type' => 'image',
+                                        'src' => '/documentations/package/create-form.png',
+                                        'alt' => 'Create Package form showing package number and name',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
                                         'type' => 'text',
                                         'text' => 'Package Name: Enter descriptive name (include: destination, duration, tier, date).',
                                     ],
@@ -2692,6 +2705,15 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Arrival Date/Time: Click the calendar picker, select the arrival date and time.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/package/flight-details.png',
+                                        'alt' => 'Flight Details Section showing arrival and departure inputs',
                                     ],
                                 ],
                             ],
@@ -2901,6 +2923,23 @@ class DocumentationModulePlaybooks
                             [
                                 'content_blocks' => [
                                     [
+                                        'type' => 'image',
+                                        'src' => '/documentations/package/accommodations.png',
+                                        'alt' => 'Accommodations Section showing multiple hotels',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'If the package includes multiple hotels or accommodations, click Add Accommodation again to add additional entries.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
                                         'type' => 'text',
                                         'text' => 'Save.',
                                     ],
@@ -3061,6 +3100,10 @@ class DocumentationModulePlaybooks
                                         'type' => 'text',
                                         'text' => 'Click Update Manifest.',
                                     ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: It is recommended not to move customers between groups within the Main Section. Group adjustments should instead be managed within the Room List Section.',
+                                    ],
                                 ],
                             ],
                         ],
@@ -3215,6 +3258,10 @@ class DocumentationModulePlaybooks
                                         'type' => 'text',
                                         'text' => 'Right-click on the official’s name.',
                                     ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: By default, officials are not assigned to any hotel or room location.',
+                                    ],
                                 ],
                             ],
                             [
@@ -3290,8 +3337,17 @@ class DocumentationModulePlaybooks
                             [
                                 'content_blocks' => [
                                     [
+                                        'type' => 'gif',
+                                        'src' => '/documentations/manifest/room-list-drag.gif',
+                                        'alt' => 'Room List drag and drop feature',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
                                         'type' => 'text',
-                                        'text' => 'Business Rule: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error.',
+                                        'text' => 'Note: Customers must belong to the same pricing plan in order to be grouped together. Otherwise, the system will prompt an over-capacity or mismatch error. If there are last-minute room arrangement changes, users may manually adjust the room type to match the required capacity.',
                                     ],
                                 ],
                             ],
@@ -3402,6 +3458,15 @@ class DocumentationModulePlaybooks
                                     [
                                         'type' => 'text',
                                         'text' => 'Print or export the official check-in document for the hotel administration.',
+                                    ],
+                                ],
+                            ],
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'image',
+                                        'src' => '/documentations/manifest/export-checkin.png',
+                                        'alt' => 'Export Check-in Document',
                                     ],
                                 ],
                             ],
@@ -3708,7 +3773,18 @@ class DocumentationModulePlaybooks
                                     ],
                                 ],
                             ],
-                            'Verify or enter the customer\'s name in Arabic characters (required for Saudi visa processing).',
+                            [
+                                'content_blocks' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Verify or enter the customer\'s name in Arabic characters (required for Saudi visa processing).',
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => 'Note: Arabic names are automatically generated by the system. However, users are advised to verify the Arabic spelling for accuracy before final usage.',
+                                    ],
+                                ],
+                            ],
                             [
                                 'content_blocks' => [
                                     [
@@ -3744,7 +3820,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Validation: A maximum of 3 receipt slots is available per room group for uploading bank transfer confirmations or receipts.',
+                                        'text' => 'Note: A maximum of 3 receipt slots is available per group.',
                                     ],
                                 ],
                             ],
@@ -3916,7 +3992,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Note: Hanya dapat diakses dan diedit oleh pengguna dengan peran SuperAdmin (SuperAdmin only).',
+                                        'text' => 'Note: Only users with the SuperAdmin role are authorized to edit the Budget section.',
                                     ],
                                 ],
                             ],
@@ -3955,7 +4031,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'SuperAdmin memiliki otoritas penuh untuk mengedit seluruh section, termasuk detail master operasional dan budget (Full authority to edit all sections, including operational master details and budget).',
+                                        'text' => 'SuperAdmin users are authorized to edit Operations Movement, PIF, and Budget.',
                                     ],
                                 ],
                             ],
@@ -3963,7 +4039,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Peran Operations diizinkan melihat informasi, mengunggah itinerary/booklet, dan mengekspor laporan, tetapi TIDAK memiliki izin untuk mengedit data master operasional atau melihat budget (Allowed to view info, upload itinerary/booklet, and export reports, but no permission to edit operational master data or view budget).',
+                                        'text' => 'Users with the Operations role are permitted to upload itinerary details, upload package booklets, view Operations Movement information, export Operations Movement reports, and export PIF reports.',
                                     ],
                                 ],
                             ],
@@ -3971,7 +4047,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Peran Sales hanya memiliki akses view-only (informational) pada modul Ops Movement ini (View-only informational access on the Ops Movement module).',
+                                        'text' => 'Note: Operations users do not have permission to edit operational data within these modules.',
                                     ],
                                 ],
                             ],
