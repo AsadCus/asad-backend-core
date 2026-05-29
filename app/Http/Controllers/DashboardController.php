@@ -191,6 +191,19 @@ class DashboardController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * Admin users may only view today's Daily Received data (no date range).
+     * Superadmin keeps full access.
+     */
+    private function isDailyReceivedLockedToToday(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null
+            && $user->hasRole('admin')
+            && ! $user->hasRole('superadmin');
+    }
+
     public function paymentReport(Request $request)
     {
         $period = (string) $request->input('period', 'daily');
@@ -198,6 +211,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
+
+        // Admin users are locked to today's daily received only.
+        if ($this->isDailyReceivedLockedToToday($request)) {
+            $period = 'daily';
+            $rangeStartUtc = null;
+            $rangeEndUtc = null;
+        }
 
         $packageIds = $request->input('packages');
         if (is_string($packageIds)) {
@@ -229,6 +249,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
+
+        // Admin users are locked to today's daily received only.
+        if ($this->isDailyReceivedLockedToToday($request)) {
+            $period = 'daily';
+            $rangeStartUtc = null;
+            $rangeEndUtc = null;
+        }
 
         $packageIds = $request->input('packages');
         if (is_string($packageIds)) {

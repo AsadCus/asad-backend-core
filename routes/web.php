@@ -63,20 +63,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/fiscal-year-sales', [DashboardController::class, 'fiscalYearSales'])->name('dashboard.fiscal-year-sales');
     Route::get('dashboard/payment-report', [DashboardController::class, 'paymentReport'])
-        ->middleware(['role:superadmin|sales'])
+        ->middleware(['role:superadmin|admin|sales'])
         ->name('dashboard.payment-report');
     Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])
-        ->middleware(['role:superadmin|sales'])
+        ->middleware(['role:superadmin|admin|sales'])
         ->name('dashboard.payment-report-export');
     Route::get('dashboard/closing-report/export', [DashboardController::class, 'exportClosingReport'])
-        ->middleware(['role:superadmin|admin|sales'])
+        ->middleware(['role:superadmin|sales'])
         ->name('dashboard.closing-report-export');
 
     // Reports
-    Route::middleware(['role:superadmin|sales'])->group(function () {
+    Route::middleware(['role:superadmin|admin|sales'])->group(function () {
         Route::get('reports/payment', [ReportController::class, 'paymentIndex'])->name('reports.payment.index');
     });
-    Route::middleware(['role:superadmin|admin|sales'])->group(function () {
+    Route::middleware(['role:superadmin|sales'])->group(function () {
         Route::get('reports/closing', [ReportController::class, 'closingIndex'])->name('reports.closing.index');
         Route::get('reports/closing/data', [ReportController::class, 'closingData'])->name('reports.closing.data');
     });

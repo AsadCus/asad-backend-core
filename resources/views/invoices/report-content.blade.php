@@ -499,6 +499,13 @@
                             {{ formatCurrency($data['balance_due_amount'] ?? 0) }}
                         </td>
                     </tr>
+                    <tr>
+                        <td class="total-label payment-info-head">Grand Total:</td>
+                        <td class="total-amount payment-info-head">
+                            {{ formatCurrency($data['invoice_paid_amount'] ?? 0) }} /
+                            {{ formatCurrency(($data['invoice_total_amount'] ?? 0) ?: ($data['total_amount'] ?? $subtotal)) }}
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>

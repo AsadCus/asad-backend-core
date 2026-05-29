@@ -17,8 +17,8 @@ import {
 import { paymentReport, paymentReportExport } from '@/routes/dashboard';
 import payment from '@/routes/reports/payment';
 import sales from '@/routes/sales';
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { FileText } from 'lucide-react';
 import { DateTime } from 'luxon';
@@ -61,6 +61,11 @@ export default function PaymentReportIndex({
     packageOptions = [],
     categoryOptions = [],
 }: PaymentReportProps) {
+    const { auth } = usePage<SharedData>().props;
+    const roles = auth?.roles ?? [];
+    const isAdminRestricted =
+        roles.includes('admin') && !roles.includes('superadmin');
+
     const todayDisplayDate = formatDateForDisplay(new Date());
 
     const quickOptions: QuickDateOption[] = [
@@ -300,26 +305,30 @@ export default function PaymentReportIndex({
                             className="bg-background hover:bg-accent"
                         />
                     </div>
-                    <div className="space-y-1">
-                        <p className="font-medium">Date Range</p>
-                        <DateRangeFilter
-                            title="Date Range"
-                            value={dateRange}
-                            onChange={setDateRange}
-                            quickDate
-                            quickOptions={quickOptions}
-                            compact
-                            dash={false}
-                            align="start"
-                        />
-                    </div>
-                    <Button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={() => void fetchData()}
-                    >
-                        Apply
-                    </Button>
+                    {!isAdminRestricted && (
+                        <div className="space-y-1">
+                            <p className="font-medium">Date Range</p>
+                            <DateRangeFilter
+                                title="Date Range"
+                                value={dateRange}
+                                onChange={setDateRange}
+                                quickDate
+                                quickOptions={quickOptions}
+                                compact
+                                dash={false}
+                                align="start"
+                            />
+                        </div>
+                    )}
+                    {!isAdminRestricted && (
+                        <Button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={() => void fetchData()}
+                        >
+                            Apply
+                        </Button>
+                    )}
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">

@@ -88,7 +88,7 @@ export function AppSidebar() {
     const isSuperadmin = roles.includes('superadmin');
     const canViewSalesReports =
         roles.includes('sales') || roles.includes('admin') || isSuperadmin;
-    const canViewClosingReport = canViewSalesReports;
+    const canViewClosingReport = roles.includes('sales') || isSuperadmin;
 
     const mainNavItems: NavItem[] = isOperationsOnlyRole
         ? [

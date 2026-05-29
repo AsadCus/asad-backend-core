@@ -1373,7 +1373,9 @@ export default function CustomerConfirmationForm({
                                     <ProperInputSelect
                                         mode="multi"
                                         options={customerOptions.map((c) => ({
-                                            label: c.label,
+                                            label: c.name
+                                                ? `${c.name} - ${c.email}`
+                                                : c.email,
                                             value: String(c.value),
                                         }))}
                                         value={selectedCustomerValues}
@@ -1385,7 +1387,7 @@ export default function CustomerConfirmationForm({
                                             handleMultiSelectChange(nextValue);
                                         }}
                                         placeholder="Search & select customers..."
-                                        maxWidth="320px"
+                                        maxWidth="480px"
                                         responsive={true}
                                         disabled={processing}
                                         maxCount={0}
