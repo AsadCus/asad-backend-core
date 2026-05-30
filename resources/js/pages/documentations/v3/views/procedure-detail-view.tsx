@@ -397,7 +397,7 @@ export function ProcedureDetailView({
                                                                     block.alt ??
                                                                     `Visual guide for step ${i + 1}`
                                                                 }
-                                                                className="block w-auto h-auto max-w-[720px] max-h-[420px] [max-width:min(720px,100%)]"
+                                                                className="block w-auto h-auto max-w-[480px] max-h-[360px] [max-width:min(480px,100%)]"
                                                                 loading="lazy"
                                                             />
                                                         </figure>
@@ -428,7 +428,7 @@ export function ProcedureDetailView({
                                                                     block.alt ??
                                                                     `Demo for step ${i + 1}`
                                                                 }
-                                                                className="block w-auto h-auto max-w-[720px] max-h-[420px] [max-width:min(720px,100%)]"
+                                                                className="block w-auto h-auto max-w-[480px] max-h-[360px] [max-width:min(480px,100%)]"
                                                             />
                                                         </figure>
                                                     );
