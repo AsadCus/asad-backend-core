@@ -26,6 +26,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,7 +38,21 @@ class ManifestController extends Controller
         protected PackageService $packageService,
         protected CustomerConfirmationService $customerConfirmationService,
         protected ReportTemplateService $reportTemplateService,
-    ) {}
+    ) {
+        $this->middleware('permission:manifest view')->only([
+            'index', 'show', 'edit', 'getForShow',
+            'exportCollectionItemsPdf', 'exportArabicNamesPdf',
+            'exportAirlineNamesPdf', 'exportRoomCheckPdf',
+        ]);
+        $this->middleware('permission:manifest edit')->only([
+            'store', 'import', 'destroy',
+            'addRoom', 'updateRoom', 'deleteRoom',
+            'updateCoreSection', 'updateSharingGroupsSection', 'updateRoomsSection',
+            'updateDocumentsSection', 'updateReceiptDocumentsSection',
+            'attachSharingGroup', 'detachSharingGroup',
+            'moveMemberToHolding',
+        ]);
+    }
 
     /**
      * Display a listing of the resource.

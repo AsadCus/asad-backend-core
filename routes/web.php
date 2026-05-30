@@ -183,8 +183,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
 
-    // User Logs
-    Route::get('user-logs', [UserLogsController::class, 'index'])->name('user-logs.index');
+    // User Logs — SuperAdmin only per access matrix
+    Route::get('user-logs', [UserLogsController::class, 'index'])
+        ->middleware('permission:user-log view')
+        ->name('user-logs.index');
 
     // General Enquiries
     Route::resource('general-enquiries', GeneralEnquiryController::class);

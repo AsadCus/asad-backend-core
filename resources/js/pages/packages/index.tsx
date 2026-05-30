@@ -14,8 +14,8 @@ import {
     index,
     show,
 } from '@/routes/packages';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { FileSpreadsheetIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -152,7 +152,14 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
 ];
 
 export default function PackagesIndex({ data }: PackagesProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
+    const { auth } = usePage<SharedData>().props;
+    const userPermissions = auth.permissions || [];
+    const actions: ActionType[] = [];
+    if (userPermissions.includes('package create')) actions.push('add');
+    actions.push('view');
+    if (userPermissions.includes('package edit')) actions.push('edit');
+    actions.push('download');
+    if (userPermissions.includes('package delete')) actions.push('delete');
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [importOpen, setImportOpen] = useState(false);
@@ -229,7 +236,11 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    router.get(edit(row.id).url);
+                                    if (userPermissions.includes('package edit')) {
+                                        router.get(edit(row.id).url);
+                                    } else {
+                                        router.get(show(row.id).url);
+                                    }
                                 }
                             }}
                             initialState={{

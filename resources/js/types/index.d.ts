@@ -8,6 +8,7 @@ export interface Auth {
     permissions: string[];
     is_ghost_user?: boolean;
     hide_customer_from_user_management: boolean;
+    show_two_factor_auth?: boolean;
     can_view_documentation?: boolean;
     notifications: NotificationItem[];
     scope_mode?: 'country' | 'branch' | string;

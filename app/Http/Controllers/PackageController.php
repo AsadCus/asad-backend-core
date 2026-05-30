@@ -8,6 +8,7 @@ use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -28,6 +29,11 @@ class PackageController extends Controller
         $this->packageRule = $packageRule;
         $this->countryService = $countryService;
         $this->reportTemplateService = $reportTemplateService;
+
+        $this->middleware('permission:package view')->only(['index', 'show', 'getForShow', 'generatePdf']);
+        $this->middleware('permission:package create')->only(['create', 'store', 'import']);
+        $this->middleware('permission:package edit')->only(['edit', 'update']);
+        $this->middleware('permission:package delete')->only(['destroy']);
     }
 
     /**

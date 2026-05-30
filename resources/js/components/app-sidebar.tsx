@@ -90,19 +90,7 @@ export function AppSidebar() {
         roles.includes('sales') || roles.includes('admin') || isSuperadmin;
     const canViewClosingReport = roles.includes('sales') || isSuperadmin;
 
-    const mainNavItems: NavItem[] = isOperationsOnlyRole
-        ? [
-              ...(permissions.includes('ops-movement view')
-                  ? [
-                        {
-                            title: 'Ops Movement',
-                            href: opsMovements.index.url(),
-                            icon: Route,
-                        },
-                    ]
-                  : []),
-          ]
-        : [
+    const mainNavItems: NavItem[] = [
               ...(permissions.includes('dashboard view') && !isSalesOnlyRole
                   ? [
                         {
@@ -112,75 +100,82 @@ export function AppSidebar() {
                         },
                     ]
                   : []),
-              ...(permissions.includes('master view')
+              ...(permissions.includes('master view') ||
+              permissions.includes('product-services view')
                   ? [
                         {
                             title: 'Master',
-                            href: master.index.url(),
+                            ...(permissions.includes('master view')
+                                ? { href: master.index.url() }
+                                : {}),
                             icon: FileText,
                             subItems: [
-                                {
-                                    title: 'Add New User',
-                                    href: createUser().url,
-                                    icon: User,
-                                },
-                                {
-                                    title: 'User Management',
-                                    href: user.index.url(),
-                                    icon: User,
-                                    matchExact: true,
-                                    subItems: [
-                                        {
-                                            title: 'Superadmin',
-                                            href: masterSuperadmin.index.url(),
-                                        },
-                                        {
-                                            title: 'Admin',
-                                            href: masterAdmin.index.url(),
-                                        },
-                                        {
-                                            title: 'Salesperson',
-                                            href: masterSales.index.url(),
-                                        },
-                                        {
-                                            title: 'Operations',
-                                            href: masterOperations.index.url(),
-                                        },
-                                        ...(!hideCustomerFromUserManagement
-                                            ? [
-                                                  {
-                                                      title: 'Customer',
-                                                      href: masterCustomer.index.url(),
-                                                  },
-                                              ]
-                                            : []),
-                                    ],
-                                },
-                                {
-                                    title: 'Country',
-                                    href: '/master/country',
-                                    icon: Globe,
-                                },
-                                ...(scopeMode === 'country'
-                                    ? []
-                                    : [
-                                          {
-                                              title: 'Branch',
-                                              href: branch.index.url(),
-                                              icon: Map,
-                                          },
-                                      ]),
-                                {
-                                    title: 'Fiscal Year',
-                                    href: financialYear.index.url(),
-                                    icon: Landmark,
-                                },
-                                ...(permissions.includes('quotation view')
+                                ...(permissions.includes('master view')
                                     ? [
                                           {
-                                              title: 'Products and Services',
-                                              icon: ListOrdered,
+                                              title: 'Add New User',
+                                              href: createUser().url,
+                                              icon: User,
+                                          },
+                                          {
+                                              title: 'User Management',
+                                              href: user.index.url(),
+                                              icon: User,
+                                              matchExact: true,
+                                              subItems: [
+                                                  {
+                                                      title: 'Superadmin',
+                                                      href: masterSuperadmin.index.url(),
+                                                  },
+                                                  {
+                                                      title: 'Admin',
+                                                      href: masterAdmin.index.url(),
+                                                  },
+                                                  {
+                                                      title: 'Salesperson',
+                                                      href: masterSales.index.url(),
+                                                  },
+                                                  {
+                                                      title: 'Operations',
+                                                      href: masterOperations.index.url(),
+                                                  },
+                                                  ...(!hideCustomerFromUserManagement
+                                                      ? [
+                                                            {
+                                                                title: 'Customer',
+                                                                href: masterCustomer.index.url(),
+                                                            },
+                                                        ]
+                                                      : []),
+                                              ],
+                                          },
+                                          {
+                                              title: 'Country',
+                                              href: '/master/country',
+                                              icon: Globe,
+                                          },
+                                          ...(scopeMode === 'country'
+                                              ? []
+                                              : [
+                                                    {
+                                                        title: 'Branch',
+                                                        href: branch.index.url(),
+                                                        icon: Map,
+                                                    },
+                                                ]),
+                                          {
+                                              title: 'Fiscal Year',
+                                              href: financialYear.index.url(),
+                                              icon: Landmark,
+                                          },
+                                      ]
+                                    : []),
+                                ...(permissions.includes('product-services view')
+                                    ? [
+                                          {
+                                              title: 'Products & Services',
                                               href: quotationItem.index.url(),
+                                              icon: ListOrdered,
                                           },
                                       ]
                                     : []),
@@ -351,8 +346,7 @@ export function AppSidebar() {
                         },
                     ]
                   : []),
-              ...(permissions.includes('manifest view') ||
-              roles.includes('sales')
+              ...(permissions.includes('manifest view')
                   ? [
                         {
                             title: 'Manifest',
@@ -370,7 +364,7 @@ export function AppSidebar() {
                         },
                     ]
                   : []),
-              ...(!roles.includes('sales') && !roles.includes('operations')
+              ...(permissions.includes('user-log view')
                   ? [
                         {
                             title: 'User Logs',
@@ -379,7 +373,7 @@ export function AppSidebar() {
                         },
                     ]
                   : []),
-          ];
+    ];
 
     const footerNavItems: NavItem[] = [
         ...(canViewDocumentation
