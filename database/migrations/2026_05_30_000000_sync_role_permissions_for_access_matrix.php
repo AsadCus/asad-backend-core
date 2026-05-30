@@ -13,6 +13,10 @@ return new class extends Migration
 
         $guard = 'web';
 
+        if (! Permission::where('name', 'dashboard view')->where('guard_name', $guard)->exists()) {
+            return;
+        }
+
         foreach (['product-services view', 'product-services edit', 'user-log view'] as $p) {
             Permission::firstOrCreate(['name' => $p, 'guard_name' => $guard]);
         }
@@ -88,6 +92,10 @@ return new class extends Migration
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         $guard = 'web';
+
+        if (! Permission::where('name', 'dashboard view')->where('guard_name', $guard)->exists()) {
+            return;
+        }
 
         $previous = [
             'superadmin' => [

@@ -23,17 +23,28 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class ManifestWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function userWithManifestPermissions(): User
+    {
+        Permission::firstOrCreate(['name' => 'manifest view', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'manifest edit', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->givePermissionTo(['manifest view', 'manifest edit']);
+
+        return $user;
+    }
+
     public function test_store_persists_manifest_documents_arabic_names_and_ignores_receipt_documents_in_full_submit(): void
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create([
             'name' => 'Yusuf Adam',
             'contact' => '0191111111',
@@ -141,7 +152,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create([
             'name' => 'Yusuf Adam',
             'contact' => '0191111111',
@@ -243,7 +254,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_store_accepts_grouped_manifest_payload_and_normalizes_values(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create([
             'name' => 'Ahmad Example',
             'contact' => '0199988877',
@@ -367,7 +378,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_store_accepts_canonical_submit_payload_with_legacy_parity(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create([
             'name' => 'Canonical Member',
             'contact' => '0112233445',
@@ -552,7 +563,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_persists_collection_items_checklist_fields(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -621,7 +632,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_preserves_collection_items_when_checklist_fields_are_omitted(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -697,7 +708,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -776,7 +787,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -833,7 +844,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -889,7 +900,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_manifest_status_updates_package_status_and_rehydrates_from_package(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -981,7 +992,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_persists_and_rehydrates_manifest_sharing_group_remarks(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1041,7 +1052,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_room_grouping_falls_back_to_each_customer_when_no_sharing_group_exists(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1094,7 +1105,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_room_list_order_can_be_different_between_hotels_and_is_persisted(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1173,7 +1184,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1330,7 +1341,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_store_rejects_customer_confirmation_member_from_different_package(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create();
 
         $this->actingAs($actingUser);
@@ -1386,7 +1397,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_room_members_uses_current_manifest_member_ids_after_reorder(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1473,7 +1484,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_manifest_member_can_be_moved_to_holding_confirmation(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $customerUser = User::factory()->create();
 
         $this->actingAs($actingUser);
@@ -1547,7 +1558,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_allows_room_number_to_be_empty_from_room_lists(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1603,7 +1614,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_persists_regrouped_room_lists_and_rehydrates_group_keys(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1715,7 +1726,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_room_member_sharing_plan_and_room_relationship_are_synced_on_update(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1788,7 +1799,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_relationship_update_does_not_override_member_role(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1853,7 +1864,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_adds_new_member_into_existing_confirmation_room_capacity_before_creating_new_group(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -1999,7 +2010,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_keeps_new_confirmation_members_separate_from_official_group_and_assigns_rooms_per_location(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2138,7 +2149,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_persists_group_member_sort_order_and_keeps_official_groups_last(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2226,7 +2237,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_keeps_member_order_stable_inside_same_sharing_group_across_repeated_updates(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2323,7 +2334,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_update_removes_members_missing_from_room_list_and_drops_empty_rooms(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2419,7 +2430,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_collection_items_pdf_export_returns_pdf_response(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2467,7 +2478,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_arabic_names_pdf_export_returns_pdf_response(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2516,7 +2527,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_airline_names_pdf_export_returns_pdf_response(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2558,7 +2569,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_room_check_pdf_export_returns_pdf_response_for_location(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2628,7 +2639,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_fills_financial_columns_from_receipts_and_discount_extensions(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2802,7 +2813,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_applies_member_discount_to_payment_columns_sequentially_with_spillover(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -2976,7 +2987,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_applies_second_invoice_discount_to_second_payment_stage_only(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3076,7 +3087,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_accumulates_third_payment_from_third_invoice_and_later(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3199,7 +3210,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_payment_buckets_exclude_positive_invoice_extensions_when_invoice_marked_paid_without_receipts(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3284,7 +3295,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_payment_buckets_exclude_positive_invoice_extensions_for_receipt_totals(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3376,7 +3387,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_payment_buckets_include_negative_item_discount_extensions(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3467,7 +3478,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_assigns_item_discount_to_item_owner_member_not_payer(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3592,7 +3603,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_maps_paid_amounts_to_receipt_date_sequence_slots(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3710,7 +3721,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_includes_refund_invoice_in_payment_buckets_and_balance_due(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3825,7 +3836,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_remaps_third_payment_to_second_when_second_bucket_is_refund_only(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -3970,7 +3981,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_orders_payment_buckets_by_invoice_id_not_receipt_date(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4088,7 +4099,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_excludes_positive_item_tax_from_payment_columns_and_caps_to_package_minus_discount(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4182,7 +4193,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_splits_receipt_amounts_by_carried_members_in_each_receipt(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4386,7 +4397,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_allocates_group_discount_to_payer_before_spillover(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4499,7 +4510,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_uses_exact_third_payment_remainder_for_fully_paid_shared_installment_members(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4712,7 +4723,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_core_section_updates_manifest_fields_and_package_status(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         $package = Package::create([
@@ -4751,7 +4762,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_sharing_groups_section_updates_member_data(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4794,7 +4805,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_sharing_groups_section_does_not_overwrite_confirmation_member_payment_status(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4840,7 +4851,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_rooms_section_updates_room_and_members(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4895,7 +4906,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_rooms_section_validate_only_does_not_persist_updates(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4937,7 +4948,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4982,7 +4993,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_documents_section_allows_missing_documents_payload(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -4997,7 +5008,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5036,7 +5047,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5066,7 +5077,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5098,7 +5109,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_receipt_documents_section_allows_empty_payload(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5113,7 +5124,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_patch_manifest_rooms_section_accepts_manifest_member_id_alias(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5160,7 +5171,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_canonical_payload_preserves_member_role_and_room_member_ids(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $confirmationMember, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5212,7 +5223,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5250,7 +5261,7 @@ class ManifestWorkflowTest extends TestCase
     {
         Storage::fake('public');
 
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'manifest_member' => $member] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5305,7 +5316,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_store_update_ignores_payments_payload_after_manifest_payment_contract_removal(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'confirmation_member' => $member, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);
@@ -5342,7 +5353,7 @@ class ManifestWorkflowTest extends TestCase
 
     public function test_get_for_edit_show_no_longer_exposes_manifest_payments_contract(): void
     {
-        $actingUser = User::factory()->create();
+        $actingUser = $this->userWithManifestPermissions();
         $this->actingAs($actingUser);
 
         ['manifest' => $manifest, 'manifest_member' => $manifestMember] = $this->createManifestWithSingleMemberFixture($actingUser->id);

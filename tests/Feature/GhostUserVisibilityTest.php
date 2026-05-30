@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -41,7 +42,9 @@ class GhostUserVisibilityTest extends TestCase
 
     public function test_change_summary_visibility_flag_is_true_only_for_ghost_user(): void
     {
-        Role::findOrCreate('superadmin', 'web');
+        $superadminRole = Role::findOrCreate('superadmin', 'web');
+        Permission::findOrCreate('user-log view', 'web');
+        $superadminRole->givePermissionTo('user-log view');
 
         $ghostAdmin = User::factory()->create();
         $ghostAdmin->assignRole('superadmin');

@@ -17,6 +17,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class CustomerConfirmationMoveMemberBillingTest extends TestCase
@@ -206,6 +207,9 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
     public function test_manifest_move_to_holding_reuses_same_confirmation_when_only_active_member_selected(): void
     {
         $user = User::factory()->create();
+        Permission::findOrCreate('manifest view', 'web');
+        Permission::findOrCreate('manifest edit', 'web');
+        $user->givePermissionTo(['manifest view', 'manifest edit']);
         $this->actingAs($user);
 
         $package = Package::create([
@@ -452,6 +456,9 @@ class CustomerConfirmationMoveMemberBillingTest extends TestCase
     public function test_manifest_move_creates_new_confirmation_when_source_has_other_active_members(): void
     {
         $user = User::factory()->create();
+        Permission::findOrCreate('manifest view', 'web');
+        Permission::findOrCreate('manifest edit', 'web');
+        $user->givePermissionTo(['manifest view', 'manifest edit']);
         $this->actingAs($user);
 
         $package = Package::create([

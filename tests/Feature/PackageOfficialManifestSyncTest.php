@@ -7,6 +7,7 @@ use App\Services\ManifestService;
 use App\Services\PackageSeatService;
 use App\Services\PackageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class PackageOfficialManifestSyncTest extends TestCase
@@ -463,6 +464,9 @@ class PackageOfficialManifestSyncTest extends TestCase
     public function test_updating_manifest_persists_official_room_members_with_id_fallback(): void
     {
         $actingUser = User::factory()->create();
+        Permission::findOrCreate('manifest view', 'web');
+        Permission::findOrCreate('manifest edit', 'web');
+        $actingUser->givePermissionTo(['manifest view', 'manifest edit']);
         $this->actingAs($actingUser);
 
         $package = app(PackageService::class)->store([
