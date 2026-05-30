@@ -389,7 +389,7 @@ export function ProcedureDetailView({
                                                     return (
                                                         <figure
                                                             key={`image-${i}-${blockIndex}`}
-                                                            className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-950/40"
+                                                            className="mx-auto my-1 w-fit overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-700 dark:bg-slate-900/60"
                                                         >
                                                             <img
                                                                 src={block.src}
@@ -397,7 +397,7 @@ export function ProcedureDetailView({
                                                                     block.alt ??
                                                                     `Visual guide for step ${i + 1}`
                                                                 }
-                                                                className="h-auto w-full"
+                                                                className="block w-auto h-auto max-w-[720px] max-h-[420px] [max-width:min(720px,100%)]"
                                                                 loading="lazy"
                                                             />
                                                         </figure>
@@ -411,7 +411,7 @@ export function ProcedureDetailView({
                                                     return (
                                                         <figure
                                                             key={`gif-${i}-${blockIndex}`}
-                                                            className="overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/40 shadow-sm dark:border-indigo-900/50 dark:bg-indigo-950/20"
+                                                            className="mx-auto my-1 w-fit overflow-hidden rounded-lg border border-indigo-200 bg-indigo-50/40 shadow-sm dark:border-indigo-900/50 dark:bg-indigo-950/20"
                                                         >
                                                             <div className="flex items-center gap-1.5 border-b border-indigo-200 px-3 py-1.5 dark:border-indigo-900/50">
                                                                 <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-indigo-600 uppercase dark:bg-indigo-900/60 dark:text-indigo-300">
@@ -428,7 +428,7 @@ export function ProcedureDetailView({
                                                                     block.alt ??
                                                                     `Demo for step ${i + 1}`
                                                                 }
-                                                                className="h-auto w-full"
+                                                                className="block w-auto h-auto max-w-[720px] max-h-[420px] [max-width:min(720px,100%)]"
                                                             />
                                                         </figure>
                                                     );
