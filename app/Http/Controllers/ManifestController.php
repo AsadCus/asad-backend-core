@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class ManifestController extends Controller
 {
@@ -41,7 +42,7 @@ class ManifestController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
 
@@ -99,7 +100,7 @@ class ManifestController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): \Inertia\Response
+    public function show(string $id): Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
@@ -113,7 +114,7 @@ class ManifestController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id): \Inertia\Response
+    public function edit(string $id): Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
@@ -138,19 +139,34 @@ class ManifestController extends Controller
         $result = $importService->importFromPayload(
             $manifest,
             (array) $request->input('context', []),
-            (array) $request->input('data', []),
+            (array) $request->input('members', $request->input('data', [])),
+            (array) $request->input('payments', []),
         );
 
+        $summary = "Imported {$result['imported_members']} member(s) across {$result['bookings']} booking(s): "
+            ."{$result['quotations']} quotation(s), {$result['invoices']} invoice(s), {$result['receipts']} receipt(s).";
+
         if (! empty($result['errors'])) {
+            // Successful bookings are already committed; report the failures while
+            // still telling the user what got through (partial-success semantics).
             $errorLines = collect($result['errors'])
-                ->map(fn ($e) => "Row {$e['row']}: {$e['message']}")
+                ->map(function ($e) {
+                    $location = $e['booking_ref'] ? "Booking {$e['booking_ref']}" : 'Import';
+                    if (! empty($e['row'])) {
+                        $location .= " (row {$e['row']})";
+                    }
+
+                    return "{$location}: {$e['message']}";
+                })
                 ->join(' | ');
 
-            throw ValidationException::withMessages(['import' => $errorLines]);
+            throw ValidationException::withMessages([
+                'import' => "{$summary} Some bookings failed — {$errorLines}",
+            ]);
         }
 
         return redirect()->route('manifests.edit', ['manifest' => $manifest->id])
-            ->with('success', "Successfully imported {$result['imported']} member(s).");
+            ->with('success', $summary);
     }
 
     /**

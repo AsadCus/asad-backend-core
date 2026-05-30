@@ -13,13 +13,13 @@ use App\Models\ManifestMember;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Quotation;
-use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Support\InvoiceStatus;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class ManifestImportService
 {
@@ -28,180 +28,356 @@ class ManifestImportService
         'child_with_bed', 'child_no_bed', 'infant',
     ];
 
+    /** Tolerance (currency units) when reconciling installment totals. */
+    private const RECONCILE_TOLERANCE = 0.01;
+
+    public function __construct(
+        private CustomerConfirmationService $confirmationService,
+        private ManifestService $manifestService,
+    ) {}
+
     /**
-     * Import a batch of members (with full chain: customer, confirmation, quotation,
-     * order, invoice, receipt) into the given manifest.
+     * Import a migration-grade batch into the manifest, recreating the full
+     * real-system chain:
      *
-     * Each import creates ONE shared Enquiry + CustomerConfirmation that contains
-     * all members of this batch. Subsequent imports on the same manifest create
-     * additional batches (separate confirmations) — this keeps each import
-     * traceable and avoids cross-batch coupling.
+     *   per booking: Enquiry → CustomerConfirmation (+ N members)
+     *                  → group Quotation(s) (one payer covers 1..N members)
+     *                    → Order → installment Invoices → Receipts
+     *                → ManifestMembers grouped into ManifestSharingGroups
      *
-     * @param  array<int, array<string, mixed>>  $rows
+     * Members reference each other by keys:
+     *   - booking_ref       groups members into ONE Enquiry+Confirmation
+     *   - payer_ref         member_key of whoever pays (blank/self = self-pay)
+     *   - sharing_group_key rooming group (blank = auto bin-pack by capacity)
+     *
+     * Each booking is committed in its own transaction: a failed booking rolls
+     * back cleanly (no orphans) and is reported, while the others still import.
+     *
+     * @param  array<int, array<string, mixed>>  $members
+     * @param  array<int, array<string, mixed>>  $payments
      * @param  array<string, mixed>  $context
-     * @return array{imported:int, errors:array<int, array{row:int, message:string}>, confirmation_id:?int}
+     * @return array{imported_members:int, bookings:int, quotations:int, invoices:int, receipts:int, errors:array<int, array{booking_ref:?string, row:?int, message:string}>, confirmation_ids:int[]}
      */
-    public function importFromPayload(Manifest $manifest, array $context, array $rows): array
+    public function importFromPayload(Manifest $manifest, array $context, array $members, array $payments = []): array
     {
         $manifest->loadMissing('package');
         $package = $manifest->package;
 
         if (! $package) {
-            return [
-                'imported' => 0,
-                'errors' => [['row' => 0, 'message' => 'Manifest has no package assigned.']],
-                'confirmation_id' => null,
-            ];
+            return $this->result(errors: [['booking_ref' => null, 'row' => 0, 'message' => 'Manifest has no package assigned.']]);
         }
 
         $duplicatePassports = $this->resolveExistingPassportsForManifest($manifest);
         $applicationDate = $this->parseDateInput($context['date_of_application'] ?? null)
             ?? now()->format('Y-m-d');
 
-        $imported = 0;
-        $errors = [];
-        $confirmation = null;
+        // --- Normalize members: stable row number, synthesized keys for the minimal sheet ---
+        $normalizedMembers = [];
+        foreach (array_values($members) as $i => $row) {
+            $row['_row'] = $i + 1;
+            $row['member_key'] = $this->stringOrNull($row['member_key'] ?? null) ?? ('M'.($i + 1));
+            // Blank booking_ref => one confirmation per member (decision #5).
+            $row['booking_ref'] = $this->stringOrNull($row['booking_ref'] ?? null) ?? ('__auto_'.($i + 1));
+            $normalizedMembers[] = $row;
+        }
 
-        foreach ($rows as $index => $row) {
-            $rowNumber = $index + 1;
-            $rowError = $this->validateRow($row, $duplicatePassports);
-
-            if ($rowError !== null) {
-                $errors[] = ['row' => $rowNumber, 'message' => $rowError];
-
-                continue;
-            }
-
-            try {
-                DB::transaction(function () use (
-                    &$confirmation,
-                    $manifest,
-                    $package,
-                    $row,
-                    $applicationDate,
-                ): void {
-                    if ($confirmation === null) {
-                        $confirmation = $this->createSharedConfirmation(
-                            $manifest,
-                            $package,
-                            $applicationDate,
-                        );
-                    }
-
-                    $this->importRow($manifest, $package, $confirmation, $row);
-                });
-
-                $passport = $this->stringOrNull($row['passport_number'] ?? null);
-                if ($passport !== null) {
-                    $duplicatePassports[strtolower($passport)] = true;
-                }
-
-                $imported++;
-            } catch (\Throwable $e) {
-                $errors[] = ['row' => $rowNumber, 'message' => $e->getMessage()];
+        // member_key uniqueness is global (payer_ref references it). Passport
+        // uniqueness across the whole file prevents the same person being added
+        // twice (which would also collide two payers onto one Customer).
+        $memberKeyCounts = [];
+        $passportCounts = [];
+        foreach ($normalizedMembers as $row) {
+            $memberKeyCounts[$row['member_key']] = ($memberKeyCounts[$row['member_key']] ?? 0) + 1;
+            $passport = $this->stringOrNull($row['passport_number'] ?? null);
+            if ($passport !== null) {
+                $key = strtolower($passport);
+                $passportCounts[$key] = ($passportCounts[$key] ?? 0) + 1;
             }
         }
 
+        // --- Group members by booking ---
+        $bookings = [];
+        foreach ($normalizedMembers as $row) {
+            $bookings[$row['booking_ref']][] = $row;
+        }
+
+        // --- Group payments by booking → payer, each list sorted by installment ---
+        $paymentsByBooking = $this->groupPayments($payments);
+
+        $imported = ['imported_members' => 0, 'bookings' => 0, 'quotations' => 0, 'invoices' => 0, 'receipts' => 0];
+        $errors = [];
+        $confirmationIds = [];
+
+        // The Receipt boot hook (PaymentStatusService) would otherwise auto-link
+        // paid members onto the package's manifest — creating/duplicating/deleting
+        // ManifestMembers and inventing its own groups/rooms. We build manifest
+        // grouping deterministically here, so suppress that side effect for the
+        // whole import (member/invoice status still syncs normally).
+        $previousSuppress = PaymentStatusService::$suppressManifestAutoLink;
+        PaymentStatusService::$suppressManifestAutoLink = true;
+
+        try {
+            foreach ($bookings as $bookingRef => $bookingRows) {
+                $bookingError = $this->validateBooking(
+                    (string) $bookingRef,
+                    $bookingRows,
+                    $paymentsByBooking[$bookingRef] ?? [],
+                    $package,
+                    $duplicatePassports,
+                    $memberKeyCounts,
+                    $passportCounts,
+                );
+
+                if ($bookingError !== null) {
+                    $errors[] = [
+                        'booking_ref' => $this->displayBookingRef((string) $bookingRef),
+                        'row' => $bookingError['row'] ?? null,
+                        'message' => $bookingError['message'],
+                    ];
+
+                    continue;
+                }
+
+                try {
+                    // Grouping happens INSIDE this transaction (see importBooking),
+                    // so a grouping failure rolls back the whole booking — no
+                    // "committed money, no manifest member" window, and a re-import
+                    // is reliably blocked by the passport guard.
+                    $bookingResult = DB::transaction(fn () => $this->importBooking(
+                        $manifest,
+                        $package,
+                        (string) $bookingRef,
+                        $bookingRows,
+                        $paymentsByBooking[$bookingRef] ?? [],
+                        $applicationDate,
+                    ));
+
+                    $imported['imported_members'] += $bookingResult['members'];
+                    $imported['bookings'] += 1;
+                    $imported['quotations'] += $bookingResult['quotations'];
+                    $imported['invoices'] += $bookingResult['invoices'];
+                    $imported['receipts'] += $bookingResult['receipts'];
+                    $confirmationIds[] = $bookingResult['confirmation_id'];
+
+                    foreach ($bookingRows as $row) {
+                        $passport = $this->stringOrNull($row['passport_number'] ?? null);
+                        if ($passport !== null) {
+                            $duplicatePassports[strtolower($passport)] = true;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $errors[] = [
+                        'booking_ref' => $this->displayBookingRef((string) $bookingRef),
+                        'row' => null,
+                        'message' => $e->getMessage(),
+                    ];
+                }
+            }
+        } finally {
+            PaymentStatusService::$suppressManifestAutoLink = $previousSuppress;
+        }
+
+        // Orphan payments: reference a booking_ref that has no members.
+        foreach (array_keys($paymentsByBooking) as $bookingRef) {
+            if (! isset($bookings[$bookingRef])) {
+                $errors[] = [
+                    'booking_ref' => (string) $bookingRef,
+                    'row' => null,
+                    'message' => "Payments reference booking '{$bookingRef}', but no members use that booking_ref.",
+                ];
+            }
+        }
+
+        return $this->result(
+            importedMembers: $imported['imported_members'],
+            bookings: $imported['bookings'],
+            quotations: $imported['quotations'],
+            invoices: $imported['invoices'],
+            receipts: $imported['receipts'],
+            errors: $errors,
+            confirmationIds: $confirmationIds,
+        );
+    }
+
+    /**
+     * Create the full chain for a single booking. Runs inside a transaction.
+     *
+     * @param  array<int, array<string, mixed>>  $bookingRows
+     * @param  array<string, array<int, array<string, mixed>>>  $payments  payerKey => installment rows
+     * @return array{confirmation_id:int, members:int, quotations:int, invoices:int, receipts:int}
+     */
+    private function importBooking(
+        Manifest $manifest,
+        Package $package,
+        string $bookingRef,
+        array $bookingRows,
+        array $payments,
+        string $applicationDate,
+    ): array {
+        $confirmation = $this->createBookingConfirmation($manifest, $package, $applicationDate, $bookingRef);
+
+        $memberByKey = [];      // member_key => CustomerConfirmationMember
+        $grouping = [];
+
+        foreach ($bookingRows as $row) {
+            $customer = $this->findOrCreateCustomer($row);
+            $sharingPlan = strtolower(trim((string) $row['sharing_plan']));
+
+            $confirmationMember = CustomerConfirmationMember::create([
+                'customer_confirmation_id' => $confirmation->id,
+                'customer_id' => $customer->id,
+                'is_leader' => $this->boolOrFalse($row['is_leader'] ?? false),
+                'status' => 'pending_payment',
+                'sharing_plan' => $sharingPlan,
+                'relationship' => $this->stringOrNull($row['relationship'] ?? null),
+            ]);
+
+            $memberByKey[$row['member_key']] = $confirmationMember;
+            $grouping[] = [
+                'customer_confirmation_member_id' => $confirmationMember->id,
+                'sharing_plan' => $sharingPlan,
+                'sharing_group_key' => $this->stringOrNull($row['sharing_group_key'] ?? null),
+            ];
+        }
+
+        // payer member id => [covered member ids], keyed in first-seen order.
+        $payerToMembers = [];
+        $payerKeyByCmId = [];
+        foreach ($bookingRows as $row) {
+            $payerKey = $this->resolvePayerKey($row);
+            $payerCm = $memberByKey[$payerKey];
+            $coveredCm = $memberByKey[$row['member_key']];
+            $payerToMembers[$payerCm->id][] = $coveredCm->id;
+            $payerKeyByCmId[$payerCm->id] = $payerKey;
+        }
+
+        // Reuse the system's group-quotation engine (one quotation per payer).
+        // It iterates $payerToMembers in order and never skips a freshly-created
+        // payer (each has a customer), so the returned quotations align 1:1 with
+        // the payer member ids — match installments by payer member id, not by
+        // customer_id (two self-paying members could share one Customer).
+        $quotations = $this->confirmationService
+            ->generateQuotationsFromConfirmation($confirmation->id, $payerToMembers);
+
+        $counts = ['invoices' => 0, 'receipts' => 0];
+        $payerCmIds = array_keys($payerToMembers);
+
+        foreach (array_values($quotations) as $idx => $quotation) {
+            $payerCmId = $payerCmIds[$idx] ?? null;
+            $payerKey = $payerCmId !== null ? ($payerKeyByCmId[$payerCmId] ?? null) : null;
+            $installments = $payerKey !== null ? ($payments[$payerKey] ?? []) : [];
+
+            $this->buildOrderForQuotation($package, $quotation, $installments, $counts);
+        }
+
+        // Group this booking's members into manifest sharing groups WITHIN the
+        // same transaction, so grouping is atomic with the financial chain.
+        $this->manifestService->appendImportedMembers($manifest, $grouping);
+
         return [
-            'imported' => $imported,
-            'errors' => $errors,
-            'confirmation_id' => $confirmation?->id,
+            'confirmation_id' => (int) $confirmation->id,
+            'members' => count($bookingRows),
+            'quotations' => count($quotations),
+            'invoices' => $counts['invoices'],
+            'receipts' => $counts['receipts'],
         ];
     }
 
-    private function importRow(
-        Manifest $manifest,
-        Package $package,
-        CustomerConfirmation $confirmation,
-        array $row,
-    ): void {
-        $sharingPlan = strtolower(trim((string) $row['sharing_plan']));
-        $customer = $this->findOrCreateCustomer($row);
-
-        $confirmationMember = CustomerConfirmationMember::create([
-            'customer_confirmation_id' => $confirmation->id,
-            'customer_id' => $customer->id,
-            'is_leader' => (bool) ($row['is_leader'] ?? false),
-            'status' => 'pending_payment',
-            'sharing_plan' => $sharingPlan,
-        ]);
-
-        $packagePrice = $this->getPackagePriceForSharingPlan($package, $sharingPlan);
-        $invoiceAmount = $this->floatOrNull($row['invoice_amount'] ?? null) ?? $packagePrice;
-
-        $quotation = $this->createQuotation(
-            $package,
-            $customer,
-            $confirmation,
-            $confirmationMember,
-            $sharingPlan,
-            $packagePrice,
-        );
-
+    /**
+     * Build Order + installment Invoices + Receipts for one quotation, then
+     * mark the quotation converted.
+     *
+     * Each installment row is one Invoice; the FULL quotation item set is
+     * attached to every installment invoice (an installment is a partial
+     * payment toward the same items — see plan Risk B). Payment status is
+     * driven by Receipts via the Receipt boot hook, not the pivot.
+     *
+     * @param  array<int, array<string, mixed>>  $installments
+     * @param  array{invoices:int, receipts:int}  $counts
+     */
+    private function buildOrderForQuotation(Package $package, Quotation $quotation, array $installments, array &$counts): void
+    {
         $order = Order::create([
             'quotation_id' => $quotation->id,
             'payment_plan' => 'full',
         ]);
 
-        $invoice = Invoice::create([
-            'order_id' => $order->id,
-            'description' => 'Payment for travel package — '.($package->name ?? 'Package #'.$package->id),
-            'payment_method' => $this->stringOrNull($row['receipt_method'] ?? null),
-            'extensions' => [],
-            'amount' => $invoiceAmount,
-            'invoice_date' => $this->parseDateInput($row['receipt_date'] ?? null) ?? now()->format('Y-m-d'),
-            'due_date' => $this->parseDateInput($row['receipt_date'] ?? null) ?? now()->format('Y-m-d'),
-            'status' => InvoiceStatus::Outstanding,
-        ]);
-
+        $quotation->loadMissing('quotationItems');
         $itemIds = $quotation->quotationItems->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $invoice->quotationItems()->sync($itemIds);
 
-        $receiptAmount = $this->floatOrNull($row['receipt_amount'] ?? null);
+        $quotationTotal = (float) $quotation->quotationItems
+            ->where('is_header', false)
+            ->reduce(fn ($carry, $item) => $carry + ((float) $item->quantity * (float) $item->rate), 0.0);
 
-        if ($receiptAmount !== null && $receiptAmount > 0) {
-            Receipt::create([
-                'invoice_id' => $invoice->id,
-                'amount' => $receiptAmount,
-                'receipt_date' => $this->parseDateInput($row['receipt_date'] ?? null) ?? now()->format('Y-m-d'),
-                'payment_method' => $this->stringOrNull($row['receipt_method'] ?? null),
-                'reference' => $this->stringOrNull($row['receipt_reference'] ?? null),
-                'description' => 'Imported receipt — '.($package->name ?? 'Package #'.$package->id),
-            ]);
+        // No payment rows for this payer => one invoice for the quotation total, unpaid.
+        if ($installments === []) {
+            $installments = [[
+                'invoice_amount' => $quotationTotal,
+                'invoice_date' => null,
+                'due_date' => null,
+                'paid_amount' => null,
+                'paid_date' => null,
+                'payment_method' => null,
+                'reference' => null,
+            ]];
         }
 
-        ManifestMember::create([
-            'manifest_id' => $manifest->id,
-            'customer_confirmation_member_id' => $confirmationMember->id,
-            'sharing_plan' => $sharingPlan,
-            'name' => $this->stringOrNull($row['name']),
-            'contact_number' => $this->stringOrNull($row['contact'] ?? null),
-            'nationality' => $this->stringOrNull($row['nationality'] ?? null),
-            'passport_number' => $this->stringOrNull($row['passport_number'] ?? null),
-            'gender' => $this->stringOrNull($row['gender'] ?? null),
-            'date_of_birth' => $this->parseDateInput($row['date_of_birth'] ?? null),
-            'passport_issue_date' => $this->parseDateInput($row['passport_issue_date'] ?? null),
-            'passport_expiry_date' => $this->parseDateInput($row['passport_expiry_date'] ?? null),
-            'passport_place_of_issue' => $this->stringOrNull($row['passport_place_of_issue'] ?? null),
-            'address' => $this->stringOrNull($row['address'] ?? null),
-            'has_chronic_disease' => $this->boolOrFalse($row['has_chronic_disease'] ?? null),
-            'is_using_wheelchair' => $this->boolOrFalse($row['is_using_wheelchair'] ?? null),
-            'sort_order' => ((int) ManifestMember::where('manifest_id', $manifest->id)->max('sort_order')) + 1,
-        ]);
+        $packageLabel = $package->name ?? 'Package #'.$package->id;
+
+        foreach (array_values($installments) as $i => $inst) {
+            $invoiceDate = $this->parseDateInput($inst['invoice_date'] ?? null) ?? now()->format('Y-m-d');
+            $dueDate = $this->parseDateInput($inst['due_date'] ?? null) ?? $invoiceDate;
+            $invoiceAmount = $this->floatOrNull($inst['invoice_amount'] ?? null) ?? 0.0;
+
+            $invoice = Invoice::create([
+                'order_id' => $order->id,
+                'description' => 'Installment '.($i + 1).' — '.$packageLabel,
+                'payment_method' => $this->stringOrNull($inst['payment_method'] ?? null),
+                'extensions' => [],
+                'amount' => $invoiceAmount,
+                'invoice_date' => $invoiceDate,
+                'due_date' => $dueDate,
+                'status' => InvoiceStatus::Outstanding,
+            ]);
+            $counts['invoices']++;
+
+            $invoice->quotationItems()->sync($itemIds);
+
+            $paidAmount = $this->floatOrNull($inst['paid_amount'] ?? null);
+            if ($paidAmount !== null && $paidAmount > 0) {
+                // Receipt boot hook records the FinancialTransaction (dated to
+                // receipt_date — backdated-safe) and syncs payment status.
+                Receipt::create([
+                    'invoice_id' => $invoice->id,
+                    'amount' => $paidAmount,
+                    'receipt_date' => $this->parseDateInput($inst['paid_date'] ?? null) ?? $invoiceDate,
+                    'payment_method' => $this->stringOrNull($inst['payment_method'] ?? null),
+                    'reference' => $this->stringOrNull($inst['reference'] ?? null),
+                    'description' => 'Imported receipt — '.$packageLabel,
+                ]);
+                $counts['receipts']++;
+            }
+        }
+
+        $quotation->update(['status' => 'converted']);
     }
 
-    private function createSharedConfirmation(
+    private function createBookingConfirmation(
         Manifest $manifest,
         Package $package,
         string $applicationDate,
+        string $bookingRef,
     ): CustomerConfirmation {
+        $label = Str::startsWith($bookingRef, '__auto_') ? '' : ' - '.$bookingRef;
+        $slug = Str::slug($bookingRef) ?: 'b'.substr(md5($bookingRef), 0, 6);
+
         $enquiry = Enquiry::create([
             'enquiry_number' => NumberGenerator::generate('general_enquiry'),
             'type' => 'general',
             'status' => 'confirmed',
-            'name' => 'Backfill Import - Manifest #'.$manifest->id,
+            'name' => 'Backfill Import - Manifest #'.$manifest->id.$label,
             'contact_number' => '-',
-            'email' => 'backfill-manifest-'.$manifest->id.'@import.local',
+            'email' => 'backfill-manifest-'.$manifest->id.'-'.$slug.'@import.local',
             'package_id' => $package->id,
             'created_by' => auth()->id(),
         ]);
@@ -215,48 +391,168 @@ class ManifestImportService
         ]);
     }
 
-    private function createQuotation(
+    /**
+     * @param  array<int, array<string, mixed>>  $payments
+     * @return array<string, array<string, array<int, array<string, mixed>>>> bookingRef => payerKey => installment rows
+     */
+    private function groupPayments(array $payments): array
+    {
+        $grouped = [];
+
+        foreach (array_values($payments) as $payment) {
+            $bookingRef = $this->stringOrNull($payment['booking_ref'] ?? null);
+            if ($bookingRef === null) {
+                continue;
+            }
+
+            $payerKey = $this->stringOrNull($payment['payer_ref'] ?? null) ?? '';
+            $grouped[$bookingRef][$payerKey][] = $payment;
+        }
+
+        foreach ($grouped as $bookingRef => $byPayer) {
+            foreach ($byPayer as $payerKey => $rows) {
+                usort($rows, function (array $a, array $b): int {
+                    $ai = (int) ($a['installment_no'] ?? 0);
+                    $bi = (int) ($b['installment_no'] ?? 0);
+                    if ($ai !== $bi) {
+                        return $ai <=> $bi;
+                    }
+
+                    return strcmp((string) ($a['invoice_date'] ?? ''), (string) ($b['invoice_date'] ?? ''));
+                });
+                $grouped[$bookingRef][$payerKey] = $rows;
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Validate a whole booking with NO writes. Returns the first error found
+     * (the booking is skipped wholesale) or null when valid.
+     *
+     * @param  array<int, array<string, mixed>>  $bookingRows
+     * @param  array<string, array<int, array<string, mixed>>>  $payments  payerKey => rows
+     * @param  array<string, true>  $duplicatePassports
+     * @param  array<string, int>  $memberKeyCounts
+     * @param  array<string, int>  $passportCounts
+     * @return array{row:?int, message:string}|null
+     */
+    private function validateBooking(
+        string $bookingRef,
+        array $bookingRows,
+        array $payments,
         Package $package,
-        Customer $customer,
-        CustomerConfirmation $confirmation,
-        CustomerConfirmationMember $member,
-        string $sharingPlan,
-        float $rate,
-    ): Quotation {
-        $quotation = Quotation::create([
-            'customer_id' => $customer->id,
-            'customer_confirmation_id' => $confirmation->id,
-            'handled_by' => auth()->id(),
-            'quotation_date' => now()->format('Y-m-d'),
-            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
-            'payment_plan' => 'full',
-            'status' => 'converted',
-            'description' => 'Payment for travel package — '.($package->name ?? 'Package #'.$package->id),
-        ]);
+        array $duplicatePassports,
+        array $memberKeyCounts,
+        array $passportCounts,
+    ): ?array {
+        $display = $this->displayBookingRef($bookingRef);
+        $localKeys = [];
+        $selfPayKeys = [];
 
-        $header = QuotationItem::create([
-            'quotation_id' => $quotation->id,
-            'parent_id' => null,
-            'description' => 'Umrah Packages',
-            'is_header' => true,
-            'sort_order' => 1,
-        ]);
+        foreach ($bookingRows as $row) {
+            $rowError = $this->validateRow($row, $duplicatePassports);
+            if ($rowError !== null) {
+                return ['row' => $row['_row'], 'message' => $rowError];
+            }
 
-        $memberName = $customer->user?->name ?? 'Member #'.$member->id;
-        $planLabel = $this->formatSharingPlanLabel($sharingPlan);
+            $key = $row['member_key'];
+            if (($memberKeyCounts[$key] ?? 0) > 1) {
+                return ['row' => $row['_row'], 'message' => "Duplicate member_key '{$key}'. Each member_key must be unique across the file."];
+            }
 
-        QuotationItem::create([
-            'quotation_id' => $quotation->id,
-            'customer_confirmation_member_id' => $member->id,
-            'parent_id' => $header->id,
-            'description' => "{$package->name} - {$memberName} - {$planLabel} sharing",
-            'is_header' => false,
-            'quantity' => 1,
-            'rate' => $rate,
-            'sort_order' => 2,
-        ]);
+            $passport = $this->stringOrNull($row['passport_number'] ?? null);
+            if ($passport !== null && ($passportCounts[strtolower($passport)] ?? 0) > 1) {
+                return ['row' => $row['_row'], 'message' => "Passport '{$passport}' appears on more than one row. Each person must appear once."];
+            }
 
-        return $quotation->load('quotationItems');
+            $localKeys[$key] = true;
+            if ($this->resolvePayerKey($row) === $key) {
+                $selfPayKeys[$key] = true;
+            }
+        }
+
+        // payer_ref must resolve to a self-paying member in the same booking (no chains).
+        foreach ($bookingRows as $row) {
+            $payerRef = $this->stringOrNull($row['payer_ref'] ?? null);
+            if ($payerRef === null || $payerRef === $row['member_key']) {
+                continue;
+            }
+
+            if (! isset($localKeys[$payerRef])) {
+                return ['row' => $row['_row'], 'message' => "payer_ref '{$payerRef}' does not match any member_key in booking '{$display}'."];
+            }
+            if (! isset($selfPayKeys[$payerRef])) {
+                return ['row' => $row['_row'], 'message' => "payer_ref '{$payerRef}' must point to a self-paying member (no payer chains)."];
+            }
+        }
+
+        // Every payment must reference a self-paying payer in this booking.
+        foreach ($payments as $payerKey => $rows) {
+            if ($payerKey === '' || ! isset($selfPayKeys[$payerKey])) {
+                return ['row' => null, 'message' => "Booking '{$display}': payment payer_ref '{$payerKey}' must reference a self-paying member."];
+            }
+        }
+
+        // Reconciliation (decision #6): installment totals must equal the quotation total.
+        $payerCovered = [];
+        foreach ($bookingRows as $row) {
+            $payerCovered[$this->resolvePayerKey($row)][] = $row;
+        }
+
+        foreach ($payerCovered as $payerKey => $coveredRows) {
+            $installments = $payments[$payerKey] ?? [];
+            if ($installments === []) {
+                continue; // single full invoice — nothing to reconcile.
+            }
+
+            $expected = 0.0;
+            foreach ($coveredRows as $coveredRow) {
+                $expected += $this->getPackagePriceForSharingPlan($package, strtolower(trim((string) $coveredRow['sharing_plan'])));
+            }
+
+            $sum = 0.0;
+            $paid = 0.0;
+            foreach ($installments as $inst) {
+                $sum += $this->floatOrNull($inst['invoice_amount'] ?? null) ?? 0.0;
+                $paid += $this->floatOrNull($inst['paid_amount'] ?? null) ?? 0.0;
+            }
+
+            if (abs($sum - $expected) > self::RECONCILE_TOLERANCE) {
+                return [
+                    'row' => null,
+                    'message' => "Booking '{$display}', payer '{$payerKey}': installment total ("
+                        .number_format($sum, 2).') does not match quotation total ('
+                        .number_format($expected, 2).'). Adjust invoice_amount or package pricing.',
+                ];
+            }
+
+            // Can't pay more than was billed (closes the over-payment hole).
+            if ($paid - $sum > self::RECONCILE_TOLERANCE) {
+                return [
+                    'row' => null,
+                    'message' => "Booking '{$display}', payer '{$payerKey}': paid total ("
+                        .number_format($paid, 2).') exceeds the billed total ('
+                        .number_format($sum, 2).').',
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /** The member_key of whoever pays for this row (own key when self-pay). */
+    private function resolvePayerKey(array $row): string
+    {
+        $payerRef = $this->stringOrNull($row['payer_ref'] ?? null);
+        $own = (string) $row['member_key'];
+
+        if ($payerRef === null || $payerRef === $own) {
+            return $own;
+        }
+
+        return $payerRef;
     }
 
     private function findOrCreateCustomer(array $row): Customer
@@ -329,6 +625,11 @@ class ManifestImportService
         ])->load('user');
     }
 
+    /**
+     * Per-member field validation (no cross-row checks).
+     *
+     * @param  array<string, true>  $duplicatePassports
+     */
     private function validateRow(array $row, array $duplicatePassports): ?string
     {
         $name = trim((string) ($row['name'] ?? ''));
@@ -341,7 +642,7 @@ class ManifestImportService
             return 'Sharing plan is required.';
         }
         if (! in_array($sharingPlan, self::VALID_SHARING_PLANS, true)) {
-            return "Sharing plan must be one of: ".implode(', ', self::VALID_SHARING_PLANS).".";
+            return 'Sharing plan must be one of: '.implode(', ', self::VALID_SHARING_PLANS).'.';
         }
 
         $passport = $this->stringOrNull($row['passport_number'] ?? null);
@@ -352,16 +653,6 @@ class ManifestImportService
         $email = $this->stringOrNull($row['email'] ?? null);
         if ($email !== null && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return "Email {$email} is not valid.";
-        }
-
-        $receiptAmount = $this->floatOrNull($row['receipt_amount'] ?? null);
-        if ($receiptAmount !== null && $receiptAmount < 0) {
-            return 'Receipt amount cannot be negative.';
-        }
-
-        $invoiceAmount = $this->floatOrNull($row['invoice_amount'] ?? null);
-        if ($invoiceAmount !== null && $invoiceAmount < 0) {
-            return 'Invoice amount cannot be negative.';
         }
 
         return null;
@@ -395,18 +686,10 @@ class ManifestImportService
         };
     }
 
-    private function formatSharingPlanLabel(string $sharingPlan): string
+    /** Strip the synthesized "__auto_*" booking ref so users never see it. */
+    private function displayBookingRef(string $bookingRef): ?string
     {
-        return match ($sharingPlan) {
-            'single' => 'Single',
-            'double' => 'Double',
-            'triple' => 'Triple',
-            'quad' => 'Quad',
-            'child_with_bed' => 'Child with Bed',
-            'child_no_bed' => 'Child without Bed',
-            'infant' => 'Infant',
-            default => 'Standard',
-        };
+        return Str::startsWith($bookingRef, '__auto_') ? null : $bookingRef;
     }
 
     private function stringOrNull(mixed $value): ?string
@@ -458,5 +741,30 @@ class ManifestImportService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @param  array<int, array{booking_ref:?string, row:?int, message:string}>  $errors
+     * @param  int[]  $confirmationIds
+     * @return array{imported_members:int, bookings:int, quotations:int, invoices:int, receipts:int, errors:array<int, array{booking_ref:?string, row:?int, message:string}>, confirmation_ids:int[]}
+     */
+    private function result(
+        int $importedMembers = 0,
+        int $bookings = 0,
+        int $quotations = 0,
+        int $invoices = 0,
+        int $receipts = 0,
+        array $errors = [],
+        array $confirmationIds = [],
+    ): array {
+        return [
+            'imported_members' => $importedMembers,
+            'bookings' => $bookings,
+            'quotations' => $quotations,
+            'invoices' => $invoices,
+            'receipts' => $receipts,
+            'errors' => $errors,
+            'confirmation_ids' => $confirmationIds,
+        ];
     }
 }

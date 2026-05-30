@@ -10,10 +10,21 @@ use App\Models\ManifestRoom;
 use App\Models\ManifestSharingGroup;
 use App\Models\Quotation;
 use App\Support\InvoiceStatus;
+use Illuminate\Support\Collection;
 
 class PaymentStatusService
 {
     public function __construct(private PackageSeatService $packageSeatService) {}
+
+    /**
+     * When true, receipt-driven status syncs still update member/invoice
+     * status, but skip ALL manifest side effects: the seat-unavailable
+     * deletion/reset of ManifestMembers and the auto-link that creates
+     * ManifestMembers/groups/rooms. Used by the manifest importer, which
+     * builds manifest grouping deterministically and must not have those
+     * rows duplicated or deleted by the Receipt boot hook.
+     */
+    public static bool $suppressManifestAutoLink = false;
 
     /**
      * Minimum status required for auto-linking CC members to manifest.
@@ -160,7 +171,7 @@ class PaymentStatusService
             $packageId = (int) ($member->confirmation?->package_id ?? 0);
             $isSeatConsumingStatus = in_array($newStatus, $autoLinkStatuses, true);
 
-            if ($packageId > 0 && $isSeatConsumingStatus) {
+            if (! self::$suppressManifestAutoLink && $packageId > 0 && $isSeatConsumingStatus) {
                 $hasAvailableSeat = $this->packageSeatService->hasAvailableSeat($packageId, (int) $member->id);
 
                 if (! $hasAvailableSeat) {
@@ -236,7 +247,7 @@ class PaymentStatusService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Invoice>  $memberInvoices
+     * @param  Collection<int, Invoice>  $memberInvoices
      */
     private function resolveMemberRequiredAmount(CustomerConfirmationMember $member, $memberInvoices): ?float
     {
@@ -305,7 +316,7 @@ class PaymentStatusService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Invoice>  $memberInvoices
+     * @param  Collection<int, Invoice>  $memberInvoices
      */
     private function resolveMemberPaidAmount($memberInvoices, int $memberId): float
     {
@@ -364,6 +375,10 @@ class PaymentStatusService
         array $memberIds,
         array $autoLinkStatuses
     ): void {
+        if (self::$suppressManifestAutoLink) {
+            return;
+        }
+
         if (! $quotation->customer_confirmation_id) {
             return;
         }
