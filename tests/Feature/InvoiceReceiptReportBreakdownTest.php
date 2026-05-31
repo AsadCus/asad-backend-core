@@ -478,6 +478,95 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(3000.0, (float) ($receiptPayload['balance_due_amount'] ?? 0));
     }
 
+    public function test_payment_progress_orders_by_invoice_creation_sequence_not_invoice_date(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RPT-ORDER-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Sequenced Member',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        // Created first (lowest id) but with the LATEST invoice_date — must still be "1st Payment".
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync([(int) $item->id]);
+
+        // Created second, with the EARLIEST invoice_date.
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => '50%',
+            'amount' => 2000,
+            'invoice_date' => now()->subDays(5)->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync([(int) $item->id]);
+
+        // Created third, with a middle invoice_date.
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Balance',
+            'amount' => 3000,
+            'invoice_date' => now()->subDays(2)->format('Y-m-d'),
+            'due_date' => now()->addDays(2)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync([(int) $item->id]);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $firstInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $payloads = [
+            app(QuotationService::class)->getForEditShow((int) $quotation->id),
+            app(InvoiceService::class)->getForEditShow((int) $firstInvoice->id),
+            app(ReceiptService::class)->getForEditShow((int) $receipt->id),
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
+            $this->assertSame(1000.0, (float) data_get($payload, 'invoice_payment_progress.0.total_amount'));
+            $this->assertSame('2nd Payment', (string) data_get($payload, 'invoice_payment_progress.1.label'));
+            $this->assertSame(2000.0, (float) data_get($payload, 'invoice_payment_progress.1.total_amount'));
+            $this->assertSame('3rd Payment', (string) data_get($payload, 'invoice_payment_progress.2.label'));
+            $this->assertSame(3000.0, (float) data_get($payload, 'invoice_payment_progress.2.total_amount'));
+        }
+    }
+
     public function test_refund_receipt_report_payload_uses_net_order_total_for_amount_not_refunded(): void
     {
         $graph = $this->createRefundReceiptGraph();

@@ -2293,22 +2293,36 @@ export default function OpsMovementForm({
                                 (rowIndex): rowIndex is number =>
                                     rowIndex !== null,
                             );
-                        const rowsToRender =
-                            visibleRowIndexes.length > 0
-                                ? visibleRowIndexes.map(
-                                      (actualIndex, visibleIndex) => ({
-                                          row: allRows[actualIndex],
-                                          actualIndex,
-                                          visibleIndex,
-                                      }),
-                                  )
+                        const visibleRows = visibleRowIndexes.map(
+                            (actualIndex, visibleIndex) => ({
+                                row: allRows[actualIndex],
+                                actualIndex,
+                                visibleIndex,
+                            }),
+                        );
+                        // A row has a real file if a new File is staged or an
+                        // existing stored path exists.
+                        const uploadedRows = visibleRows
+                            .filter(
+                                ({ row }) =>
+                                    Boolean(row.file) ||
+                                    Boolean(row.file_path),
+                            )
+                            .map((entry, visibleIndex) => ({
+                                ...entry,
+                                visibleIndex,
+                            }));
+                        const rowsToRender = canEdit
+                            ? visibleRows.length > 0
+                                ? visibleRows
                                 : [
                                       {
                                           row: createEmptyDocumentEntry(),
                                           actualIndex: -1,
                                           visibleIndex: 0,
                                       },
-                                  ];
+                                  ]
+                            : uploadedRows;
 
                         return (
                             <TabsContent
@@ -2329,7 +2343,7 @@ export default function OpsMovementForm({
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            disabled={processing}
+                                            disabled={!canEdit || processing}
                                             onClick={() => {
                                                 updateDocumentRows(tab.key, [
                                                     ...allRows,
@@ -2341,7 +2355,8 @@ export default function OpsMovementForm({
                                         </Button>
                                     </div>
 
-                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {rowsToRender.length > 0 ? (
+                                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                         {rowsToRender.map((renderRow) => {
                                             const {
                                                 row,
@@ -2354,7 +2369,8 @@ export default function OpsMovementForm({
                                                     key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
                                                     className="rounded-lg border p-3"
                                                 >
-                                                    {actualIndex >= 0 && (
+                                                    {canEdit &&
+                                                        actualIndex >= 0 && (
                                                         <div className="mb-3 flex justify-end">
                                                             <Button
                                                                 type="button"
@@ -2400,8 +2416,11 @@ export default function OpsMovementForm({
                                                             row.file_name ??
                                                             null
                                                         }
-                                                        isView={false}
-                                                        disabled={processing}
+                                                        isView={!canEdit}
+                                                        disabled={
+                                                            !canEdit ||
+                                                            processing
+                                                        }
                                                         onSelect={(file) => {
                                                             const nextRows =
                                                                 allRows.length >
@@ -2484,7 +2503,12 @@ export default function OpsMovementForm({
                                                 </div>
                                             );
                                         })}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            No {tab.label.toLowerCase()} uploaded.
+                                        </p>
+                                    )}
                                 </div>
                             </TabsContent>
                         );

@@ -319,7 +319,7 @@ class ReceiptService
                 ], true);
             })
             ->sortBy(function ($invoice): int {
-                return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
+                return (int) ($invoice->id ?? 0);
             })
             ->values();
 
