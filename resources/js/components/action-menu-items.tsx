@@ -279,6 +279,18 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('combine-quotations') && (
+                <Item onClick={() => onAction?.('combine-quotations', row)}>
+                    Combine Quotations
+                </Item>
+            )}
+
+            {actions.includes('combine-confirmations') && (
+                <Item onClick={() => onAction?.('combine-confirmations', row)}>
+                    Combine Confirmations
+                </Item>
+            )}
+
             {actions.includes('sync-billing') && (
                 <Item onClick={() => onAction?.('sync-billing', row)}>
                     Sync Billing

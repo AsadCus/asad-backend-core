@@ -215,6 +215,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('customer-confirmations/members/{memberId}', [CustomerConfirmationController::class, 'updateMember'])->name('customer-confirmations.members.update');
     Route::post('customer-confirmations/members/{memberId}/cancel', [CustomerConfirmationController::class, 'cancelMember'])->name('customer-confirmations.members.cancel');
     Route::post('customer-confirmations/{id}/move-members', [CustomerConfirmationController::class, 'moveMembers'])->name('customer-confirmations.move-members');
+    Route::post('customer-confirmations/{id}/combine-quotations', [CustomerConfirmationController::class, 'combineQuotations'])->name('customer-confirmations.combine-quotations');
+    Route::post('customer-confirmations/{id}/combine-confirmation', [CustomerConfirmationController::class, 'combineConfirmation'])->name('customer-confirmations.combine-confirmation');
     Route::post('customer-confirmations/{id}/sync-billing', [CustomerConfirmationController::class, 'syncBilling'])->name('customer-confirmations.sync-billing');
     Route::post('customer-confirmations/{id}/generate-quotations', [CustomerConfirmationController::class, 'generateQuotations'])->name('customer-confirmations.generate-quotations');
     Route::post('customer-confirmations/{id}/refunds', [CustomerConfirmationController::class, 'createRefunds'])->name('customer-confirmations.refunds.store');
@@ -292,5 +294,5 @@ Route::fallback(function () {
     return Inertia::render('error/notfound');
 });
 
-require __DIR__ . '/settings.php';
-require __DIR__ . '/auth.php';
+require __DIR__.'/settings.php';
+require __DIR__.'/auth.php';

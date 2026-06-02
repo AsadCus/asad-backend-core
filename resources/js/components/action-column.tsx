@@ -37,6 +37,8 @@ export type ActionType =
     | 'copy-customer-confirmation-public-edit-link'
     | 'move'
     | 'move-members'
+    | 'combine-quotations'
+    | 'combine-confirmations'
     | 'sync-billing'
     | 'cancel-member'
     | 'refund'

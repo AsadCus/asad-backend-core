@@ -191,6 +191,21 @@ export interface CustomerConfirmationMemberDatatableSchema {
     refund_cancel_date?: string | null;
 }
 
+export interface QuotationSummarySchema {
+    id: number;
+    number: string | null;
+    status: string;
+    status_label: string;
+    payer_member_id: number | null;
+    payer_name: string;
+    member_ids: number[];
+    member_names: string[];
+    member_count: number;
+    total_amount: number;
+    paid_amount: number;
+    has_order: boolean;
+}
+
 export interface CustomerConfirmationDatatableSchema {
     id: number;
     number: string | null;
@@ -215,6 +230,8 @@ export interface CustomerConfirmationDatatableSchema {
     refund_cancel_date?: string | null;
     can_create_quotation: boolean;
     can_delete?: boolean;
+    quotation_count?: number;
+    quotations?: QuotationSummarySchema[];
     created_at: string;
     members: CustomerConfirmationMemberDatatableSchema[];
 }

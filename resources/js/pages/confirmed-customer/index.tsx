@@ -86,6 +86,38 @@ const formatCurrency = (value: number): string => {
     }).format(value || 0);
 };
 
+// Resolve a business/validation error returned on an Inertia "success" redirect
+// (controllers convert aborts to back()->with('error', ...)).
+const resolveCombineResponseError = (page: {
+    props: Record<string, unknown>;
+}): string => {
+    const flash = (page.props as unknown as SharedData).flash;
+    const flashError =
+        typeof flash?.error === 'string' ? flash.error.trim() : '';
+
+    const pageErrors = (page.props.errors as Record<string, unknown>) ?? {};
+    const firstValidationError = Object.values(pageErrors)
+        .map((value) =>
+            Array.isArray(value)
+                ? String(value[0] ?? '').trim()
+                : String(value ?? '').trim(),
+        )
+        .find((message) => message.length > 0);
+
+    return flashError.length > 0 ? flashError : (firstValidationError ?? '');
+};
+
+const resolveCombineValidationError = (
+    errors: Record<string, string | string[]>,
+    fallback: string,
+): string => {
+    const resolvedError = Object.values(errors)[0] ?? fallback;
+
+    return Array.isArray(resolvedError)
+        ? String(resolvedError[0] ?? fallback)
+        : String(resolvedError);
+};
+
 const PAYMENT_ISSUE_STATUS_PRIORITY = [
     'pending_payment',
     'partially_paid',
@@ -651,6 +683,7 @@ interface ConfirmedCustomerProps {
     packageOptions?: OptionType[];
     paymentMethods?: OptionType[];
     autoBillingSyncEnabled?: boolean;
+    combineFeatureEnabled?: boolean;
     pageTitle?: string;
     indexUrl?: string;
 }
@@ -694,6 +727,7 @@ export default function ConfirmedCustomerIndex({
     packageOptions = [],
     paymentMethods = [],
     autoBillingSyncEnabled = true,
+    combineFeatureEnabled = true,
     pageTitle = 'Confirmed Customers',
     indexUrl = confirmedCustomerIndex().url,
 }: ConfirmedCustomerProps) {
@@ -817,6 +851,42 @@ export default function ConfirmedCustomerIndex({
     const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
     const [isCreatingBalanceInvoice, setIsCreatingBalanceInvoice] =
         useState(false);
+
+    // Combine Quotation dialog
+    const [combineQuotationOpen, setCombineQuotationOpen] = useState(false);
+    const [combineQuotationGroup, setCombineQuotationGroup] =
+        useState<CustomerConfirmationDatatableSchema | null>(null);
+    const [combineQuotationTargetId, setCombineQuotationTargetId] = useState<
+        number | null
+    >(null);
+    const [combineQuotationMemberIds, setCombineQuotationMemberIds] = useState<
+        number[]
+    >([]);
+    const [combiningQuotation, setCombiningQuotation] = useState(false);
+    const [combineQuotationError, setCombineQuotationError] = useState<
+        string | null
+    >(null);
+
+    // Combine Confirmation dialog
+    const [combineConfirmationOpen, setCombineConfirmationOpen] =
+        useState(false);
+    const [combineConfirmationGroup, setCombineConfirmationGroup] =
+        useState<CustomerConfirmationDatatableSchema | null>(null);
+    const [combineConfirmationTargetCcId, setCombineConfirmationTargetCcId] =
+        useState<number | null>(null);
+    const [combineConfirmationMemberIds, setCombineConfirmationMemberIds] =
+        useState<number[]>([]);
+    const [combineConfirmationMode, setCombineConfirmationMode] = useState<
+        'keep' | 'merge'
+    >('keep');
+    const [
+        combineConfirmationTargetQuotationId,
+        setCombineConfirmationTargetQuotationId,
+    ] = useState<number | null>(null);
+    const [combiningConfirmation, setCombiningConfirmation] = useState(false);
+    const [combineConfirmationError, setCombineConfirmationError] = useState<
+        string | null
+    >(null);
 
     const isMemberView = memberDialogMode === 'view';
 
@@ -991,6 +1061,192 @@ export default function ConfirmedCustomerIndex({
                 },
                 onFinish: () => {
                     setMovingMembers(false);
+                },
+            },
+        );
+    };
+
+    const openCombineQuotationDialog = (
+        group: CustomerConfirmationDatatableSchema,
+    ) => {
+        const quotations = group.quotations ?? [];
+
+        if (quotations.length < 2) {
+            toast.error('At least two quotations are required to combine.');
+
+            return;
+        }
+
+        setCombineQuotationGroup(group);
+        setCombineQuotationTargetId(quotations[0]?.id ?? null);
+        setCombineQuotationMemberIds([]);
+        setCombineQuotationError(null);
+        setCombineQuotationOpen(true);
+    };
+
+    const submitCombineQuotation = () => {
+        if (!combineQuotationGroup) {
+            return;
+        }
+
+        if (!combineQuotationTargetId) {
+            setCombineQuotationError('Please select a target quotation.');
+
+            return;
+        }
+
+        if (combineQuotationMemberIds.length === 0) {
+            setCombineQuotationError(
+                'Select at least one member to combine into the target quotation.',
+            );
+
+            return;
+        }
+
+        setCombineQuotationError(null);
+        setCombiningQuotation(true);
+
+        router.post(
+            `/customer-confirmations/${combineQuotationGroup.id}/combine-quotations`,
+            {
+                target_quotation_id: combineQuotationTargetId,
+                member_ids: combineQuotationMemberIds,
+            },
+            {
+                preserveScroll: true,
+                preserveState: false,
+                onSuccess: (page) => {
+                    const resolvedError = resolveCombineResponseError(page);
+
+                    if (resolvedError.length > 0) {
+                        setCombineQuotationError(resolvedError);
+                        toast.error(resolvedError);
+
+                        return;
+                    }
+
+                    toast.success('Quotations combined successfully.');
+                    setCombineQuotationError(null);
+                    setCombineQuotationOpen(false);
+                },
+                onError: (errors) => {
+                    const errorMessage = resolveCombineValidationError(
+                        errors,
+                        'Failed to combine quotations.',
+                    );
+                    setCombineQuotationError(errorMessage);
+                    toast.error(errorMessage);
+                },
+                onFinish: () => {
+                    setCombiningQuotation(false);
+                },
+            },
+        );
+    };
+
+    const openCombineConfirmationDialog = (
+        group: CustomerConfirmationDatatableSchema,
+    ) => {
+        const siblingGroups = dataGroups.filter(
+            (candidate) =>
+                candidate.id !== group.id &&
+                candidate.package_id != null &&
+                candidate.package_id === group.package_id,
+        );
+
+        if (siblingGroups.length === 0) {
+            toast.error(
+                'No other confirmation in the same package to combine with.',
+            );
+
+            return;
+        }
+
+        const activeMemberIds = group.members
+            .filter((member) => member.status !== 'cancelled')
+            .map((member) => member.id);
+
+        setCombineConfirmationGroup(group);
+        setCombineConfirmationTargetCcId(siblingGroups[0]?.id ?? null);
+        setCombineConfirmationMemberIds(activeMemberIds);
+        setCombineConfirmationMode('keep');
+        setCombineConfirmationTargetQuotationId(null);
+        setCombineConfirmationError(null);
+        setCombineConfirmationOpen(true);
+    };
+
+    const submitCombineConfirmation = () => {
+        if (!combineConfirmationGroup) {
+            return;
+        }
+
+        if (!combineConfirmationTargetCcId) {
+            setCombineConfirmationError(
+                'Please select a confirmation to combine into.',
+            );
+
+            return;
+        }
+
+        if (combineConfirmationMemberIds.length === 0) {
+            setCombineConfirmationError('Select at least one member to move.');
+
+            return;
+        }
+
+        if (
+            combineConfirmationMode === 'merge' &&
+            !combineConfirmationTargetQuotationId
+        ) {
+            setCombineConfirmationError(
+                'Select the target quotation to merge the moved members into.',
+            );
+
+            return;
+        }
+
+        setCombineConfirmationError(null);
+        setCombiningConfirmation(true);
+
+        router.post(
+            `/customer-confirmations/${combineConfirmationGroup.id}/combine-confirmation`,
+            {
+                target_confirmation_id: combineConfirmationTargetCcId,
+                member_ids: combineConfirmationMemberIds,
+                target_quotation_id:
+                    combineConfirmationMode === 'merge'
+                        ? combineConfirmationTargetQuotationId
+                        : null,
+            },
+            {
+                preserveScroll: true,
+                preserveState: false,
+                onSuccess: (page) => {
+                    const resolvedError = resolveCombineResponseError(page);
+
+                    if (resolvedError.length > 0) {
+                        setCombineConfirmationError(resolvedError);
+                        toast.error(resolvedError);
+
+                        return;
+                    }
+
+                    toast.success(
+                        'Customer confirmations combined successfully.',
+                    );
+                    setCombineConfirmationError(null);
+                    setCombineConfirmationOpen(false);
+                },
+                onError: (errors) => {
+                    const errorMessage = resolveCombineValidationError(
+                        errors,
+                        'Failed to combine confirmations.',
+                    );
+                    setCombineConfirmationError(errorMessage);
+                    toast.error(errorMessage);
+                },
+                onFinish: () => {
+                    setCombiningConfirmation(false);
                 },
             },
         );
@@ -2014,6 +2270,29 @@ export default function ConfirmedCustomerIndex({
                                 }
 
                                 if (
+                                    combineFeatureEnabled &&
+                                    userPermissions.includes('customer edit') &&
+                                    (group.quotation_count ?? 0) > 1
+                                ) {
+                                    rowActions.push('combine-quotations');
+                                }
+
+                                if (
+                                    combineFeatureEnabled &&
+                                    userPermissions.includes('customer edit') &&
+                                    hasActiveMembers &&
+                                    dataGroups.some(
+                                        (candidate) =>
+                                            candidate.id !== group.id &&
+                                            candidate.package_id != null &&
+                                            candidate.package_id ===
+                                                group.package_id,
+                                    )
+                                ) {
+                                    rowActions.push('combine-confirmations');
+                                }
+
+                                if (
                                     userPermissions.includes('customer edit') &&
                                     group.can_delete
                                 ) {
@@ -2068,6 +2347,20 @@ export default function ConfirmedCustomerIndex({
                                         row
                                     ) {
                                         openQuotationDialog(row.original);
+                                    } else if (
+                                        action === 'combine-quotations' &&
+                                        row
+                                    ) {
+                                        openCombineQuotationDialog(
+                                            row.original,
+                                        );
+                                    } else if (
+                                        action === 'combine-confirmations' &&
+                                        row
+                                    ) {
+                                        openCombineConfirmationDialog(
+                                            row.original,
+                                        );
                                     } else if (action === 'refund' && row) {
                                         openRefundDialog(row.original);
                                     } else if (action === 'sync-billing') {
@@ -2434,6 +2727,448 @@ export default function ConfirmedCustomerIndex({
                                     disabled={movingMembers}
                                 >
                                     Move Selected Members
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={combineQuotationOpen}
+                onOpenChange={setCombineQuotationOpen}
+            >
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] flex-col"
+                    onKeyDown={handleDialogTabKey}
+                >
+                    <DialogHeader>
+                        <DialogTitle>Combine Quotations</DialogTitle>
+                        <DialogDescription>
+                            Move members from other quotations into one target
+                            quotation. Their items, invoices, and receipts move
+                            with them; quotations left empty are removed.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {combineQuotationGroup && (
+                        <div className="h-full w-full flex-1 space-y-4 overflow-y-auto pb-2">
+                            {combineQuotationError && (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        {combineQuotationError}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            <FormField label="Target Quotation">
+                                <ProperInputSelect
+                                    options={(
+                                        combineQuotationGroup.quotations ?? []
+                                    ).map((quotation) => ({
+                                        value: String(quotation.id),
+                                        label: `${quotation.number ?? `#${quotation.id}`} — ${quotation.payer_name} — ${quotation.member_count} member(s)`,
+                                    }))}
+                                    value={
+                                        combineQuotationTargetId
+                                            ? String(combineQuotationTargetId)
+                                            : ''
+                                    }
+                                    onValueChange={(value) => {
+                                        setCombineQuotationError(null);
+                                        const nextId = value
+                                            ? Number(value)
+                                            : null;
+                                        setCombineQuotationTargetId(nextId);
+                                        setCombineQuotationMemberIds((prev) => {
+                                            const targetQuotation = (
+                                                combineQuotationGroup.quotations ??
+                                                []
+                                            ).find(
+                                                (quotation) =>
+                                                    quotation.id === nextId,
+                                            );
+
+                                            return prev.filter(
+                                                (memberId) =>
+                                                    !(
+                                                        targetQuotation?.member_ids ??
+                                                        []
+                                                    ).includes(memberId),
+                                            );
+                                        });
+                                    }}
+                                    placeholder="Select the quotation to keep"
+                                    searchable={false}
+                                    disabled={combiningQuotation}
+                                />
+                            </FormField>
+
+                            <div className="space-y-3">
+                                <p className="text-sm text-muted-foreground">
+                                    Select members to move into the target
+                                    quotation:
+                                </p>
+
+                                {(combineQuotationGroup.quotations ?? [])
+                                    .filter(
+                                        (quotation) =>
+                                            quotation.id !==
+                                            combineQuotationTargetId,
+                                    )
+                                    .map((quotation) => (
+                                        <div
+                                            key={quotation.id}
+                                            className="space-y-2 rounded-md border p-3"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-medium">
+                                                    {quotation.number ??
+                                                        `#${quotation.id}`}{' '}
+                                                    — {quotation.payer_name}
+                                                </span>
+                                                <Badge variant="outline">
+                                                    {quotation.status_label}
+                                                </Badge>
+                                            </div>
+
+                                            {quotation.member_ids.length ===
+                                            0 ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    No members linked to this
+                                                    quotation.
+                                                </p>
+                                            ) : (
+                                                quotation.member_ids.map(
+                                                    (memberId, index) => {
+                                                        const checked =
+                                                            combineQuotationMemberIds.includes(
+                                                                memberId,
+                                                            );
+
+                                                        return (
+                                                            <label
+                                                                key={memberId}
+                                                                className="flex items-center gap-2 rounded px-2 py-1"
+                                                            >
+                                                                <Checkbox
+                                                                    checked={
+                                                                        checked
+                                                                    }
+                                                                    disabled={
+                                                                        combiningQuotation
+                                                                    }
+                                                                    onCheckedChange={(
+                                                                        value,
+                                                                    ) => {
+                                                                        setCombineQuotationError(
+                                                                            null,
+                                                                        );
+
+                                                                        if (
+                                                                            !value
+                                                                        ) {
+                                                                            setCombineQuotationMemberIds(
+                                                                                (
+                                                                                    prev,
+                                                                                ) =>
+                                                                                    prev.filter(
+                                                                                        (
+                                                                                            id,
+                                                                                        ) =>
+                                                                                            id !==
+                                                                                            memberId,
+                                                                                    ),
+                                                                            );
+
+                                                                            return;
+                                                                        }
+
+                                                                        setCombineQuotationMemberIds(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                Array.from(
+                                                                                    new Set(
+                                                                                        [
+                                                                                            ...prev,
+                                                                                            memberId,
+                                                                                        ],
+                                                                                    ),
+                                                                                ),
+                                                                        );
+                                                                    }}
+                                                                />
+                                                                <span className="text-sm">
+                                                                    {quotation
+                                                                        .member_names[
+                                                                        index
+                                                                    ] ??
+                                                                        `Member #${memberId}`}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    },
+                                                )
+                                            )}
+                                        </div>
+                                    ))}
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setCombineQuotationOpen(false)
+                                    }
+                                    disabled={combiningQuotation}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={submitCombineQuotation}
+                                    disabled={combiningQuotation}
+                                >
+                                    {combiningQuotation
+                                        ? 'Combining...'
+                                        : 'Combine Quotations'}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={combineConfirmationOpen}
+                onOpenChange={setCombineConfirmationOpen}
+            >
+                <DialogContent
+                    className="flex max-h-[95%] max-w-[95%] flex-col"
+                    onKeyDown={handleDialogTabKey}
+                >
+                    <DialogHeader>
+                        <DialogTitle>Combine Confirmations</DialogTitle>
+                        <DialogDescription>
+                            Move members into another confirmation in the same
+                            package. Their quotations and payments move with
+                            them; the emptied confirmation is removed.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {combineConfirmationGroup && (
+                        <div className="h-full w-full flex-1 space-y-4 overflow-y-auto pb-2">
+                            {combineConfirmationError && (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        {combineConfirmationError}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            <FormField label="Combine Into">
+                                <ProperInputSelect
+                                    options={dataGroups
+                                        .filter(
+                                            (candidate) =>
+                                                candidate.id !==
+                                                    combineConfirmationGroup.id &&
+                                                candidate.package_id != null &&
+                                                candidate.package_id ===
+                                                    combineConfirmationGroup.package_id,
+                                        )
+                                        .map((candidate) => {
+                                            const leader =
+                                                candidate.members.find(
+                                                    (member) =>
+                                                        member.is_leader,
+                                                ) ?? candidate.members[0];
+
+                                            return {
+                                                value: String(candidate.id),
+                                                label: `${candidate.number ?? `#${candidate.id}`} — ${leader?.name ?? '-'} — ${candidate.active_member_count} member(s)`,
+                                            };
+                                        })}
+                                    value={
+                                        combineConfirmationTargetCcId
+                                            ? String(
+                                                  combineConfirmationTargetCcId,
+                                              )
+                                            : ''
+                                    }
+                                    onValueChange={(value) => {
+                                        setCombineConfirmationError(null);
+                                        setCombineConfirmationTargetCcId(
+                                            value ? Number(value) : null,
+                                        );
+                                        setCombineConfirmationTargetQuotationId(
+                                            null,
+                                        );
+                                    }}
+                                    placeholder="Select the destination confirmation"
+                                    disabled={combiningConfirmation}
+                                />
+                            </FormField>
+
+                            <div className="space-y-2 rounded-md border p-3">
+                                <p className="text-sm text-muted-foreground">
+                                    Members to move:
+                                </p>
+                                {combineConfirmationGroup.members.map(
+                                    (member) => {
+                                        const disabled =
+                                            member.status === 'cancelled' ||
+                                            combiningConfirmation;
+                                        const checked =
+                                            combineConfirmationMemberIds.includes(
+                                                member.id,
+                                            );
+
+                                        return (
+                                            <label
+                                                key={member.id}
+                                                className="flex items-center justify-between gap-2 rounded px-2 py-1"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        checked={checked}
+                                                        disabled={disabled}
+                                                        onCheckedChange={(
+                                                            value,
+                                                        ) => {
+                                                            setCombineConfirmationError(
+                                                                null,
+                                                            );
+
+                                                            if (!value) {
+                                                                setCombineConfirmationMemberIds(
+                                                                    (prev) =>
+                                                                        prev.filter(
+                                                                            (
+                                                                                id,
+                                                                            ) =>
+                                                                                id !==
+                                                                                member.id,
+                                                                        ),
+                                                                );
+
+                                                                return;
+                                                            }
+
+                                                            setCombineConfirmationMemberIds(
+                                                                (prev) =>
+                                                                    Array.from(
+                                                                        new Set(
+                                                                            [
+                                                                                ...prev,
+                                                                                member.id,
+                                                                            ],
+                                                                        ),
+                                                                    ),
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span>{member.name}</span>
+                                                </div>
+
+                                                <Badge variant="outline">
+                                                    {confirmationMemberStatusLabels[
+                                                        member.status ??
+                                                            'pending_payment'
+                                                    ] ?? member.status}
+                                                </Badge>
+                                            </label>
+                                        );
+                                    },
+                                )}
+                            </div>
+
+                            <FormField label="Quotation Handling">
+                                <ProperInputSelect
+                                    options={[
+                                        {
+                                            value: 'keep',
+                                            label: 'Keep their quotations (move as-is)',
+                                        },
+                                        {
+                                            value: 'merge',
+                                            label: 'Merge moved members into one quotation',
+                                        },
+                                    ]}
+                                    value={combineConfirmationMode}
+                                    onValueChange={(value) => {
+                                        setCombineConfirmationError(null);
+                                        setCombineConfirmationMode(
+                                            value === 'merge'
+                                                ? 'merge'
+                                                : 'keep',
+                                        );
+
+                                        if (value !== 'merge') {
+                                            setCombineConfirmationTargetQuotationId(
+                                                null,
+                                            );
+                                        }
+                                    }}
+                                    searchable={false}
+                                    disabled={combiningConfirmation}
+                                />
+                            </FormField>
+
+                            {combineConfirmationMode === 'merge' && (
+                                <FormField label="Merge Into Quotation">
+                                    <ProperInputSelect
+                                        options={(
+                                            dataGroups.find(
+                                                (candidate) =>
+                                                    candidate.id ===
+                                                    combineConfirmationTargetCcId,
+                                            )?.quotations ?? []
+                                        ).map((quotation) => ({
+                                            value: String(quotation.id),
+                                            label: `${quotation.number ?? `#${quotation.id}`} — ${quotation.payer_name} — ${quotation.member_count} member(s)`,
+                                        }))}
+                                        value={
+                                            combineConfirmationTargetQuotationId
+                                                ? String(
+                                                      combineConfirmationTargetQuotationId,
+                                                  )
+                                                : ''
+                                        }
+                                        onValueChange={(value) => {
+                                            setCombineConfirmationError(null);
+                                            setCombineConfirmationTargetQuotationId(
+                                                value ? Number(value) : null,
+                                            );
+                                        }}
+                                        placeholder="Select the quotation to merge into"
+                                        searchable={false}
+                                        disabled={combiningConfirmation}
+                                    />
+                                </FormField>
+                            )}
+
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setCombineConfirmationOpen(false)
+                                    }
+                                    disabled={combiningConfirmation}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={submitCombineConfirmation}
+                                    disabled={combiningConfirmation}
+                                >
+                                    {combiningConfirmation
+                                        ? 'Combining...'
+                                        : 'Combine Confirmations'}
                                 </Button>
                             </div>
                         </div>
