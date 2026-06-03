@@ -217,7 +217,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    router.get(edit(row.id).url);
+                                    if (userPermissions.includes('manifest edit')) {
+                                        router.get(edit(row.id).url);
+                                    } else {
+                                        router.get(show(row.id).url);
+                                    }
                                 }
                             }}
                             initialState={{
