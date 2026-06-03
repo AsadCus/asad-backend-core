@@ -47,8 +47,10 @@ export function resolveUserRoleLabel({
     isCustomer: boolean;
 }) {
     if (isSuperadmin) return 'Superadmin';
-    if (isAdmin) return 'Admin';
-    if (isSales) return 'Sales';
+    if (isAdmin) return 'Salesperson';
+    // if (isAdmin) return 'Admin';
+    if (isSales) return 'Financeperson';
+    // if (isSales) return 'Sales';
     if (isOperations) return 'Operations';
     if (isCustomer) return 'Customer';
     return 'User';

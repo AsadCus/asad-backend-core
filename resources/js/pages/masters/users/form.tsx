@@ -482,7 +482,13 @@ export function UserForm({
                                                                     r.value,
                                                                 )}
                                                             >
-                                                                {r.label}
+                                                                {r.label ===
+                                                                'Sales'
+                                                                    ? 'Finance'
+                                                                    : r.label ===
+                                                                        'Admin'
+                                                                      ? 'Sales'
+                                                                      : r.label}
                                                             </SelectItem>
                                                         );
                                                     })}

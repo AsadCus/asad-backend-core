@@ -12,7 +12,8 @@ import { UserSchema } from '../masters/users/schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Salesperson',
+        title: 'Financeperson',
+        // title: 'Salesperson',
         href: index().url,
     },
 ];
@@ -94,10 +95,12 @@ export default function Sales({
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Salesperson" />
+                <Head title="Financeperson" />
+                {/* <Head title="Salesperson" /> */}
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Salesperson</h2>
+                        <h2 className="text-lg font-semibold">Financeperson</h2>
+                        {/* <h2 className="text-lg font-semibold">Salesperson</h2> */}
                     </div>
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
@@ -121,8 +124,10 @@ export default function Sales({
                                         router.get(edit(userId).url);
                                     } else if (action === 'delete') {
                                         confirm({
-                                            title: 'Delete Sales',
-                                            message: `Are you sure you want to delete sales "${row?.original.name}"?`,
+                                            title: 'Delete Financeperson',
+                                            message: `Are you sure you want to delete financeperson "${row?.original.name}"?`,
+                                            // title: 'Delete Sales',
+                                            // message: `Are you sure you want to delete sales "${row?.original.name}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {

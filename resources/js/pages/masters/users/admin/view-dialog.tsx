@@ -28,10 +28,16 @@ export default function AdminViewDialog({
 }: AdminViewDialogProps) {
     const title =
         mode === 'create'
-            ? 'Create Admin'
+            ? 'Create Salesperson'
             : mode === 'edit'
-              ? 'Edit Admin'
-              : 'View Admin';
+              ? 'Edit Salesperson'
+              : 'View Salesperson';
+    // const title =
+    //     mode === 'create'
+    //         ? 'Create Admin'
+    //         : mode === 'edit'
+    //           ? 'Edit Admin'
+    //           : 'View Admin';
 
     return (
         <RoleUserFormDialog
