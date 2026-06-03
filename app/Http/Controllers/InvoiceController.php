@@ -232,4 +232,44 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
+
+    public function sendEmail($id)
+    {
+        try {
+            $invoiceArray = $this->invoiceService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('invoice', $invoiceArray);
+
+            $html = view('invoices.report-content', [
+                'data' => $invoiceArray,
+                'items' => $invoiceArray['items'],
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            $invoice = \App\Models\Invoice::with('order.quotation.customer.user')->findOrFail($id);
+            $pdfContent = $pdf->output();
+
+            $customerEmail = $invoice->order?->quotation?->customer?->user?->email;
+
+            if ($customerEmail) {
+                \Illuminate\Support\Facades\Mail::to($customerEmail)->send(new \App\Mail\InvoiceMail($invoice, $pdfContent));
+
+                $invoice->update(['email_sent_at' => now()]);
+            } else {
+                return redirect()->back()->with('error', 'Customer does not have an email address.');
+            }
+
+            return redirect()->back()->with('success', 'Email sent to '.$customerEmail.' successfully.');
+        } catch (\Exception $e) {
+            Log::error('Invoice Email Sending Error: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to send invoice email: '.$e->getMessage());
+        }
+    }
 }

@@ -176,12 +176,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('invoice/{id}/generate-pdf', [InvoiceController::class, 'generatePdf'])->name('invoice.generate.pdf');
     Route::get('invoice-get-for-show/{id}', [InvoiceController::class, 'getForShow'])->name('invoice.get-for-show');
     Route::post('invoice/{id}/recreate-receipt', [InvoiceController::class, 'recreateReceipt'])->name('invoice.recreate-receipt');
+    Route::post('invoice/{id}/send-email', [InvoiceController::class, 'sendEmail'])->name('invoice.send-email');
 
     // Receipt
     Route::resource('receipt', ReceiptController::class);
     Route::get('receipt/{id}/preview', [ReceiptController::class, 'preview'])->name('receipt.preview');
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
+    Route::post('receipt/{id}/send-email', [ReceiptController::class, 'sendEmail'])->name('receipt.send-email');
 
     // User Logs — SuperAdmin only per access matrix
     Route::get('user-logs', [UserLogsController::class, 'index'])

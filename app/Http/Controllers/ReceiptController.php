@@ -208,4 +208,50 @@ class ReceiptController extends Controller
             return response()->json(['error' => 'Failed to generate PDF: '.$e->getMessage()], 500);
         }
     }
+
+    public function sendEmail($id)
+    {
+        try {
+            $data = $this->receiptService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('receipt', $data);
+
+            $paymentMethod = $data['payment_method'] ?? '';
+            $paymentMethodLabel = collect($this->receiptService->getPaymentMethodOptions())
+                ->firstWhere('value', $paymentMethod)['label'] ?? ucfirst((string) $paymentMethod);
+
+            $data['payment_method_label'] = $paymentMethodLabel;
+
+            $html = view('receipts.report-content', [
+                'data' => $data,
+                'items' => $data['items'],
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            $receipt = \App\Models\Receipt::with('invoice.order.quotation.customer.user')->findOrFail($id);
+            $pdfContent = $pdf->output();
+
+            $customerEmail = $receipt->invoice?->order?->quotation?->customer?->user?->email;
+
+            if ($customerEmail) {
+                \Illuminate\Support\Facades\Mail::to($customerEmail)->send(new \App\Mail\ReceiptMail($receipt, $pdfContent));
+
+                $receipt->update(['email_sent_at' => now()]);
+            } else {
+                return redirect()->back()->with('error', 'Customer does not have an email address.');
+            }
+
+            return redirect()->back()->with('success', 'Email sent to '.$customerEmail.' successfully.');
+        } catch (\Exception $e) {
+            Log::error('Receipt Email Sending Error: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to send receipt email: '.$e->getMessage());
+        }
+    }
 }

@@ -5,6 +5,7 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -143,6 +144,41 @@ const getColumns = (
         filterFn: 'dateRangeFilter',
     },
     {
+        id: 'email_sent_at_formatted',
+        accessorKey: 'email_sent_at_formatted',
+        header: 'Email',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+        cell: ({ row }) => {
+            const receipt = row.original;
+            const sentAt = receipt.email_sent_at_formatted;
+            const isSent = !!receipt.email_sent_at;
+
+            return (
+                <div className="flex flex-col gap-1">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={isSent ? 'outline' : 'default'}
+                        className="h-7 px-2.5 text-xs"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!receipt.id) return;
+                            router.post(`/receipt/${receipt.id}/send-email`);
+                        }}
+                    >
+                        {isSent ? 'Resend Email' : 'Send Email'}
+                    </Button>
+                    {sentAt && (
+                        <span className="text-xs text-muted-foreground">
+                            {sentAt}
+                        </span>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: 'amount',
         header: 'Amount',
         meta: { exportable: true },
@@ -203,6 +239,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     if (userPermissions.includes('receipt view')) {
         actions.push('preview');
         actions.push('download');
+        actions.push('send-email');
     }
     // if (userPermissions.includes('receipt delete')) actions.push('delete');
 
@@ -303,6 +340,19 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                             );
                                         }
                                     })();
+                                } else if (action === 'send-email') {
+                                    const isResend = !!receipt.email_sent_at;
+                                    confirm({
+                                        title: isResend ? 'Resend Receipt Email' : 'Send Receipt Email',
+                                        message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the receipt PDF to the customer's email?`,
+                                        confirmText: isResend ? 'Resend Email' : 'Send Email',
+                                        cancelText: 'Cancel',
+                                        onConfirm: () => {
+                                            router.post(
+                                                `/receipt/${receiptId}/send-email`,
+                                            );
+                                        },
+                                    });
                                 } else if (action === 'delete') {
                                     confirm({
                                         title: 'Delete Receipt',
@@ -355,6 +405,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                     invoice_status: true,
                                     receipt_number: false,
                                     receipt_date: true,
+                                    email_sent_at_formatted: true,
                                     amount: true,
                                     payment_method: true,
                                     sales_id: false,

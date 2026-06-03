@@ -254,6 +254,57 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
             ),
     },
     {
+        id: 'email_sent_at_formatted',
+        accessorKey: 'email_sent_at_formatted',
+        header: 'Email',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+        sortingFn: (rowA, rowB, columnId) =>
+            compareFormattedDate(
+                rowA.getValue(columnId),
+                rowB.getValue(columnId),
+            ),
+        cell: ({ row }) => {
+            const invoice = row.original;
+            const sentAt = invoice.email_sent_at_formatted;
+            const isSent = !!invoice.email_sent_at;
+            const canSend = !['cancelled'].includes(
+                invoice.status ?? '',
+            );
+
+            if (!canSend) {
+                return (
+                    <span className="text-xs text-muted-foreground">
+                        —
+                    </span>
+                );
+            }
+
+            return (
+                <div className="flex flex-col gap-1">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={isSent ? 'outline' : 'default'}
+                        className="h-7 px-2.5 text-xs"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!invoice.id) return;
+                            router.post(`/invoice/${invoice.id}/send-email`);
+                        }}
+                    >
+                        {isSent ? 'Resend Email' : 'Send Email'}
+                    </Button>
+                    {sentAt && (
+                        <span className="text-xs text-muted-foreground">
+                            {sentAt}
+                        </span>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: 'status',
         header: 'Status',
         meta: { exportable: true },
@@ -439,6 +490,13 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         // }
 
         if (
+            userPermissions.includes('invoice view') &&
+            !['cancelled'].includes(invoice.status ?? '')
+        ) {
+            rowActions.push('send-email');
+        }
+
+        if (
             userPermissions.includes('receipt view') &&
             invoice.status === 'paid' &&
             invoice.has_receipt
@@ -568,6 +626,19 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                             );
                                         }
                                     })();
+                                } else if (action === 'send-email') {
+                                    const isResend = !!invoice.email_sent_at;
+                                    confirm({
+                                        title: isResend ? 'Resend Invoice Email' : 'Send Invoice Email',
+                                        message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the invoice PDF to the customer's email?`,
+                                        confirmText: isResend ? 'Resend Email' : 'Send Email',
+                                        cancelText: 'Cancel',
+                                        onConfirm: () => {
+                                            router.post(
+                                                `/invoice/${invoiceId}/send-email`,
+                                            );
+                                        },
+                                    });
                                 } else if (action === 'edit') {
                                     router.get(editInvoice(invoiceId).url);
                                 } else if (action === 'delete') {
@@ -615,6 +686,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     invoice_number: true,
                                     invoice_date: true,
                                     due_date: false,
+                                    email_sent_at_formatted: true,
                                     status: true,
                                     amount: true,
                                     create_receipt: true,

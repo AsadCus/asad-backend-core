@@ -323,6 +323,12 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('send-email') && (
+                <Item onClick={() => onAction?.('send-email', row)}>
+                    {row.original.email_sent_at ? 'Resend Email' : 'Send Email'}
+                </Item>
+            )}
+
             {actions.includes('handle-customer') && !handledBy && (
                 <Item onClick={() => onAction?.('handle-customer', row)}>
                     Handle
