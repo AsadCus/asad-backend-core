@@ -64,6 +64,14 @@ const formatReceiptAmount = (receipt: ReceiptSchema): string => {
 
 const getColumns = (
     paymentMethods: OptionType[],
+    confirm: (options: {
+        title: string;
+        message: string;
+        confirmText: string;
+        cancelText: string;
+        variant?: string;
+        onConfirm: () => void;
+    }) => void,
 ): ColumnDef<ReceiptSchema>[] => [
     createSelectColumn<ReceiptSchema>(),
     {
@@ -164,7 +172,18 @@ const getColumns = (
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!receipt.id) return;
-                            router.post(`/receipt/${receipt.id}/send-email`);
+                            confirm({
+                                title: isSent ? 'Resend Receipt Email' : 'Send Receipt Email',
+                                message: `Are you sure you want to ${isSent ? 'resend' : 'send'} the receipt PDF to the customer's email?`,
+                                confirmText: isSent ? 'Resend Email' : 'Send Email',
+                                cancelText: 'Cancel',
+                                variant: 'primary',
+                                onConfirm: () => {
+                                    router.post(
+                                        `/receipt/${receipt.id}/send-email`,
+                                    );
+                                },
+                            });
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -225,9 +244,10 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
+    const { confirm, ConfirmDialog } = useConfirmDialog();
     const columns = useMemo(
-        () => getColumns(data.paymentMethods ?? []),
-        [data.paymentMethods],
+        () => getColumns(data.paymentMethods ?? [], confirm),
+        [data.paymentMethods, confirm],
     );
 
     const actions: ActionType[] = [];
@@ -247,8 +267,6 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const [selectedReceipt, setSelectedReceipt] =
         useState<ReceiptSchema | null>(null);
     const [items, setItems] = useState<InvoiceItemSchema[]>([]);
-
-    const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const handlePreview = async (receipt: ReceiptSchema) => {
         try {
@@ -347,6 +365,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                         message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the receipt PDF to the customer's email?`,
                                         confirmText: isResend ? 'Resend Email' : 'Send Email',
                                         cancelText: 'Cancel',
+                                        variant: 'primary',
                                         onConfirm: () => {
                                             router.post(
                                                 `/receipt/${receiptId}/send-email`,

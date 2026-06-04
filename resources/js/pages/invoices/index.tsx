@@ -146,7 +146,16 @@ const getCreateReceiptStatusLabel = (invoice: InvoiceSchema): string => {
     return 'Not Available';
 };
 
-export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
+export const invoiceColumnsWithConfirm = (
+    confirm: (options: {
+        title: string;
+        message: string;
+        confirmText: string;
+        cancelText: string;
+        variant?: string;
+        onConfirm: () => void;
+    }) => void,
+): ColumnDef<InvoiceSchema>[] => [
     // createSelectColumn<InvoiceSchema>(),
     {
         accessorKey: 'id',
@@ -290,7 +299,16 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!invoice.id) return;
-                            router.post(`/invoice/${invoice.id}/send-email`);
+                            confirm({
+                                title: isSent ? 'Resend Invoice Email' : 'Send Invoice Email',
+                                message: `Are you sure you want to ${isSent ? 'resend' : 'send'} the invoice PDF to the customer's email?`,
+                                confirmText: isSent ? 'Resend Email' : 'Send Email',
+                                cancelText: 'Cancel',
+                                variant: 'primary',
+                                onConfirm: () => {
+                                    router.post(`/invoice/${invoice.id}/send-email`);
+                                },
+                            });
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -408,6 +426,22 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
             ),
     },
 ];
+
+export const invoiceColumns: ColumnDef<InvoiceSchema>[] = invoiceColumnsWithConfirm(
+    (options: {
+        title: string;
+        message: string;
+        confirmText: string;
+        cancelText: string;
+        variant?: string;
+        onConfirm: () => void;
+    }) => {
+        // Fallback: use window.confirm if called without actual confirm dialog
+        if (window.confirm(options.message)) {
+            options.onConfirm();
+        }
+    },
+);
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
     const { invoicesForDatatable, customers, salespersons } = data;
@@ -529,7 +563,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             enableExpand={false}
-                            columns={invoiceColumns}
+                            columns={invoiceColumnsWithConfirm(confirm)}
                             data={invoicesForDatatable}
                             actions={actions}
                             getRowActions={getRowActions}
@@ -633,6 +667,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the invoice PDF to the customer's email?`,
                                         confirmText: isResend ? 'Resend Email' : 'Send Email',
                                         cancelText: 'Cancel',
+                                        variant: 'primary',
                                         onConfirm: () => {
                                             router.post(
                                                 `/invoice/${invoiceId}/send-email`,
