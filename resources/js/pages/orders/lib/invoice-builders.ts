@@ -1246,6 +1246,7 @@ export function quotationItemsToInvoiceItems(
         customer_confirmation_member_id:
             item.customer_confirmation_member_id ?? null,
         sharing_plan: item.sharing_plan ?? null,
+        member_name: item.member_name ?? null,
         parent_key:
             item.parent_key ??
             (item.parent_id ? (keyMapById.get(item.parent_id) ?? null) : null),

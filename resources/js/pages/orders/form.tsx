@@ -248,6 +248,8 @@ type TaxLineItem = {
     is_header?: boolean | null;
     quantity?: number | string | null;
     rate?: number | string | null;
+    member_name?: string | null;
+    customer_confirmation_member_id?: number | null;
     taxes?: Array<{
         quotation_extension_master_id?: number | null;
         name?: string | null;
@@ -256,7 +258,10 @@ type TaxLineItem = {
     }>;
 };
 
-function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
+function buildItemTaxSummaries(
+    items: TaxLineItem[] = [],
+    availableMembers?: Array<{ id: number; name: string }> | null,
+): Array<{
     name: string;
     type: string;
     calculation_mode: string;
@@ -280,6 +285,15 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
         }
 
         const lineAmount = Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+        const memberName =
+            item.member_name ||
+            (item.customer_confirmation_member_id && availableMembers
+                ? availableMembers.find(
+                      (m) =>
+                          Number(m.id) ===
+                          Number(item.customer_confirmation_member_id),
+                  )?.name
+                : null);
 
         (item.taxes ?? []).forEach((tax) => {
             const calculationMode = String(tax.calculation_mode ?? '');
@@ -294,16 +308,22 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
 
             const taxType = calculationValue < 0 ? 'discount' : 'tax';
 
+            let taxName = String(tax.name ?? 'Tax');
+            if (memberName) {
+                taxName = `${taxName} (${memberName})`;
+            }
+
             const key = [
                 Number(tax.quotation_extension_master_id ?? 0),
-                String(tax.name ?? 'Tax').toLowerCase(),
+                taxName.toLowerCase(),
                 taxType,
                 calculationMode,
                 calculationValue,
+                memberName || '',
             ].join('|');
 
             const current = grouped.get(key) ?? {
-                name: String(tax.name ?? 'Tax'),
+                name: taxName,
                 type: taxType,
                 calculation_mode: calculationMode,
                 calculation_value: calculationValue,
@@ -322,9 +342,12 @@ function buildItemTaxSummaries(items: TaxLineItem[] = []): Array<{
     return Array.from(grouped.values());
 }
 
-function calculateInvoiceGrandTotal(invoice: InvoiceSchema): number {
+function calculateInvoiceGrandTotal(
+    invoice: InvoiceSchema,
+    availableMembers?: Array<{ id: number; name: string }> | null,
+): number {
     const invoiceSubtotal = calculateTotal(invoice.items);
-    const itemTaxTotal = buildItemTaxSummaries(invoice.items).reduce(
+    const itemTaxTotal = buildItemTaxSummaries(invoice.items, availableMembers).reduce(
         (sum, tax) => sum + Number(tax.amount ?? 0),
         0,
     );
@@ -540,6 +563,11 @@ export default function OrderForm({
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
+
+    const [customerConfirmationMembers, setCustomerConfirmationMembers] =
+        useState<
+            Array<{ id: number; name: string; sharing_plan: string | null }>
+        >([]);
 
     const initialItems = quotation?.items.map((item) => ({
         ...item,
@@ -787,10 +815,15 @@ export default function OrderForm({
     const invoicesGrandTotal = useMemo(
         () =>
             (data.invoices ?? []).reduce(
-                (sum, invoice) => sum + calculateInvoiceGrandTotal(invoice),
+                (sum, invoice) =>
+                    sum +
+                    calculateInvoiceGrandTotal(
+                        invoice,
+                        customerConfirmationMembers,
+                    ),
                 0,
             ),
-        [data.invoices],
+        [data.invoices, customerConfirmationMembers],
     );
 
     const editableInvoiceCount = useMemo(
@@ -1514,10 +1547,6 @@ export default function OrderForm({
     const [collapsedInvoices, setCollapsedInvoices] = useState<
         Record<string, boolean>
     >({});
-    const [customerConfirmationMembers, setCustomerConfirmationMembers] =
-        useState<
-            Array<{ id: number; name: string; sharing_plan: string | null }>
-        >([]);
     const [invoicePaymentMethodOptions, setInvoicePaymentMethodOptions] =
         useState<OptionType[]>(paymentMethods);
 
@@ -1758,8 +1787,11 @@ export default function OrderForm({
     );
 
     const quotationItemTaxSummaries = useMemo(() => {
-        return buildItemTaxSummaries(quotation?.items ?? []);
-    }, [quotation?.items]);
+        return buildItemTaxSummaries(
+            quotation?.items ?? [],
+            customerConfirmationMembers,
+        );
+    }, [quotation?.items, customerConfirmationMembers]);
 
     const quotationItemTaxRows = useMemo(
         () =>
@@ -2306,6 +2338,7 @@ export default function OrderForm({
                                 );
                                 const itemTaxSummaries = buildItemTaxSummaries(
                                     invoice.items,
+                                    customerConfirmationMembers,
                                 );
                                 const itemTaxTotal = itemTaxSummaries.reduce(
                                     (sum, tax) => sum + Number(tax.amount ?? 0),

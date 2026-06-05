@@ -372,6 +372,7 @@
                 ->filter(fn($item) => empty($item['is_header']))
                 ->flatMap(function ($item) {
                     $lineAmount = (float) ($item['quantity'] ?? 0) * (float) ($item['rate'] ?? 0);
+                    $memberName = $item['member_name'] ?? null;
 
                     return collect($item['taxes'] ?? [])
                         ->filter(function ($tax) {
@@ -380,18 +381,23 @@
 
                             return in_array($mode, ['fixed', 'percentage'], true) && $value !== 0.0;
                         })
-                        ->map(function ($tax) use ($lineAmount) {
+                        ->map(function ($tax) use ($lineAmount, $memberName) {
                             $mode = (string) ($tax['calculation_mode'] ?? '');
                             $value = (float) ($tax['calculation_value'] ?? 0);
+                            $taxName = $tax['name'] ?? 'Tax';
+                            if ($memberName) {
+                                $taxName = "{$taxName} ({$memberName})";
+                            }
 
                             return [
                                 'key' => implode('|', [
                                     (int) ($tax['quotation_extension_master_id'] ?? 0),
-                                    strtolower(trim((string) ($tax['name'] ?? 'Tax'))),
+                                    strtolower(trim((string) $taxName)),
                                     $mode,
                                     (string) $value,
+                                    $memberName,
                                 ]),
-                                'name' => $tax['name'] ?? 'Tax',
+                                'name' => $taxName,
                                 'calculation_mode' => $mode,
                                 'calculation_value' => $value,
                                 'amount' => $mode === 'percentage' ? ($lineAmount * $value) / 100 : $value,
