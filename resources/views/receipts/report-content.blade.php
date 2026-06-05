@@ -36,7 +36,7 @@
         .lbl {
             font-weight: bold;
             white-space: nowrap;
-            width: 90px;
+            width: 105px;
         }
 
         .sep {
@@ -234,6 +234,11 @@
                 <td width="55%">
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
+                            <td class="lbl">Customer No.</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_number'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
                             <td class="lbl">Name</td>
                             <td class="sep">:</td>
                             <td>{{ $data['customer_name'] ?? '-' }}</td>
@@ -242,6 +247,16 @@
                             <td class="lbl" style="vertical-align:top;">Address</td>
                             <td class="sep" style="vertical-align:top;">:</td>
                             <td style="white-space: pre-line;">{{ $data['customer_address'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Contact</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_contact'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Email</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_email'] ?? '-' }}</td>
                         </tr>
                     </table>
                 </td>
@@ -268,6 +283,13 @@
                             <td class="sep">:</td>
                             <td>{{ $data['payment_method_label'] ?? '-' }}</td>
                         </tr>
+                        @if (!empty($data['refund_to']))
+                            <tr>
+                                <td class="lbl-r">Refund To</td>
+                                <td class="sep">:</td>
+                                <td>{{ $data['refund_to'] }}</td>
+                            </tr>
+                        @endif
                     </table>
                 </td>
             </tr>

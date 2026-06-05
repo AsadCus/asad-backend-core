@@ -168,6 +168,7 @@ class ReceiptService
                 'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
+                'refund_to' => $data['refund_to'] ?? null,
             ]);
 
             activity()
@@ -255,12 +256,16 @@ class ReceiptService
             'invoice_id' => $r->invoice_id,
             'invoice_number' => $r->invoice?->invoice_number,
             'order_id' => $r->invoice?->order_id,
-            'order_number' => $r->invoice?->order->order_number,
-            'customer_id' => $r->invoice?->order->quotation->customer_id,
-            'customer_name' => $r->invoice?->order->quotation->customer->user->name,
-            'customer_address' => $r->invoice?->order->quotation->customer->address,
+            'order_number' => $r->invoice?->order?->order_number,
+            'customer_id' => $r->invoice?->order?->quotation?->customer?->id,
+            'customer_number' => $r->invoice?->order?->quotation?->customer?->customer_number,
+            'customer_name' => $r->invoice?->order?->quotation?->customer?->user?->name,
+            'customer_email' => $r->invoice?->order?->quotation?->customer?->user?->email,
+            'customer_contact' => $r->invoice?->order?->quotation?->customer?->user?->contact,
+            'customer_address' => $r->invoice?->order?->quotation?->customer?->address,
             'amount' => $this->formatService->cleanDecimal($r->amount),
             'payment_method' => $r->payment_method,
+            'refund_to' => $r->refund_to,
             'reference' => $r->reference,
             'description' => $r->description,
             'sales_registration_number' => $r->invoice?->order->quotation->sales_registration_number,
@@ -548,7 +553,7 @@ class ReceiptService
 
             $targetInvoice = $invoiceQuery->findOrFail($targetInvoiceId);
 
-            if (InvoiceStatus::isRefund($targetInvoice->status)) {
+            if (InvoiceStatus::isRefund($targetInvoice->status) && (int) $targetInvoice->id !== (int) $receipt->invoice_id) {
                 throw ValidationException::withMessages([
                     'invoice_id' => 'Cannot assign receipt to refund invoice.',
                 ]);
@@ -586,6 +591,7 @@ class ReceiptService
                 'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
+                'refund_to' => array_key_exists('refund_to', $data) ? $data['refund_to'] : $receipt->refund_to,
             ]);
 
             activity()

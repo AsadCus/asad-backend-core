@@ -715,6 +715,7 @@ interface RefundDraftRow {
     total_amount: number;
     overpaid_amount: number;
     payment_method: string;
+    refund_to: string;
     description: string;
     selected: boolean;
     mode: RefundMode;
@@ -1850,6 +1851,7 @@ export default function ConfirmedCustomerIndex({
                     total_amount: Number(targetMember.total_amount ?? 0),
                     overpaid_amount: resolveOverpaidAmount(targetMember),
                     payment_method: defaultRefundPaymentMethod,
+                    refund_to: targetMember.contact || '',
                     description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
                     mode: 'fixed',
@@ -1866,6 +1868,7 @@ export default function ConfirmedCustomerIndex({
                     total_amount: Number(member.total_amount ?? 0),
                     overpaid_amount: resolveOverpaidAmount(member),
                     payment_method: defaultRefundPaymentMethod,
+                    refund_to: member.contact || '',
                     description: REFUND_DESCRIPTION_BY_TYPE.cancel,
                     selected: true,
                     mode: 'fixed',
@@ -1954,6 +1957,7 @@ export default function ConfirmedCustomerIndex({
                         : null,
                 amount: row.mode === 'fixed' ? amount : null,
                 payment_method: row.payment_method.trim(),
+                refund_to: row.refund_to.trim(),
                 description: row.description.trim(),
             };
         });
@@ -3322,7 +3326,14 @@ export default function ConfirmedCustomerIndex({
 
                                         <div className="space-y-2 rounded-md border p-3">
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                <FormField label="Refund Purpose">
+                                                <FormField
+                                                    label="Refund Purpose"
+                                                    fieldRequirementsProps={{
+                                                        required: true,
+                                                        hint: 'Select the purpose of the refund (Cancellation or Overpayment Refund)',
+                                                        example: 'Cancellation',
+                                                    }}
+                                                >
                                                     <ProperInputSelect
                                                         options={[
                                                             {
@@ -3454,7 +3465,14 @@ export default function ConfirmedCustomerIndex({
                                                         )}
 
                                                         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
-                                                            <FormField label="Refund Mode">
+                                                            <FormField
+                                                                label="Refund Mode"
+                                                                fieldRequirementsProps={{
+                                                                    required: true,
+                                                                    hint: 'Select whether the refund is calculated by percentage or a fixed amount',
+                                                                    example: 'Fixed Amount',
+                                                                }}
+                                                            >
                                                                 <ProperInputSelect
                                                                     options={[
                                                                         {
@@ -3509,7 +3527,15 @@ export default function ConfirmedCustomerIndex({
 
                                                             {row.mode ===
                                                                 'percentage' && (
-                                                                <FormField label="Percentage (%)">
+                                                                <FormField
+                                                                    label="Percentage (%)"
+                                                                    fieldRequirementsProps={{
+                                                                        required: true,
+                                                                        hint: 'Specify the refund percentage',
+                                                                        example: '50',
+                                                                        format: 'Decimal number between 0 and 100',
+                                                                    }}
+                                                                >
                                                                     <ProperInput
                                                                         value={
                                                                             row.percentage
@@ -3546,6 +3572,12 @@ export default function ConfirmedCustomerIndex({
 
                                                             <FormField
                                                                 label={`Amount (Max ${formatCurrency(baseAmount)})`}
+                                                                fieldRequirementsProps={{
+                                                                    required: true,
+                                                                    hint: 'Specify the refund amount (calculated automatically if using Percentage mode)',
+                                                                    example: '250.00',
+                                                                    format: 'Decimal number up to max base amount',
+                                                                }}
                                                             >
                                                                 <ProperInput
                                                                     value={
@@ -3596,7 +3628,14 @@ export default function ConfirmedCustomerIndex({
                                                                 />
                                                             </FormField>
 
-                                                            <FormField label="Payment Method">
+                                                            <FormField
+                                                                label="Payment Method"
+                                                                fieldRequirementsProps={{
+                                                                    required: true,
+                                                                    hint: 'Select the payment method used for issuing the refund',
+                                                                    example: 'Bank Transfer',
+                                                                }}
+                                                            >
                                                                 <ProperInputSelect
                                                                     options={
                                                                         paymentMethods
@@ -3628,7 +3667,51 @@ export default function ConfirmedCustomerIndex({
                                                                 />
                                                             </FormField>
 
-                                                            <FormField label="Description">
+                                                            <FormField
+                                                                label="Refund To"
+                                                                fieldRequirementsProps={{
+                                                                    required: false,
+                                                                    hint: 'Recipient contact details or account info for the refund receipt (defaults to customer contact number)',
+                                                                    example: '08123456789',
+                                                                    format: 'Up to 255 characters',
+                                                                }}
+                                                            >
+                                                                <ProperInput
+                                                                    value={
+                                                                        row.refund_to
+                                                                    }
+                                                                    onCommit={(
+                                                                        value,
+                                                                    ) => {
+                                                                        updateRefundRow(
+                                                                            row.member_id,
+                                                                            (
+                                                                                prev,
+                                                                            ) => ({
+                                                                                ...prev,
+                                                                                refund_to:
+                                                                                    value,
+                                                                            }),
+                                                                        );
+                                                                    }}
+                                                                    placeholder="Refund to contact/info"
+                                                                    disabled={
+                                                                        !row.selected ||
+                                                                        disableSelection ||
+                                                                        isSubmittingRefund
+                                                                    }
+                                                                />
+                                                            </FormField>
+
+                                                            <FormField
+                                                                label="Description"
+                                                                fieldRequirementsProps={{
+                                                                    required: false,
+                                                                    hint: 'Additional notes or description for this refund',
+                                                                    example: 'Refund for flight cancellation',
+                                                                    format: 'Up to 1000 characters',
+                                                                }}
+                                                            >
                                                                 <ProperInput
                                                                     value={
                                                                         row.description

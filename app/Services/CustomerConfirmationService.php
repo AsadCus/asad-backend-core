@@ -906,6 +906,7 @@ class CustomerConfirmationService
                 'payment_method_label' => $paymentMethodLabel,
                 'reference' => (string) ($receipt->reference ?? ''),
                 'description' => (string) ($receipt->description ?? ''),
+                'refund_to' => (string) ($receipt->refund_to ?? ''),
                 'subtotal_amount' => round($subtotalAmount, 2),
                 'total_amount' => round($totalAmount, 2),
                 'extensions' => [],
@@ -5569,6 +5570,11 @@ class CustomerConfirmationService
                     $paymentMethod = 'refund';
                 }
 
+                $refundTo = trim((string) ($refundPayload['refund_to'] ?? ''));
+                if ($refundTo === '') {
+                    $refundTo = $member->customer?->user?->contact ?? '';
+                }
+
                 $refundDescription = trim((string) ($refundPayload['description'] ?? ''));
 
                 if ($refundDescription === '') {
@@ -5622,6 +5628,7 @@ class CustomerConfirmationService
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
                     'payment_method' => $paymentMethod,
+                    'refund_to' => $refundTo ?: null,
                     'reference' => null,
                     'description' => $refundDescription,
                 ]);

@@ -413,6 +413,7 @@ class CustomerConfirmationController extends Controller
             'member_refunds.*.percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'member_refunds.*.amount' => ['nullable', 'numeric', 'min:0'],
             'member_refunds.*.payment_method' => ['nullable', 'string', 'max:255'],
+            'member_refunds.*.refund_to' => ['nullable', 'string', 'max:255'],
             'member_refunds.*.description' => ['nullable', 'string', 'max:1000'],
         ]);
 

@@ -20,6 +20,8 @@ export const receiptSchema = z.object({
     payment_method: z.string().nullable().optional(),
     reference: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
+    refund_to: z.string().nullable().optional(),
+    is_refund_receipt_report: z.boolean().optional(),
 });
 
 export type ReceiptSchema = z.infer<typeof receiptSchema>;
