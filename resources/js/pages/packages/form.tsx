@@ -521,7 +521,6 @@ export default function PackageForm({
 
     useEffect(() => {
         if (errorSummaryItems.length > 0 && !isView) {
-            scrollToErrorBanner();
             const errorSectionIds = sections
                 .filter((s) => s.status === 'error')
                 .map((s) => s.id);
@@ -531,7 +530,7 @@ export default function PackageForm({
                 ]);
             }
         }
-    }, [errorSummaryItems.length, isView, scrollToErrorBanner, sections]);
+    }, [errorSummaryItems.length, isView, sections]);
 
     useEffect(() => {
         if (!isCreate || !prefillData) {

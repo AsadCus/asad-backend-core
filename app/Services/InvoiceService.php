@@ -211,6 +211,7 @@ class InvoiceService
         $i = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
             Invoice::with([
                 'quotationItems.taxes',
+                'quotationItems.confirmationMember',
                 'order.quotation.customer.user',
                 'order.invoices',
                 'invoiceNotes',
@@ -301,6 +302,8 @@ class InvoiceService
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
                 'parent_id' => $item->parent_id,
+                'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
+                'sharing_plan' => $item->confirmationMember?->sharing_plan,
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,

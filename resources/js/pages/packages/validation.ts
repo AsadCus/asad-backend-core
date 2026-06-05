@@ -54,6 +54,13 @@ export const officialValidationSchema = officialSchema.superRefine(
                 code: z.ZodIssueCode.custom,
             });
         }
+        if (!data.name || data.name.trim().length === 0) {
+            ctx.addIssue({
+                path: ['name'],
+                message: 'Name is required',
+                code: z.ZodIssueCode.custom,
+            });
+        }
     },
 );
 
@@ -79,6 +86,15 @@ export const packageValidationSchema = packageSchema.superRefine(
             ctx.addIssue({
                 path: ['status'],
                 message: 'Status is required',
+                code: z.ZodIssueCode.custom,
+            });
+        }
+
+        // accommodations - at least one required
+        if (!data.accommodations || data.accommodations.length === 0) {
+            ctx.addIssue({
+                path: ['accommodations'],
+                message: 'At least one accommodation is required',
                 code: z.ZodIssueCode.custom,
             });
         }
@@ -147,9 +163,22 @@ export const packageValidationSchema = packageSchema.superRefine(
             });
         }
 
-        // Flights validation
+        // Flights validation - only validate flights that have data
         if (data.flights && data.flights.length > 0) {
             data.flights.forEach((flight, index) => {
+                // Skip validation for completely empty flights (default entries)
+                const hasFlightData =
+                    flight.from?.trim() ||
+                    flight.to?.trim() ||
+                    flight.description?.trim() ||
+                    flight.airline?.trim() ||
+                    flight.pnr?.trim() ||
+                    flight.departure_datetime?.trim() ||
+                    flight.arrival_datetime?.trim() ||
+                    flight.remarks?.trim();
+                
+                if (!hasFlightData) return;
+
                 if (!flight.from || flight.from.trim().length === 0) {
                     ctx.addIssue({
                         path: ['flights', index, 'from'],
@@ -167,13 +196,37 @@ export const packageValidationSchema = packageSchema.superRefine(
             });
         }
 
-        // Officials validation
+        // Officials validation - only validate officials that have data
         if (data.officials && data.officials.length > 0) {
             data.officials.forEach((official, index) => {
+                // Skip validation for completely empty officials (default entries)
+                const hasOfficialData =
+                    official.type?.trim() ||
+                    official.name?.trim() ||
+                    official.hotel?.trim() ||
+                    official.contact_number?.trim() ||
+                    official.nationality?.trim() ||
+                    official.passport_number?.trim() ||
+                    official.gender?.trim() ||
+                    official.date_of_birth?.trim() ||
+                    official.passport_issue_date?.trim() ||
+                    official.passport_expiry_date?.trim() ||
+                    official.passport_place_of_issue?.trim() ||
+                    official.place_of_birth?.trim();
+                
+                if (!hasOfficialData) return;
+
                 if (!official.type || official.type.trim().length === 0) {
                     ctx.addIssue({
                         path: ['officials', index, 'type'],
                         message: 'Type is required',
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+                if (!official.name || official.name.trim().length === 0) {
+                    ctx.addIssue({
+                        path: ['officials', index, 'name'],
+                        message: 'Name is required',
                         code: z.ZodIssueCode.custom,
                     });
                 }

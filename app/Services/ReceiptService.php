@@ -186,6 +186,7 @@ class ReceiptService
         $r = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
             Receipt::with([
                 'invoice.quotationItems.taxes',
+                'invoice.quotationItems.confirmationMember',
                 'invoice.order.quotation.customer.user',
                 'invoice.order.invoices.receipt',
                 'receiptNotes',
@@ -280,6 +281,8 @@ class ReceiptService
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
                 'parent_id' => $item->parent_id,
+                'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
+                'sharing_plan' => $item->confirmationMember?->sharing_plan,
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
