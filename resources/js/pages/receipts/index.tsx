@@ -26,6 +26,7 @@ import {
 } from '../invoices/schema';
 import ReceiptPreviewModal from './components/receipt-preview-modal';
 import { ReceiptSchema } from './schema';
+import SendEmailModal from '@/components/send-email-modal';
 
 interface ReceiptsProps {
     data: {
@@ -64,14 +65,7 @@ const formatReceiptAmount = (receipt: ReceiptSchema): string => {
 
 const getColumns = (
     paymentMethods: OptionType[],
-    confirm: (options: {
-        title: string;
-        message: string;
-        confirmText: string;
-        cancelText: string;
-        variant?: string;
-        onConfirm: () => void;
-    }) => void,
+    openEmailModal: (id: number, number: string) => void,
 ): ColumnDef<ReceiptSchema>[] => [
     createSelectColumn<ReceiptSchema>(),
     {
@@ -172,18 +166,7 @@ const getColumns = (
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!receipt.id) return;
-                            confirm({
-                                title: isSent ? 'Resend Receipt Email' : 'Send Receipt Email',
-                                message: `Are you sure you want to ${isSent ? 'resend' : 'send'} the receipt PDF to the customer's email?`,
-                                confirmText: isSent ? 'Resend Email' : 'Send Email',
-                                cancelText: 'Cancel',
-                                variant: 'primary',
-                                onConfirm: () => {
-                                    router.post(
-                                        `/receipt/${receipt.id}/send-email`,
-                                    );
-                                },
-                            });
+                            openEmailModal(receipt.id, receipt.receipt_number ?? '');
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -245,9 +228,29 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
     const { confirm, ConfirmDialog } = useConfirmDialog();
+    
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedReceipts: ReceiptSchema[]) => {
+        const ids = selectedReceipts
+            .map((receipt) => receipt.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
+
     const columns = useMemo(
-        () => getColumns(data.paymentMethods ?? [], confirm),
-        [data.paymentMethods, confirm],
+        () => getColumns(data.paymentMethods ?? [], handleOpenEmailModal),
+        [data.paymentMethods],
     );
 
     const actions: ActionType[] = [];
@@ -260,6 +263,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
         actions.push('preview');
         actions.push('download');
         actions.push('send-email');
+        actions.push('copy-link');
     }
     // if (userPermissions.includes('receipt delete')) actions.push('delete');
 
@@ -310,6 +314,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={handleBulkEmailModal}
                             // groupByRowColorKey="package_number"
                             url={receiptIndex().url}
                             exportFilename="receipts"
@@ -359,19 +364,9 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                         }
                                     })();
                                 } else if (action === 'send-email') {
-                                    const isResend = !!receipt.email_sent_at;
-                                    confirm({
-                                        title: isResend ? 'Resend Receipt Email' : 'Send Receipt Email',
-                                        message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the receipt PDF to the customer's email?`,
-                                        confirmText: isResend ? 'Resend Email' : 'Send Email',
-                                        cancelText: 'Cancel',
-                                        variant: 'primary',
-                                        onConfirm: () => {
-                                            router.post(
-                                                `/receipt/${receiptId}/send-email`,
-                                            );
-                                        },
-                                    });
+                                    handleOpenEmailModal(receiptId, receipt.receipt_number ?? '');
+                                } else if (action === 'copy-link') {
+                                    handleOpenEmailModal(receiptId, receipt.receipt_number ?? '');
                                 } else if (action === 'delete') {
                                     confirm({
                                         title: 'Delete Receipt',
@@ -479,6 +474,14 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                     onOpenChange={setPreviewModalOpen}
                 />
             )}
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="receipt"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
+            />
         </>
     );
 }

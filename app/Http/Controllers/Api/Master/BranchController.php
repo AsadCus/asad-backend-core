@@ -29,6 +29,7 @@ class BranchController extends Controller
     {
         $validated = $request->validate($this->branchRule->rules());
         $branch = $this->branchService->store($validated);
+
         return response()->json($branch, 201);
     }
 
@@ -44,6 +45,7 @@ class BranchController extends Controller
     {
         $validated = $request->validate($this->branchRule->rules());
         $branch = $this->branchService->update($validated, $id);
+
         return response()->json($branch);
     }
 
@@ -55,10 +57,12 @@ class BranchController extends Controller
             foreach ($ids as $branchId) {
                 $this->branchService->delete($branchId);
             }
+
             return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
         }
 
         $this->branchService->delete($id);
+
         return response()->json(['status' => 'ok', 'deleted' => 1]);
     }
 }

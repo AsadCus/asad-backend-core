@@ -89,6 +89,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
     showImport?: boolean;
     onImport?: () => void;
+    onBulkSendEmail?: (rows: TData[]) => void;
 }
 
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -254,6 +255,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     exportOptions,
     showImport = false,
     onImport,
+    onBulkSendEmail,
 }: DataTableProps<TData, TValue>) {
     const hasActionsColumn = columns.some(
         (col) => 'id' in col && col.id === 'actions',
@@ -691,6 +693,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         exportOptions={exportOptions}
                         showImport={showImport}
                         onImport={onImport}
+                        onBulkSendEmail={onBulkSendEmail}
                         defaultColumnFilters={
                             initialDefaultsRef.current.columnFilters
                         }

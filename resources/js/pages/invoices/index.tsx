@@ -3,7 +3,7 @@ import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
-// import { createSelectColumn } from '@/components/select-column';
+import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -34,6 +34,7 @@ import {
 import ReceiptPreviewModal from '../receipts/components/receipt-preview-modal';
 import { ReceiptSchema } from '../receipts/schema';
 import InvoicePreviewModal from './components/invoice-preview-modal';
+import SendEmailModal from '@/components/send-email-modal';
 
 interface InvoicesProps {
     data: {
@@ -146,17 +147,10 @@ const getCreateReceiptStatusLabel = (invoice: InvoiceSchema): string => {
     return 'Not Available';
 };
 
-export const invoiceColumnsWithConfirm = (
-    confirm: (options: {
-        title: string;
-        message: string;
-        confirmText: string;
-        cancelText: string;
-        variant?: string;
-        onConfirm: () => void;
-    }) => void,
+export const getInvoiceColumns = (
+    openEmailModal?: (id: number, number: string) => void,
 ): ColumnDef<InvoiceSchema>[] => [
-    // createSelectColumn<InvoiceSchema>(),
+    createSelectColumn<InvoiceSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',
@@ -299,16 +293,9 @@ export const invoiceColumnsWithConfirm = (
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!invoice.id) return;
-                            confirm({
-                                title: isSent ? 'Resend Invoice Email' : 'Send Invoice Email',
-                                message: `Are you sure you want to ${isSent ? 'resend' : 'send'} the invoice PDF to the customer's email?`,
-                                confirmText: isSent ? 'Resend Email' : 'Send Email',
-                                cancelText: 'Cancel',
-                                variant: 'primary',
-                                onConfirm: () => {
-                                    router.post(`/invoice/${invoice.id}/send-email`);
-                                },
-                            });
+                            if (openEmailModal) {
+                                openEmailModal(invoice.id, invoice.invoice_number ?? '');
+                            }
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -427,21 +414,7 @@ export const invoiceColumnsWithConfirm = (
     },
 ];
 
-export const invoiceColumns: ColumnDef<InvoiceSchema>[] = invoiceColumnsWithConfirm(
-    (options: {
-        title: string;
-        message: string;
-        confirmText: string;
-        cancelText: string;
-        variant?: string;
-        onConfirm: () => void;
-    }) => {
-        // Fallback: use window.confirm if called without actual confirm dialog
-        if (window.confirm(options.message)) {
-            options.onConfirm();
-        }
-    },
-);
+export const invoiceColumns: ColumnDef<InvoiceSchema>[] = getInvoiceColumns();
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
     const { invoicesForDatatable, customers, salespersons } = data;
@@ -463,6 +436,25 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
     const [receiptPreviewItems, setReceiptPreviewItems] = useState<
         InvoiceItemSchema[]
     >([]);
+    
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedInvoices: InvoiceSchema[]) => {
+        const ids = selectedInvoices
+            .map((invoice) => invoice.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
 
     const handlePreview = async (invoice: InvoiceSchema) => {
         try {
@@ -528,6 +520,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
             !['cancelled'].includes(invoice.status ?? '')
         ) {
             rowActions.push('send-email');
+            rowActions.push('copy-link');
         }
 
         if (
@@ -563,12 +556,13 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             enableExpand={false}
-                            columns={invoiceColumnsWithConfirm(confirm)}
+                            columns={getInvoiceColumns(handleOpenEmailModal)}
                             data={invoicesForDatatable}
                             actions={actions}
                             getRowActions={getRowActions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={handleBulkEmailModal}
                             // groupByRowColorKey="package_number"
                             url={invoiceIndex().url}
                             exportFilename="invoice"
@@ -661,19 +655,12 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         }
                                     })();
                                 } else if (action === 'send-email') {
-                                    const isResend = !!invoice.email_sent_at;
-                                    confirm({
-                                        title: isResend ? 'Resend Invoice Email' : 'Send Invoice Email',
-                                        message: `Are you sure you want to ${isResend ? 'resend' : 'send'} the invoice PDF to the customer's email?`,
-                                        confirmText: isResend ? 'Resend Email' : 'Send Email',
-                                        cancelText: 'Cancel',
-                                        variant: 'primary',
-                                        onConfirm: () => {
-                                            router.post(
-                                                `/invoice/${invoiceId}/send-email`,
-                                            );
-                                        },
-                                    });
+                                    handleOpenEmailModal(invoiceId, invoice.invoice_number ?? '');
+                                } else if (action === 'copy-link') {
+                                    // Let modal handle public link generation via single view or we can do it directly.
+                                    // Wait, the copy link action will just open the modal, then user clicks "Get Public Link"
+                                    // Alternatively, we can just open the modal. For now, open the modal for copy-link too.
+                                    handleOpenEmailModal(invoiceId, invoice.invoice_number ?? '');
                                 } else if (action === 'edit') {
                                     router.get(editInvoice(invoiceId).url);
                                 } else if (action === 'delete') {
@@ -799,6 +786,14 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     onOpenChange={setReceiptPreviewOpen}
                 />
             )}
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="invoice"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
+            />
         </>
     );
 }

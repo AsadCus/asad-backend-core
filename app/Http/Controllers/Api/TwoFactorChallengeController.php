@@ -8,7 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 
 class TwoFactorChallengeController extends Controller
@@ -71,6 +70,7 @@ class TwoFactorChallengeController extends Controller
     public function cancel(Request $request): JsonResponse
     {
         $request->session()->forget(['login.id', 'login.remember']);
+
         return response()->json(['status' => 'ok']);
     }
 }

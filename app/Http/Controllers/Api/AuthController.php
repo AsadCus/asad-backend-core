@@ -118,6 +118,7 @@ class AuthController extends Controller
                     $labels[] = $label;
                 }
             }
+
             return array_values(array_unique($labels));
         }
 
@@ -133,6 +134,7 @@ class AuthController extends Controller
                 $labels[] = $label;
             }
         }
+
         return array_values(array_unique($labels));
     }
 
@@ -156,6 +158,7 @@ class AuthController extends Controller
             }
             $options[] = ['id' => $id, 'label' => $label];
         }
+
         return $options;
     }
 }

@@ -19,15 +19,24 @@ class InvoiceMail extends Mailable
 
     public Invoice $invoice;
 
-    public string $pdfContent;
+    public array $pdfAttachments;
+
+    public string $customSubject;
+
+    public string $customMessage;
+
+    public bool $isBulk;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Invoice $invoice, string $pdfContent)
+    public function __construct(Invoice $invoice, array $pdfAttachments, string $customSubject, string $customMessage, bool $isBulk = false)
     {
         $this->invoice = $invoice;
-        $this->pdfContent = $pdfContent;
+        $this->pdfAttachments = $pdfAttachments;
+        $this->customSubject = $customSubject;
+        $this->customMessage = $customMessage;
+        $this->isBulk = $isBulk;
     }
 
     /**
@@ -37,7 +46,7 @@ class InvoiceMail extends Mailable
     {
         return new Envelope(
             from: new Address(config('mail.from.address'), config('mail.from.name')),
-            subject: 'Invoice '.$this->invoice->invoice_number.' from '.config('app.name'),
+            subject: $this->customSubject,
             using: [
                 function (Email $email) {
                     $headers = $email->getHeaders();
@@ -57,6 +66,8 @@ class InvoiceMail extends Mailable
             view: 'mail.invoice-email',
             with: [
                 'invoice' => $this->invoice,
+                'customMessage' => $this->customMessage,
+                'isBulk' => $this->isBulk,
             ]
         );
     }
@@ -68,9 +79,12 @@ class InvoiceMail extends Mailable
      */
     public function attachments(): array
     {
-        return [
-            Attachment::fromData(fn () => $this->pdfContent, 'invoice_'.$this->invoice->invoice_number.'.pdf')
-                ->withMime('application/pdf'),
-        ];
+        $attachments = [];
+        foreach ($this->pdfAttachments as $pdf) {
+            $attachments[] = Attachment::fromData(fn () => $pdf['content'], $pdf['filename'])
+                ->withMime('application/pdf');
+        }
+
+        return $attachments;
     }
 }

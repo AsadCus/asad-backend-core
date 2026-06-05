@@ -2,37 +2,34 @@
 
 namespace App\Mail;
 
-use App\Models\Receipt;
+use App\Models\Quotation;
 use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Address;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Symfony\Component\Mime\Email;
-use Symfony\Component\Mime\Header\UnstructuredHeader;
 
-class ReceiptMail extends Mailable
+class QuotationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public Receipt $receipt;
+    public $quotation;
 
     public array $pdfAttachments;
 
-    public string $customSubject;
+    public $customSubject;
 
-    public string $customMessage;
+    public $customMessage;
 
     public bool $isBulk;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Receipt $receipt, array $pdfAttachments, string $customSubject, string $customMessage, bool $isBulk = false)
+    public function __construct(Quotation $quotation, array $pdfAttachments, string $customSubject, string $customMessage, bool $isBulk = false)
     {
-        $this->receipt = $receipt;
+        $this->quotation = $quotation;
         $this->pdfAttachments = $pdfAttachments;
         $this->customSubject = $customSubject;
         $this->customMessage = $customMessage;
@@ -45,15 +42,7 @@ class ReceiptMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            from: new Address(config('mail.from.address'), config('mail.from.name')),
             subject: $this->customSubject,
-            using: [
-                function (Email $email) {
-                    $headers = $email->getHeaders();
-                    $headers->addTextHeader('X-Message-Source', parse_url(config('app.url'), PHP_URL_HOST));
-                    $headers->add(new UnstructuredHeader('X-Mailer', config('app.name').' Mail System'));
-                },
-            ]
         );
     }
 
@@ -63,19 +52,19 @@ class ReceiptMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'mail.receipt-email',
+            view: 'mail.quotation-email',
             with: [
-                'receipt' => $this->receipt,
+                'quotation' => $this->quotation,
                 'customMessage' => $this->customMessage,
                 'isBulk' => $this->isBulk,
-            ]
+            ],
         );
     }
 
     /**
      * Get the attachments for the message.
      *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     * @return array<int, Attachment>
      */
     public function attachments(): array
     {

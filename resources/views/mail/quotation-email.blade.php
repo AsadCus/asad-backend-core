@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice {{ $invoice->invoice_number }}</title>
+    <title>Quotation {{ $quotation->quotation_number }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
@@ -25,7 +25,7 @@
 
                     <tr>
                         <td align="left" style="font-size:18px; font-weight:bold; color:#333333; padding-bottom:15px;">
-                            Hello {{ $invoice->order->quotation->customer->user->name ?? 'Customer' }},
+                            Hello {{ $quotation->customer->user->name ?? 'Customer' }},
                         </td>
                     </tr>
 
@@ -38,7 +38,7 @@
                     @if(!isset($isBulk) || !$isBulk)
                     <tr>
                         <td align="left" style="padding-top:10px; padding-bottom:15px;">
-                            <a href="{{ route('invoice.generate.pdf', $invoice->id) }}" style="background-color:#0f172a; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:5px; font-size:16px; font-weight:bold; display:inline-block;">Download Invoice PDF</a>
+                            <a href="{{ route('quotation.generate.pdf', $quotation->id) }}" style="background-color:#0f172a; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:5px; font-size:16px; font-weight:bold; display:inline-block;">Download Quotation PDF</a>
                         </td>
                     </tr>
                     @endif

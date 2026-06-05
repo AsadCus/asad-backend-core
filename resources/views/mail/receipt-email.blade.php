@@ -31,21 +31,17 @@
 
                     <tr>
                         <td align="left" style="font-size:16px; color:#555555; line-height:1.6; padding-bottom:10px;">
-                            Here is your receipt <strong>{{ $receipt->receipt_number }}</strong> from {{ config('app.name') }}.
-                        </td>
-                    </tr>
-                    
-                    <tr>
-                        <td align="left" style="font-size:16px; color:#555555; line-height:1.6; padding-bottom:10px;">
-                            Please find the PDF attached to this email, or you can download it via the link below:
+                            {!! nl2br(e($customMessage ?? '')) !!}
                         </td>
                     </tr>
 
+                    @if(!isset($isBulk) || !$isBulk)
                     <tr>
                         <td align="left" style="padding-top:10px; padding-bottom:15px;">
                             <a href="{{ route('receipt.generate.pdf', $receipt->id) }}" style="background-color:#0f172a; color:#ffffff; padding:10px 20px; text-decoration:none; border-radius:5px; font-size:16px; font-weight:bold; display:inline-block;">Download Receipt PDF</a>
                         </td>
                     </tr>
+                    @endif
 
                     <tr>
                         <td align="left" style="font-size:16px; color:#555555; line-height:1.6; padding-top:20px;">

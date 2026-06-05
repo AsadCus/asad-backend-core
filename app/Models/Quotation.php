@@ -32,6 +32,7 @@ class Quotation extends Model
         'status',
         'reason',
         'is_locked',
+        'email_sent_at',
     ];
 
     protected $casts = [
@@ -40,6 +41,7 @@ class Quotation extends Model
         'extensions' => 'array',
         'is_locked' => 'boolean',
         'status' => QuotationStatus::class,
+        'email_sent_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo

@@ -22,15 +22,8 @@ router.on('httpException', (event) => {
         window.location.href = '/login';
     }
 });
-const el = document.getElementById('app');
-
-let page = null;
-if (el && el.dataset.page) {
-    page = JSON.parse(el.dataset.page);
-}
 
 createInertiaApp({
-    ...(page ? { page } : {}),
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: async (name): Promise<ComponentType> => {
         const module = await resolvePageComponent(
