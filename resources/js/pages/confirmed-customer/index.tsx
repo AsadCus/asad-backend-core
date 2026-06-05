@@ -686,6 +686,8 @@ interface ConfirmedCustomerProps {
     combineFeatureEnabled?: boolean;
     pageTitle?: string;
     indexUrl?: string;
+    countryOptions?: OptionType[];
+    branchOptions?: OptionType[];
 }
 
 interface PackageSelectOption extends OptionType {
@@ -731,6 +733,8 @@ export default function ConfirmedCustomerIndex({
     combineFeatureEnabled = true,
     pageTitle = 'Confirmed Customers',
     indexUrl = confirmedCustomerIndex().url,
+    countryOptions = [],
+    branchOptions = [],
 }: ConfirmedCustomerProps) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -2531,6 +2535,8 @@ export default function ConfirmedCustomerIndex({
                             <CustomerConfirmationForm
                                 mode="create"
                                 packageOptions={packageOptions}
+                                countryOptions={countryOptions}
+                                branchOptions={branchOptions}
                                 onSuccess={() => {
                                     setGroupDialogOpen(false);
                                     router.reload();
@@ -2542,6 +2548,8 @@ export default function ConfirmedCustomerIndex({
                             <CustomerConfirmationForm
                                 mode={groupDialogMode}
                                 packageOptions={packageOptions}
+                                countryOptions={countryOptions}
+                                branchOptions={branchOptions}
                                 initialData={groupDialogData}
                                 onSuccess={() => {
                                     setGroupDialogOpen(false);

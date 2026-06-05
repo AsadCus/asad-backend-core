@@ -1874,7 +1874,7 @@ class CustomerConfirmationService
     /** Get full customer confirmation details for edit or show. */
     public function getForEditShow(int $id): array
     {
-        $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package'])
+        $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package.country'])
             ->findOrFail($id);
 
         $visibleMembers = $group->members
@@ -1886,6 +1886,8 @@ class CustomerConfirmationService
             'enquiry_id' => $group->enquiry_id,
             'package_id' => $group->package_id,
             'package_name' => $group->package?->name,
+            'package_country_id' => $group->package?->country_id,
+            'package_country_name' => $group->package?->country?->name,
             'package_price_single' => $group->package?->price_single,
             'package_price_double' => $group->package?->price_double,
             'package_price_triple' => $group->package?->price_triple,

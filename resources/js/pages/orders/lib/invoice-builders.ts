@@ -928,6 +928,7 @@ export type ApplyInvoiceNumberingOptions = {
     sourceInvoices?: InvoiceSchema[];
     seededNumbers?: string[];
     preferredFormatId?: number | null;
+    keepEmptyForNew?: boolean;
 };
 
 function isMissingInvoiceNumber(invoiceNumber?: string | null): boolean {
@@ -1116,6 +1117,7 @@ export function applyInvoiceNumberingSequence(
         sourceInvoices = [],
         seededNumbers = [],
         preferredFormatId = null,
+        keepEmptyForNew = false,
     } = options;
 
     const normalizedSeededNumbers = seededNumbers.map((number) =>
@@ -1193,6 +1195,13 @@ export function applyInvoiceNumberingSequence(
             }
 
             return invoice;
+        }
+
+        if (keepEmptyForNew && (invoice.id === undefined || invoice.id === null)) {
+            return {
+                ...invoice,
+                invoice_number: '',
+            };
         }
 
         if (index === 0 && isMissingInvoiceNumber(currentInvoiceNumber)) {

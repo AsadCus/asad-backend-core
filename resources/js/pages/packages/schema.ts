@@ -78,6 +78,7 @@ export const packageSchema = z.object({
     name: z.string().optional(),
     status: z.string().optional(),
     country_id: z.string().optional(),
+    country_name: z.string().nullable().optional(),
 
     price_single: z.union([z.string(), z.number()]).nullable().optional(),
     price_double: z.union([z.string(), z.number()]).nullable().optional(),

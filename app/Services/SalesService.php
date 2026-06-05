@@ -56,26 +56,34 @@ class SalesService
         });
     }
 
-    public function getForQuotationAssignment(?User $user = null, ?int $forceCountryId = null, ?int $forceBranchId = null): array
+    public function getForQuotationAssignment(?User $user = null, ?int $forceCountryId = null, ?int $forceBranchId = null, ?int $includeUserId = null): array
     {
         $resolvedUser = $user ?? auth()->user();
 
         $query = User::role(['admin', 'sales'])
             ->whereNull('deleted_at')
-            ->with('sales');
+            ->with(['sales.country']);
 
         $scopeMode = DataScope::mode();
 
         if ($forceCountryId !== null || $forceBranchId !== null) {
-            if ($scopeMode === 'branch' && $forceBranchId !== null && $forceBranchId > 0) {
-                $query->whereHas('sales', function (Builder $salesQuery) use ($forceBranchId): void {
-                    $this->applyMatchingBranchConstraint($salesQuery, [$forceBranchId]);
+            $query->where(function (Builder $subQuery) use ($scopeMode, $forceBranchId, $forceCountryId, $includeUserId): void {
+                $subQuery->where(function (Builder $constraintQuery) use ($scopeMode, $forceBranchId, $forceCountryId): void {
+                    if ($scopeMode === 'branch' && $forceBranchId !== null && $forceBranchId > 0) {
+                        $constraintQuery->whereHas('sales', function (Builder $salesQuery) use ($forceBranchId): void {
+                            $this->applyMatchingBranchConstraint($salesQuery, [$forceBranchId]);
+                        });
+                    } elseif ($forceCountryId !== null && $forceCountryId > 0) {
+                        $constraintQuery->whereHas('sales', function (Builder $salesQuery) use ($forceCountryId): void {
+                            $this->applyMatchingCountryConstraint($salesQuery, [$forceCountryId]);
+                        });
+                    }
                 });
-            } elseif ($forceCountryId !== null && $forceCountryId > 0) {
-                $query->whereHas('sales', function (Builder $salesQuery) use ($forceCountryId): void {
-                    $this->applyMatchingCountryConstraint($salesQuery, [$forceCountryId]);
-                });
-            }
+
+                if ($includeUserId !== null && $includeUserId > 0) {
+                    $subQuery->orWhere('id', $includeUserId);
+                }
+            });
         } elseif (DataScope::enabled() && $resolvedUser instanceof User) {
             if ($scopeMode === 'branch') {
                 $branchIds = DataScope::scopedBranchIds($resolvedUser);
@@ -104,6 +112,7 @@ class SalesService
                 'branch_ids' => $user->sales->branch_ids ?? [],
                 'country_id' => $user->sales->country_id ?? null,
                 'country_ids' => $user->sales->country_ids ?? [],
+                'country_name' => $user->sales->country->name ?? null,
             ];
         })->values()->all();
     }

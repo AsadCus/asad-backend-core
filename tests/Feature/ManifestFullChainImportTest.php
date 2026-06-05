@@ -26,10 +26,11 @@ class ManifestFullChainImportTest extends TestCase
     {
         parent::setUp();
 
-        // The import creates customers via assignRole('customer').
         $this->seed(RolePermissionSeeder::class);
 
-        $this->actingAs(User::factory()->create());
+        $user = User::factory()->create();
+        $user->assignRole('superadmin');
+        $this->actingAs($user);
     }
 
     private function makePackage(): Package
@@ -329,5 +330,35 @@ class ManifestFullChainImportTest extends TestCase
         $this->assertStringContainsString('exceeds the billed total', $result['errors'][0]['message']);
         $this->assertSame(0, Receipt::count());
         $this->assertSame(0, ManifestMember::count());
+    }
+
+    // ── Scenario 7: manifest import feature flag ────────────────────────────────
+
+    public function test_import_returns_403_when_feature_flag_is_disabled(): void
+    {
+        config(['manifest.import_enabled' => false]);
+
+        $package = $this->makePackage();
+        $manifest = $this->makeManifest($package);
+
+        $this->post(route('manifests.import', ['id' => $manifest->id]), [
+            'members' => [
+                $this->memberRow(['name' => 'Test', 'sharing_plan' => 'single']),
+            ],
+        ])->assertStatus(403);
+    }
+
+    public function test_import_allowed_when_feature_flag_is_enabled(): void
+    {
+        config(['manifest.import_enabled' => true]);
+
+        $package = $this->makePackage();
+        $manifest = $this->makeManifest($package);
+
+        $this->post(route('manifests.import', ['id' => $manifest->id]), [
+            'members' => [
+                $this->memberRow(['name' => 'Test', 'sharing_plan' => 'single']),
+            ],
+        ])->assertRedirect();
     }
 }

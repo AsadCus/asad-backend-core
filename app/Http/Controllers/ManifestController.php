@@ -22,11 +22,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -60,6 +60,7 @@ class ManifestController extends Controller
     public function index(): Response
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
+        $data['importEnabled'] = config('manifest.import_enabled', false);
 
         return Inertia::render('manifests/index', [
             'data' => $data,
@@ -149,6 +150,10 @@ class ManifestController extends Controller
         ManifestImportService $importService,
         string $id,
     ): RedirectResponse {
+        if (! config('manifest.import_enabled', false)) {
+            abort(403, 'Manifest import feature is currently disabled.');
+        }
+
         $manifest = Manifest::findOrFail($id);
 
         $result = $importService->importFromPayload(

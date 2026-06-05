@@ -7,6 +7,8 @@ use App\Http\Requests\CustomerConfirmation\CombineQuotationsRequest;
 use App\Http\Requests\CustomerConfirmation\GenerateQuotationsRequest;
 use App\Models\CustomerConfirmation;
 use App\Rules\CustomerConfirmationRule;
+use App\Services\BranchService;
+use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
 use App\Services\ReceiptService;
@@ -32,6 +34,8 @@ class CustomerConfirmationController extends Controller
         protected PackageService $packageService,
         protected ReceiptService $receiptService,
         protected ReportTemplateService $reportTemplateService,
+        protected CountryService $countryService,
+        protected BranchService $branchService,
     ) {}
 
     /**
@@ -45,6 +49,8 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
@@ -64,6 +70,8 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
@@ -83,6 +91,8 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
@@ -102,6 +112,8 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
             'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),

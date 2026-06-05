@@ -481,6 +481,7 @@ function applySeededInvoiceNumbering(
     seededNumbers: string[] = [],
     preferredFormatId: number | null = null,
     fallbackSourceInvoices: InvoiceSchema[] = [],
+    keepEmptyForNew: boolean = false,
 ): InvoiceSchema[] {
     const normalizedSeededNumbers = seededNumbers.map((number) =>
         String(number ?? '').trim(),
@@ -537,6 +538,7 @@ function applySeededInvoiceNumbering(
         sourceInvoices: hasSeededNumber ? [] : fallbackSourceInvoices,
         seededNumbers: normalizedSeededNumbers,
         preferredFormatId,
+        keepEmptyForNew,
     });
 }
 
@@ -604,11 +606,7 @@ export default function OrderForm({
         const paymentPlan = quotation.payment_plan ?? 'direct';
         const installmentInvoiceCount =
             paymentPlan === 'installment'
-                ? sanitizeInstallmentInvoiceCount(
-                      normalizedInitialInvoiceNumbers.length > 0
-                          ? normalizedInitialInvoiceNumbers.length
-                          : 3,
-                  )
+                ? sanitizeInstallmentInvoiceCount(3)
                 : sanitizeInstallmentInvoiceCount(3);
 
         const baseInvoices = normalizeInvoices(
@@ -723,6 +721,7 @@ export default function OrderForm({
             normalizedInitialInvoiceNumbers,
             initialInvoiceNumberFormatId,
             [],
+            true,
         );
     }, [
         defaultPaymentMethod,
@@ -1021,9 +1020,10 @@ export default function OrderForm({
                 if (isCreate) {
                     const numberedInvoices = applySeededInvoiceNumbering(
                         normalizedRebuiltInvoices,
-                        normalizedInitialInvoiceNumbers,
+                        [],
                         initialInvoiceNumberFormatId,
                         editableInvoices,
+                        true,
                     );
 
                     return [...numberedInvoices, ...refundInvoices];
@@ -1032,9 +1032,10 @@ export default function OrderForm({
                 const numberedInvoices = applyInvoiceNumberingSequence(
                     normalizedRebuiltInvoices,
                     {
-                        sourceInvoices: editableInvoices,
-                        seededNumbers: normalizedInitialInvoiceNumbers,
+                        sourceInvoices: [],
+                        seededNumbers: [],
                         preferredFormatId: initialInvoiceNumberFormatId,
+                        keepEmptyForNew: true,
                     },
                 );
 
@@ -1069,18 +1070,20 @@ export default function OrderForm({
             if (isCreate) {
                 return applySeededInvoiceNumbering(
                     normalizedRebuiltInvoices,
-                    normalizedInitialInvoiceNumbers,
+                    [],
                     initialInvoiceNumberFormatId,
                     editableInvoices,
+                    true,
                 );
             }
 
             const numberedInvoices = applyInvoiceNumberingSequence(
                 normalizedRebuiltInvoices,
                 {
-                    sourceInvoices: editableInvoices,
-                    seededNumbers: normalizedInitialInvoiceNumbers,
+                    sourceInvoices: [],
+                    seededNumbers: [],
                     preferredFormatId: initialInvoiceNumberFormatId,
+                    keepEmptyForNew: true,
                 },
             );
 
@@ -1090,7 +1093,6 @@ export default function OrderForm({
             defaultPaymentMethod,
             initialInvoiceNumberFormatId,
             isCreate,
-            normalizedInitialInvoiceNumbers,
             normalizedOrderExtensionMasters,
             quotation,
         ],
@@ -1112,9 +1114,34 @@ export default function OrderForm({
                     normalizedTargetCount - nextEditableInvoices.length;
 
                 for (let index = 0; index < missingCount; index += 1) {
-                    nextEditableInvoices.push(
-                        createEmptyInvoice(String(defaultPaymentMethod ?? '')),
+                    const newInvoice = createEmptyInvoice(
+                        String(defaultPaymentMethod ?? ''),
                     );
+                    const previousInvoice =
+                        nextEditableInvoices[nextEditableInvoices.length - 1];
+
+                    if (previousInvoice) {
+                        newInvoice.invoice_date = previousInvoice.invoice_date;
+                        newInvoice.due_date = previousInvoice.due_date;
+                    }
+
+                    const iteration = nextEditableInvoices.length + 1;
+                    const suffixes = [
+                        'First',
+                        'Second',
+                        'Third',
+                        'Fourth',
+                        'Fifth',
+                        'Sixth',
+                        'Seventh',
+                        'Eighth',
+                        'Ninth',
+                        'Tenth',
+                    ];
+                    const suffix = suffixes[iteration - 1] ?? `${iteration}th`;
+                    newInvoice.description = `Invoice For ${suffix} Payment`;
+
+                    nextEditableInvoices.push(newInvoice);
                 }
             } else if (normalizedTargetCount < nextEditableInvoices.length) {
                 let removableCount =
@@ -1151,9 +1178,10 @@ export default function OrderForm({
             const numberedInvoices = applyInvoiceNumberingSequence(
                 nextEditableInvoices,
                 {
-                    sourceInvoices: editableInvoices,
-                    seededNumbers: normalizedInitialInvoiceNumbers,
+                    sourceInvoices: [],
+                    seededNumbers: [],
                     preferredFormatId: initialInvoiceNumberFormatId,
+                    keepEmptyForNew: true,
                 },
             );
 
@@ -1166,7 +1194,6 @@ export default function OrderForm({
         },
         [
             defaultPaymentMethod,
-            normalizedInitialInvoiceNumbers,
             initialInvoiceNumberFormatId,
         ],
     );
@@ -1191,15 +1218,40 @@ export default function OrderForm({
             return;
         }
 
+        const newInvoice = createEmptyInvoice(
+            String(defaultPaymentMethod ?? ''),
+        );
+        const previousInvoice =
+            editableInvoices[editableInvoices.length - 1];
+
+        if (previousInvoice) {
+            newInvoice.invoice_date = previousInvoice.invoice_date;
+            newInvoice.due_date = previousInvoice.due_date;
+        }
+
+        const iteration = editableInvoices.length + 1;
+        const suffixes = [
+            'First',
+            'Second',
+            'Third',
+            'Fourth',
+            'Fifth',
+            'Sixth',
+            'Seventh',
+            'Eighth',
+            'Ninth',
+            'Tenth',
+        ];
+        const suffix = suffixes[iteration - 1] ?? `${iteration}th`;
+        newInvoice.description = `Invoice For ${suffix} Payment`;
+
         const newInvoices = applyInvoiceNumberingSequence(
-            [
-                ...editableInvoices,
-                createEmptyInvoice(String(defaultPaymentMethod ?? '')),
-            ],
+            [...editableInvoices, newInvoice],
             {
-                sourceInvoices: editableInvoices,
-                seededNumbers: normalizedInitialInvoiceNumbers,
+                sourceInvoices: [],
+                seededNumbers: [],
                 preferredFormatId: initialInvoiceNumberFormatId,
+                keepEmptyForNew: true,
             },
         );
         setData('invoices', [...newInvoices, ...refundInvoices]);
@@ -2440,7 +2492,7 @@ export default function OrderForm({
                                                                     className="px-2 py-1 text-base font-semibold text-primary"
                                                                 >
                                                                     {invoice.invoice_number ||
-                                                                        `Invoice #${idx + 1}`}
+                                                                        `Auto-generated`}
                                                                 </Badge>
                                                             </div>
 
@@ -2594,6 +2646,7 @@ export default function OrderForm({
                                                                 error={
                                                                     invoiceNumberError
                                                                 }
+                                                                placeholder="Auto"
                                                                 hint="Select format to auto-generate invoice number for this invoice."
                                                                 skipInitialAutofill
                                                             />

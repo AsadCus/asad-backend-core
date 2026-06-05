@@ -69,6 +69,7 @@ interface ModelNumberInputProps {
     disabled?: boolean;
     error?: string;
     hint?: string;
+    placeholder?: string;
     skipInitialAutofill?: boolean;
 }
 
@@ -211,6 +212,7 @@ export default function ModelNumberInput({
     disabled = false,
     error,
     hint,
+    placeholder,
     skipInitialAutofill = false,
 }: ModelNumberInputProps) {
     const [formats, setFormats] = useState<NumberingFormatRecord[]>([]);
@@ -361,7 +363,7 @@ export default function ModelNumberInput({
             return;
         }
 
-        if (disabled || (value ?? '').trim().length > 0) {
+        if (skipInitialAutofill || disabled || (value ?? '').trim().length > 0) {
             return;
         }
 
@@ -385,7 +387,7 @@ export default function ModelNumberInput({
                 setIsSuggesting(false);
             }
         })();
-    }, [disabled, isSimpleMode, modelKey, simpleValueMode, value]);
+    }, [disabled, isSimpleMode, modelKey, simpleValueMode, value, skipInitialAutofill]);
 
     const handleFormatChange = async (nextValue: string): Promise<void> => {
         setInlineError(null);
@@ -447,7 +449,7 @@ export default function ModelNumberInput({
                         }
                     }}
                     disabled={disabled}
-                    placeholder="Enter model number"
+                    placeholder={placeholder ?? 'Enter model number'}
                 />
             </FormField>
         );
@@ -621,7 +623,7 @@ export default function ModelNumberInput({
                                     }
                                 }}
                                 readOnly={isComponentBusy}
-                                placeholder="Enter model number"
+                                placeholder={placeholder ?? 'Enter model number'}
                                 className={cn(
                                     'pr-11',
                                     isComponentBusy &&
