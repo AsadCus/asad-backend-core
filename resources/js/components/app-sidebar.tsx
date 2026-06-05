@@ -15,6 +15,7 @@ import cancelledCustomer from '@/routes/cancelled-customer';
 import completedCustomer from '@/routes/completed-customer';
 import confirmedCustomer from '@/routes/confirmed-customer';
 import customer from '@/routes/customer';
+import customerHistory from '@/routes/customer-history';
 import customerHolding from '@/routes/customer-holding';
 import enquiries from '@/routes/enquiries';
 import generalEnquiries from '@/routes/general-enquiries';
@@ -51,6 +52,7 @@ import {
     FileUser,
     Globe,
     Handshake,
+    History,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -268,6 +270,11 @@ export function AppSidebar() {
                       title: 'Customer',
                       href: customer.index.url(),
                       icon: FileUser,
+                  },
+                  {
+                      title: 'Customer History',
+                      href: customerHistory.index.url(),
+                      icon: History,
                   },
               ]
             : []),

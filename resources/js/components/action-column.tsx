@@ -43,7 +43,8 @@ export type ActionType =
     | 'cancel-member'
     | 'refund'
     | 'create-balance-invoice'
-    | 'export-member-receipts-pdf';
+    | 'export-member-receipts-pdf'
+    | 'view-customer-history';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

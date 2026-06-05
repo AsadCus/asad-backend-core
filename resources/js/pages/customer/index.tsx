@@ -20,6 +20,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
+import CustomerHistoryDialog from '../customer-history/components/customer-history-dialog';
 import { UserSchema } from '../masters/users/schema';
 import {
     CustomerImportDialog,
@@ -124,11 +125,20 @@ export default function Customer({ data }: CustomerProps) {
     const actions: ActionType[] = [];
 
     if (userPermissions.includes('customer create')) actions.push('add');
-    if (userPermissions.includes('customer view')) actions.push('view');
+    if (userPermissions.includes('customer view')) {
+        actions.push('view');
+        actions.push('view-customer-history');
+    }
     if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
     const [importOpen, setImportOpen] = useState(false);
+    const [historyCustomerId, setHistoryCustomerId] = useState<number | undefined>();
+    const [historyCustomerName, setHistoryCustomerName] = useState('');
+    const [historyCustomerEmail, setHistoryCustomerEmail] = useState('');
+    const [historyCustomerContact, setHistoryCustomerContact] = useState('');
+    const [historyCustomerAddress, setHistoryCustomerAddress] = useState('');
+    const [historyOpen, setHistoryOpen] = useState(false);
 
     const customExports: CustomExport[] = [
         {
@@ -219,6 +229,13 @@ export default function Customer({ data }: CustomerProps) {
                                                 router.put(enable(userId).url);
                                             },
                                         });
+                                    } else if (action === 'view-customer-history') {
+                                        setHistoryCustomerId(row?.original.customer_id ?? undefined);
+                                        setHistoryCustomerName(row?.original.name ?? '');
+                                        setHistoryCustomerEmail(row?.original.email ?? '');
+                                        setHistoryCustomerContact(row?.original.contact ?? '');
+                                        setHistoryCustomerAddress(row?.original.address ?? '');
+                                        setHistoryOpen(true);
                                     } else if (action === 'disable-customer') {
                                         confirm({
                                             title: 'Disable Customer',
@@ -240,9 +257,11 @@ export default function Customer({ data }: CustomerProps) {
                             initialState={{
                                 columnVisibility: {
                                     id: false,
+                                    customer_number: false,
                                     nric_number: false,
-                                    contact: false,
                                     address: false,
+                                    last_login: false,
+                                    is_active: false,
                                 },
                             }}
                         />
@@ -253,6 +272,15 @@ export default function Customer({ data }: CustomerProps) {
             <CustomerImportDialog
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
+            />
+            <CustomerHistoryDialog
+                isOpen={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                customerId={historyCustomerId}
+                customerName={historyCustomerName}
+                customerEmail={historyCustomerEmail}
+                customerContact={historyCustomerContact}
+                customerAddress={historyCustomerAddress}
             />
         </>
     );

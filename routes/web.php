@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerHistoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataScopeController;
 use App\Http\Controllers\DocumentationController;
@@ -135,6 +136,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('customer-get-for-show/{id}', [CustomerController::class, 'getForShow'])->name('customer.get-for-show');
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
     Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
+
+    // Customer History
+    Route::get('customer-history', [CustomerHistoryController::class, 'index'])->middleware('permission:customer view')->name('customer-history.index');
+    Route::get('customer-history/{customerId}', [CustomerHistoryController::class, 'show'])->middleware('permission:customer view')->name('customer-history.show');
 
     // Quotation
     Route::resource('quotation', QuotationController::class);
