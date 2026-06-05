@@ -22,12 +22,15 @@ router.on('httpException', (event) => {
         window.location.href = '/login';
     }
 });
+const el = document.getElementById('app');
 
-const cleanApp = () => {
-    document.getElementById('app')?.removeAttribute('data-page');
-};
+let page = null;
+if (el && el.dataset.page) {
+    page = JSON.parse(el.dataset.page);
+}
 
 createInertiaApp({
+    ...(page ? { page } : {}),
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: async (name): Promise<ComponentType> => {
         const module = await resolvePageComponent(
@@ -48,7 +51,7 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
-}).then(cleanApp);
+});
 
 initializeTheme();
 initializeColorTheme();
