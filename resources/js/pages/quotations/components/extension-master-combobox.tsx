@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { router } from '@inertiajs/react';
 import { Check, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -107,7 +106,6 @@ export default function ExtensionMasterCombobox({
     const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
     const [searchValue, setSearchValue] = useState('');
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
-    const [isCreating, setIsCreating] = useState(false);
     const [newName, setNewName] = useState('');
     const [newCalculationMode, setNewCalculationMode] = useState<
         'fixed' | 'percentage'
@@ -230,77 +228,27 @@ export default function ExtensionMasterCombobox({
             return;
         }
 
-        setIsCreating(true);
+        const createdOption: ExtensionMasterComboboxOption = {
+            id: -Date.now(),
+            name: newName.trim(),
+            type: createType,
+            calculation_mode: newCalculationMode,
+            calculation_value: Number(newCalculationValue || 0),
+            is_active: true,
+        };
 
-        router.post(
-            '/product-services/extensions/quick-create',
-            {
-                name: newName.trim(),
-                type: createType,
-                calculation_mode: newCalculationMode,
-                calculation_value: Number(newCalculationValue || 0),
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: (page) => {
-                    const flash = (page.props as Record<string, unknown>)
-                        .flash as Record<string, unknown> | undefined;
-                    const result = flash?.result as
-                        | Record<string, unknown>
-                        | undefined;
-                    const createdId = Number(result?.id ?? 0);
+        const nextOptions = [...localOptions, createdOption];
+        setLocalOptions(nextOptions);
+        onOptionsChange?.(nextOptions);
+        onSelect(createdOption);
 
-                    if (createdId <= 0) {
-                        toast.error('Failed to create extension.');
-
-                        return;
-                    }
-
-                    const createdOption: ExtensionMasterComboboxOption = {
-                        id: createdId,
-                        name: String(result?.name ?? newName.trim()),
-                        type: String(result?.type ?? createType),
-                        calculation_mode: String(
-                            result?.calculation_mode ?? newCalculationMode,
-                        ),
-                        calculation_value: Number(
-                            result?.calculation_value ??
-                                Number(newCalculationValue || 0),
-                        ),
-                        is_active: true,
-                    };
-
-                    const nextOptions = [
-                        ...localOptions.filter(
-                            (option) => Number(option.id) !== createdOption.id,
-                        ),
-                        createdOption,
-                    ];
-
-                    setLocalOptions(nextOptions);
-                    onOptionsChange?.(nextOptions);
-                    onSelect(createdOption);
-
-                    setOpenCreateDialog(false);
-                    setPopoverOpen(false);
-                    setSearchValue('');
-                    setNewName('');
-                    setNewCalculationMode('fixed');
-                    setNewCalculationValue('');
-                    toast.success('Extension created.');
-                },
-                onError: (errors) => {
-                    const firstError = Object.values(errors)[0];
-                    toast.error(
-                        String(firstError ?? 'Failed to create extension.'),
-                    );
-                },
-                onFinish: () => {
-                    setIsCreating(false);
-                },
-            },
-        );
+        setOpenCreateDialog(false);
+        setPopoverOpen(false);
+        setSearchValue('');
+        setNewName('');
+        setNewCalculationMode('fixed');
+        setNewCalculationValue('');
+        toast.success('Extension created.');
     };
 
     if (disabled) {
@@ -472,8 +420,7 @@ export default function ExtensionMasterCombobox({
                             Create {extensionTypeLabel} extension
                         </DialogTitle>
                         <DialogDescription>
-                            Add a reusable {extensionTypeLabel} option for
-                            quotations.
+                            Add a {extensionTypeLabel} extension for this form.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -483,7 +430,7 @@ export default function ExtensionMasterCombobox({
                                 <Label htmlFor="new-item-type">Type</Label>
                                 <Select
                                     value={newItemType}
-                                    disabled={isCreating}
+                                    disabled={false}
                                     onValueChange={(value) =>
                                         setNewItemType(
                                             value as 'tax' | 'discount',
@@ -514,7 +461,7 @@ export default function ExtensionMasterCombobox({
                                     setNewName(event.target.value)
                                 }
                                 placeholder="Enter name"
-                                disabled={isCreating}
+                                disabled={false}
                             />
                         </div>
 
@@ -524,7 +471,7 @@ export default function ExtensionMasterCombobox({
                             </Label>
                             <Select
                                 value={newCalculationMode}
-                                disabled={isCreating}
+                                disabled={false}
                                 onValueChange={(value) =>
                                     setNewCalculationMode(
                                         value as typeof newCalculationMode,
@@ -561,7 +508,7 @@ export default function ExtensionMasterCombobox({
                                     setNewCalculationValue(event.target.value)
                                 }
                                 placeholder="0"
-                                disabled={isCreating}
+                                disabled={false}
                             />
                         </div>
                     </div>
@@ -570,17 +517,17 @@ export default function ExtensionMasterCombobox({
                         <Button
                             type="button"
                             variant="outline"
-                            disabled={isCreating}
+                            disabled={false}
                             onClick={() => setOpenCreateDialog(false)}
                         >
                             Cancel
                         </Button>
                         <Button
                             type="button"
-                            disabled={isCreating}
+                            disabled={false}
                             onClick={handleCreate}
                         >
-                            {isCreating ? 'Creating...' : 'Create'}
+                            Create
                         </Button>
                     </DialogFooter>
                 </DialogContent>

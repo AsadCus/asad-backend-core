@@ -279,10 +279,6 @@ export default function TotalsSummaryCard({
 
     const addDiscountFromMaster = React.useCallback(
         (selectedMaster: ExtensionMasterComboboxOption) => {
-            if (Number(selectedMaster.id ?? 0) <= 0) {
-                return;
-            }
-
             const calculationMode =
                 String(selectedMaster.calculation_mode ?? 'fixed') ===
                 'percentage'
@@ -376,10 +372,6 @@ export default function TotalsSummaryCard({
 
     const addAdditionalFromMaster = React.useCallback(
         (selectedMaster: ExtensionMasterComboboxOption) => {
-            if (Number(selectedMaster.id ?? 0) <= 0) {
-                return;
-            }
-
             const calculationMode =
                 String(selectedMaster.calculation_mode ?? 'fixed') ===
                 'percentage'
