@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Country;
+use App\Models\GeneralEnquiry;
 use App\Rules\GeneralEnquiryRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
@@ -9,6 +11,7 @@ use App\Services\GeneralEnquiryService;
 use App\Services\PackageService;
 use App\Services\SalesService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -117,7 +120,7 @@ class GeneralEnquiryController extends Controller
         $validated['branch_id'] = null;
         $this->generalEnquiryService->store($validated);
 
-        return redirect()->route('general-enquiries.public.create', ['country' => \Illuminate\Support\Str::slug((string) $selectedCountry->name)])
+        return redirect()->route('general-enquiries.public.create', ['country' => Str::slug((string) $selectedCountry->name)])
             ->with('success', 'Thank you for your enquiry. We will get back to you soon.');
     }
 
@@ -167,7 +170,7 @@ class GeneralEnquiryController extends Controller
         $this->generalEnquiryService->update($validated, $id);
 
         // Update package on the parent enquiry if provided
-        $generalEnquiry = \App\Models\GeneralEnquiry::findOrFail($id);
+        $generalEnquiry = GeneralEnquiry::findOrFail($id);
         if ($request->has('package_id')) {
             $generalEnquiry->enquiry?->update(['package_id' => $request->input('package_id')]);
         }
@@ -221,7 +224,7 @@ class GeneralEnquiryController extends Controller
         return strtolower((string) config('data_scope.mode', 'country'));
     }
 
-    private function resolvePublicCountryFromRequest(Request $request): ?\App\Models\Country
+    private function resolvePublicCountryFromRequest(Request $request): ?Country
     {
         $countrySlug = trim((string) $request->input('country_slug', $request->query('country', '')));
 

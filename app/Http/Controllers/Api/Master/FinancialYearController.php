@@ -27,6 +27,7 @@ class FinancialYearController extends Controller
     {
         $validated = $request->validate($this->financialYearRule->rules());
         $year = $this->financialYearService->store($validated);
+
         return response()->json($year, 201);
     }
 
@@ -39,12 +40,14 @@ class FinancialYearController extends Controller
     {
         $validated = $request->validate($this->financialYearRule->rules());
         $year = $this->financialYearService->update($validated, $id);
+
         return response()->json($year);
     }
 
     public function setDefault(string $id): JsonResponse
     {
         $this->financialYearService->setDefault($id);
+
         return response()->json(['status' => 'ok']);
     }
 
@@ -56,10 +59,12 @@ class FinancialYearController extends Controller
             foreach ($ids as $yearId) {
                 $this->financialYearService->delete($yearId);
             }
+
             return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
         }
 
         $this->financialYearService->delete($id);
+
         return response()->json(['status' => 'ok', 'deleted' => 1]);
     }
 }

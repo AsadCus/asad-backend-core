@@ -10,9 +10,11 @@ use App\Services\CountryService;
 use App\Services\SalesService;
 use App\Services\UserRoles\SalesUserService;
 use App\Services\UserService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class AdminController extends Controller
 {
@@ -41,7 +43,7 @@ class AdminController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         $dataUser = $this->adminRoleService->getForDataTable();
         $dataRole = $this->userService->getRoleForFilter();
@@ -62,7 +64,7 @@ class AdminController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(): \Inertia\Response
+    public function create(): Response
     {
         $dataRole = $this->userService->getRoleForFilter();
         $dataBranch = $this->branchService->getForFilter();
@@ -83,7 +85,7 @@ class AdminController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->userRule->rules('admin'));
 
@@ -107,7 +109,7 @@ class AdminController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): \Inertia\Response
+    public function show(string $id): Response
     {
         $data = $this->adminRoleService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
@@ -129,7 +131,7 @@ class AdminController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id): \Inertia\Response
+    public function edit(string $id): Response
     {
         $data = $this->adminRoleService->getForEditShow($id);
         $dataRole = $this->userService->getRoleForFilter();
@@ -151,7 +153,7 @@ class AdminController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id): \Illuminate\Http\RedirectResponse
+    public function update(Request $request, string $id): RedirectResponse
     {
         $validated = $request->validate($this->userRule->rules('admin', 'update', $id));
 
@@ -164,7 +166,7 @@ class AdminController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, string $id): \Illuminate\Http\RedirectResponse
+    public function destroy(Request $request, string $id): RedirectResponse
     {
         $ids = $request->input('ids');
 

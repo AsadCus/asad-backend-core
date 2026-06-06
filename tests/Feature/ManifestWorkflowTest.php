@@ -19,6 +19,7 @@ use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\ManifestService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
@@ -2794,17 +2795,17 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['third_payment'] ?? 0));
@@ -3191,17 +3192,17 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(400.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
         $this->assertSame(9800.0, (float) ($memberRow['third_payment'] ?? 0));
@@ -3706,12 +3707,12 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(5000.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertNull($memberRow['third_payment']);
@@ -3824,7 +3825,7 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(4000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertNull($memberRow['second_payment']);
@@ -3966,12 +3967,12 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(5000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(3000.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertNull($memberRow['third_payment']);
@@ -4084,12 +4085,12 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(2000.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(3000.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertNull($memberRow['third_payment']);
@@ -4378,17 +4379,17 @@ class ManifestWorkflowTest extends TestCase
         $this->assertNotNull($memberRow);
         $this->assertSame(300.0, (float) ($memberRow['discount'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-01')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_deposit_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['deposit_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-10')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_second_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['second_payment'] ?? 0));
         $this->assertSame(
-            \Carbon\Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
+            Carbon::parse('2026-03-20')->translatedFormat('d F Y'),
             (string) ($memberRow['date_of_third_payment'] ?? ''),
         );
         $this->assertSame(4900.0, (float) ($memberRow['third_payment'] ?? 0));

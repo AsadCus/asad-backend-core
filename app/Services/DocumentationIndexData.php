@@ -34,7 +34,7 @@ class DocumentationIndexData
     public static function getManual(): array
     {
         return [
-            'title'     => 'Documentation - ' . config('app.name') . ' Manual',
+            'title' => 'Documentation - '.config('app.name').' Manual',
             'copyright' => 'Copyright © 2026 by Qiub Pte Ltd',
         ];
     }

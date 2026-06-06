@@ -6,7 +6,7 @@ use App\Models\EducationLevel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\EducationLevel>
+ * @extends Factory<EducationLevel>
  */
 class EducationLevelFactory extends Factory
 {

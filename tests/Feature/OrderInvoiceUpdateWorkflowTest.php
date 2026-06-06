@@ -14,6 +14,7 @@ use App\Models\QuotationExtensionMaster;
 use App\Models\QuotationItem;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Rules\OrderRule;
 use App\Services\OrderService;
 use App\Services\QuotationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -226,7 +227,7 @@ class OrderInvoiceUpdateWorkflowTest extends TestCase
             ],
         ];
 
-        $validator = Validator::make($payload, (new \App\Rules\OrderRule)->rules($order->id));
+        $validator = Validator::make($payload, (new OrderRule)->rules($order->id));
 
         $this->assertTrue($validator->passes(), json_encode($validator->errors()->toArray()));
     }

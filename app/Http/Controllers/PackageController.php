@@ -7,6 +7,7 @@ use App\Services\CountryService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
@@ -140,7 +141,7 @@ class PackageController extends Controller
     /**
      * Import one or more packages from a parsed Excel payload.
      */
-    public function import(Request $request): \Illuminate\Http\RedirectResponse
+    public function import(Request $request): RedirectResponse
     {
         $request->validate([
             'data' => ['required', 'array', 'min:1'],

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Country;
 use App\Rules\PrivateEnquiryRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
@@ -9,6 +10,7 @@ use App\Services\PackageService;
 use App\Services\PrivateEnquiryService;
 use App\Services\SalesService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -114,7 +116,7 @@ class PrivateEnquiryController extends Controller
         $validated['branch_id'] = null;
         $this->privateEnquiryService->store($validated);
 
-        return redirect()->route('private-enquiries.public.create', ['country' => \Illuminate\Support\Str::slug((string) $selectedCountry->name)])
+        return redirect()->route('private-enquiries.public.create', ['country' => Str::slug((string) $selectedCountry->name)])
             ->with('success', 'Thank you for your enquiry. We will get back to you soon with a detailed quotation.');
     }
 
@@ -212,7 +214,7 @@ class PrivateEnquiryController extends Controller
         return strtolower((string) config('data_scope.mode', 'country'));
     }
 
-    private function resolvePublicCountryFromRequest(Request $request): ?\App\Models\Country
+    private function resolvePublicCountryFromRequest(Request $request): ?Country
     {
         $countrySlug = trim((string) $request->input('country_slug', $request->query('country', '')));
 

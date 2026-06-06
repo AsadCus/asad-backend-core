@@ -13,6 +13,7 @@ class ProfileController extends Controller
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,

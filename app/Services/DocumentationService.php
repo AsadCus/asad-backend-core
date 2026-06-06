@@ -12,17 +12,17 @@ class DocumentationService
         $baseData = DocumentationIndexData::getBaseData();
 
         return [
-            'manual'          => $baseData['manual'],
-            'introduction'    => $baseData['introduction'],
-            'bibliography'    => $baseData['bibliography'],
-            'roleGuide'       => $baseData['roleGuide'],
-            'menuStructure'   => $baseData['menuStructure'],
+            'manual' => $baseData['manual'],
+            'introduction' => $baseData['introduction'],
+            'bibliography' => $baseData['bibliography'],
+            'roleGuide' => $baseData['roleGuide'],
+            'menuStructure' => $baseData['menuStructure'],
             'modulePlaybooks' => $this->getModulePlaybooks(),
-            'menuGroups'      => $baseData['menuGroups'],
-            'coreWorkflows'   => $baseData['coreWorkflows'],
-            'howToGuides'     => $baseData['howToGuides'],
-            'commonStatuses'  => $baseData['commonStatuses'],
-            'tips'            => $baseData['tips'],
+            'menuGroups' => $baseData['menuGroups'],
+            'coreWorkflows' => $baseData['coreWorkflows'],
+            'howToGuides' => $baseData['howToGuides'],
+            'commonStatuses' => $baseData['commonStatuses'],
+            'tips' => $baseData['tips'],
         ];
     }
 

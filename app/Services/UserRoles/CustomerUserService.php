@@ -9,6 +9,7 @@ use App\Rules\UserRule;
 use App\Services\NotificationService;
 use App\Services\NumberingService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -368,7 +369,7 @@ class CustomerUserService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, ModelFile>  $rows
+     * @param  Collection<int, ModelFile>  $rows
      * @return array<int, array{id:int,field:string,file_name:string,file_path:string}>
      */
     private function formatDocumentListPayload($rows): array

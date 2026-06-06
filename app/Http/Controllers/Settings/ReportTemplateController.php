@@ -227,7 +227,7 @@ class ReportTemplateController extends Controller
         // Include file uploads
         foreach (array_keys(self::FILE_KEY_MAP) as $fileKey) {
             if (array_key_exists($fileKey, $validated) &&
-                ($validated[$fileKey] instanceof \Illuminate\Http\UploadedFile || $validated[$fileKey] === '')) {
+                ($validated[$fileKey] instanceof UploadedFile || $validated[$fileKey] === '')) {
                 $filteredData[$fileKey] = $validated[$fileKey];
             }
         }

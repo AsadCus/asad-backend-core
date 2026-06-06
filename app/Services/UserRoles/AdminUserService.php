@@ -4,6 +4,7 @@ namespace App\Services\UserRoles;
 
 use App\Models\Admin;
 use App\Models\Branch;
+use App\Models\Country;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -293,7 +294,7 @@ class AdminUserService
     private function resolveCountryNameForListing(?Admin $adminScope): string
     {
         $countryNames = collect($this->resolveCountryIds($adminScope))
-            ->map(fn (int $id) => $id > 0 ? \App\Models\Country::query()->whereKey($id)->value('name') : null)
+            ->map(fn (int $id) => $id > 0 ? Country::query()->whereKey($id)->value('name') : null)
             ->filter()
             ->values();
 

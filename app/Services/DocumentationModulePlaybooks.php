@@ -8,7 +8,7 @@ namespace App\Services;
  * This file contains the static documentation playbook data for all modules.
  * Separated from DocumentationService for maintainability.
  *
- * @see \App\Services\DocumentationService::getIndexData()
+ * @see DocumentationService::getIndexData()
  */
 class DocumentationModulePlaybooks
 {

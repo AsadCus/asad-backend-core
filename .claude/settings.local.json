@@ -1,22 +1,26 @@
 {
-    "permissions": {
-        "allow": [
-            "Bash(php artisan *)",
-            "Bash(vendor/bin/phpunit *)",
-            "mcp__laravel-boost__database-schema",
-            "Bash(vendor/bin/pint --dirty)",
-            "Bash(npx tsc *)",
-            "Bash(npm run *)",
-            "mcp__laravel-boost__application-info",
-            "Bash(awk *)",
-            "Bash(find *)",
-            "Bash(rtk ls *)",
-            "Bash(rtk tsc *)",
-            "Bash(rtk npm *)",
-            "Bash(rtk lint *)",
-            "Bash(rtk git *)",
-            "Bash(rtk grep *)",
-            "Bash(rtk find *)"
-        ]
-    }
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(vendor/bin/phpunit *)",
+      "mcp__laravel-boost__database-schema",
+      "Bash(vendor/bin/pint --dirty)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "mcp__laravel-boost__application-info",
+      "Bash(awk *)",
+      "Bash(find *)",
+      "Bash(rtk ls *)",
+      "Bash(rtk tsc *)",
+      "Bash(rtk npm *)",
+      "Bash(rtk lint *)",
+      "Bash(rtk git *)",
+      "Bash(rtk grep *)",
+      "Bash(rtk find *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ],
+  "enableAllProjectMcpServers": true
 }
