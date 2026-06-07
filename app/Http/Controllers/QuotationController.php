@@ -145,10 +145,16 @@ class QuotationController extends Controller
         );
         $data['activeCustomers'] = $this->quotationService->getActiveCustomerOptions();
         $data['quotationExtensionMasters'] = $this->quotationService->getExtensionMastersForMasterPage();
+        $quotationModel = Quotation::with('customerConfirmation.package')->findOrFail($id);
+        $forceCountryId = $quotationModel->customerConfirmation?->package?->country_id ?? $quotationModel->country_id;
+        $forceBranchId = $quotationModel->branch_id;
+        $includeUserId = $quotationModel->handled_by;
+
         $data['salespersons'] = $this->salesService->getForQuotationAssignment(
             null,
-            isset($data['data']['country_id']) ? (int) $data['data']['country_id'] : null,
-            isset($data['data']['branch_id']) ? (int) $data['data']['branch_id'] : null,
+            $forceCountryId ? (int) $forceCountryId : null,
+            $forceBranchId ? (int) $forceBranchId : null,
+            $includeUserId ? (int) $includeUserId : null,
         );
 
         return Inertia::render('quotations/edit', [

@@ -134,4 +134,33 @@ class InvoiceControllerWorkflowTest extends TestCase
         $response->assertStatus(302);
         $response->assertSessionHasErrors();
     }
+
+    public function test_invoice_create_loads_form_without_invoice_number_seed(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-INV-002',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $response = $this->get(route('invoice.create', ['quotation_id' => $quotation->id]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('invoices/create')
+            ->where('data.quotation.id', $quotation->id)
+            ->missing('data.invoiceNumberSeed')
+        );
+    }
 }

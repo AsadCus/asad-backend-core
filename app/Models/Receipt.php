@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\QuotationStatus;
 use App\Helpers\NumberGenerator;
+use App\Services\FinancialTransactionService;
+use App\Services\PaymentStatusService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +19,7 @@ class Receipt extends Model
         'amount',
         'receipt_date',
         'payment_method',
+        'refund_to',
         'reference',
         'description',
         'email_sent_at',
@@ -66,7 +69,7 @@ class Receipt extends Model
             // Check if quotation is cancelled or soft deleted - don't create financial transaction
             $quotation = $invoice->order?->quotation;
             if (! ($quotation && ($quotation->status === QuotationStatus::Cancelled || $quotation->trashed()))) {
-                $financialTransactionService = app(\App\Services\FinancialTransactionService::class);
+                $financialTransactionService = app(FinancialTransactionService::class);
 
                 $financialTransactionService->recordRevenue(
                     amount: (float) $receipt->amount,
@@ -83,16 +86,16 @@ class Receipt extends Model
                 );
             }
 
-            app(\App\Services\PaymentStatusService::class)
+            app(PaymentStatusService::class)
                 ->syncAfterReceiptMutation((int) $receipt->invoice_id);
         });
 
         static::updated(function ($receipt) {
             if ($receipt->wasChanged(['invoice_id', 'amount', 'receipt_date'])) {
-                $financialTransactionService = app(\App\Services\FinancialTransactionService::class);
+                $financialTransactionService = app(FinancialTransactionService::class);
                 $financialTransactionService->updateReceiptRevenue($receipt);
 
-                app(\App\Services\PaymentStatusService::class)
+                app(PaymentStatusService::class)
                     ->syncAfterReceiptReassignment(
                         $receipt->getOriginal('invoice_id')
                             ? (int) $receipt->getOriginal('invoice_id')
@@ -110,7 +113,7 @@ class Receipt extends Model
 
         static::deleted(function ($receipt) {
             if ($receipt->invoice_id) {
-                app(\App\Services\PaymentStatusService::class)
+                app(PaymentStatusService::class)
                     ->syncAfterReceiptMutation((int) $receipt->invoice_id);
             }
         });

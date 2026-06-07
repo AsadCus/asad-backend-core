@@ -213,7 +213,7 @@ class InvoiceService
         $i = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
             Invoice::with([
                 'quotationItems.taxes',
-                'quotationItems.confirmationMember',
+                'quotationItems.confirmationMember.customer.user',
                 'order.quotation.customer.user',
                 'order.invoices',
                 'invoiceNotes',
@@ -306,6 +306,7 @@ class InvoiceService
                 'parent_id' => $item->parent_id,
                 'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
                 'sharing_plan' => $item->confirmationMember?->sharing_plan,
+                'member_name' => $item->confirmationMember?->customer?->user?->name,
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
@@ -427,6 +428,7 @@ class InvoiceService
                 continue;
             }
             $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            $memberName = $item->confirmationMember?->customer?->user?->name;
 
             foreach ($item->taxes as $tax) {
                 $calculationMode = (string) ($tax->calculation_mode ?? '');
@@ -442,19 +444,25 @@ class InvoiceService
                     ? ($lineAmount * $calculationValue / 100)
                     : $calculationValue;
 
+                $taxName = $tax->name ?: 'Tax';
+                if ($memberName) {
+                    $taxName = "{$taxName} ({$memberName})";
+                }
+
                 $key = implode('|', [
                     (int) ($tax->quotation_extension_master_id ?? 0),
-                    strtolower(trim((string) ($tax->name ?? 'Tax'))),
+                    strtolower(trim((string) $taxName)),
                     $extensionType,
                     $calculationMode,
                     (string) $calculationValue,
+                    $memberName,
                 ]);
 
                 if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'id' => null,
                         'quotation_extension_master_id' => $tax->quotation_extension_master_id,
-                        'name' => $tax->name ?: 'Tax',
+                        'name' => $taxName,
                         'type' => $extensionType,
                         'calculation_mode' => $calculationMode,
                         'calculation_value' => $this->formatService->cleanDecimal($calculationValue),

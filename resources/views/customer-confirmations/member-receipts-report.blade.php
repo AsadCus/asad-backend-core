@@ -407,6 +407,13 @@
                                             <td class="sep">:</td>
                                             <td>{{ $receipt['payment_method_label'] ?? '-' }}</td>
                                         </tr>
+                                        @if (!empty($receipt['refund_to']))
+                                            <tr>
+                                                <td class="lbl-r">Refund To</td>
+                                                <td class="sep">:</td>
+                                                <td>{{ $receipt['refund_to'] }}</td>
+                                            </tr>
+                                        @endif
                                         @if (!empty($receipt['order_number']) && $receipt['order_number'] !== '-')
                                             @if (!empty($receipt['reference']))
                                                 <tr>

@@ -543,7 +543,7 @@ class QuotationService
         $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(
             Quotation::with([
                 'customer.user',
-                'quotationItems.confirmationMember',
+                'quotationItems.confirmationMember.customer.user',
                 'quotationItems.taxes',
                 'customerConfirmation.package',
                 'order.invoices.receipt',
@@ -616,6 +616,7 @@ class QuotationService
                     'parent_id' => $it->parent_id,
                     'customer_confirmation_member_id' => $it->customer_confirmation_member_id,
                     'sharing_plan' => $it->confirmationMember?->sharing_plan,
+                    'member_name' => $it->confirmationMember?->customer?->user?->name,
                     'description' => $it->description,
                     'is_header' => $it->is_header,
                     'is_optional' => $it->is_optional,

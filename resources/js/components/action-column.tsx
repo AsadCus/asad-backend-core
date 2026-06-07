@@ -44,8 +44,7 @@ export type ActionType =
     | 'refund'
     | 'create-balance-invoice'
     | 'export-member-receipts-pdf'
-    | 'send-email'
-    | 'copy-link';
+    | 'view-customer-history';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

@@ -90,6 +90,12 @@ export function ActionMenuItems<TData>({
                 <Item onClick={() => onAction?.('view', row)}>View</Item>
             )}
 
+            {actions.includes('view-customer-history') && (
+                <Item onClick={() => onAction?.('view-customer-history', row)}>
+                    Travel History
+                </Item>
+            )}
+
             {actions.includes('edit') && (
                 <Item onClick={() => onAction?.('edit', row)}>Edit</Item>
             )}

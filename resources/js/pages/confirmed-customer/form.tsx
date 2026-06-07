@@ -78,6 +78,7 @@ import {
     type CustomerConfirmationPackageOption,
     type LinkedPackageInfo,
 } from './schema';
+import { OptionType } from '@/types';
 
 type CustomerConfirmationFormHandle = {
     data: CustomerConfirmationFormData;
@@ -123,6 +124,8 @@ export default function CustomerConfirmationForm({
     publicSubmitUrl,
     initialData,
     packageOptions = [],
+    countryOptions = [],
+    branchOptions = [],
     packageData,
     onSuccess,
     onCancel,
@@ -191,6 +194,7 @@ export default function CustomerConfirmationForm({
                 child_with_bed_price: pkg.child_with_bed_price,
                 child_no_bed_price: pkg.child_no_bed_price,
                 infant_price: pkg.infant_price,
+                country_name: pkg.country?.name ?? pkg.country_name ?? null,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -434,6 +438,7 @@ export default function CustomerConfirmationForm({
                 vehicle_type: packageData.vehicle_type,
                 ticket_type: packageData.ticket_type,
                 remarks: packageData.remarks,
+                country_name: packageData.country_name,
             });
 
             return;
@@ -449,7 +454,7 @@ export default function CustomerConfirmationForm({
 
         const selectedOption = packageOptions.find(
             (option) => Number(option.value) === Number(packageId),
-        );
+        ) as OptionType & { country_name?: string } | undefined;
 
         if (selectedOption) {
             setLinkedPackageInfo((current) => ({
@@ -472,6 +477,7 @@ export default function CustomerConfirmationForm({
                 child_with_bed_price: current?.child_with_bed_price,
                 child_no_bed_price: current?.child_no_bed_price,
                 infant_price: current?.infant_price,
+                country_name: selectedOption.country_name ?? current?.country_name,
             }));
         }
 
@@ -1689,6 +1695,9 @@ export default function CustomerConfirmationForm({
                     }
                     isLoadingChild={isLoadingEnquiryChild}
                     showStatusActions={false}
+                    countryOptions={countryOptions}
+                    branchOptions={branchOptions}
+                    packageOptions={packageOptions}
                 />
 
                 {/* Package dialog */}
@@ -1707,11 +1716,12 @@ export default function CustomerConfirmationForm({
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                        <div className="h-full w-full flex-1 overflow-y-auto p-2">
                             {linkedPackageData ? (
                                 <PackageForm
                                     mode="view"
                                     initialData={linkedPackageData}
+                                    countries={countryOptions}
                                     onCancel={() => setPackageDialogOpen(false)}
                                 />
                             ) : (

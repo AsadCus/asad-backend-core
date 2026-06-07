@@ -9,7 +9,7 @@ import { initializeColorTheme } from './hooks/use-color-theme';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-router.on('httpException', (event) => {
+router.on('invalid', (event) => {
     const statusCode = event.detail.response.status;
 
     if (statusCode !== 401 && statusCode !== 419) {

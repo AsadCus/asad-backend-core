@@ -32,6 +32,7 @@ type ManifestDataTableSchema = ManifestSchema & {
 interface ManifestsProps {
     data: {
         manifestsForDatatable: ManifestDataTableSchema[];
+        importEnabled?: boolean;
     };
 }
 
@@ -132,7 +133,7 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const { manifestsForDatatable } = data;
+    const { manifestsForDatatable, importEnabled = false } = data;
 
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -198,11 +199,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
-                            showImport={userPermissions.includes(
+                            showImport={importEnabled && userPermissions.includes(
                                 'manifest edit',
                             )}
                             onImport={() => setImportOpen(true)}
-                            customExports={customExports}
+                            customExports={importEnabled ? customExports : []}
                             url={index().url}
                             onAction={(action, row) => {
                                 const manifestId = row?.original.id;

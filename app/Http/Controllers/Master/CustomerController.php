@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
 use App\Mail\WelcomeMail;
+use App\Models\Customer;
 use App\Rules\UserRule;
 use App\Services\BranchService;
 use App\Services\CountryService;
@@ -187,7 +188,7 @@ class CustomerController extends Controller
             $user = $this->userService->getForEditShow($id);
 
             // Get customer data using customer ID from user
-            $customer = \App\Models\Customer::where('user_id', $id)->firstOrFail();
+            $customer = Customer::where('user_id', $id)->firstOrFail();
 
             return redirect()->route('quotation.create', [
                 'customer_id' => $customer->id,

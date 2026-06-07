@@ -170,6 +170,7 @@ class ReceiptService
                 'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
+                'refund_to' => $data['refund_to'] ?? null,
             ]);
 
             activity()
@@ -186,7 +187,7 @@ class ReceiptService
         $r = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
             Receipt::with([
                 'invoice.quotationItems.taxes',
-                'invoice.quotationItems.confirmationMember',
+                'invoice.quotationItems.confirmationMember.customer.user',
                 'invoice.order.quotation.customer.user',
                 'invoice.order.invoices.receipt',
                 'receiptNotes',
@@ -257,12 +258,16 @@ class ReceiptService
             'invoice_id' => $r->invoice_id,
             'invoice_number' => $r->invoice?->invoice_number,
             'order_id' => $r->invoice?->order_id,
-            'order_number' => $r->invoice?->order->order_number,
-            'customer_id' => $r->invoice?->order->quotation->customer_id,
-            'customer_name' => $r->invoice?->order->quotation->customer->user->name,
-            'customer_address' => $r->invoice?->order->quotation->customer->address,
+            'order_number' => $r->invoice?->order?->order_number,
+            'customer_id' => $r->invoice?->order?->quotation?->customer?->id,
+            'customer_number' => $r->invoice?->order?->quotation?->customer?->customer_number,
+            'customer_name' => $r->invoice?->order?->quotation?->customer?->user?->name,
+            'customer_email' => $r->invoice?->order?->quotation?->customer?->user?->email,
+            'customer_contact' => $r->invoice?->order?->quotation?->customer?->user?->contact,
+            'customer_address' => $r->invoice?->order?->quotation?->customer?->address,
             'amount' => $this->formatService->cleanDecimal($r->amount),
             'payment_method' => $r->payment_method,
+            'refund_to' => $r->refund_to,
             'reference' => $r->reference,
             'description' => $r->description,
             'sales_registration_number' => $r->invoice?->order->quotation->sales_registration_number,
@@ -283,6 +288,7 @@ class ReceiptService
                 'parent_id' => $item->parent_id,
                 'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
                 'sharing_plan' => $item->confirmationMember?->sharing_plan,
+                'member_name' => $item->confirmationMember?->customer?->user?->name,
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
@@ -421,6 +427,7 @@ class ReceiptService
                 continue;
             }
             $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            $memberName = $item->confirmationMember?->customer?->user?->name;
 
             foreach ($item->taxes as $tax) {
                 $calculationMode = (string) ($tax->calculation_mode ?? '');
@@ -436,19 +443,25 @@ class ReceiptService
                     ? ($lineAmount * $calculationValue / 100)
                     : $calculationValue;
 
+                $taxName = $tax->name ?: 'Tax';
+                if ($memberName) {
+                    $taxName = "{$taxName} ({$memberName})";
+                }
+
                 $key = implode('|', [
                     (int) ($tax->quotation_extension_master_id ?? 0),
-                    strtolower(trim((string) ($tax->name ?? 'Tax'))),
+                    strtolower(trim((string) $taxName)),
                     $extensionType,
                     $calculationMode,
                     (string) $calculationValue,
+                    $memberName,
                 ]);
 
                 if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'id' => null,
                         'quotation_extension_master_id' => $tax->quotation_extension_master_id,
-                        'name' => $tax->name ?: 'Tax',
+                        'name' => $taxName,
                         'type' => $extensionType,
                         'calculation_mode' => $calculationMode,
                         'calculation_value' => $this->formatService->cleanDecimal($calculationValue),
@@ -542,7 +555,7 @@ class ReceiptService
 
             $targetInvoice = $invoiceQuery->findOrFail($targetInvoiceId);
 
-            if (InvoiceStatus::isRefund($targetInvoice->status)) {
+            if (InvoiceStatus::isRefund($targetInvoice->status) && (int) $targetInvoice->id !== (int) $receipt->invoice_id) {
                 throw ValidationException::withMessages([
                     'invoice_id' => 'Cannot assign receipt to refund invoice.',
                 ]);
@@ -580,6 +593,7 @@ class ReceiptService
                 'payment_method' => $data['payment_method'],
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
+                'refund_to' => array_key_exists('refund_to', $data) ? $data['refund_to'] : $receipt->refund_to,
             ]);
 
             activity()

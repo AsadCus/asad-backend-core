@@ -80,6 +80,7 @@ class ReceiptController extends Controller
             'payment_method' => ['required', 'string'],
             'reference' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
+            'refund_to' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->receiptService->store($validated);
@@ -130,6 +131,7 @@ class ReceiptController extends Controller
             'payment_method' => ['required', 'string'],
             'reference' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
+            'refund_to' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->receiptService->update($validated, $id);

@@ -8,10 +8,12 @@ use App\Models\Enquiry;
 use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
+use App\Rules\PackageRule;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class PackageService
 {
@@ -230,6 +232,7 @@ class PackageService
     public function getForEditShow($id): array
     {
         $query = Package::with([
+            'country',
             'accommodations',
             'flights',
             'trainTickets',
@@ -270,6 +273,7 @@ class PackageService
             'status' => $package->status,
             'launched' => $package->launched,
             'country_id' => $package->country_id ? (string) $package->country_id : '',
+            'country_name' => $package->country?->name,
             'price_single' => $this->formatService->cleanDecimal($package->price_single),
             'price_double' => $this->formatService->cleanDecimal($package->price_double),
             'price_triple' => $this->formatService->cleanDecimal($package->price_triple),
@@ -487,7 +491,7 @@ class PackageService
     {
         $imported = 0;
         $errors = [];
-        $packageRule = new \App\Rules\PackageRule;
+        $packageRule = new PackageRule;
 
         foreach ($items as $index => $item) {
             $row = $index + 1;
@@ -1014,7 +1018,7 @@ class PackageService
             ->where('remarks', 'like', $officialGroupMarker.'%')
             ->get()
             ->mapWithKeys(function ($group) use ($officialGroupMarker) {
-                $suffix = trim((string) \Illuminate\Support\Str::after((string) $group->remarks, $officialGroupMarker));
+                $suffix = trim((string) Str::after((string) $group->remarks, $officialGroupMarker));
                 $officialId = (int) $suffix;
 
                 if ($officialId <= 0) {
@@ -1188,7 +1192,7 @@ class PackageService
         $defaultAccommodation = $package->accommodations
             ->first(fn ($accommodation) => ! empty($accommodation->hotel_name));
         $defaultLocation = $defaultAccommodation
-            ? (\Illuminate\Support\Str::slug((string) ($defaultAccommodation->location ?? $defaultAccommodation->hotel_name)) ?: 'makkah')
+            ? (Str::slug((string) ($defaultAccommodation->location ?? $defaultAccommodation->hotel_name)) ?: 'makkah')
             : 'makkah';
         $defaultMeal = $defaultAccommodation->type_of_meal ?? null;
 

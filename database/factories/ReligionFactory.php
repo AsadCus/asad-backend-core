@@ -6,7 +6,7 @@ use App\Models\Religion;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\Religion>
+ * @extends Factory<Religion>
  */
 class ReligionFactory extends Factory
 {
