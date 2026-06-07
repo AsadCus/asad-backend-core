@@ -23,6 +23,10 @@ router.on('invalid', (event) => {
     }
 });
 
+const cleanApp = () => {
+    document.getElementById('app')?.removeAttribute('data-page');
+};
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: async (name): Promise<ComponentType> => {
@@ -44,7 +48,7 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
-});
+}).then(cleanApp);
 
 initializeTheme();
 initializeColorTheme();

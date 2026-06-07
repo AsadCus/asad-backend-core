@@ -17,9 +17,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useForm, router } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Copy, Eye, Link as LinkIcon, Loader2, Send } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface Template {
@@ -84,16 +84,16 @@ export default function SendEmailModal({
             setPreviewHtml(null);
             setIsPreviewing(false);
             setPublicLink(null);
-            
-            const endpoint = isBulk 
+
+            const endpoint = isBulk
                 ? `/${documentType}/bulk/email-data?ids=${documentIds.join(',')}`
                 : `/${documentType}/${documentIds[0]}/email-data`;
 
             fetch(endpoint, {
                 headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
             })
                 .then((res) => {
                     if (!res.ok) throw new Error('Failed to fetch email data');
@@ -101,10 +101,11 @@ export default function SendEmailModal({
                 })
                 .then((fetchedData: EmailData) => {
                     setEmailData(fetchedData);
-                    
-                    const defaultTemplate = fetchedData.templates.find(
-                        (t) => t.value === fetchedData.default_template
-                    ) || fetchedData.templates[0];
+
+                    const defaultTemplate =
+                        fetchedData.templates.find(
+                            (t) => t.value === fetchedData.default_template,
+                        ) || fetchedData.templates[0];
 
                     setData({
                         to: fetchedData.to,
@@ -131,11 +132,20 @@ export default function SendEmailModal({
             setIsPreviewing(false);
             setPublicLink(null);
         }
-    }, [open, documentIds, documentType, isBulk, clearErrors, onOpenChange, reset, setData]);
+    }, [
+        open,
+        documentIds,
+        documentType,
+        isBulk,
+        clearErrors,
+        onOpenChange,
+        reset,
+        setData,
+    ]);
 
     const handleTemplateChange = (value: string) => {
         const selectedTemplate = emailData?.templates.find(
-            (t) => t.value === value
+            (t) => t.value === value,
         );
         if (selectedTemplate) {
             setData((prev) => ({
@@ -148,14 +158,14 @@ export default function SendEmailModal({
 
     const handlePreview = useCallback(async () => {
         if (documentIds.length === 0) return;
-        
+
         setIsPreviewing(true);
         try {
-            const endpoint = isBulk 
+            const endpoint = isBulk
                 ? `/${documentType}/bulk/email-preview`
                 : `/${documentType}/${documentIds[0]}/email-preview`;
 
-            const payload = isBulk 
+            const payload = isBulk
                 ? {
                       ids: documentIds,
                       subject: data.subject,
@@ -170,30 +180,33 @@ export default function SendEmailModal({
                       message: data.message,
                   };
 
-            const response = await fetch(
-                endpoint,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                    },
-                    body: JSON.stringify(payload),
-                }
-            );
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') || '',
+                },
+                body: JSON.stringify(payload),
+            });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                throw new Error(errorData?.message || 'Failed to generate preview');
+                throw new Error(
+                    errorData?.message || 'Failed to generate preview',
+                );
             }
-            
+
             const result = await response.json();
             setPreviewHtml(result.html);
         } catch (error) {
             toast.error('Preview Error', {
-                description: error instanceof Error ? error.message : 'Unknown error',
+                description:
+                    error instanceof Error ? error.message : 'Unknown error',
             });
             setIsPreviewing(false);
         }
@@ -201,24 +214,28 @@ export default function SendEmailModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        const endpoint = isBulk 
+
+        const endpoint = isBulk
             ? `/${documentType}/bulk/send-email`
             : `/${documentType}/${documentIds[0]}/send-email`;
 
         if (isBulk) {
-            router.post(endpoint, {
-                ...data,
-                ids: documentIds,
-            }, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    onOpenChange(false);
+            router.post(
+                endpoint,
+                {
+                    ...data,
+                    ids: documentIds,
                 },
-                onError: () => {
-                    // map errors to form if needed
-                }
-            });
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        onOpenChange(false);
+                    },
+                    onError: () => {
+                        // map errors to form if needed
+                    },
+                },
+            );
         } else {
             post(endpoint, {
                 preserveScroll: true,
@@ -231,11 +248,21 @@ export default function SendEmailModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="z-50 flex h-full max-h-[90%] flex-col lg:min-w-[50%]">
+            <DialogContent className="z-50 flex h-full max-h-[90%] min-w-[95%] flex-col lg:min-w-[60%]">
                 <DialogHeader className="flex-shrink-0">
-                    <DialogTitle>Send {documentType === 'invoice' ? 'Invoice' : documentType === 'receipt' ? 'Receipt' : 'Quotation'}{isBulk ? 's (Bulk)' : ''}</DialogTitle>
+                    <DialogTitle>
+                        Send{' '}
+                        {documentType === 'invoice'
+                            ? 'Invoice'
+                            : documentType === 'receipt'
+                              ? 'Receipt'
+                              : 'Quotation'}
+                        {isBulk ? 's (Bulk)' : ''}
+                    </DialogTitle>
                     <DialogDescription>
-                        {isBulk ? `Sending ${documentIds.length} documents` : `${documentNumber} - ${emailData?.customer_name}`}
+                        {isBulk
+                            ? `Sending ${documentIds.length} documents`
+                            : `${documentNumber} - ${emailData?.customer_name}`}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -247,12 +274,14 @@ export default function SendEmailModal({
                     ) : (
                         <div className="space-y-4">
                             {previewHtml ? (
-                                <div className="space-y-4 mt-4">
+                                <div className="mt-4 space-y-4">
                                     <div className="flex items-center justify-between border-b pb-2">
-                                        <div className="font-medium">Email Preview</div>
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
+                                        <div className="font-medium">
+                                            Email Preview
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => {
                                                 setPreviewHtml(null);
                                                 setIsPreviewing(false);
@@ -263,36 +292,74 @@ export default function SendEmailModal({
                                     </div>
                                     <div className="rounded-md border bg-gray-50 p-4">
                                         <div className="mb-4 space-y-1 border-b pb-4 text-sm">
-                                            <div><span className="font-medium text-gray-500">To:</span> {data.to}</div>
-                                            {data.cc && <div><span className="font-medium text-gray-500">Cc:</span> {data.cc}</div>}
-                                            <div><span className="font-medium text-gray-500">Subject:</span> {data.subject}</div>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <span className="font-medium text-gray-500">Attachment:</span> 
-                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
-                                                    {documentType}_{documentNumber}.pdf
+                                            <div>
+                                                <span className="font-medium text-gray-500">
+                                                    To:
+                                                </span>{' '}
+                                                {data.to}
+                                            </div>
+                                            {data.cc && (
+                                                <div>
+                                                    <span className="font-medium text-gray-500">
+                                                        Cc:
+                                                    </span>{' '}
+                                                    {data.cc}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <span className="font-medium text-gray-500">
+                                                    Subject:
+                                                </span>{' '}
+                                                {data.subject}
+                                            </div>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className="font-medium text-gray-500">
+                                                    Attachment:
+                                                </span>
+                                                <span className="inline-flex items-center rounded-full border bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                                    {documentType}_
+                                                    {documentNumber}.pdf
                                                 </span>
                                             </div>
                                         </div>
-                                        <iframe 
-                                            srcDoc={previewHtml} 
-                                            className="w-full min-h-[400px] border-0 bg-white" 
+                                        <iframe
+                                            srcDoc={previewHtml}
+                                            className="min-h-[400px] w-full border-0 bg-white"
                                             title="Email Preview"
                                         />
                                     </div>
                                 </div>
                             ) : (
-                                <form id="send-email-form" onSubmit={handleSubmit} className="space-y-4 mt-4">
+                                <form
+                                    id="send-email-form"
+                                    onSubmit={handleSubmit}
+                                    className="mt-4 space-y-4"
+                                >
                                     {!isBulk && (
                                         <div className="grid gap-2">
-                                            <Label htmlFor="to">To <span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="to">
+                                                To{' '}
+                                                <span className="text-red-500">
+                                                    *
+                                                </span>
+                                            </Label>
                                             <Input
                                                 id="to"
                                                 type="email"
                                                 value={data.to}
-                                                onChange={(e) => setData('to', e.target.value)}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'to',
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 required
                                             />
-                                            {errors.to && <span className="text-xs text-red-500">{errors.to}</span>}
+                                            {errors.to && (
+                                                <span className="text-xs text-red-500">
+                                                    {errors.to}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
@@ -300,15 +367,33 @@ export default function SendEmailModal({
                                         <div className="grid gap-2">
                                             <Label>To</Label>
                                             <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                                                Emails will be grouped and sent to the following recipients:
+                                                Emails will be grouped and sent
+                                                to the following recipients:
                                                 {emailData?.recipient_groups && (
-                                                    <ul className="mt-2 list-disc pl-5 space-y-1">
-                                                        {emailData.recipient_groups.map((group, idx) => (
-                                                            <li key={idx}>
-                                                                <span className="font-medium text-gray-700">{group.email}</span> ({group.name}) 
-                                                                - {group.documents.length} document(s): {group.documents.join(', ')}
-                                                            </li>
-                                                        ))}
+                                                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                                                        {emailData.recipient_groups.map(
+                                                            (group, idx) => (
+                                                                <li key={idx}>
+                                                                    <span className="font-medium text-gray-700">
+                                                                        {
+                                                                            group.email
+                                                                        }
+                                                                    </span>{' '}
+                                                                    (
+                                                                    {group.name}
+                                                                    ) -{' '}
+                                                                    {
+                                                                        group
+                                                                            .documents
+                                                                            .length
+                                                                    }{' '}
+                                                                    document(s):{' '}
+                                                                    {group.documents.join(
+                                                                        ', ',
+                                                                    )}
+                                                                </li>
+                                                            ),
+                                                        )}
                                                     </ul>
                                                 )}
                                             </div>
@@ -317,32 +402,59 @@ export default function SendEmailModal({
 
                                     {!isBulk && (
                                         <div className="grid gap-2">
-                                            <Label htmlFor="cc">Cc (comma-separated)</Label>
+                                            <Label htmlFor="cc">
+                                                Cc (comma-separated)
+                                            </Label>
                                             <Input
                                                 id="cc"
                                                 type="text"
                                                 value={data.cc}
-                                                onChange={(e) => setData('cc', e.target.value)}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'cc',
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 placeholder="email1@example.com, email2@example.com"
                                             />
-                                            {errors.cc && <span className="text-xs text-red-500">{errors.cc}</span>}
+                                            {errors.cc && (
+                                                <span className="text-xs text-red-500">
+                                                    {errors.cc}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="subject">Subject <span className="text-red-500">*</span></Label>
+                                        <Label htmlFor="subject">
+                                            Subject{' '}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </Label>
                                         <Input
                                             id="subject"
                                             type="text"
                                             value={data.subject}
-                                            onChange={(e) => setData('subject', e.target.value)}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'subject',
+                                                    e.target.value,
+                                                )
+                                            }
                                             required
                                         />
-                                        {errors.subject && <span className="text-xs text-red-500">{errors.subject}</span>}
+                                        {errors.subject && (
+                                            <span className="text-xs text-red-500">
+                                                {errors.subject}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="template">Template</Label>
+                                        <Label htmlFor="template">
+                                            Template
+                                        </Label>
                                         <Select
                                             value={data.template}
                                             onValueChange={handleTemplateChange}
@@ -351,62 +463,101 @@ export default function SendEmailModal({
                                                 <SelectValue placeholder="Select a template" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {emailData?.templates.map((template) => (
-                                                    <SelectItem key={template.value} value={template.value}>
-                                                        {template.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {emailData?.templates.map(
+                                                    (template) => (
+                                                        <SelectItem
+                                                            key={template.value}
+                                                            value={
+                                                                template.value
+                                                            }
+                                                        >
+                                                            {template.label}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
-                                        {errors.template && <span className="text-xs text-red-500">{errors.template}</span>}
+                                        {errors.template && (
+                                            <span className="text-xs text-red-500">
+                                                {errors.template}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="message">Message Body <span className="text-red-500">*</span></Label>
+                                        <Label htmlFor="message">
+                                            Message Body{' '}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </Label>
                                         <Textarea
                                             id="message"
                                             value={data.message}
-                                            onChange={(e) => setData('message', e.target.value)}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'message',
+                                                    e.target.value,
+                                                )
+                                            }
                                             className="min-h-[200px]"
                                             required
                                         />
                                         <p className="text-xs text-gray-500">
-                                            This message will be included in the email body. The PDF document will be automatically attached.
+                                            This message will be included in the
+                                            email body. The PDF document will be
+                                            automatically attached.
                                         </p>
-                                        {errors.message && <span className="text-xs text-red-500">{errors.message}</span>}
+                                        {errors.message && (
+                                            <span className="text-xs text-red-500">
+                                                {errors.message}
+                                            </span>
+                                        )}
                                     </div>
-                                    
+
                                     <div className="grid gap-2">
                                         <Label>Attachment</Label>
                                         <div>
                                             {isBulk ? (
-                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
-                                                    Multiple PDF attachments per recipient
+                                                <span className="inline-flex items-center rounded-full border bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                                    Multiple PDF attachments per
+                                                    recipient
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
-                                                    {documentType}_{documentNumber}.pdf
+                                                <span className="inline-flex items-center rounded-full border bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                                    {documentType}_
+                                                    {documentNumber}.pdf
                                                 </span>
                                             )}
                                         </div>
                                     </div>
 
                                     {publicLink && (
-                                        <div className="grid gap-2 mt-6 p-4 rounded-md border bg-blue-50/50">
+                                        <div className="mt-6 grid gap-2 rounded-md border bg-blue-50/50 p-4">
                                             <Label>Public Link</Label>
                                             <div className="flex gap-2">
-                                                <Input value={publicLink} readOnly className="bg-white" />
-                                                <Button 
+                                                <Input
+                                                    value={publicLink}
+                                                    readOnly
+                                                    className="bg-white"
+                                                />
+                                                <Button
                                                     type="button"
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(publicLink);
-                                                        toast.success('Link copied to clipboard');
+                                                        navigator.clipboard.writeText(
+                                                            publicLink,
+                                                        );
+                                                        toast.success(
+                                                            'Link copied to clipboard',
+                                                        );
                                                     }}
                                                 >
                                                     <Copy className="h-4 w-4" />
                                                 </Button>
                                             </div>
-                                            <p className="text-xs text-gray-500">This link will expire in 7 days.</p>
+                                            <p className="text-xs text-gray-500">
+                                                This link will expire in 7 days.
+                                            </p>
                                         </div>
                                     )}
                                 </form>
@@ -423,13 +574,20 @@ export default function SendEmailModal({
                             onClick={async () => {
                                 setIsGeneratingLink(true);
                                 try {
-                                    const res = await fetch(`/${documentType}/${documentIds[0]}/copy-link`, {
-                                        headers: {
-                                            'Accept': 'application/json',
-                                            'X-Requested-With': 'XMLHttpRequest'
-                                        }
-                                    });
-                                    if (!res.ok) throw new Error('Failed to generate link');
+                                    const res = await fetch(
+                                        `/${documentType}/${documentIds[0]}/copy-link`,
+                                        {
+                                            headers: {
+                                                Accept: 'application/json',
+                                                'X-Requested-With':
+                                                    'XMLHttpRequest',
+                                            },
+                                        },
+                                    );
+                                    if (!res.ok)
+                                        throw new Error(
+                                            'Failed to generate link',
+                                        );
                                     const { url } = await res.json();
                                     setPublicLink(url);
                                 } catch {
@@ -438,8 +596,10 @@ export default function SendEmailModal({
                                     setIsGeneratingLink(false);
                                 }
                             }}
-                            disabled={isLoading || processing || isGeneratingLink}
-                            className="gap-2 mr-auto"
+                            disabled={
+                                isLoading || processing || isGeneratingLink
+                            }
+                            className="mr-auto gap-2"
                         >
                             {isGeneratingLink ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
