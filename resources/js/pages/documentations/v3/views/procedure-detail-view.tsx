@@ -435,6 +435,38 @@ export function ProcedureDetailView({
                                                 }
 
                                                 if (
+                                                    block.type === 'video' &&
+                                                    block.src
+                                                ) {
+                                                    return (
+                                                        <figure
+                                                            key={`video-${i}-${blockIndex}`}
+                                                            className="mx-auto my-1 w-fit overflow-hidden rounded-lg border border-purple-200 bg-purple-50/40 shadow-sm dark:border-purple-900/50 dark:bg-purple-950/20"
+                                                        >
+                                                            <div className="flex items-center gap-1.5 border-b border-purple-200 px-3 py-1.5 dark:border-purple-900/50">
+                                                                <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-purple-600 uppercase dark:bg-purple-900/60 dark:text-purple-300">
+                                                                    VIDEO
+                                                                </span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {block.alt ??
+                                                                        'Demo Video'}
+                                                                </span>
+                                                            </div>
+                                                            <video
+                                                                src={block.src}
+                                                                title={
+                                                                    block.alt ??
+                                                                    `Video for step ${i + 1}`
+                                                                }
+                                                                className="block w-auto h-auto max-w-[480px] max-h-[360px] [max-width:min(480px,100%)] bg-black"
+                                                                controls
+                                                                preload="metadata"
+                                                            />
+                                                        </figure>
+                                                    );
+                                                }
+
+                                                if (
                                                     block.type === 'text' &&
                                                     block.text
                                                 ) {

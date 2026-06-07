@@ -27,6 +27,7 @@ function isTableRow<TData>(obj: unknown): obj is Row<TData> {
 }
 
 type WithHandledBy = { handled_by?: string | null };
+type WithEmailSentAt = { email_sent_at?: string | null };
 
 export function ActionMenuItems<TData>({
     row,
@@ -326,6 +327,18 @@ export function ActionMenuItems<TData>({
                     }
                 >
                     Export All Receipts PDF
+                </Item>
+            )}
+
+            {actions.includes('copy-link') && (
+                <Item onClick={() => onAction?.('copy-link', row)}>
+                    Copy Link
+                </Item>
+            )}
+
+            {actions.includes('send-email') && (
+                <Item onClick={() => onAction?.('send-email', row)}>
+                    {(isTableRow<TData>(row) ? (row.original as WithEmailSentAt)?.email_sent_at : (row as TData & WithEmailSentAt)?.email_sent_at) ? 'Resend Email' : 'Send Email'}
                 </Item>
             )}
 

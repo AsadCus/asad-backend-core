@@ -20,7 +20,7 @@ export interface MenuStructureItem {
 }
 
 export interface PlaybookContentBlock {
-    type: 'text' | 'image' | 'gif';
+    type: 'text' | 'image' | 'gif' | 'video';
     text?: string;
     src?: string;
     alt?: string;

@@ -5,6 +5,7 @@ import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -24,6 +25,7 @@ import {
     SalespersonOption,
 } from './components/quotation-handle-dialog';
 import QuotationPreviewModal from './components/quotation-preview-modal';
+import SendEmailModal from '@/components/send-email-modal';
 import {
     getAvailableQuotationActions,
     QuotationStatusAction,
@@ -54,7 +56,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const defaultQuotationIndexStatusFilters = [...indexStatusValues];
 
-const getColumns = (): ColumnDef<QuotationSchema>[] => [
+const getColumns = (openEmailModal: (id: number, number: string) => void): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
         accessorKey: 'id',
@@ -143,6 +145,41 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
         filterFn: 'dateRangeFilter',
     },
     {
+        id: 'email_sent_at_formatted',
+        accessorKey: 'email_sent_at_formatted',
+        header: 'Email',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+        cell: ({ row }) => {
+            const quotation = row.original;
+            const sentAt = quotation.email_sent_at_formatted;
+            const isSent = !!quotation.email_sent_at;
+
+            return (
+                <div className="flex flex-col gap-1">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={isSent ? 'outline' : 'default'}
+                        className="h-7 px-2.5 text-xs"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!quotation.id) return;
+                            openEmailModal(quotation.id, quotation.quotation_number ?? '');
+                        }}
+                    >
+                        {isSent ? 'Resend Email' : 'Send Email'}
+                    </Button>
+                    {sentAt && (
+                        <span className="text-xs text-muted-foreground">
+                            {sentAt}
+                        </span>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
         accessorKey: 'expiry_date',
         header: 'Expiry Date',
         meta: { exportable: true },
@@ -198,7 +235,27 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
         | 'branch';
     const scopeCountryIds = auth.scope_selected_country_ids ?? [];
     const scopeBranchIds = auth.scope_selected_branch_ids ?? [];
-    const columns = useMemo(() => getColumns(), []);
+    
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedQuotations: QuotationSchema[]) => {
+        const ids = selectedQuotations
+            .map((q) => q.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
+
+    const columns = useMemo(() => getColumns(handleOpenEmailModal), []);
     const actions: ActionType[] = [];
 
     const salespersonsForFilter = useMemo(
@@ -252,6 +309,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const [handleDialogOpen, setHandleDialogOpen] = useState(false);
     const [selectedQuotationForHandle, setSelectedQuotationForHandle] =
         useState<QuotationSchema | null>(null);
+
     const handleQuotationStatusAction = (
         action: ActionType,
         quotation: QuotationSchema,
@@ -325,6 +383,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             addButtonText="Create New Quotation"
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={handleBulkEmailModal}
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
@@ -334,6 +393,11 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         q.status === 'converted')
                                 ) {
                                     rowActions.push('edit');
+                                }
+
+                                if (userPermissions.includes('quotation view')) {
+                                    rowActions.push('send-email');
+                                    rowActions.push('copy-link');
                                 }
 
                                 if (hasEditPermission) {
@@ -425,6 +489,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                 );
                                             }
                                         })();
+                                    } else if (action === 'send-email') {
+                                        handleOpenEmailModal(quotationId, row?.original.quotation_number ?? '');
+                                    } else if (action === 'copy-link') {
+                                        handleOpenEmailModal(quotationId, row?.original.quotation_number ?? '');
                                     } else if (action === 'edit') {
                                         router.get(edit(quotationId).url);
                                     } else if (
@@ -505,6 +573,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     expiry_date: false,
                                     items_count: false,
                                     payment_plan: false,
+                                    email_sent_at_formatted: true,
                                     created_at: false,
                                     updated_at: false,
                                 },
@@ -590,6 +659,14 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                     setHandleDialogOpen(false);
                     setSelectedQuotationForHandle(null);
                 }}
+            />
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="quotation"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
             />
         </>
     );

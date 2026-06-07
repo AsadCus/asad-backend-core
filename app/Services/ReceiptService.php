@@ -62,6 +62,8 @@ class ReceiptService
                     'payment_method' => $r->payment_method,
                     'reference' => $r->reference,
                     'description' => $r->description,
+                    'email_sent_at' => $r->email_sent_at ? $r->email_sent_at->toIso8601String() : null,
+                    'email_sent_at_formatted' => $r->email_sent_at ? $r->email_sent_at->translatedFormat('d F Y, H:i') : null,
                 ];
             });
     }

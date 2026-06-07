@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Row, Table } from '@tanstack/react-table';
-import { Plus, Trash, Upload, X } from 'lucide-react';
+import { Mail, Plus, Trash, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ActionType } from './action-column';
 import useConfirmDialog from './confirm-popup';
@@ -32,6 +32,7 @@ interface DataTableToolbarProps<TData> {
     onImport?: () => void;
     exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
     defaultColumnFilters?: { id: string; value: unknown }[];
+    onBulkSendEmail?: (rows: TData[]) => void;
 }
 
 export function DataTableToolbar<TData>({
@@ -57,6 +58,7 @@ export function DataTableToolbar<TData>({
     onImport,
     exportOptions,
     defaultColumnFilters = [],
+    onBulkSendEmail,
 }: DataTableToolbarProps<TData>) {
     const currentFilters = table.getState().columnFilters;
     const isFiltered =
@@ -149,6 +151,23 @@ export function DataTableToolbar<TData>({
                                     </span>
                                 </Button>
                             )}
+
+                        {onBulkSendEmail && table?.getSelectedRowModel().rows.length > 0 && (
+                            <Button
+                                onClick={() => {
+                                    const selectedRows = table?.getSelectedRowModel().rows || [];
+                                    const selectedData = selectedRows.map((r) => r.original);
+                                    if (selectedData.length === 0) return;
+                                    onBulkSendEmail(selectedData);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                <Mail className="mr-2 h-4 w-4" />
+                                <span className="hidden sm:block">
+                                    Bulk Send Email ({table?.getSelectedRowModel().rows.length})
+                                </span>
+                            </Button>
+                        )}
 
                         {actions?.includes('add') && (
                             <Button onClick={() => onAction?.('add')}>

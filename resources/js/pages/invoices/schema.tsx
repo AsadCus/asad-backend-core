@@ -75,6 +75,8 @@ export const invoiceSchema = z.object({
     is_refund: z.boolean().optional(),
     has_receipt: z.boolean().optional(),
     receipt_id: z.number().nullable().optional(),
+    email_sent_at: z.string().nullable().optional(),
+    email_sent_at_formatted: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     extensions: z.array(invoiceExtensionSchema).optional(),
     items: z.array(invoiceItemSchema),

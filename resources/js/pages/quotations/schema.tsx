@@ -97,6 +97,8 @@ export const quotationSchema = z.object({
     notes: z.array(noteSchema),
 
     have_invoices: z.boolean().optional(),
+    email_sent_at: z.string().nullable().optional(),
+    email_sent_at_formatted: z.string().nullable().optional(),
 });
 
 export type QuotationSchema = z.infer<typeof quotationSchema>;

@@ -59,6 +59,17 @@ Route::post('customer-confirmation/public/create', [CustomerConfirmationControll
 Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerConfirmationController::class, 'publicEditForm'])->name('customer-confirmation.public.edit');
 Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerConfirmationController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
 
+// Public document viewing via signed URLs
+Route::get('public/invoice/{id}', [InvoiceController::class, 'viewPublicDocument'])
+    ->name('public.invoice.view')
+    ->middleware('signed');
+Route::get('public/receipt/{id}', [ReceiptController::class, 'viewPublicDocument'])
+    ->name('public.receipt.view')
+    ->middleware('signed');
+Route::get('public/quotation/{id}', [QuotationController::class, 'viewPublicDocument'])
+    ->name('public.quotation.view')
+    ->middleware('signed');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('data-scope/countries', [DataScopeController::class, 'updateCountrySelection'])->name('data-scope.countries.update');
 
@@ -143,6 +154,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('customer-history/{customerId}', [CustomerHistoryController::class, 'show'])->middleware('permission:customer view')->name('customer-history.show');
 
     // Quotation
+    Route::get('quotation/bulk/email-data', [QuotationController::class, 'getBulkEmailData'])->name('quotation.bulk-email-data');
+    Route::post('quotation/bulk/email-preview', [QuotationController::class, 'previewBulkEmail'])->name('quotation.bulk-email-preview');
+    Route::post('quotation/bulk/send-email', [QuotationController::class, 'sendBulkEmail'])->name('quotation.bulk-send-email');
     Route::resource('quotation', QuotationController::class);
     Route::get('quotation-get-for-show/{id}', [QuotationController::class, 'getForShow'])->name('quotation.get-for-show');
     Route::get('quotation/{id}/preview', [QuotationController::class, 'preview'])->name('quotation.preview');
@@ -154,6 +168,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('quotation/{id}/expire', [QuotationController::class, 'expireQuotation'])->name('quotation.expire');
     Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->name('quotation.cancel');
     Route::post('quotation/{id}/handle', [QuotationController::class, 'handle'])->middleware('permission:quotation edit')->name('quotation.handle');
+    Route::get('quotation/{id}/email-data', [QuotationController::class, 'getEmailData'])->name('quotation.email-data');
+    Route::post('quotation/{id}/email-preview', [QuotationController::class, 'previewEmail'])->name('quotation.email-preview');
+    Route::post('quotation/{id}/send-email', [QuotationController::class, 'sendEmail'])->name('quotation.send-email');
+    Route::get('quotation/{id}/copy-link', [QuotationController::class, 'generatePublicLink'])->name('quotation.copy-link');
 
     Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
     Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
@@ -177,17 +195,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('order', OrderController::class);
 
     // Invoice
+    Route::get('invoice/bulk/email-data', [InvoiceController::class, 'getBulkEmailData'])->name('invoice.bulk-email-data');
+    Route::post('invoice/bulk/email-preview', [InvoiceController::class, 'previewBulkEmail'])->name('invoice.bulk-email-preview');
+    Route::post('invoice/bulk/send-email', [InvoiceController::class, 'sendBulkEmail'])->name('invoice.bulk-send-email');
     Route::resource('invoice', InvoiceController::class);
     Route::get('invoice/{id}/preview', [InvoiceController::class, 'preview'])->name('invoice.preview');
     Route::get('invoice/{id}/generate-pdf', [InvoiceController::class, 'generatePdf'])->name('invoice.generate.pdf');
     Route::get('invoice-get-for-show/{id}', [InvoiceController::class, 'getForShow'])->name('invoice.get-for-show');
     Route::post('invoice/{id}/recreate-receipt', [InvoiceController::class, 'recreateReceipt'])->name('invoice.recreate-receipt');
+    Route::get('invoice/{id}/email-data', [InvoiceController::class, 'getEmailData'])->name('invoice.email-data');
+    Route::post('invoice/{id}/email-preview', [InvoiceController::class, 'previewEmail'])->name('invoice.email-preview');
+    Route::post('invoice/{id}/send-email', [InvoiceController::class, 'sendEmail'])->name('invoice.send-email');
+    Route::get('invoice/{id}/copy-link', [InvoiceController::class, 'generatePublicLink'])->name('invoice.copy-link');
 
     // Receipt
+    Route::get('receipt/bulk/email-data', [ReceiptController::class, 'getBulkEmailData'])->name('receipt.bulk-email-data');
+    Route::post('receipt/bulk/email-preview', [ReceiptController::class, 'previewBulkEmail'])->name('receipt.bulk-email-preview');
+    Route::post('receipt/bulk/send-email', [ReceiptController::class, 'sendBulkEmail'])->name('receipt.bulk-send-email');
     Route::resource('receipt', ReceiptController::class);
     Route::get('receipt/{id}/preview', [ReceiptController::class, 'preview'])->name('receipt.preview');
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
+    Route::get('receipt/{id}/email-data', [ReceiptController::class, 'getEmailData'])->name('receipt.email-data');
+    Route::post('receipt/{id}/email-preview', [ReceiptController::class, 'previewEmail'])->name('receipt.email-preview');
+    Route::post('receipt/{id}/send-email', [ReceiptController::class, 'sendEmail'])->name('receipt.send-email');
+    Route::get('receipt/{id}/copy-link', [ReceiptController::class, 'generatePublicLink'])->name('receipt.copy-link');
 
     // User Logs — SuperAdmin only per access matrix
     Route::get('user-logs', [UserLogsController::class, 'index'])

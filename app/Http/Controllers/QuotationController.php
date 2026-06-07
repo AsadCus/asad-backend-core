@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkSendEmailRequest;
+use App\Http\Requests\SendEmailRequest;
+use App\Mail\QuotationMail;
 use App\Models\Quotation;
 use App\Rules\NoteRule;
 use App\Rules\QuotationRule;
@@ -15,6 +18,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 
 class QuotationController extends Controller
@@ -436,5 +441,312 @@ class QuotationController extends Controller
         }
 
         return $result;
+    }
+
+    public function getEmailData($id)
+    {
+        $quotation = Quotation::with('customer.user')->findOrFail($id);
+
+        $customerEmail = $quotation->customer?->user?->email;
+        $customerName = $quotation->customer?->user?->name ?? 'Customer';
+
+        $templates = [
+            [
+                'value' => 'quotation_send',
+                'label' => 'Quotation Send',
+                'message' => "Here is your quotation {$quotation->quotation_number} from ".config('app.name').".\n\nPlease find the PDF attached to this email. If you have any questions or would like to proceed, please let us know.",
+            ],
+            [
+                'value' => 'quotation_followup',
+                'label' => 'Quotation Follow Up',
+                'message' => "We are following up on the quotation {$quotation->quotation_number} sent to you earlier.\n\nPlease find the PDF attached to this email. We look forward to hearing from you soon.",
+            ],
+        ];
+
+        return response()->json([
+            'to' => $customerEmail ?? '',
+            'cc' => '',
+            'subject' => 'Quotation '.$quotation->quotation_number.' from '.config('app.name'),
+            'templates' => $templates,
+            'default_template' => 'quotation_send',
+            'customer_name' => $customerName,
+        ]);
+    }
+
+    public function previewEmail(SendEmailRequest $request, $id)
+    {
+        $quotation = Quotation::with('customer.user')->findOrFail($id);
+
+        $html = view('mail.quotation-email', [
+            'quotation' => $quotation,
+            'customMessage' => $request->input('message'),
+        ])->render();
+
+        return response()->json([
+            'html' => $html,
+        ]);
+    }
+
+    public function sendEmail(SendEmailRequest $request, $id)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(60);
+
+            $data = $this->quotationService->getForEditShow($id);
+            $reportData = $this->reportTemplateService->build('quotation', $data);
+
+            $paymentPlan = $data['payment_plan'] ?? 'full';
+            $paymentPlanLabel = match ($paymentPlan) {
+                'direct' => 'Direct',
+                'full' => 'Full Payment',
+                'installment' => 'Instalment',
+                default => ucfirst($paymentPlan),
+            };
+
+            $data['payment_plan_label'] = $paymentPlanLabel;
+
+            $html = view('quotations.report-content', [
+                'data' => $data,
+                'items' => $this->sortForPdf($data['items'] ?? []),
+                'branding' => $reportData['branding'],
+                'is_pdf' => true,
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('dpi', 96);
+
+            $quotation = Quotation::with('customer.user')->findOrFail($id);
+            $pdfContent = $pdf->output();
+
+            $pdfAttachments = [
+                ['content' => $pdfContent, 'filename' => $quotation->quotation_number.'.pdf'],
+            ];
+
+            $to = $request->input('to');
+            $cc = $request->input('cc');
+            $subject = $request->input('subject');
+            $messageBody = $request->input('message');
+
+            $mail = Mail::to($to);
+
+            if ($cc) {
+                $ccList = array_map('trim', explode(',', $cc));
+                $mail->cc($ccList);
+            }
+
+            $mail->send(new QuotationMail($quotation, $pdfAttachments, $subject, $messageBody, false));
+
+            $quotation->update(['email_sent_at' => now()]);
+
+            return redirect()->back()->with('success', 'Email sent to '.$to.' successfully.');
+        } catch (\Exception $e) {
+            Log::error('Quotation Email Sending Error: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to send quotation email: '.$e->getMessage());
+        }
+    }
+
+    public function getBulkEmailData(Request $request)
+    {
+        $ids = array_map('trim', explode(',', $request->query('ids', '')));
+        $ids = array_filter($ids, 'is_numeric');
+
+        if (empty($ids)) {
+            return response()->json(['error' => 'No valid IDs provided'], 400);
+        }
+
+        $quotations = Quotation::with('customer.user')->whereIn('id', $ids)->get();
+
+        $groupedQuotations = $quotations->groupBy(function ($quotation) {
+            return $quotation->customer?->user?->email ?? 'unknown';
+        });
+
+        $recipientGroups = [];
+        foreach ($groupedQuotations as $email => $customerQuotations) {
+            if ($email === 'unknown' || empty($email)) {
+                continue;
+            }
+            $recipientGroups[] = [
+                'email' => $email,
+                'name' => $customerQuotations->first()->customer?->user?->name ?? 'Customer',
+                'documents' => $customerQuotations->pluck('quotation_number')->toArray(),
+            ];
+        }
+
+        $firstQuotation = $quotations->first();
+        $customerName = $firstQuotation->customer?->user?->name ?? 'Customer';
+
+        $templates = [
+            [
+                'value' => 'quotation_send',
+                'label' => 'Quotation Send',
+                'message' => 'Here is your quotation from '.config('app.name').".\n\nPlease find the PDF attached to this email. If you have any questions or would like to proceed, please let us know.",
+            ],
+            [
+                'value' => 'quotation_followup',
+                'label' => 'Quotation Follow Up',
+                'message' => "We are following up on the quotation sent to you earlier.\n\nPlease find the PDF attached to this email. We look forward to hearing from you soon.",
+            ],
+        ];
+
+        return response()->json([
+            'to' => '', // Read-only badge shown in UI for bulk
+            'cc' => '',
+            'subject' => 'Quotation from '.config('app.name'),
+            'templates' => $templates,
+            'default_template' => 'quotation_send',
+            'customer_name' => $customerName,
+            'recipient_groups' => $recipientGroups,
+        ]);
+    }
+
+    public function previewBulkEmail(BulkSendEmailRequest $request)
+    {
+        $ids = $request->input('ids');
+        if (empty($ids)) {
+            return response()->json(['error' => 'No valid IDs provided'], 400);
+        }
+
+        // Use first ID to generate preview
+        $firstId = reset($ids);
+        $quotation = Quotation::with('customer.user')->findOrFail($firstId);
+
+        $html = view('mail.quotation-email', [
+            'quotation' => $quotation,
+            'customMessage' => $request->input('message'),
+        ])->render();
+
+        return response()->json([
+            'html' => $html,
+        ]);
+    }
+
+    public function sendBulkEmail(BulkSendEmailRequest $request)
+    {
+        $ids = $request->input('ids');
+        $subject = $request->input('subject');
+        $messageBody = $request->input('message');
+
+        $successCount = 0;
+        $errorCount = 0;
+
+        $quotations = Quotation::with('customer.user')->whereIn('id', $ids)->get();
+        $groupedQuotations = $quotations->groupBy(function ($quotation) {
+            return $quotation->customer?->user?->email;
+        });
+
+        foreach ($groupedQuotations as $email => $customerQuotations) {
+            if (empty($email)) {
+                foreach ($customerQuotations as $quo) {
+                    Log::warning('Skipping bulk email for quotation '.$quo->id.': no customer email.');
+                    $errorCount++;
+                }
+
+                continue;
+            }
+
+            try {
+                $pdfAttachments = [];
+                $firstQuotation = $customerQuotations->first();
+
+                foreach ($customerQuotations as $quotation) {
+                    $data = $this->quotationService->getForEditShow($quotation->id);
+                    $reportData = $this->reportTemplateService->build('quotation', $data);
+
+                    $paymentPlan = $data['payment_plan'] ?? 'full';
+                    $paymentPlanLabel = match ($paymentPlan) {
+                        'direct' => 'Direct',
+                        'full' => 'Full Payment',
+                        'installment' => 'Instalment',
+                        default => ucfirst($paymentPlan),
+                    };
+
+                    $data['payment_plan_label'] = $paymentPlanLabel;
+
+                    $html = view('quotations.report-content', [
+                        'data' => $data,
+                        'items' => $this->sortForPdf($data['items'] ?? []),
+                        'branding' => $reportData['branding'],
+                        'is_pdf' => true,
+                    ])->render();
+
+                    $pdf = Pdf::loadHTML($html)
+                        ->setPaper('a4')
+                        ->setOption('isHtml5ParserEnabled', true)
+                        ->setOption('isRemoteEnabled', true)
+                        ->setOption('dpi', 96);
+
+                    $pdfAttachments[] = [
+                        'content' => $pdf->output(),
+                        'filename' => $quotation->quotation_number.'.pdf',
+                    ];
+                }
+
+                $individualSubject = str_replace('{quotation_number}', $customerQuotations->pluck('quotation_number')->implode(', '), $subject);
+                $individualMessage = str_replace('{quotation_number}', $customerQuotations->pluck('quotation_number')->implode(', '), $messageBody);
+
+                $mail = Mail::to($email);
+                $mail->send(new QuotationMail($firstQuotation, $pdfAttachments, $individualSubject, $individualMessage, true));
+
+                foreach ($customerQuotations as $quotation) {
+                    $quotation->update(['email_sent_at' => now()]);
+                }
+                $successCount++;
+
+            } catch (\Exception $e) {
+                Log::error('Quotation Bulk Email Sending Error (Customer '.$email.'): '.$e->getMessage());
+                $errorCount += $customerQuotations->count();
+            }
+        }
+
+        if ($errorCount > 0 && $successCount > 0) {
+            return redirect()->back()->with('success', "Successfully sent $successCount emails, but some documents failed to send. Check logs.");
+        } elseif ($errorCount > 0) {
+            return redirect()->back()->with('error', 'Failed to send emails. Check logs for details.');
+        } else {
+            return redirect()->back()->with('success', "Successfully sent all $successCount emails.");
+        }
+    }
+
+    public function generatePublicLink($id)
+    {
+        $quotation = Quotation::findOrFail($id);
+
+        $url = URL::temporarySignedRoute(
+            'public.quotation.view',
+            now()->addDays(7),
+            ['id' => $id]
+        );
+
+        return response()->json([
+            'url' => $url,
+        ]);
+    }
+
+    public function viewPublicDocument($id)
+    {
+        $data = $this->quotationService->getForEditShow($id);
+        $reportData = $this->reportTemplateService->build('quotation', $data);
+
+        $paymentPlan = $data['payment_plan'] ?? 'full';
+        $paymentPlanLabel = match ($paymentPlan) {
+            'direct' => 'Direct',
+            'full' => 'Full Payment',
+            'installment' => 'Instalment',
+            default => ucfirst($paymentPlan),
+        };
+
+        $data['payment_plan_label'] = $paymentPlanLabel;
+
+        return view('quotations.report-content', [
+            'data' => $data,
+            'items' => $this->sortForPdf($data['items'] ?? []),
+            'branding' => $reportData['branding'],
+            'is_pdf' => false,
+        ]);
     }
 }

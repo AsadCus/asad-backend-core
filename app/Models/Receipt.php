@@ -22,11 +22,13 @@ class Receipt extends Model
         'refund_to',
         'reference',
         'description',
+        'email_sent_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'receipt_date' => 'date',
+        'email_sent_at' => 'datetime',
     ];
 
     public function invoice(): BelongsTo

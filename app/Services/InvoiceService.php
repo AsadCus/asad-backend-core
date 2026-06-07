@@ -12,6 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+use function collect;
+
 class InvoiceService
 {
     protected $formatService;
@@ -141,6 +143,8 @@ class InvoiceService
                 'is_refund' => InvoiceStatus::isRefund($i->status),
                 'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
                 'receipt_id' => $i->receipt->first()?->id,
+                'email_sent_at' => $i->email_sent_at ? $i->email_sent_at->toIso8601String() : null,
+                'email_sent_at_formatted' => $i->email_sent_at ? $i->email_sent_at->translatedFormat('d F Y, H:i') : null,
                 'created_at' => $i->created_at?->translatedFormat('d F Y'),
                 'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
             ];

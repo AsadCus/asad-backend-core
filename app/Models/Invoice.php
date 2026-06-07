@@ -22,6 +22,7 @@ class Invoice extends Model
         'invoice_date',
         'due_date',
         'status',
+        'email_sent_at',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Invoice extends Model
         'amount' => 'decimal:2',
         'invoice_date' => 'date',
         'due_date' => 'date',
+        'email_sent_at' => 'datetime',
     ];
 
     public function order()
