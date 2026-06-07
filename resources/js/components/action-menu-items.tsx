@@ -353,6 +353,27 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('proposal-submit') && (
+                <Item onClick={() => onAction?.('proposal-submit', row)}>
+                    Submit for Approval
+                </Item>
+            )}
+
+            {actions.includes('proposal-approve') && (
+                <Item onClick={() => onAction?.('proposal-approve', row)}>
+                    Approve
+                </Item>
+            )}
+
+            {actions.includes('proposal-reject') && (
+                <Item
+                    onClick={() => onAction?.('proposal-reject', row)}
+                    className="text-red-600"
+                >
+                    Reject
+                </Item>
+            )}
+
             {actions.includes('delete') && (
                 <Item
                     onClick={() => onAction?.('delete', row)}

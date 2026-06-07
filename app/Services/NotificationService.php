@@ -45,6 +45,7 @@ class NotificationService
                 'message' => $data['message'] ?? null,
                 'type' => $data['type'] ?? null,
                 'link' => $data['link'] ?? null,
+                'exclusive' => $data['exclusive'] ?? false,
             ]);
 
             $targetUserIds = collect();

@@ -27,6 +27,7 @@ use App\Http\Controllers\NumberingFormatController;
 use App\Http\Controllers\OpsMovementController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PackageController;
+use App\Http\Controllers\PackageProposalController;
 use App\Http\Controllers\PrivateEnquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
@@ -248,6 +249,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('packages', PackageController::class);
     Route::get('packages/{id}/download', [PackageController::class, 'generatePdf'])->name('packages.download');
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
+
+    // Package Proposals (PnL)
+    Route::resource('package-proposals', PackageProposalController::class);
+    Route::post('package-proposals/{id}/submit', [PackageProposalController::class, 'submit'])->name('package-proposals.submit');
+    Route::post('package-proposals/{id}/approve', [PackageProposalController::class, 'approve'])->name('package-proposals.approve');
+    Route::post('package-proposals/{id}/reject', [PackageProposalController::class, 'reject'])->name('package-proposals.reject');
+    Route::post('package-proposals/{id}/create-package', [PackageProposalController::class, 'createPackage'])->name('package-proposals.create-package');
 
     // Manifests
     Route::resource('manifests', ManifestController::class)->except(['create', 'update', 'destroy']);

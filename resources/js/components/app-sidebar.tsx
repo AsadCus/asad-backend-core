@@ -32,6 +32,7 @@ import masterSales from '@/routes/master/user/sales';
 import masterSuperadmin from '@/routes/master/user/superadmin';
 import opsMovements from '@/routes/ops-movements';
 import order from '@/routes/order';
+import packageProposals from '@/routes/package-proposals';
 import packages from '@/routes/packages';
 import privateEnquiries from '@/routes/private-enquiries';
 import quotation from '@/routes/quotation';
@@ -57,6 +58,7 @@ import {
     Landmark,
     LayoutGrid,
     ListOrdered,
+    Calculator,
     Luggage,
     Map,
     Package,
@@ -349,6 +351,15 @@ export function AppSidebar() {
                       title: 'Package',
                       href: packages.index.url(),
                       icon: Package,
+                  },
+              ]
+            : []),
+        ...(permissions.includes('package-proposal view')
+            ? [
+                  {
+                      title: 'Package PnL',
+                      href: packageProposals.index.url(),
+                      icon: Calculator,
                   },
               ]
             : []),
