@@ -1138,7 +1138,7 @@ class PackageService
             ->whereNotNull('package_official_id')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->with('roomAssignments')
+            ->with('roomAssignments.room')
             ->get();
 
         if ($officialMembers->isEmpty()) {
@@ -1189,43 +1189,65 @@ class PackageService
 
         $package->loadMissing('accommodations');
 
-        $defaultAccommodation = $package->accommodations
-            ->first(fn ($accommodation) => ! empty($accommodation->hotel_name));
-        $defaultLocation = $defaultAccommodation
-            ? (Str::slug((string) ($defaultAccommodation->location ?? $defaultAccommodation->hotel_name)) ?: 'makkah')
-            : 'makkah';
-        $defaultMeal = $defaultAccommodation->type_of_meal ?? null;
+        $accommodationTargets = $package->accommodations
+            ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
+            ->map(function ($accommodation): array {
+                $location = Str::slug((string) ($accommodation->location ?: $accommodation->hotel_name)) ?: 'makkah';
+
+                return [
+                    'location' => $location,
+                    'meal' => $accommodation->type_of_meal ?? null,
+                ];
+            })
+            ->unique('location')
+            ->values();
+
+        if ($accommodationTargets->isEmpty()) {
+            $accommodationTargets = collect([
+                ['location' => 'makkah', 'meal' => null],
+            ]);
+        }
 
         $nextSortOrder = (int) (($manifest->rooms()->max('sort_order') ?? 0) + 1);
 
-        $officialMembers->each(function ($officialMember) use ($manifest, $officialRoomMarker, $defaultLocation, $defaultMeal, &$nextSortOrder): void {
-            if ($officialMember->roomAssignments()->exists()) {
-                return;
+        foreach ($officialMembers as $officialMember) {
+            $assignedLocations = $officialMember->roomAssignments
+                ->map(fn ($assignment) => strtolower(trim((string) ($assignment->room?->location ?? ''))))
+                ->filter(fn ($location) => $location !== '')
+                ->unique()
+                ->values()
+                ->all();
+
+            foreach ($accommodationTargets as $target) {
+                if (in_array($target['location'], $assignedLocations, true)) {
+                    continue;
+                }
+
+                $room = $manifest->rooms()->create([
+                    'sort_order' => $nextSortOrder,
+                    'location' => $target['location'],
+                    'group_relationship' => 'official',
+                    'room_label' => 'Official Room',
+                    'room_number' => null,
+                    'room_type' => 'single',
+                    'bed_type' => 'single',
+                    'capacity' => 1,
+                    'status' => 'pending',
+                    'meal' => $target['meal'],
+                    'number_of_beds_checked' => false,
+                    'remarks' => $officialRoomMarker,
+                ]);
+
+                $room->roomMembers()->create([
+                    'manifest_member_id' => $officialMember->id,
+                    'sort_order' => 1,
+                    'remarks' => null,
+                ]);
+
+                $assignedLocations[] = $target['location'];
+                $nextSortOrder++;
             }
-
-            $room = $manifest->rooms()->create([
-                'sort_order' => $nextSortOrder,
-                'location' => $defaultLocation,
-                'group_relationship' => 'official',
-                'room_label' => 'Official Room',
-                'room_number' => null,
-                'room_type' => 'single',
-                'bed_type' => 'single',
-                'capacity' => 1,
-                'status' => 'pending',
-                'meal' => $defaultMeal,
-                'number_of_beds_checked' => false,
-                'remarks' => $officialRoomMarker,
-            ]);
-
-            $room->roomMembers()->create([
-                'manifest_member_id' => $officialMember->id,
-                'sort_order' => 1,
-                'remarks' => null,
-            ]);
-
-            $nextSortOrder++;
-        });
+        }
     }
 
     /**
