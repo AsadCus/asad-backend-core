@@ -257,6 +257,30 @@ export const getInvoiceColumns = (
             ),
     },
     {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { exportable: true },
+        cell: ({ row }) => {
+            const status = row.original.status ?? 'draft';
+            const label =
+                statuses.find((s) => s.value === status)?.label || status;
+            const color = statusColors[status as keyof typeof statusColors];
+
+            return (
+                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
+                    {label}
+                </Badge>
+            );
+        },
+        filterFn: 'includesValue',
+    },
+    {
+        accessorKey: 'amount',
+        header: 'Amount',
+        meta: { exportable: true },
+        cell: ({ row }) => formatCurrency(row.original.amount),
+    },
+    {
         id: 'email_sent_at_formatted',
         accessorKey: 'email_sent_at_formatted',
         header: 'Email',
@@ -283,7 +307,6 @@ export const getInvoiceColumns = (
                         type="button"
                         size="sm"
                         variant={isSent ? 'outline' : 'default'}
-                        className="h-7 px-2.5 text-xs"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!invoice.id) return;
@@ -305,30 +328,6 @@ export const getInvoiceColumns = (
                 </div>
             );
         },
-    },
-    {
-        accessorKey: 'status',
-        header: 'Status',
-        meta: { exportable: true },
-        cell: ({ row }) => {
-            const status = row.original.status ?? 'draft';
-            const label =
-                statuses.find((s) => s.value === status)?.label || status;
-            const color = statusColors[status as keyof typeof statusColors];
-
-            return (
-                <Badge className={`${color} rounded-full px-3 py-1 text-base`}>
-                    {label}
-                </Badge>
-            );
-        },
-        filterFn: 'includesValue',
-    },
-    {
-        accessorKey: 'amount',
-        header: 'Amount',
-        meta: { exportable: true },
-        cell: ({ row }) => formatCurrency(row.original.amount),
     },
     {
         id: 'create_receipt',

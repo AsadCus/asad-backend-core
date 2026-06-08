@@ -22,6 +22,7 @@ import {
     ArrowLeftIcon,
     CheckCircleIcon,
     FileSpreadsheetIcon,
+    Loader2,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { read, utils, writeFile, type WorkBook } from 'xlsx';
@@ -368,6 +369,7 @@ export function PackageImportDialog({ open, onClose }: Props) {
     };
 
     const handleClose = () => {
+        if (isSubmitting) return;
         resetDialog();
         onClose();
     };
@@ -440,6 +442,14 @@ export function PackageImportDialog({ open, onClose }: Props) {
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-auto md:min-w-4xl">
+                {isSubmitting && (
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/70 backdrop-blur-[1px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="text-sm font-medium">
+                            Importing… please wait
+                        </span>
+                    </div>
+                )}
                 {step === 'upload' ? (
                     <>
                         <DialogHeader>
@@ -865,9 +875,13 @@ export function PackageImportDialog({ open, onClose }: Props) {
                             <Button
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || !parsedPayload}
+                                className="gap-2"
                             >
                                 {isSubmitting ? (
-                                    <>Importing...</>
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Importing…
+                                    </>
                                 ) : (
                                     <>
                                         <CheckCircleIcon className="h-4 w-4" />

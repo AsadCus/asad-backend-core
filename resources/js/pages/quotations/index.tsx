@@ -147,44 +147,6 @@ const getColumns = (
         filterFn: 'dateRangeFilter',
     },
     {
-        id: 'email_sent_at_formatted',
-        accessorKey: 'email_sent_at_formatted',
-        header: 'Email',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-        cell: ({ row }) => {
-            const quotation = row.original;
-            const sentAt = quotation.email_sent_at_formatted;
-            const isSent = !!quotation.email_sent_at;
-
-            return (
-                <div className="flex flex-col gap-1">
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant={isSent ? 'outline' : 'default'}
-                        className="h-7 px-2.5 text-xs"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (!quotation.id) return;
-                            openEmailModal(
-                                quotation.id,
-                                quotation.quotation_number ?? '',
-                            );
-                        }}
-                    >
-                        {isSent ? 'Resend Email' : 'Send Email'}
-                    </Button>
-                    {sentAt && (
-                        <span className="text-xs text-muted-foreground">
-                            {sentAt}
-                        </span>
-                    )}
-                </div>
-            );
-        },
-    },
-    {
         accessorKey: 'expiry_date',
         header: 'Expiry Date',
         meta: { exportable: true },
@@ -212,6 +174,42 @@ const getColumns = (
                 paymentPlan;
 
             return label;
+        },
+    },
+    {
+        id: 'email_sent_at_formatted',
+        accessorKey: 'email_sent_at_formatted',
+        header: 'Email',
+        meta: { exportable: true },
+        filterFn: 'dateRangeFilter',
+        cell: ({ row }) => {
+            const quotation = row.original;
+            const sentAt = quotation.email_sent_at_formatted;
+            const isSent = !!quotation.email_sent_at;
+
+            return (
+                <div className="flex flex-col gap-1">
+                    <Button
+                        type="button"
+                        variant={isSent ? 'outline' : 'default'}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!quotation.id) return;
+                            openEmailModal(
+                                quotation.id,
+                                quotation.quotation_number ?? '',
+                            );
+                        }}
+                    >
+                        {isSent ? 'Resend Email' : 'Send Email'}
+                    </Button>
+                    {sentAt && (
+                        <span className="text-xs text-muted-foreground">
+                            {sentAt}
+                        </span>
+                    )}
+                </div>
+            );
         },
     },
     {

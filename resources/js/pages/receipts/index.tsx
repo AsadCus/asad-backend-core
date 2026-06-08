@@ -146,6 +146,12 @@ const getColumns = (
         filterFn: 'dateRangeFilter',
     },
     {
+        accessorKey: 'amount',
+        header: 'Amount',
+        meta: { exportable: true },
+        cell: ({ row }) => formatReceiptAmount(row.original),
+    },
+    {
         id: 'email_sent_at_formatted',
         accessorKey: 'email_sent_at_formatted',
         header: 'Email',
@@ -160,9 +166,7 @@ const getColumns = (
                 <div className="flex flex-col gap-1">
                     <Button
                         type="button"
-                        size="sm"
                         variant={isSent ? 'outline' : 'default'}
-                        className="h-7 px-2.5 text-xs"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!receipt.id) return;
@@ -182,12 +186,6 @@ const getColumns = (
                 </div>
             );
         },
-    },
-    {
-        accessorKey: 'amount',
-        header: 'Amount',
-        meta: { exportable: true },
-        cell: ({ row }) => formatReceiptAmount(row.original),
     },
     {
         accessorKey: 'invoice_description',

@@ -17,6 +17,7 @@ import {
     generateManifestImportTemplate,
     ManifestImportDialog,
     type ManifestImportOption,
+    type ManifestSalespersonOption,
 } from './import-dialog';
 import { type ManifestSchema } from './schema';
 
@@ -26,6 +27,7 @@ type ManifestDataTableSchema = ManifestSchema & {
     departure_date?: string | null;
     return_date?: string | null;
     country_name?: string | null;
+    country_id?: number | null;
     created_at?: string | null;
 };
 
@@ -33,6 +35,7 @@ interface ManifestsProps {
     data: {
         manifestsForDatatable: ManifestDataTableSchema[];
         importEnabled?: boolean;
+        salespersons?: ManifestSalespersonOption[];
     };
 }
 
@@ -133,7 +136,8 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const { manifestsForDatatable, importEnabled = false } = data;
+    const { manifestsForDatatable, importEnabled = false, salespersons = [] } =
+        data;
 
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -170,6 +174,7 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             parts.length > 0
                                 ? `#${idValue} — ${parts.join(' ')}`
                                 : `Manifest #${idValue}`,
+                        country_id: m.country_id ?? null,
                     };
                 }),
         [manifestsForDatatable],
@@ -274,6 +279,7 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
                 manifests={manifestOptions}
+                salespersons={salespersons}
             />
         </>
     );

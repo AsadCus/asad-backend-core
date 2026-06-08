@@ -73,6 +73,7 @@ class ManifestService
                     'total_seats' => $q->package?->total_seats,
                     'seats_left' => $q->package?->seats_left,
                     'country_name' => $q->package?->country?->name,
+                    'country_id' => $q->package?->country_id,
                     'status' => $q->package?->status,
                     'members_count' => $q->members_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),

@@ -19,6 +19,8 @@ class ManifestImportRequest extends FormRequest
         return [
             'context' => ['nullable', 'array'],
             'context.date_of_application' => ['nullable', 'string'],
+            'context.country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'context.sales_id' => ['nullable', 'integer', 'exists:users,id'],
 
             // Members sheet (one row per person). Referential checks (payer_ref
             // resolution, member_key uniqueness, reconciliation) live in

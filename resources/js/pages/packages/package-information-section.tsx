@@ -72,7 +72,7 @@ export default function PackageInformationSection({
                     </div>
                 ) : (
                     packageInfo && (
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
                             <FormField label="Package Number">
                                 <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
                                     {packageInfo.package_number ||

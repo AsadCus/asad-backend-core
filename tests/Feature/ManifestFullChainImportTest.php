@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
+use App\Models\Enquiry;
+use App\Models\GeneralEnquiry;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -43,6 +46,7 @@ class ManifestFullChainImportTest extends TestCase
         return Package::create([
             'name' => 'Umrah Test Package',
             'status' => 'open',
+            'country_id' => Country::factory()->create()->id,
             'total_seats' => 50,
             'seats_left' => 50,
             'price_single' => 4000,
@@ -185,6 +189,96 @@ class ManifestFullChainImportTest extends TestCase
             ->count('customer_confirmation_member_id');
         $this->assertSame(3, $distinctCcm);
         $this->assertSame(3, ManifestMember::count());
+    }
+
+    // ── Scenario 1b: salesperson + country scope + general-enquiry child ───────
+
+    public function test_import_stamps_country_salesperson_and_creates_general_enquiry_child(): void
+    {
+        $package = $this->makePackage();
+        $manifest = $this->makeManifest($package);
+
+        $sales = User::factory()->create(['name' => 'Imran Sales']);
+
+        $members = [
+            $this->memberRow([
+                'member_key' => 'M1', 'booking_ref' => 'B1', 'payer_ref' => '',
+                'sharing_group_key' => 'R1', 'name' => 'Solo', 'passport_number' => 'S1',
+                'sharing_plan' => 'single', 'is_leader' => true,
+            ]),
+        ];
+        $payments = [
+            ['booking_ref' => 'B1', 'payer_ref' => 'M1', 'installment_no' => 1, 'invoice_amount' => 4000,
+                'invoice_date' => '2024-01-10', 'due_date' => '2024-01-10', 'paid_amount' => 4000,
+                'paid_date' => '2024-01-10', 'payment_method' => 'cash', 'reference' => 'R1'],
+        ];
+
+        $result = $this->service()->importFromPayload($manifest, ['sales_id' => $sales->id], $members, $payments);
+
+        $this->assertSame([], $result['errors'], json_encode($result['errors']));
+
+        // Enquiry carries the package country + the chosen salesperson, and a
+        // general_enquiries child row exists so it surfaces in that index.
+        $enquiry = Enquiry::firstOrFail();
+        $this->assertSame($package->country_id, $enquiry->country_id);
+        $this->assertSame($sales->id, $enquiry->handled_by);
+        $this->assertSame(1, GeneralEnquiry::where('enquiry_id', $enquiry->id)->count());
+
+        // Generated quotation is owned by the chosen salesperson.
+        $this->assertSame($sales->id, Quotation::firstOrFail()->handled_by);
+    }
+
+    public function test_import_backfills_country_onto_package_without_one(): void
+    {
+        $package = $this->makePackage();
+        $package->update(['country_id' => null]);
+        $manifest = $this->makeManifest($package);
+
+        $country = Country::factory()->create();
+        $sales = User::factory()->create();
+
+        $members = [
+            $this->memberRow([
+                'member_key' => 'M1', 'booking_ref' => 'B1', 'payer_ref' => '',
+                'sharing_group_key' => 'R1', 'name' => 'Solo', 'passport_number' => 'S9',
+                'sharing_plan' => 'single', 'is_leader' => true,
+            ]),
+        ];
+        $payments = [
+            ['booking_ref' => 'B1', 'payer_ref' => 'M1', 'installment_no' => 1, 'invoice_amount' => 4000,
+                'invoice_date' => '2024-01-10', 'due_date' => '2024-01-10', 'paid_amount' => null,
+                'paid_date' => null, 'payment_method' => null, 'reference' => null],
+        ];
+
+        $result = $this->service()->importFromPayload(
+            $manifest,
+            ['country_id' => $country->id, 'sales_id' => $sales->id],
+            $members,
+            $payments,
+        );
+
+        $this->assertSame([], $result['errors'], json_encode($result['errors']));
+        $this->assertSame($country->id, $package->fresh()->country_id);
+        $this->assertSame($country->id, Enquiry::firstOrFail()->country_id);
+    }
+
+    public function test_import_fails_when_no_country_available(): void
+    {
+        $package = $this->makePackage();
+        $package->update(['country_id' => null]);
+        $manifest = $this->makeManifest($package);
+
+        $members = [
+            $this->memberRow([
+                'member_key' => 'M1', 'booking_ref' => 'B1', 'payer_ref' => '',
+                'name' => 'Solo', 'passport_number' => 'S7', 'sharing_plan' => 'single',
+            ]),
+        ];
+
+        $result = $this->service()->importFromPayload($manifest, [], $members, []);
+
+        $this->assertSame(0, $result['imported_members']);
+        $this->assertStringContainsString('country', $result['errors'][0]['message']);
     }
 
     // ── Scenario 2: minimal sheet => one confirmation per member ───────────────

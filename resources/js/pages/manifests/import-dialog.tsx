@@ -12,13 +12,15 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { importMethod } from '@/routes/manifests';
+import { type SharedData } from '@/types';
 import type { FormDataConvertible } from '@inertiajs/core';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     AlertCircleIcon,
     ArrowLeftIcon,
     CheckCircleIcon,
     FileSpreadsheetIcon,
+    Loader2,
     UsersIcon,
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
@@ -84,6 +86,15 @@ interface ParsedImport {
 export interface ManifestImportOption {
     id: number;
     label: string;
+    /** The manifest's package country, when set. Drives the country picker. */
+    country_id?: number | null;
+}
+
+export interface ManifestSalespersonOption {
+    value: number;
+    label: string;
+    country_id?: number | null;
+    country_ids?: number[] | null;
 }
 
 // ─── Parse helpers ────────────────────────────────────────────────────────────
@@ -693,6 +704,7 @@ interface Props {
     open: boolean;
     onClose: () => void;
     manifests: ManifestImportOption[];
+    salespersons?: ManifestSalespersonOption[];
     defaultManifestId?: number | null;
 }
 
@@ -700,8 +712,13 @@ export function ManifestImportDialog({
     open,
     onClose,
     manifests,
+    salespersons = [],
     defaultManifestId,
 }: Props) {
+    const { auth } = usePage<SharedData>().props;
+    const isSuperadmin = (auth.roles ?? []).includes('superadmin');
+    const currentUserId = auth.user?.id ?? null;
+    const scopeCountryOptions = auth.scope_country_options ?? [];
     const [step, setStep] = useState<'upload' | 'preview'>('upload');
     const [parsed, setParsed] = useState<ParsedImport>({
         members: [],
@@ -717,12 +734,48 @@ export function ManifestImportDialog({
     const [applicationDate, setApplicationDate] = useState<string>(
         new Date().toISOString().split('T')[0],
     );
+    const [selectedCountryId, setSelectedCountryId] = useState<string>('');
+    const [salesId, setSalesId] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const preview = useMemo(
         () => buildPreview(parsed.members, parsed.payments),
         [parsed],
     );
+
+    const selectedManifest = useMemo(
+        () => manifests.find((m) => String(m.id) === manifestId) ?? null,
+        [manifests, manifestId],
+    );
+    // If the package already has a country, follow it; otherwise the importer
+    // picks from their own countries (auto-resolved when they only have one).
+    const packageCountryId = selectedManifest?.country_id ?? null;
+    const resolvedCountryId =
+        packageCountryId ??
+        (selectedCountryId
+            ? Number(selectedCountryId)
+            : scopeCountryOptions.length === 1
+              ? scopeCountryOptions[0].id
+              : null);
+    const showCountryPicker =
+        manifestId !== '' &&
+        packageCountryId == null &&
+        scopeCountryOptions.length > 1;
+
+    // Superadmin chooses a salesperson; admin/sales are pinned to themselves.
+    const resolvedSalesId = isSuperadmin
+        ? salesId
+            ? Number(salesId)
+            : null
+        : currentUserId;
+    const filteredSalespersons = useMemo(() => {
+        if (resolvedCountryId == null) return salespersons;
+        return salespersons.filter(
+            (s) =>
+                s.country_id === resolvedCountryId ||
+                (s.country_ids ?? []).includes(resolvedCountryId),
+        );
+    }, [salespersons, resolvedCountryId]);
 
     const resetDialog = () => {
         setStep('upload');
@@ -731,10 +784,13 @@ export function ManifestImportDialog({
         setSubmitError(null);
         setIsSubmitting(false);
         setIsDragging(false);
+        setSelectedCountryId('');
+        setSalesId('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleClose = () => {
+        if (isSubmitting) return;
         resetDialog();
         onClose();
     };
@@ -786,6 +842,14 @@ export function ManifestImportDialog({
             setSubmitError('Please select a target manifest.');
             return;
         }
+        if (resolvedCountryId == null) {
+            setSubmitError('Please select a package country for this import.');
+            return;
+        }
+        if (isSuperadmin && resolvedSalesId == null) {
+            setSubmitError('Please select a salesperson for this import.');
+            return;
+        }
         if (parsed.members.length === 0) return;
 
         setIsSubmitting(true);
@@ -793,7 +857,11 @@ export function ManifestImportDialog({
         router.post(
             importMethod({ id: manifestId }).url,
             {
-                context: { date_of_application: applicationDate },
+                context: {
+                    date_of_application: applicationDate,
+                    country_id: resolvedCountryId,
+                    sales_id: resolvedSalesId,
+                },
                 members: parsed.members,
                 payments: parsed.payments,
             },
@@ -817,6 +885,14 @@ export function ManifestImportDialog({
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-auto md:min-w-4xl">
+                {isSubmitting && (
+                    <div className="absolute inset-0 z-50 flex h-full flex-col items-center justify-center gap-2 rounded-lg bg-background/70 backdrop-blur-[1px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="text-sm font-medium">
+                            Importing… please wait
+                        </span>
+                    </div>
+                )}
                 <DialogHeader>
                     <DialogTitle>
                         {step === 'upload'
@@ -868,6 +944,77 @@ export function ManifestImportDialog({
                                     import.
                                 </p>
                             </div>
+
+                            {showCountryPicker && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="manifest-import-country">
+                                        Package Country
+                                    </Label>
+                                    <ProperInputSelect
+                                        id="manifest-import-country"
+                                        options={scopeCountryOptions.map(
+                                            (c) => ({
+                                                value: String(c.id),
+                                                label: c.label,
+                                            }),
+                                        )}
+                                        value={selectedCountryId}
+                                        onValueChange={(v) => {
+                                            setSelectedCountryId(String(v));
+                                            setSalesId('');
+                                        }}
+                                        placeholder="Select the package country…"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        This package has no country yet — the
+                                        selection is saved to the package and
+                                        used for the created enquiries.
+                                    </p>
+                                </div>
+                            )}
+
+                            {isSuperadmin ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="manifest-import-sales">
+                                        Salesperson
+                                    </Label>
+                                    <ProperInputSelect
+                                        id="manifest-import-sales"
+                                        options={filteredSalespersons.map(
+                                            (s) => ({
+                                                value: String(s.value),
+                                                label: s.label,
+                                            }),
+                                        )}
+                                        value={salesId}
+                                        onValueChange={(v) =>
+                                            setSalesId(String(v))
+                                        }
+                                        placeholder={
+                                            resolvedCountryId == null
+                                                ? 'Select a country first…'
+                                                : 'Search & select a salesperson…'
+                                        }
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Assigned as the salesperson on the
+                                        generated quotations
+                                        {resolvedCountryId != null
+                                            ? ' (filtered to the package country).'
+                                            : '.'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label>Salesperson</Label>
+                                    <p className="text-sm">
+                                        {auth.user?.name} (you)
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Imported bookings are assigned to you.
+                                    </p>
+                                </div>
+                            )}
 
                             <label
                                 htmlFor="manifest-import-file"
@@ -1072,7 +1219,11 @@ export function ManifestImportDialog({
                             Back
                         </Button>
                     )}
-                    <Button variant="outline" onClick={handleClose}>
+                    <Button
+                        variant="outline"
+                        onClick={handleClose}
+                        disabled={isSubmitting}
+                    >
                         Cancel
                     </Button>
                     {step === 'preview' && (
@@ -1081,12 +1232,20 @@ export function ManifestImportDialog({
                             disabled={
                                 isSubmitting ||
                                 parsed.members.length === 0 ||
-                                !manifestId
+                                !manifestId ||
+                                resolvedCountryId == null ||
+                                (isSuperadmin && resolvedSalesId == null)
                             }
+                            className="gap-2"
                         >
-                            {isSubmitting
-                                ? 'Importing...'
-                                : `Import ${preview.memberCount} Member(s)`}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Importing…
+                                </>
+                            ) : (
+                                `Import ${preview.memberCount} Member(s)`
+                            )}
                         </Button>
                     )}
                 </DialogFooter>

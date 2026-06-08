@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Enquiry;
+use App\Models\GeneralEnquiry;
 use App\Models\Invoice;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -15,6 +16,7 @@ use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Support\DataScope;
 use App\Support\InvoiceStatus;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +68,23 @@ class ManifestImportService
         if (! $package) {
             return $this->result(errors: [['booking_ref' => null, 'row' => 0, 'message' => 'Manifest has no package assigned.']]);
         }
+
+        // Resolve the country for the created enquiries. Prefer the package's own
+        // country; otherwise fall back to the country chosen in the import form and
+        // backfill it onto the package (which had none).
+        $countryId = $package->country_id ?: ($this->intOrNull($context['country_id'] ?? null));
+
+        if ($countryId === null) {
+            return $this->result(errors: [['booking_ref' => null, 'row' => 0, 'message' => 'Select a package country for this import.']]);
+        }
+
+        if (! $package->country_id) {
+            $package->update(['country_id' => $countryId]);
+        }
+
+        // Salesperson that owns the created enquiries/quotations. Falls back to the
+        // importing user when not supplied (e.g. admin/sales importing for themselves).
+        $salesId = $this->intOrNull($context['sales_id'] ?? null) ?? auth()->id();
 
         $duplicatePassports = $this->resolveExistingPassportsForManifest($manifest);
         $applicationDate = $this->parseDateInput($context['date_of_application'] ?? null)
@@ -150,6 +169,8 @@ class ManifestImportService
                         $bookingRows,
                         $paymentsByBooking[$bookingRef] ?? [],
                         $applicationDate,
+                        $countryId,
+                        $salesId,
                     ));
 
                     $imported['imported_members'] += $bookingResult['members'];
@@ -213,8 +234,10 @@ class ManifestImportService
         array $bookingRows,
         array $payments,
         string $applicationDate,
+        int $countryId,
+        int $salesId,
     ): array {
-        $confirmation = $this->createBookingConfirmation($manifest, $package, $applicationDate, $bookingRef);
+        $confirmation = $this->createBookingConfirmation($manifest, $package, $applicationDate, $bookingRef, $countryId, $salesId, count($bookingRows));
 
         $memberByKey = [];      // member_key => CustomerConfirmationMember
         $grouping = [];
@@ -257,7 +280,7 @@ class ManifestImportService
         // the payer member ids — match installments by payer member id, not by
         // customer_id (two self-paying members could share one Customer).
         $quotations = $this->confirmationService
-            ->generateQuotationsFromConfirmation($confirmation->id, $payerToMembers);
+            ->generateQuotationsFromConfirmation($confirmation->id, $payerToMembers, $salesId);
 
         $counts = ['invoices' => 0, 'receipts' => 0];
         $payerCmIds = array_keys($payerToMembers);
@@ -367,6 +390,9 @@ class ManifestImportService
         Package $package,
         string $applicationDate,
         string $bookingRef,
+        int $countryId,
+        int $salesId,
+        int $memberCount,
     ): CustomerConfirmation {
         $label = Str::startsWith($bookingRef, '__auto_') ? '' : ' - '.$bookingRef;
         $slug = Str::slug($bookingRef) ?: 'b'.substr(md5($bookingRef), 0, 6);
@@ -379,7 +405,20 @@ class ManifestImportService
             'contact_number' => '-',
             'email' => 'backfill-manifest-'.$manifest->id.'-'.$slug.'@import.local',
             'package_id' => $package->id,
+            'country_id' => $countryId,
+            'branch_id' => DataScope::mode() === 'branch' ? $this->resolveSalesBranchId($salesId) : null,
+            'handled_by' => $salesId,
             'created_by' => auth()->id(),
+        ]);
+
+        // The General Enquiry index lists the `general_enquiries` child rows, so create
+        // one here or imported bookings never surface there.
+        GeneralEnquiry::create([
+            'enquiry_id' => $enquiry->id,
+            'preferred_destinations' => $package->location ?: ($package->name ?: '-'),
+            'preferred_travelling_date' => $applicationDate,
+            'no_of_adults' => $memberCount,
+            'no_of_children' => 0,
         ]);
 
         return CustomerConfirmation::create([
@@ -701,6 +740,23 @@ class ManifestImportService
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    /** Resolve the salesperson's branch for branch-scoped enquiries (null if unknown). */
+    private function resolveSalesBranchId(int $salesId): ?int
+    {
+        $user = User::with('sales')->find($salesId);
+
+        return $user?->sales?->branch_id !== null ? (int) $user->sales->branch_id : null;
     }
 
     private function floatOrNull(mixed $value): ?float

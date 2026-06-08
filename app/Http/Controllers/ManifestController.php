@@ -16,6 +16,7 @@ use App\Services\ManifestService;
 use App\Services\PackageSeatService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
+use App\Services\SalesService;
 use App\Support\DataScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,6 +39,7 @@ class ManifestController extends Controller
         protected PackageService $packageService,
         protected CustomerConfirmationService $customerConfirmationService,
         protected ReportTemplateService $reportTemplateService,
+        protected SalesService $salesService,
     ) {
         $this->middleware('permission:manifest view')->only([
             'index', 'show', 'edit', 'getForShow',
@@ -61,6 +63,7 @@ class ManifestController extends Controller
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
         $data['importEnabled'] = config('manifest.import_enabled', false);
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('manifests/index', [
             'data' => $data,
@@ -156,9 +159,27 @@ class ManifestController extends Controller
 
         $manifest = Manifest::findOrFail($id);
 
+        $context = (array) $request->input('context', []);
+        $actor = $request->user();
+
+        // Defense-in-depth: only a superadmin may assign the booking to another
+        // salesperson. Everyone else (admin/sales) is pinned to themselves.
+        if (! $actor?->hasRole('superadmin')) {
+            $context['sales_id'] = $actor?->id;
+        }
+
+        // A supplied country must be one the importer is actually allowed to use.
+        // An empty assignable list means the user is unrestricted, so don't strip.
+        $assignableCountryIds = $actor ? DataScope::assignableCountryIds($actor) : [];
+        if (! empty($context['country_id'])
+            && ! empty($assignableCountryIds)
+            && ! in_array((int) $context['country_id'], $assignableCountryIds, true)) {
+            unset($context['country_id']);
+        }
+
         $result = $importService->importFromPayload(
             $manifest,
-            (array) $request->input('context', []),
+            $context,
             (array) $request->input('members', $request->input('data', [])),
             (array) $request->input('payments', []),
         );

@@ -30,5 +30,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="CUSTOMER_CONFIRMATION_COMBINE_FEATURE_ENABLED" value="true"/>
+        <env name="EMAIL_SEND_ENABLED" value="true"/>
+        <env name="CUSTOMER_HISTORY_ENABLED" value="true"/>
+        <env name="PACKAGE_PROPOSAL_ENABLED" value="true"/>
     </php>
 </phpunit>
