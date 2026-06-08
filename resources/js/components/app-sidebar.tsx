@@ -75,8 +75,10 @@ import {
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
     const permissions = auth?.permissions || [];
+    const customerHistoryEnabled = Boolean(features?.customer_history);
+    const packagePnlEnabled = Boolean(features?.package_pnl);
     const roles = auth?.roles || [];
     const canViewDocumentation = Boolean(auth?.can_view_documentation);
     const hideCustomerFromUserManagement = Boolean(
@@ -273,11 +275,15 @@ export function AppSidebar() {
                       href: customer.index.url(),
                       icon: FileUser,
                   },
-                  {
-                      title: 'Customer History',
-                      href: customerHistory.index.url(),
-                      icon: History,
-                  },
+                  ...(customerHistoryEnabled
+                      ? [
+                            {
+                                title: 'Customer History',
+                                href: customerHistory.index.url(),
+                                icon: History,
+                            },
+                        ]
+                      : []),
               ]
             : []),
 
@@ -354,7 +360,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(permissions.includes('package-proposal view')
+        ...(permissions.includes('package-proposal view') && packagePnlEnabled
             ? [
                   {
                       title: 'Package PnL',

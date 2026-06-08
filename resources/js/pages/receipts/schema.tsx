@@ -22,6 +22,8 @@ export const receiptSchema = z.object({
     description: z.string().nullable().optional(),
     refund_to: z.string().nullable().optional(),
     is_refund_receipt_report: z.boolean().optional(),
+    email_sent_at_formatted: z.string().nullable().optional(),
+    email_sent_at: z.string().nullable().optional(),
 });
 
 export type ReceiptSchema = z.infer<typeof receiptSchema>;

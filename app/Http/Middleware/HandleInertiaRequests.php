@@ -73,6 +73,11 @@ class HandleInertiaRequests extends Middleware
                 'scope_selected_country_ids' => $user ? DataScope::scopedCountryIds($user) : [],
                 'scope_selected_branch_ids' => $user ? DataScope::scopedBranchIds($user) : [],
             ],
+            'features' => [
+                'send_email' => (bool) config('email.send_enabled', true),
+                'customer_history' => (bool) config('customer_history.enabled', true),
+                'package_pnl' => (bool) config('package_proposal.enabled', true),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

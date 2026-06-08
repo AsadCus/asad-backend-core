@@ -41,6 +41,11 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    features: {
+        send_email: boolean;
+        customer_history: boolean;
+        package_pnl: boolean;
+    };
     sidebarOpen: boolean;
     flash: {
         success?: string | null;

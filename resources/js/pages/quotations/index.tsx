@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -25,7 +26,6 @@ import {
     SalespersonOption,
 } from './components/quotation-handle-dialog';
 import QuotationPreviewModal from './components/quotation-preview-modal';
-import SendEmailModal from '@/components/send-email-modal';
 import {
     getAvailableQuotationActions,
     QuotationStatusAction,
@@ -56,7 +56,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const defaultQuotationIndexStatusFilters = [...indexStatusValues];
 
-const getColumns = (openEmailModal: (id: number, number: string) => void): ColumnDef<QuotationSchema>[] => [
+const getColumns = (
+    openEmailModal: (id: number, number: string) => void,
+): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
         accessorKey: 'id',
@@ -165,7 +167,10 @@ const getColumns = (openEmailModal: (id: number, number: string) => void): Colum
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!quotation.id) return;
-                            openEmailModal(quotation.id, quotation.quotation_number ?? '');
+                            openEmailModal(
+                                quotation.id,
+                                quotation.quotation_number ?? '',
+                            );
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -225,7 +230,8 @@ const getColumns = (openEmailModal: (id: number, number: string) => void): Colum
 
 export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const isSalesOrAdmin =
         auth.roles.includes('sales') || auth.roles.includes('admin');
@@ -235,7 +241,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
         | 'branch';
     const scopeCountryIds = auth.scope_selected_country_ids ?? [];
     const scopeBranchIds = auth.scope_selected_branch_ids ?? [];
-    
+
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalData, setEmailModalData] = useState<{
         ids: number[];
@@ -383,7 +389,11 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             addButtonText="Create New Quotation"
                             searchFilterMode="outside"
                             columnFilterMode="outside"
-                            onBulkSendEmail={handleBulkEmailModal}
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
@@ -395,8 +405,12 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     rowActions.push('edit');
                                 }
 
-                                if (userPermissions.includes('quotation view')) {
-                                    rowActions.push('send-email');
+                                if (
+                                    userPermissions.includes('quotation view')
+                                ) {
+                                    if (sendEmailEnabled) {
+                                        rowActions.push('send-email');
+                                    }
                                     rowActions.push('copy-link');
                                 }
 
@@ -490,9 +504,17 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                             }
                                         })();
                                     } else if (action === 'send-email') {
-                                        handleOpenEmailModal(quotationId, row?.original.quotation_number ?? '');
+                                        handleOpenEmailModal(
+                                            quotationId,
+                                            row?.original.quotation_number ??
+                                                '',
+                                        );
                                     } else if (action === 'copy-link') {
-                                        handleOpenEmailModal(quotationId, row?.original.quotation_number ?? '');
+                                        handleOpenEmailModal(
+                                            quotationId,
+                                            row?.original.quotation_number ??
+                                                '',
+                                        );
                                     } else if (action === 'edit') {
                                         router.get(edit(quotationId).url);
                                     } else if (

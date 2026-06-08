@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -26,7 +27,6 @@ import {
 } from '../invoices/schema';
 import ReceiptPreviewModal from './components/receipt-preview-modal';
 import { ReceiptSchema } from './schema';
-import SendEmailModal from '@/components/send-email-modal';
 
 interface ReceiptsProps {
     data: {
@@ -166,7 +166,10 @@ const getColumns = (
                         onClick={(e) => {
                             e.stopPropagation();
                             if (!receipt.id) return;
-                            openEmailModal(receipt.id, receipt.receipt_number ?? '');
+                            openEmailModal(
+                                receipt.id,
+                                receipt.receipt_number ?? '',
+                            );
                         }}
                     >
                         {isSent ? 'Resend Email' : 'Send Email'}
@@ -224,11 +227,12 @@ const getColumns = (
 
 export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const { receiptsForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
     const { confirm, ConfirmDialog } = useConfirmDialog();
-    
+
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalData, setEmailModalData] = useState<{
         ids: number[];
@@ -262,7 +266,9 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     if (userPermissions.includes('receipt view')) {
         actions.push('preview');
         actions.push('download');
-        actions.push('send-email');
+        if (sendEmailEnabled) {
+            actions.push('send-email');
+        }
         actions.push('copy-link');
     }
     // if (userPermissions.includes('receipt delete')) actions.push('delete');
@@ -314,7 +320,11 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
-                            onBulkSendEmail={handleBulkEmailModal}
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             // groupByRowColorKey="package_number"
                             url={receiptIndex().url}
                             exportFilename="receipts"
@@ -364,9 +374,15 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                         }
                                     })();
                                 } else if (action === 'send-email') {
-                                    handleOpenEmailModal(receiptId, receipt.receipt_number ?? '');
+                                    handleOpenEmailModal(
+                                        receiptId,
+                                        receipt.receipt_number ?? '',
+                                    );
                                 } else if (action === 'copy-link') {
-                                    handleOpenEmailModal(receiptId, receipt.receipt_number ?? '');
+                                    handleOpenEmailModal(
+                                        receiptId,
+                                        receipt.receipt_number ?? '',
+                                    );
                                 } else if (action === 'delete') {
                                     confirm({
                                         title: 'Delete Receipt',

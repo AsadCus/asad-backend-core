@@ -47,7 +47,9 @@ export type ActionType =
     | 'view-customer-history'
     | 'proposal-submit'
     | 'proposal-approve'
-    | 'proposal-reject';
+    | 'proposal-reject'
+    | 'send-email'
+    | 'copy-link';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

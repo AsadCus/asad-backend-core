@@ -4,6 +4,7 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -34,7 +35,6 @@ import {
 import ReceiptPreviewModal from '../receipts/components/receipt-preview-modal';
 import { ReceiptSchema } from '../receipts/schema';
 import InvoicePreviewModal from './components/invoice-preview-modal';
-import SendEmailModal from '@/components/send-email-modal';
 
 interface InvoicesProps {
     data: {
@@ -271,16 +271,10 @@ export const getInvoiceColumns = (
             const invoice = row.original;
             const sentAt = invoice.email_sent_at_formatted;
             const isSent = !!invoice.email_sent_at;
-            const canSend = !['cancelled'].includes(
-                invoice.status ?? '',
-            );
+            const canSend = !['cancelled'].includes(invoice.status ?? '');
 
             if (!canSend) {
-                return (
-                    <span className="text-xs text-muted-foreground">
-                        —
-                    </span>
-                );
+                return <span className="text-xs text-muted-foreground">—</span>;
             }
 
             return (
@@ -294,7 +288,10 @@ export const getInvoiceColumns = (
                             e.stopPropagation();
                             if (!invoice.id) return;
                             if (openEmailModal) {
-                                openEmailModal(invoice.id, invoice.invoice_number ?? '');
+                                openEmailModal(
+                                    invoice.id,
+                                    invoice.invoice_number ?? '',
+                                );
                             }
                         }}
                     >
@@ -418,7 +415,8 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = getInvoiceColumns();
 
 export default function InvoicesIndex({ data }: InvoicesProps) {
     const { invoicesForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
 
@@ -436,7 +434,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
     const [receiptPreviewItems, setReceiptPreviewItems] = useState<
         InvoiceItemSchema[]
     >([]);
-    
+
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalData, setEmailModalData] = useState<{
         ids: number[];
@@ -519,7 +517,9 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
             userPermissions.includes('invoice view') &&
             !['cancelled'].includes(invoice.status ?? '')
         ) {
-            rowActions.push('send-email');
+            if (sendEmailEnabled) {
+                rowActions.push('send-email');
+            }
             rowActions.push('copy-link');
         }
 
@@ -562,7 +562,11 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                             getRowActions={getRowActions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
-                            onBulkSendEmail={handleBulkEmailModal}
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             // groupByRowColorKey="package_number"
                             url={invoiceIndex().url}
                             exportFilename="invoice"
@@ -655,12 +659,18 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                         }
                                     })();
                                 } else if (action === 'send-email') {
-                                    handleOpenEmailModal(invoiceId, invoice.invoice_number ?? '');
+                                    handleOpenEmailModal(
+                                        invoiceId,
+                                        invoice.invoice_number ?? '',
+                                    );
                                 } else if (action === 'copy-link') {
                                     // Let modal handle public link generation via single view or we can do it directly.
                                     // Wait, the copy link action will just open the modal, then user clicks "Get Public Link"
                                     // Alternatively, we can just open the modal. For now, open the modal for copy-link too.
-                                    handleOpenEmailModal(invoiceId, invoice.invoice_number ?? '');
+                                    handleOpenEmailModal(
+                                        invoiceId,
+                                        invoice.invoice_number ?? '',
+                                    );
                                 } else if (action === 'edit') {
                                     router.get(editInvoice(invoiceId).url);
                                 } else if (action === 'delete') {
