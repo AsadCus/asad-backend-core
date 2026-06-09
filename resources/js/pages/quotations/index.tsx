@@ -58,6 +58,7 @@ const defaultQuotationIndexStatusFilters = [...indexStatusValues];
 
 const getColumns = (
     openEmailModal: (id: number, number: string) => void,
+    sendEmailEnabled: boolean,
 ): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
@@ -176,42 +177,46 @@ const getColumns = (
             return label;
         },
     },
-    {
-        id: 'email_sent_at_formatted',
-        accessorKey: 'email_sent_at_formatted',
-        header: 'Email',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-        cell: ({ row }) => {
-            const quotation = row.original;
-            const sentAt = quotation.email_sent_at_formatted;
-            const isSent = !!quotation.email_sent_at;
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  cell: ({ row }) => {
+                      const quotation = row.original;
+                      const sentAt = quotation.email_sent_at_formatted;
+                      const isSent = !!quotation.email_sent_at;
 
-            return (
-                <div className="flex flex-col gap-1">
-                    <Button
-                        type="button"
-                        variant={isSent ? 'outline' : 'default'}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (!quotation.id) return;
-                            openEmailModal(
-                                quotation.id,
-                                quotation.quotation_number ?? '',
-                            );
-                        }}
-                    >
-                        {isSent ? 'Resend Email' : 'Send Email'}
-                    </Button>
-                    {sentAt && (
-                        <span className="text-xs text-muted-foreground">
-                            {sentAt}
-                        </span>
-                    )}
-                </div>
-            );
-        },
-    },
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!quotation.id) return;
+                                      openEmailModal(
+                                          quotation.id,
+                                          quotation.quotation_number ?? '',
+                                      );
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<QuotationSchema>[])
+        : []),
     {
         accessorKey: 'created_at',
         header: 'Created At',
@@ -259,7 +264,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
         setEmailModalOpen(true);
     };
 
-    const columns = useMemo(() => getColumns(handleOpenEmailModal), []);
+    const columns = useMemo(
+        () => getColumns(handleOpenEmailModal, sendEmailEnabled),
+        [sendEmailEnabled],
+    );
     const actions: ActionType[] = [];
 
     const salespersonsForFilter = useMemo(
@@ -408,8 +416,8 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                 ) {
                                     if (sendEmailEnabled) {
                                         rowActions.push('send-email');
+                                        rowActions.push('copy-link');
                                     }
-                                    rowActions.push('copy-link');
                                 }
 
                                 if (hasEditPermission) {

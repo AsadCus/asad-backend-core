@@ -148,6 +148,7 @@ const getCreateReceiptStatusLabel = (invoice: InvoiceSchema): string => {
 };
 
 export const getInvoiceColumns = (
+    sendEmailEnabled: boolean = true,
     openEmailModal?: (id: number, number: string) => void,
 ): ColumnDef<InvoiceSchema>[] => [
     createSelectColumn<InvoiceSchema>(),
@@ -280,55 +281,65 @@ export const getInvoiceColumns = (
         meta: { exportable: true },
         cell: ({ row }) => formatCurrency(row.original.amount),
     },
-    {
-        id: 'email_sent_at_formatted',
-        accessorKey: 'email_sent_at_formatted',
-        header: 'Email',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
-        cell: ({ row }) => {
-            const invoice = row.original;
-            const sentAt = invoice.email_sent_at_formatted;
-            const isSent = !!invoice.email_sent_at;
-            const canSend = !['cancelled'].includes(invoice.status ?? '');
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  sortingFn: (rowA, rowB, columnId) =>
+                      compareFormattedDate(
+                          rowA.getValue(columnId),
+                          rowB.getValue(columnId),
+                      ),
+                  cell: ({ row }) => {
+                      const invoice = row.original;
+                      const sentAt = invoice.email_sent_at_formatted;
+                      const isSent = !!invoice.email_sent_at;
+                      const canSend = !['cancelled'].includes(
+                          invoice.status ?? '',
+                      );
 
-            if (!canSend) {
-                return <span className="text-xs text-muted-foreground">—</span>;
-            }
+                      if (!canSend) {
+                          return (
+                              <span className="text-xs text-muted-foreground">
+                                  —
+                              </span>
+                          );
+                      }
 
-            return (
-                <div className="flex flex-col gap-1">
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant={isSent ? 'outline' : 'default'}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (!invoice.id) return;
-                            if (openEmailModal) {
-                                openEmailModal(
-                                    invoice.id,
-                                    invoice.invoice_number ?? '',
-                                );
-                            }
-                        }}
-                    >
-                        {isSent ? 'Resend Email' : 'Send Email'}
-                    </Button>
-                    {sentAt && (
-                        <span className="text-xs text-muted-foreground">
-                            {sentAt}
-                        </span>
-                    )}
-                </div>
-            );
-        },
-    },
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!invoice.id) return;
+                                      if (openEmailModal) {
+                                          openEmailModal(
+                                              invoice.id,
+                                              invoice.invoice_number ?? '',
+                                          );
+                                      }
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<InvoiceSchema>[])
+        : []),
     {
         id: 'create_receipt',
         header: 'Create Receipt',
@@ -518,8 +529,8 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         ) {
             if (sendEmailEnabled) {
                 rowActions.push('send-email');
+                rowActions.push('copy-link');
             }
-            rowActions.push('copy-link');
         }
 
         if (
@@ -555,7 +566,10 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             enableExpand={false}
-                            columns={getInvoiceColumns(handleOpenEmailModal)}
+                            columns={getInvoiceColumns(
+                                sendEmailEnabled,
+                                handleOpenEmailModal,
+                            )}
                             data={invoicesForDatatable}
                             actions={actions}
                             getRowActions={getRowActions}

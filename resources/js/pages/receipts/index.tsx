@@ -66,6 +66,7 @@ const formatReceiptAmount = (receipt: ReceiptSchema): string => {
 const getColumns = (
     paymentMethods: OptionType[],
     openEmailModal: (id: number, number: string) => void,
+    sendEmailEnabled: boolean,
 ): ColumnDef<ReceiptSchema>[] => [
     createSelectColumn<ReceiptSchema>(),
     {
@@ -151,42 +152,46 @@ const getColumns = (
         meta: { exportable: true },
         cell: ({ row }) => formatReceiptAmount(row.original),
     },
-    {
-        id: 'email_sent_at_formatted',
-        accessorKey: 'email_sent_at_formatted',
-        header: 'Email',
-        meta: { exportable: true },
-        filterFn: 'dateRangeFilter',
-        cell: ({ row }) => {
-            const receipt = row.original;
-            const sentAt = receipt.email_sent_at_formatted;
-            const isSent = !!receipt.email_sent_at;
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  cell: ({ row }) => {
+                      const receipt = row.original;
+                      const sentAt = receipt.email_sent_at_formatted;
+                      const isSent = !!receipt.email_sent_at;
 
-            return (
-                <div className="flex flex-col gap-1">
-                    <Button
-                        type="button"
-                        variant={isSent ? 'outline' : 'default'}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (!receipt.id) return;
-                            openEmailModal(
-                                receipt.id,
-                                receipt.receipt_number ?? '',
-                            );
-                        }}
-                    >
-                        {isSent ? 'Resend Email' : 'Send Email'}
-                    </Button>
-                    {sentAt && (
-                        <span className="text-xs text-muted-foreground">
-                            {sentAt}
-                        </span>
-                    )}
-                </div>
-            );
-        },
-    },
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!receipt.id) return;
+                                      openEmailModal(
+                                          receipt.id,
+                                          receipt.receipt_number ?? '',
+                                      );
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<ReceiptSchema>[])
+        : []),
     {
         accessorKey: 'invoice_description',
         header: 'Description',
@@ -251,8 +256,13 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     };
 
     const columns = useMemo(
-        () => getColumns(data.paymentMethods ?? [], handleOpenEmailModal),
-        [data.paymentMethods],
+        () =>
+            getColumns(
+                data.paymentMethods ?? [],
+                handleOpenEmailModal,
+                sendEmailEnabled,
+            ),
+        [data.paymentMethods, sendEmailEnabled],
     );
 
     const actions: ActionType[] = [];
@@ -266,8 +276,8 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
         actions.push('download');
         if (sendEmailEnabled) {
             actions.push('send-email');
+            actions.push('copy-link');
         }
-        actions.push('copy-link');
     }
     // if (userPermissions.includes('receipt delete')) actions.push('delete');
 
