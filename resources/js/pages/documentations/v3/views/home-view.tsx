@@ -44,7 +44,7 @@ function HeroSection({
                 <h1 className="text-3xl font-bold tracking-tight text-white md:text-5xl">
                     How can we help?
                 </h1>
-                <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
+                <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-primary-foreground/80 md:text-xl">
                     Browse the {title} — step-by-step guides, module playbooks,
                     and operational workflows for your travel management system.
                 </p>
@@ -89,19 +89,19 @@ function ModuleCard({
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 dark:bg-primary/10 dark:text-primary/80 dark:group-hover:bg-primary/15">
                     <Icon className="h-6 w-6" />
                 </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                     {procedureCount} {procedureCount === 1 ? 'guide' : 'guides'}
                 </span>
             </div>
 
-            <h3 className="mt-4 text-lg font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
+            <h3 className="mt-4 text-xl font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
                 {group.menu.replace(/ Module$/i, '')}
             </h3>
-            <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 line-clamp-2 flex-1 text-base leading-relaxed text-muted-foreground">
                 {description}
             </p>
 
-            <div className="mt-4 flex items-center text-sm font-medium text-primary dark:text-primary/80">
+            <div className="mt-4 flex items-center text-base font-medium text-primary dark:text-primary/80">
                 Browse guides <ChevronRight className="ml-1 h-4 w-4" />
             </div>
         </button>
@@ -118,7 +118,7 @@ function RolesPreview({
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
                 Roles & Access
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
                 Understand what each role does and what it should focus on every
                 day.
             </p>
@@ -128,17 +128,17 @@ function RolesPreview({
                         key={role.role}
                         className="rounded-2xl border border-sidebar-border/70 bg-white p-5 shadow-sm dark:bg-slate-900/60"
                     >
-                        <h3 className="text-lg font-semibold text-foreground">
+                        <h3 className="text-xl font-semibold text-foreground">
                             {role.role}
                         </h3>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        <p className="mt-2 text-base leading-relaxed text-muted-foreground">
                             {role.scope}
                         </p>
                         <ul className="mt-3 space-y-1.5">
                             {role.primary_actions.map((action) => (
                                 <li
                                     key={action}
-                                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                                    className="flex items-start gap-2 text-base text-muted-foreground"
                                 >
                                     <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                                     <span>{action}</span>
@@ -159,7 +159,7 @@ function FooterInfo({
 }: Pick<DocumentationPageProps, 'documentation'>) {
     return (
         <footer className="border-t border-sidebar-border/70 bg-slate-50 dark:bg-slate-950/40">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 px-6 py-6 text-sm text-muted-foreground">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 px-6 py-6 text-base text-muted-foreground">
                 <span>{documentation.manual.copyright}</span>
             </div>
         </footer>
@@ -229,7 +229,7 @@ export function HomeView({
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">
                     Browse by Module
                 </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-base text-muted-foreground">
                     Select a module to view its guides and step-by-step
                     procedures.
                 </p>

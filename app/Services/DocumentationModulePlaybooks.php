@@ -271,7 +271,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'SuperAdmin: Full system access and configuration control — manage users, countries, fiscal years, package governance, financial and fiscal configurations, and budgeting processes. Maintains overall system administration.',
+                                        'text' => 'Superadmin: Full system access and configuration control — manage users, countries, fiscal years, package governance, financial and fiscal configurations, and budgeting processes. Maintains overall system administration.',
                                     ],
                                 ],
                             ],
@@ -279,7 +279,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Sales: Manage enquiries and customer records, access the Sales Module (quotation, invoice, receipt), manage manifests, perform administrative sales tasks, and manage Daily Report and Closing Report.',
+                                        'text' => 'Finance: Manage enquiries and customer records, access the Sales Module (quotation, invoice, receipt), manage manifests, perform administrative sales tasks, and manage Daily Report and Closing Report.',
                                     ],
                                 ],
                             ],
@@ -287,7 +287,7 @@ class DocumentationModulePlaybooks
                                 'content_blocks' => [
                                     [
                                         'type' => 'text',
-                                        'text' => 'Admin: Same access as Sales — manage enquiries, customer records, Sales Module, and manifests — but does NOT have permission to manage Daily Reports and Closing Reports.',
+                                        'text' => 'Sales: Same access as Finance — manage enquiries, customer records, Sales Module, and manifests — but does NOT have permission to manage Daily Reports and Closing Reports.',
                                     ],
                                 ],
                             ],

@@ -72,15 +72,6 @@ class DocumentationIndexData
     {
         return [
             [
-                'role' => 'Admin',
-                'scope' => 'Oversee operational and sales activities with elevated access across modules.',
-                'primary_actions' => [
-                    'Monitor and manage sales and operations workflows.',
-                    'Access reports, user activity, and financial summaries.',
-                    'Support superadmin in governance and configuration tasks.',
-                ],
-            ],
-            [
                 'role' => 'Superadmin',
                 'scope' => 'Manage core setup, system modules, package creation, manifests, and governance controls.',
                 'primary_actions' => [
@@ -90,12 +81,21 @@ class DocumentationIndexData
                 ],
             ],
             [
-                'role' => 'Sales',
+                'role' => 'Finance',
                 'scope' => 'Handle enquiry conversion, customer management, sales documents, and follow-up execution.',
                 'primary_actions' => [
                     'Work daily from Enquiry dashboard to Confirmed Customer flow.',
                     'Prepare quotation, order, invoice, and receipt sequence.',
                     'Coordinate readiness handoff to package and manifest operations.',
+                ],
+            ],
+            [
+                'role' => 'Sales',
+                'scope' => 'Oversee operational and sales activities with elevated access across modules.',
+                'primary_actions' => [
+                    'Monitor and manage sales and operations workflows.',
+                    'Access reports, user activity, and financial summaries.',
+                    'Support superadmin in governance and configuration tasks.',
                 ],
             ],
             [
