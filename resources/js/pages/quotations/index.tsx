@@ -127,6 +127,11 @@ const getColumns = (
         meta: { exportable: true },
     },
     {
+        accessorKey: 'voided_by_name',
+        header: 'Voided By',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'country_name',
         header: 'Country',
         meta: { exportable: true },
@@ -194,6 +199,7 @@ const getColumns = (
                           <div className="flex flex-col gap-1">
                               <Button
                                   type="button"
+                                  size="sm"
                                   variant={isSent ? 'outline' : 'default'}
                                   onClick={(e) => {
                                       e.stopPropagation();
@@ -434,7 +440,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                 action !==
                                                     'quotation-status-ready' &&
                                                 action !==
-                                                    'quotation-status-expire',
+                                                    'quotation-status-expire' &&
+                                                (isSuperadmin ||
+                                                    action !==
+                                                        'quotation-status-cancel'),
                                         ),
                                     );
                                 }
@@ -595,6 +604,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     package_number: false,
                                     package_name: false,
                                     sales_id: false,
+                                    voided_by_name: false,
                                     country_name: false,
                                     branch_name: false,
                                     description: false,

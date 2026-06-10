@@ -23,6 +23,7 @@ use App\Models\QuotationNotes;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use App\Support\InvoiceStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
@@ -47,7 +48,7 @@ class CustomerConfirmationService
 
     public function isCombineFeatureEnabled(): bool
     {
-        return (bool) config('customer_confirmation.combine_feature_enabled', true);
+        return FeatureFlag::enabled('customer_confirmation.combine_feature_enabled');
     }
 
     private function assertCombineFeatureEnabled(): void

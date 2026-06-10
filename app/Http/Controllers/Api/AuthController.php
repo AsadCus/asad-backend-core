@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\CustomerService;
 use App\Services\NotificationService;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -82,7 +83,7 @@ class AuthController extends Controller
             'roles' => $user->getRoleNames(),
             'is_ghost_user' => $user->isGhostUser(),
             'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),
-            'can_view_documentation' => (bool) config('documentation.visible_to_all_users') || $user->isGhostUser(),
+            'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),
             'notifications' => $this->notificationService->getUserNotifications($user->id),
             'scope_mode' => DataScope::mode(),
             'scope_labels' => $this->resolveScopeLabels($user),

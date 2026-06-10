@@ -92,6 +92,11 @@ class User extends Authenticatable
         return $this->ghostUser()->exists();
     }
 
+    public function isSuperadminGhost(): bool
+    {
+        return $this->isGhostUser() && $this->hasRole('superadmin');
+    }
+
     public function userNotifications(): HasMany
     {
         return $this->hasMany(UserNotification::class, 'user_id');

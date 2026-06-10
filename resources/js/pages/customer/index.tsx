@@ -120,20 +120,25 @@ interface CustomerProps {
 }
 
 export default function Customer({ data }: CustomerProps) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
+    const customerHistoryEnabled = Boolean(features?.customer_history);
     const actions: ActionType[] = [];
 
     if (userPermissions.includes('customer create')) actions.push('add');
     if (userPermissions.includes('customer view')) {
         actions.push('view');
-        actions.push('view-customer-history');
+        if (customerHistoryEnabled) {
+            actions.push('view-customer-history');
+        }
     }
     if (userPermissions.includes('customer edit')) actions.push('edit');
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
     const [importOpen, setImportOpen] = useState(false);
-    const [historyCustomerId, setHistoryCustomerId] = useState<number | undefined>();
+    const [historyCustomerId, setHistoryCustomerId] = useState<
+        number | undefined
+    >();
     const [historyCustomerName, setHistoryCustomerName] = useState('');
     const [historyCustomerEmail, setHistoryCustomerEmail] = useState('');
     const [historyCustomerContact, setHistoryCustomerContact] = useState('');
@@ -229,12 +234,25 @@ export default function Customer({ data }: CustomerProps) {
                                                 router.put(enable(userId).url);
                                             },
                                         });
-                                    } else if (action === 'view-customer-history') {
-                                        setHistoryCustomerId(row?.original.customer_id ?? undefined);
-                                        setHistoryCustomerName(row?.original.name ?? '');
-                                        setHistoryCustomerEmail(row?.original.email ?? '');
-                                        setHistoryCustomerContact(row?.original.contact ?? '');
-                                        setHistoryCustomerAddress(row?.original.address ?? '');
+                                    } else if (
+                                        action === 'view-customer-history'
+                                    ) {
+                                        setHistoryCustomerId(
+                                            row?.original.customer_id ??
+                                                undefined,
+                                        );
+                                        setHistoryCustomerName(
+                                            row?.original.name ?? '',
+                                        );
+                                        setHistoryCustomerEmail(
+                                            row?.original.email ?? '',
+                                        );
+                                        setHistoryCustomerContact(
+                                            row?.original.contact ?? '',
+                                        );
+                                        setHistoryCustomerAddress(
+                                            row?.original.address ?? '',
+                                        );
                                         setHistoryOpen(true);
                                     } else if (action === 'disable-customer') {
                                         confirm({

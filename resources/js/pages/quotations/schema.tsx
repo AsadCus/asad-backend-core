@@ -86,6 +86,8 @@ export const quotationSchema = z.object({
         .nullable()
         .optional(),
     reason: z.string().nullable().optional(),
+    voided_by_name: z.string().nullable().optional(),
+    voided_at_formatted: z.string().nullable().optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
 

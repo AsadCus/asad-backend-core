@@ -234,11 +234,6 @@
                 <td width="55%">
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
-                            <td class="lbl">Customer No.</td>
-                            <td class="sep">:</td>
-                            <td>{{ $data['customer_number'] ?? '-' }}</td>
-                        </tr>
-                        <tr>
                             <td class="lbl">Name</td>
                             <td class="sep">:</td>
                             <td>{{ $data['customer_name'] ?? '-' }}</td>

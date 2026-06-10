@@ -18,6 +18,7 @@ use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
 use App\Services\SalesService;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -62,7 +63,7 @@ class ManifestController extends Controller
     public function index(): Response
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
-        $data['importEnabled'] = config('manifest.import_enabled', false);
+        $data['importEnabled'] = FeatureFlag::enabled('manifest.import_enabled', null, false);
         $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('manifests/index', [
@@ -153,7 +154,7 @@ class ManifestController extends Controller
         ManifestImportService $importService,
         string $id,
     ): RedirectResponse {
-        if (! config('manifest.import_enabled', false)) {
+        if (! FeatureFlag::enabled('manifest.import_enabled', $request->user(), false)) {
             abort(403, 'Manifest import feature is currently disabled.');
         }
 

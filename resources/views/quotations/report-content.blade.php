@@ -293,6 +293,16 @@
                             <td style="white-space: pre-line;">{{ $data['customer_address'] ?? '-' }}</td>
                         </tr>
                         <tr>
+                            <td class="lbl">Contact</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_contact'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Email</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_email'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
                             <td class="lbl">Description</td>
                             <td class="sep">:</td>
                             <td>{{ $data['description'] ?? '-' }}</td>

@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -63,7 +64,7 @@ class HandleInertiaRequests extends Middleware
                 'is_ghost_user' => $user?->isGhostUser() ?? false,
                 'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),
                 'show_two_factor_auth' => config('master.show_two_factor_auth', true),
-                'can_view_documentation' => (bool) config('documentation.visible_to_all_users') || ($user?->isGhostUser() ?? false),
+                'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),
                 'notifications' => $user
                     ? $this->notificationService->getUserNotifications($user->id)
                     : [],
@@ -74,9 +75,9 @@ class HandleInertiaRequests extends Middleware
                 'scope_selected_branch_ids' => $user ? DataScope::scopedBranchIds($user) : [],
             ],
             'features' => [
-                'send_email' => (bool) config('email.send_enabled', true),
-                'customer_history' => (bool) config('customer_history.enabled', true),
-                'package_pnl' => (bool) config('package_proposal.enabled', true),
+                'send_email' => FeatureFlag::enabled('email.send_enabled', $user),
+                'customer_history' => FeatureFlag::enabled('customer_history.enabled', $user),
+                'package_pnl' => FeatureFlag::enabled('package_proposal.enabled', $user),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

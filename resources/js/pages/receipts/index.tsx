@@ -169,6 +169,7 @@ const getColumns = (
                           <div className="flex flex-col gap-1">
                               <Button
                                   type="button"
+                                  size="sm"
                                   variant={isSent ? 'outline' : 'default'}
                                   onClick={(e) => {
                                       e.stopPropagation();

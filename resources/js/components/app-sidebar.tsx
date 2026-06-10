@@ -40,12 +40,13 @@ import quotationItem from '@/routes/quotation-items';
 import receipt from '@/routes/receipt';
 import closingReport from '@/routes/reports/closing';
 import paymentReport from '@/routes/reports/payment';
-import sales from '@/routes/sales';
+// import sales from '@/routes/sales';
 import userLogs from '@/routes/user-logs';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
     BookOpen,
+    Calculator,
     ClipboardCheck,
     ClipboardList,
     DollarSign,
@@ -58,7 +59,6 @@ import {
     Landmark,
     LayoutGrid,
     ListOrdered,
-    Calculator,
     Luggage,
     Map,
     Package,
@@ -134,14 +134,14 @@ export function AppSidebar() {
                                                 href: masterSuperadmin.index.url(),
                                             },
                                             {
-                                                //   title: 'Admin',
-                                                title: 'Sales',
-                                                href: masterAdmin.index.url(),
-                                            },
-                                            {
                                                 //   title: 'Salesperson',
                                                 title: 'Finance',
                                                 href: masterSales.index.url(),
+                                            },
+                                            {
+                                                //   title: 'Admin',
+                                                title: 'Sales',
+                                                href: masterAdmin.index.url(),
                                             },
                                             {
                                                 title: 'Operations',
@@ -200,9 +200,9 @@ export function AppSidebar() {
                   {
                       title: 'Sales',
                       icon: Handshake,
-                      ...(permissions.includes('sales view')
-                          ? { href: sales.index.url() }
-                          : {}),
+                      //   ...(permissions.includes('sales view')
+                      //       ? { href: sales.index.url() }
+                      //       : {}),
                       subItems: [
                           ...(canViewSalesReports
                               ? [

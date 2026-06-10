@@ -166,7 +166,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('quotation/{id}/accept', [QuotationController::class, 'acceptQuotation'])->name('quotation.accept');
     Route::put('quotation/{id}/reject', [QuotationController::class, 'rejectQuotation'])->name('quotation.reject');
     Route::put('quotation/{id}/expire', [QuotationController::class, 'expireQuotation'])->name('quotation.expire');
-    Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->name('quotation.cancel');
+    Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->middleware('role:superadmin')->name('quotation.cancel');
     Route::post('quotation/{id}/handle', [QuotationController::class, 'handle'])->middleware('permission:quotation edit')->name('quotation.handle');
     Route::get('quotation/{id}/email-data', [QuotationController::class, 'getEmailData'])->middleware('feature:email.send_enabled')->name('quotation.email-data');
     Route::post('quotation/{id}/email-preview', [QuotationController::class, 'previewEmail'])->middleware('feature:email.send_enabled')->name('quotation.email-preview');
