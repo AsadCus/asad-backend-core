@@ -20,7 +20,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { handleDialogTabKey } from '@/lib/dialog-focus';
 import {
@@ -35,6 +34,7 @@ import {
     getForShow,
     listCustomers,
 } from '@/routes/enquiries';
+import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -78,7 +78,6 @@ import {
     type CustomerConfirmationPackageOption,
     type LinkedPackageInfo,
 } from './schema';
-import { OptionType } from '@/types';
 
 type CustomerConfirmationFormHandle = {
     data: CustomerConfirmationFormData;
@@ -454,7 +453,7 @@ export default function CustomerConfirmationForm({
 
         const selectedOption = packageOptions.find(
             (option) => Number(option.value) === Number(packageId),
-        ) as OptionType & { country_name?: string } | undefined;
+        ) as (OptionType & { country_name?: string }) | undefined;
 
         if (selectedOption) {
             setLinkedPackageInfo((current) => ({
@@ -477,7 +476,8 @@ export default function CustomerConfirmationForm({
                 child_with_bed_price: current?.child_with_bed_price,
                 child_no_bed_price: current?.child_no_bed_price,
                 infant_price: current?.infant_price,
-                country_name: selectedOption.country_name ?? current?.country_name,
+                country_name:
+                    selectedOption.country_name ?? current?.country_name,
             }));
         }
 
@@ -1427,7 +1427,7 @@ export default function CustomerConfirmationForm({
                                 value={activeTab}
                                 onValueChange={setActiveTab}
                             >
-                                <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="always-scrollbars w-full overflow-x-auto pb-0.5 whitespace-nowrap">
                                     <TabsList>
                                         {data.members?.map((customer, idx) => (
                                             <TabsTrigger
@@ -1450,8 +1450,7 @@ export default function CustomerConfirmationForm({
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
-                                    <ScrollBar orientation="horizontal" />
-                                </ScrollArea>
+                                </div>
 
                                 {data.members?.map((customer, idx) => (
                                     <TabsContent
@@ -1668,7 +1667,7 @@ export default function CustomerConfirmationForm({
                     {!isView && (
                         <Button
                             type="submit"
-                            className="min-w-[140px]"
+                            className="min-w-35"
                             disabled={
                                 processing || (isPublic && !data.terms_accepted)
                             }

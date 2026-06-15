@@ -68,6 +68,11 @@ class Customer extends Model
         return $this->hasMany(CustomerConfirmationMember::class, 'customer_id');
     }
 
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class, 'customer_id');
+    }
+
     public function files(): MorphMany
     {
         return $this->morphMany(ModelFile::class, 'fileable');

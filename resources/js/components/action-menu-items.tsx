@@ -92,7 +92,7 @@ export function ActionMenuItems<TData>({
 
             {actions.includes('view-customer-history') && (
                 <Item onClick={() => onAction?.('view-customer-history', row)}>
-                    Travel History
+                    History Record
                 </Item>
             )}
 
@@ -338,7 +338,13 @@ export function ActionMenuItems<TData>({
 
             {actions.includes('send-email') && (
                 <Item onClick={() => onAction?.('send-email', row)}>
-                    {(isTableRow<TData>(row) ? (row.original as WithEmailSentAt)?.email_sent_at : (row as TData & WithEmailSentAt)?.email_sent_at) ? 'Resend Email' : 'Send Email'}
+                    {(
+                        isTableRow<TData>(row)
+                            ? (row.original as WithEmailSentAt)?.email_sent_at
+                            : (row as TData & WithEmailSentAt)?.email_sent_at
+                    )
+                        ? 'Resend Email'
+                        : 'Send Email'}
                 </Item>
             )}
 

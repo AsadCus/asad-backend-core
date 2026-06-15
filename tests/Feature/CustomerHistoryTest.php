@@ -5,7 +5,12 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
+use App\Models\Enquiry;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\Quotation;
+use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -125,6 +130,138 @@ class CustomerHistoryTest extends TestCase
             'sharing_plan' => 'double',
             'relationship' => 'self',
         ]);
+    }
+
+    public function test_show_returns_package_journey_with_enquiry_and_nested_payments(): void
+    {
+        $customerUser = User::factory()->create();
+        $customerUser->assignRole('customer');
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-2026-0050',
+        ]);
+
+        $package = Package::create([
+            'package_number' => 'PKG-PAY-001',
+            'name' => 'Umrah With Payments',
+            'status' => 'open',
+            'total_seats' => 20,
+            'seats_left' => 5,
+            'departure_date' => '2026-05-01',
+            'return_date' => '2026-05-12',
+        ]);
+
+        $enquiry = Enquiry::create([
+            'type' => 'general',
+            'enquiry_number' => 'ENQ-PAY-001',
+            'status' => 'confirmed',
+            'name' => 'History Tester',
+            'contact_number' => '0123456789',
+            'email' => 'historytester@example.com',
+            'package_id' => $package->id,
+            'created_by' => $this->authorizedUser->id,
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+            'enquiry_id' => $enquiry->id,
+            'date_of_application' => '2026-01-15',
+            'created_by' => $this->authorizedUser->id,
+        ]);
+
+        CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $customer->id,
+            'is_leader' => true,
+            'status' => 'confirmed',
+        ]);
+
+        $quotation = Quotation::create([
+            'quotation_number' => 'QUO-PAY-001',
+            'quotation_date' => '2026-01-20',
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'payment_plan' => 'installment',
+            'status' => 'accepted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'order_number' => 'ORD-PAY-001',
+            'payment_plan' => 'installment',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-PAY-001',
+            'amount' => 1000,
+            'invoice_date' => '2026-01-21',
+            'status' => 'paid',
+        ]);
+
+        Receipt::create([
+            'invoice_id' => $invoice->id,
+            'receipt_number' => 'RCP-PAY-001',
+            'amount' => 1000,
+            'receipt_date' => '2026-01-25',
+            'payment_method' => 'cash',
+        ]);
+
+        $response = $this->actingAs($this->authorizedUser)
+            ->getJson(route('customer-history.show', $customer->id));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.type', 'package');
+        $response->assertJsonPath('0.enquiry.enquiry_number', 'ENQ-PAY-001');
+        $response->assertJsonPath('0.payments.0.quotation.quotation_number', 'QUO-PAY-001');
+        $response->assertJsonPath('0.payments.0.order.order_number', 'ORD-PAY-001');
+        $response->assertJsonPath('0.payments.0.invoices.0.invoice_number', 'INV-PAY-001');
+        $response->assertJsonPath('0.payments.0.invoices.0.receipts.0.receipt_number', 'RCP-PAY-001');
+    }
+
+    public function test_show_returns_non_package_journey_for_direct_quotation(): void
+    {
+        $customerUser = User::factory()->create();
+        $customerUser->assignRole('customer');
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-2026-0060',
+        ]);
+
+        $quotation = Quotation::create([
+            'quotation_number' => 'QUO-DIRECT-001',
+            'quotation_date' => '2026-02-01',
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => null,
+            'description' => 'Standalone Visa Services',
+            'payment_plan' => 'full',
+            'status' => 'accepted',
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'order_number' => 'ORD-DIRECT-001',
+            'payment_plan' => 'full',
+        ]);
+
+        Invoice::create([
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-DIRECT-001',
+            'amount' => 500,
+            'invoice_date' => '2026-02-02',
+            'status' => 'outstanding',
+        ]);
+
+        $response = $this->actingAs($this->authorizedUser)
+            ->getJson(route('customer-history.show', $customer->id));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1);
+        $response->assertJsonPath('0.type', 'non_package');
+        $response->assertJsonPath('0.package_name', 'Standalone Visa Services');
+        $response->assertJsonPath('0.payments.0.quotation.quotation_number', 'QUO-DIRECT-001');
+        $response->assertJsonPath('0.payments.0.invoices.0.invoice_number', 'INV-DIRECT-001');
     }
 
     public function test_show_returns_records_sorted_newest_first(): void

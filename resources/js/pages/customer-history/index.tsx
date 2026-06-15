@@ -5,16 +5,10 @@ import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/customer-history';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import {
-    History,
-    Mail,
-    Phone,
-    Search,
-    User,
-} from 'lucide-react';
+import { History, Mail, Phone, Search, User } from 'lucide-react';
 import { useState } from 'react';
 import CustomerHistoryDialog from './components/customer-history-dialog';
-import type { CustomerSearchResult } from './types';
+import type { CustomerSearchResult } from './schema';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -83,8 +77,7 @@ export default function CustomerHistoryPage({
                         <div className="mb-4">
                             <p className="mb-3 text-sm text-muted-foreground">
                                 Search for a customer to view their travel
-                                history.
-                                You can search by name, email, contact
+                                history. You can search by name, email, contact
                                 number, NRIC, or customer number.
                             </p>
                             <div className="flex max-w-xl gap-2">
@@ -131,7 +124,7 @@ export default function CustomerHistoryPage({
                                 </p>
                                 <p className="mt-1 text-sm">
                                     Enter a search term above to find customers
-                                    and view their travel history.
+                                    and view their history record.
                                 </p>
                             </div>
                         )}
@@ -185,7 +178,7 @@ export default function CustomerHistoryPage({
                                                     )}
                                             </div>
                                             <span className="mt-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                                                Click to view travel history →
+                                                Click to view history record →
                                             </span>
                                         </button>
                                     ))}

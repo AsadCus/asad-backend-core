@@ -9,7 +9,7 @@ import { initializeColorTheme } from './hooks/use-color-theme';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-router.on('invalid', (event) => {
+router.on('httpException', (event) => {
     const statusCode = event.detail.response.status;
 
     if (statusCode !== 401 && statusCode !== 419) {
@@ -22,10 +22,6 @@ router.on('invalid', (event) => {
         window.location.href = '/login';
     }
 });
-
-const cleanApp = () => {
-    document.getElementById('app')?.removeAttribute('data-page');
-};
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -48,7 +44,7 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
-}).then(cleanApp);
+});
 
 initializeTheme();
 initializeColorTheme();

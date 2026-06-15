@@ -371,6 +371,7 @@ class ManifestService
                         'role_in_room' => $member?->relationship,
                         'sort_order' => $roomMember->sort_order,
                         'remarks' => $roomMember->remarks,
+                        'meal' => $roomMember->meal,
                         'customer_confirmation_member_id' => $member?->id,
                         'customer_id' => $customer?->id,
                     ];
@@ -457,6 +458,7 @@ class ManifestService
                         'package_official_id' => $member['package_official_id'] ?? null,
                         'sort_order' => $member['sort_order'] ?? null,
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ];
                 }, $room['members'] ?? []),
             ];
@@ -671,6 +673,7 @@ class ManifestService
                         'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ]);
                 }
             }
@@ -717,6 +720,7 @@ class ManifestService
                         'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ]);
                 }
             }
@@ -1645,6 +1649,7 @@ class ManifestService
                     'manifest_member_id' => $manifestMemberId,
                     'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                     'remarks' => $member['remarks'] ?? null,
+                    'meal' => $member['meal'] ?? null,
                 ];
 
                 if ($existingRoomMember) {
@@ -1822,7 +1827,7 @@ class ManifestService
                                     'room_type' => $room->room_type,
                                     'bed_type' => $room->bed_type,
                                     'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
-                                    'meal' => $room->meal,
+                                    'meal' => $roomMember->meal,
                                     'room_remarks' => $room->remarks,
                                     'remarks' => $memberRow['remarks'] ?? null,
                                 ]);

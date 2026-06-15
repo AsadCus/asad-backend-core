@@ -12,6 +12,7 @@ class ManifestRoomMember extends Model
         'manifest_member_id',
         'sort_order',
         'remarks',
+        'meal',
     ];
 
     protected $casts = [

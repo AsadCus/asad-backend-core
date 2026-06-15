@@ -2057,21 +2057,8 @@ export default function ManifestDatatable({
                                 </div>
                             </TableCell>
                         )}
-                        <TableCell>
-                            <SelectCell
-                                value={roomInfo?.meal ?? ''}
-                                placeholder="Meal"
-                                onValueChange={(value) =>
-                                    updateGroupField(
-                                        item.groupKey,
-                                        'meal',
-                                        value,
-                                    )
-                                }
-                                disabled={disableRoomFields}
-                                options={MEAL_OPTIONS}
-                            />
-                        </TableCell>
+                        {/* Meal is per-member now; rendered on each member row. */}
+                        <TableCell />
                         <TableCell>
                             {(() => {
                                 const absoluteRoomGroupIndex =
@@ -3064,7 +3051,17 @@ export default function ManifestDatatable({
                                 <span className="text-muted-foreground">-</span>
                             </TableCell>
                         )}
-                        <TableCell />
+                        <TableCell>
+                            <SelectCell
+                                value={member.meal ?? ''}
+                                placeholder="Meal"
+                                onValueChange={(value) =>
+                                    updateMemberField(flatIndex, 'meal', value)
+                                }
+                                disabled={memberDisabled}
+                                options={MEAL_OPTIONS}
+                            />
+                        </TableCell>
                     </>
                 )}
 

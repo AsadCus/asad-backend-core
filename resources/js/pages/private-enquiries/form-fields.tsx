@@ -866,9 +866,9 @@ export default function PrivateEnquiryFormFields({
                     {/* Chronic Disease */}
                     <div className="grid w-full items-center gap-3">
                         <Label htmlFor="has_chronic_disease">
-                            Any applicant suffer from chronic diseases or
+                            Any applicant suffer from chronic illness or
                             sickness?
-                            <FieldRequirements hint="Inform us of any chronic diseases or health conditions" />
+                            <FieldRequirements hint="Inform us of any chronic illness or health conditions" />
                         </Label>
                         <div className="relative">
                             <Select
@@ -937,7 +937,7 @@ export default function PrivateEnquiryFormFields({
                             onCommit={(v) =>
                                 setData('chronic_disease_details', v)
                             }
-                            placeholder="Please provide details about the chronic disease or sickness"
+                            placeholder="Please provide details about the chronic illness or sickness"
                         />
                         {renderError('chronic_disease_details')}
                     </div>

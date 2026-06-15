@@ -165,6 +165,7 @@ export interface CanonicalManifestRoomMember {
     sharing_plan?: string | null;
     sort_order?: number | null;
     remarks?: string | null;
+    meal?: string | null;
 }
 
 export interface CanonicalManifestRoom {

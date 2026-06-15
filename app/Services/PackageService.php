@@ -659,7 +659,7 @@ class PackageService
         }
         $remarks[] = 'Wheelchair support: '.($privateEnquiry->need_wheelchair ? 'Yes' : 'No');
         if ($privateEnquiry->has_chronic_disease) {
-            $remarks[] = 'Chronic disease: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
+            $remarks[] = 'Chronic illness: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
         }
         if (! empty($privateEnquiry->other_remarks)) {
             $remarks[] = 'Other remarks: '.$privateEnquiry->other_remarks;
@@ -1132,7 +1132,7 @@ class PackageService
 
     private function syncManifestOfficialRooms(Manifest $manifest, Package $package): void
     {
-        $officialRoomMarker = '[package-official-room]';
+        $officialRoomMarker = 'Official Room';
 
         $officialMembers = $manifest->members()
             ->whereNotNull('package_official_id')

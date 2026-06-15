@@ -248,7 +248,7 @@ class PackageOfficialManifestSyncTest extends TestCase
         $manifest = $package->manifests()->firstOrFail();
 
         $officialRooms = $manifest->rooms()
-            ->where('remarks', 'like', '[package-official-room]%')
+            ->where('remarks', 'like', 'Official Room%')
             ->with('roomMembers.member')
             ->get();
 
@@ -271,7 +271,7 @@ class PackageOfficialManifestSyncTest extends TestCase
             ->where('remarks', 'like', '[package-official]%')
             ->count());
         $this->assertSame(0, $manifest->rooms()
-            ->where('remarks', 'like', '[package-official-room]%')
+            ->where('remarks', 'like', 'Official Room%')
             ->count());
     }
 
@@ -733,7 +733,7 @@ class PackageOfficialManifestSyncTest extends TestCase
 
         foreach (['makkah', 'madinah'] as $location) {
             $room = $manifest->rooms()
-                ->where('remarks', 'like', '[package-official-room]%')
+                ->where('remarks', 'like', 'Official Room%')
                 ->where('location', $location)
                 ->first();
 
@@ -819,7 +819,7 @@ class PackageOfficialManifestSyncTest extends TestCase
 
         foreach (['makkah', 'madinah'] as $location) {
             $room = $manifest->rooms()
-                ->where('remarks', 'like', '[package-official-room]%')
+                ->where('remarks', 'like', 'Official Room%')
                 ->where('location', $location)
                 ->whereHas('roomMembers', function ($query) use ($memberB): void {
                     $query->where('manifest_member_id', $memberB->id);
@@ -897,7 +897,7 @@ class PackageOfficialManifestSyncTest extends TestCase
         $this->assertSame(
             0,
             $manifest->rooms()
-                ->where('remarks', 'like', '[package-official-room]%')
+                ->where('remarks', 'like', 'Official Room%')
                 ->whereHas('roomMembers', function ($query) use ($memberDrop): void {
                     $query->where('manifest_member_id', $memberDrop->id);
                 })

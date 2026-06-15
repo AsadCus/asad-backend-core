@@ -146,6 +146,7 @@ class ManifestRule
             'rooms.*.members.*.package_official_id' => ['nullable', 'integer', 'exists:package_officials,id'],
             'rooms.*.members.*.sort_order' => ['nullable', 'integer', 'min:1'],
             'rooms.*.members.*.remarks' => ['nullable', 'string'],
+            'rooms.*.members.*.meal' => ['nullable', 'string', 'max:255'],
         ];
     }
 

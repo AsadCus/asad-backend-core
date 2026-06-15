@@ -1,3 +1,13 @@
+/**
+ * Builders that turn a quotation into an order's set of invoices, plus the
+ * helpers that keep invoice totals, extensions, dates and numbers in sync.
+ *
+ * The tricky part is the `installment` payment plan: every source line is split
+ * into separate "(Deposit)", "(50%)" and "(Balance)" invoices. Editing an order
+ * therefore has to MERGE those splits back into one logical line before
+ * re-splitting (e.g. after a deposit change or a switch to full payment).
+ * That round-trip lives in `mergeSplitInstallmentItems` -> `buildInstallmentItems`.
+ */
 import { formatDateForDisplay, parseDisplayDate } from '@/lib/utils';
 import { calculateTotal, collectAllItems } from '@/pages/invoices/lib/utils';
 import { InvoiceItemSchema, InvoiceSchema } from '@/pages/invoices/schema';
@@ -38,6 +48,11 @@ function normalizePaymentMethodValue(value?: string | null): string {
         .toLowerCase();
 }
 
+/**
+ * Whether a payment-method surcharge master applies to the given method.
+ * When a master lists no `payment_methods`, it applies to everything EXCEPT
+ * `credit_card`/`other` types (those must opt in explicitly via the list).
+ */
 function isExtensionApplicableToPaymentMethod(
     master: InvoicePaymentMethodExtensionMaster,
     paymentMethod?: string | null,
@@ -148,6 +163,10 @@ export function computeInvoiceExtensionAmount(
     return extensionType === 'discount' ? -Math.abs(rawAmount) : rawAmount;
 }
 
+/**
+ * Recomputes an invoice's `amount` and normalizes its extensions.
+ * amount = line subtotal + per-line taxes + extension total (discounts negative).
+ */
 export function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
     const subtotalAmount = calculateTotal(invoice.items ?? []);
     const itemTaxTotal = calculateItemTaxTotal(invoice.items ?? []);
@@ -174,6 +193,11 @@ export function recalculateInvoice(invoice: InvoiceSchema): InvoiceSchema {
     };
 }
 
+/**
+ * Re-applies the auto surcharge extensions for a chosen payment method:
+ * drops the previous method-driven extensions, keeps manual/unrelated ones, and
+ * appends fresh `credit_card`/`other` charges from the applicable masters.
+ */
 export function applyInvoicePaymentMethodExtensions(
     invoice: InvoiceSchema,
     paymentMethod: string,
@@ -252,6 +276,12 @@ function isTaxExtension(extension: QuotationExtensionInput): boolean {
     );
 }
 
+/**
+ * Fills missing invoice/due dates without overwriting existing ones.
+ * For installment plans on package (member) items the later invoices are
+ * back-dated from the package departure: the 50% invoice ~3 months before and
+ * the balance ~2 months before departure; everything else defaults to today.
+ */
 export function autoFillInvoiceDates(
     invoices: InvoiceSchema[],
     options?:
@@ -341,6 +371,11 @@ function sumExtensions(extensions: QuotationExtensionInput[] = []): number {
     );
 }
 
+/**
+ * Spreads a single extension total across installment invoices proportionally to
+ * each invoice's amount, assigning any rounding remainder to the last invoice so
+ * the shares always sum exactly to `extensionTotal`.
+ */
 function applyExtensionToInvoices(
     invoices: InvoiceSchema[],
     extensionTotal: number,
@@ -459,18 +494,147 @@ function cloneItemsWithFreshKeys(
     });
 }
 
+/**
+ * Merges previously split installment line items (those suffixed with
+ * "(Deposit)", "(50%)", or "(Balance)") back into single source lines.
+ *
+ * Grouping must be stable across invoices: when an order is reloaded for
+ * editing, each installment invoice owns its own DB header row, so the same
+ * logical line item carries a different `parent_id`/`parent_key` in every
+ * invoice. Keying on those DB-assigned values would prevent the split copies
+ * from grouping, causing them to be re-split (e.g. 3 invoices -> 9 items) and
+ * preventing recombination when switching to full payment. Instead we key on
+ * data that survives a DB round-trip: the member id, the parent header's
+ * description chain, and the stripped line description. Duplicated headers are
+ * collapsed to a single canonical copy and line items are repointed to it.
+ */
 function mergeSplitInstallmentItems(
     items: InvoiceItemSchema[],
 ): InvoiceItemSchema[] {
+    const headerById = new Map<number, InvoiceItemSchema>();
+    const headerByKey = new Map<string, InvoiceItemSchema>();
+
+    items.forEach((item) => {
+        if (!item.is_header) {
+            return;
+        }
+
+        const itemId = Number(item.id ?? 0);
+
+        if (itemId > 0) {
+            headerById.set(itemId, item);
+        }
+
+        if (item._key) {
+            headerByKey.set(String(item._key), item);
+        }
+    });
+
+    const resolveParentHeader = (
+        parentId?: number | null,
+        parentKey?: string | null,
+    ): InvoiceItemSchema | undefined => {
+        const id = Number(parentId ?? 0);
+        const key = String(parentKey ?? '');
+
+        return (
+            (id > 0 ? headerById.get(id) : undefined) ??
+            (key ? headerByKey.get(key) : undefined)
+        );
+    };
+
+    const resolveParentSignature = (item: InvoiceItemSchema): string => {
+        const chain: string[] = [];
+        const seen = new Set<string>();
+        let cursor = resolveParentHeader(item.parent_id, item.parent_key);
+
+        while (cursor && cursor.is_header) {
+            const identity = String(cursor._key ?? cursor.id ?? '');
+
+            if (identity && seen.has(identity)) {
+                break;
+            }
+
+            if (identity) {
+                seen.add(identity);
+            }
+
+            chain.unshift(
+                stripInstallmentSuffix(cursor.description) || identity,
+            );
+            cursor = resolveParentHeader(cursor.parent_id, cursor.parent_key);
+        }
+
+        return chain.join(' > ');
+    };
+
     const getGroupingKey = (item: InvoiceItemSchema): string => {
         const memberId = Number(item.customer_confirmation_member_id ?? 0);
 
         return [
             memberId,
-            item.parent_id ?? '',
-            item.parent_key ?? '',
+            resolveParentSignature(item),
             stripInstallmentSuffix(item.description),
         ].join('|');
+    };
+
+    // Collapse duplicated header rows (one per invoice) into a single canonical
+    // header per stable signature, and map every original header identity to
+    // the canonical header's `_key`.
+    const canonicalHeaderBySignature = new Map<string, InvoiceItemSchema>();
+    const canonicalKeyByHeaderIdentity = new Map<string, string>();
+
+    items.forEach((item) => {
+        if (!item.is_header) {
+            return;
+        }
+
+        const signature = getGroupingKey(item);
+        let canonical = canonicalHeaderBySignature.get(signature);
+
+        if (!canonical) {
+            canonical = {
+                ...item,
+                description:
+                    stripInstallmentSuffix(item.description) ||
+                    item.description,
+            };
+            canonicalHeaderBySignature.set(signature, canonical);
+        }
+
+        const canonicalKey = String(canonical._key ?? '');
+
+        if (item._key) {
+            canonicalKeyByHeaderIdentity.set(`key:${item._key}`, canonicalKey);
+        }
+
+        const itemId = Number(item.id ?? 0);
+
+        if (itemId > 0) {
+            canonicalKeyByHeaderIdentity.set(`id:${itemId}`, canonicalKey);
+        }
+    });
+
+    const remapParentToCanonical = (
+        item: InvoiceItemSchema,
+    ): InvoiceItemSchema => {
+        const byKey = item.parent_key
+            ? canonicalKeyByHeaderIdentity.get(`key:${item.parent_key}`)
+            : undefined;
+        const byId = item.parent_id
+            ? canonicalKeyByHeaderIdentity.get(`id:${Number(item.parent_id)}`)
+            : undefined;
+        const canonicalParentKey = byKey ?? byId ?? null;
+
+        if (canonicalParentKey === null) {
+            return item;
+        }
+
+        return {
+            ...item,
+            parent_key: canonicalParentKey,
+            parent_id: null,
+        };
     };
 
     const grouped = new Map<
@@ -485,9 +649,13 @@ function mergeSplitInstallmentItems(
     const baseItemsByGroupKey = new Map<string, InvoiceItemSchema>();
     const groupKeysWithSplitItems = new Set<string>();
 
-    const untouchedItems: InvoiceItemSchema[] = [];
+    const untouchedLineItems: InvoiceItemSchema[] = [];
 
     items.forEach((item) => {
+        if (item.is_header) {
+            return;
+        }
+
         const originalDescription = (item.description ?? '').trim();
         const baseDescription = stripInstallmentSuffix(item.description);
         const hasInstallmentSuffix =
@@ -495,14 +663,14 @@ function mergeSplitInstallmentItems(
             originalDescription !== baseDescription;
         const groupKey = getGroupingKey(item);
 
-        if (item.is_header || !baseDescription) {
-            untouchedItems.push(item);
+        if (!baseDescription) {
+            untouchedLineItems.push(item);
             return;
         }
 
         if (!hasInstallmentSuffix) {
             baseItemsByGroupKey.set(groupKey, item);
-            untouchedItems.push(item);
+            untouchedLineItems.push(item);
             return;
         }
 
@@ -536,48 +704,63 @@ function mergeSplitInstallmentItems(
         );
     });
 
-    const mergedItems = Array.from(grouped.values()).map((group) => {
-        const groupKey = getGroupingKey(group.baseItem);
-        const baseItem = baseItemsByGroupKey.get(groupKey) ?? group.baseItem;
-        const normalizedQuantity = group.quantity || 1;
-        const normalizedRate =
-            normalizedQuantity > 0
-                ? roundToCents(group.totalAmount / normalizedQuantity)
-                : 0;
+    const mergedItems = Array.from(grouped.entries()).map(
+        ([groupKey, group]) => {
+            const baseItem =
+                baseItemsByGroupKey.get(groupKey) ?? group.baseItem;
+            const normalizedQuantity = group.quantity || 1;
+            const normalizedRate =
+                normalizedQuantity > 0
+                    ? roundToCents(group.totalAmount / normalizedQuantity)
+                    : 0;
 
-        return {
-            ...baseItem,
-            description: stripInstallmentSuffix(baseItem.description),
-            quantity: normalizedQuantity,
-            rate: normalizedRate,
-            amount: group.totalAmount,
-            sort_order: group.sortOrder || baseItem.sort_order,
-        };
-    });
-
-    const filteredUntouchedItems = untouchedItems.filter((item) => {
-        if (item.is_header) {
-            return true;
-        }
-
-        const originalDescription = (item.description ?? '').trim();
-        const baseDescription = stripInstallmentSuffix(item.description);
-        const hasInstallmentSuffix =
-            originalDescription.length > 0 &&
-            originalDescription !== baseDescription;
-
-        if (hasInstallmentSuffix) {
-            return false;
-        }
-
-        return !groupKeysWithSplitItems.has(getGroupingKey(item));
-    });
-
-    return [...filteredUntouchedItems, ...mergedItems].sort(
-        (a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0),
+            return remapParentToCanonical({
+                ...baseItem,
+                description: stripInstallmentSuffix(baseItem.description),
+                quantity: normalizedQuantity,
+                rate: normalizedRate,
+                amount: group.totalAmount,
+                sort_order: group.sortOrder || baseItem.sort_order,
+            });
+        },
     );
+
+    const filteredUntouchedItems = untouchedLineItems
+        .filter((item) => {
+            const originalDescription = (item.description ?? '').trim();
+            const baseDescription = stripInstallmentSuffix(item.description);
+            const hasInstallmentSuffix =
+                originalDescription.length > 0 &&
+                originalDescription !== baseDescription;
+
+            if (hasInstallmentSuffix) {
+                return false;
+            }
+
+            return !groupKeysWithSplitItems.has(getGroupingKey(item));
+        })
+        .map((item) => remapParentToCanonical(item));
+
+    const canonicalHeaders = Array.from(
+        canonicalHeaderBySignature.values(),
+    ).map((header) => remapParentToCanonical(header));
+
+    return [
+        ...canonicalHeaders,
+        ...filteredUntouchedItems,
+        ...mergedItems,
+    ].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
 }
 
+/**
+ * Re-attaches the header rows that a set of line items belongs under.
+ *
+ * When items are split into per-invoice sections (deposit/50%/balance) the line
+ * items keep their `parent_id`/`parent_key`, but the header rows themselves must
+ * be re-emitted in each section. This walks each line's header ancestry in
+ * `sourceItems` and prepends any headers not already present in `baseItems`,
+ * returning the combined list sorted by `sort_order`.
+ */
 function ensureHeadersForItems(
     sourceItems: InvoiceItemSchema[],
     lineItems: InvoiceItemSchema[],
@@ -655,6 +838,16 @@ function ensureHeadersForItems(
     ].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
 }
 
+/**
+ * Splits source line items into the per-invoice sections of an installment plan.
+ *
+ * Input is first run through `mergeSplitInstallmentItems`, so already-split items
+ * are recombined before re-splitting (prevents double-splitting on edit). Each
+ * line is then divided into up to three amounts — Deposit, 50% of the remainder,
+ * and the Balance — suffixed `(Deposit)`/`(50%)`/`(Balance)`. `depositType` is
+ * `'percentage'` or `'fixed'`; any invoices beyond the first three
+ * (`installmentInvoiceCount` > 3) are returned empty for manual allocation.
+ */
 function buildInstallmentItems(
     items: InvoiceItemSchema[],
     depositType?: string | null,
@@ -824,6 +1017,13 @@ function buildInstallmentItems(
     };
 }
 
+/**
+ * Main entry: builds the invoice list for a payment plan from source items.
+ * - `direct`  -> one unlabeled invoice with the merged items.
+ * - `full`    -> one "Invoice For Full Payment" with the merged items.
+ * - `installment` -> Deposit / 50% / Balance invoices (plus any extra empty
+ *   installment invoices), with the extension total spread across them.
+ */
 export function buildInvoicesFromItems(
     paymentPlan: string,
     items: InvoiceItemSchema[],
@@ -1105,6 +1305,13 @@ function findFirstInvoiceWithParsableIncrement(
     );
 }
 
+/**
+ * Assigns sequential invoice numbers. Picks an "anchor" (the first invoice with a
+ * parsable trailing increment), then fills missing/duplicate numbers by counting
+ * up from it in the anchor's format; existing valid numbers are kept as-is.
+ * With `keepEmptyForNew`, brand-new invoices (no id) are left blank for the
+ * backend to number on save.
+ */
 export function applyInvoiceNumberingSequence(
     invoices: InvoiceSchema[],
     options: ApplyInvoiceNumberingOptions = {},
@@ -1197,7 +1404,10 @@ export function applyInvoiceNumberingSequence(
             return invoice;
         }
 
-        if (keepEmptyForNew && (invoice.id === undefined || invoice.id === null)) {
+        if (
+            keepEmptyForNew &&
+            (invoice.id === undefined || invoice.id === null)
+        ) {
             return {
                 ...invoice,
                 invoice_number: '',
@@ -1230,6 +1440,10 @@ export function applyInvoiceNumberingSequence(
     });
 }
 
+/**
+ * Maps quotation items to invoice items, preserving header parentage by
+ * resolving each child's `parent_key` from its parent's id when missing.
+ */
 export function quotationItemsToInvoiceItems(
     quotation: QuotationSchema,
 ): InvoiceItemSchema[] {
@@ -1281,6 +1495,7 @@ export function quotationItemsToInvoiceItems(
     }));
 }
 
+/** Builds the initial invoices for a NEW order straight from its quotation. */
 export function buildInitialInvoices(
     quotation: QuotationSchema,
     installmentInvoiceCount?: number | string | null,
@@ -1298,6 +1513,12 @@ export function buildInitialInvoices(
     );
 }
 
+/**
+ * Rebuilds invoices from the items already on the order's current invoices —
+ * used when editing (deposit/plan/count changes). Collects every existing line
+ * (already-split items included) and re-runs the builder, which merges then
+ * re-splits as needed.
+ */
 export function buildInvoices(
     paymentPlan: string,
     previousInvoices: InvoiceSchema[],

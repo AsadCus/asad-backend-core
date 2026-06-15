@@ -970,7 +970,7 @@ class ManifestController extends Controller
                     'room_type' => $room['room_type'] ?? null,
                     'bed_type' => $room['bed_type'] ?? null,
                     'number_of_beds_checked' => (bool) ($room['number_of_beds_checked'] ?? false),
-                    'meal' => $room['meal'] ?? null,
+                    'meal' => $member['meal'] ?? $room['meal'] ?? null,
                     'room_remarks' => $room['remarks'] ?? null,
                     'remarks' => $member['remarks'] ?? null,
                 ];
@@ -1529,6 +1529,7 @@ class ManifestController extends Controller
                                 : null,
                             'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
                             'remarks' => $member['remarks'] ?? null,
+                            'meal' => $member['meal'] ?? null,
                         ];
                     }, $members, array_keys($members))),
                 ];

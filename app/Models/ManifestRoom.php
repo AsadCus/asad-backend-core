@@ -55,7 +55,7 @@ class ManifestRoom extends Model
             'manifest_room_members',
             'manifest_room_id',
             'manifest_member_id',
-        )->withPivot(['sort_order', 'remarks'])
+        )->withPivot(['sort_order', 'remarks', 'meal'])
             ->withTimestamps();
     }
 }

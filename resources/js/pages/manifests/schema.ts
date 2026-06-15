@@ -123,6 +123,7 @@ export const roomMemberSchema = z.object({
     manifest_member_id: z.number().optional(),
     member_name: z.string().optional(),
     role_in_room: z.string().optional(),
+    meal: z.string().nullable().optional(),
 });
 
 export const roomSchema = z.object({

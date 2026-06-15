@@ -33,11 +33,11 @@ export default function CustomerHistoryDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         <History className="h-5 w-5" />
-                        Travel History
+                        History Record
                     </DialogTitle>
                     <DialogDescription className="sr-only">
-                        View the travel history and package participation for
-                        this customer.
+                        View the full history record — enquiries, packages,
+                        travel, and payments — for this customer.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -56,16 +56,15 @@ export default function CustomerHistoryDialog({
                                     </span>
                                 </span>
                             )}
-                            {customerContact &&
-                                customerContact !== '-' && (
-                                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                                        <Phone className="h-3.5 w-3.5 shrink-0" />
-                                        Contact :{' '}
-                                        <span className="text-gray-800 dark:text-gray-200">
-                                            {customerContact}
-                                        </span>
+                            {customerContact && customerContact !== '-' && (
+                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                                    Contact :{' '}
+                                    <span className="text-gray-800 dark:text-gray-200">
+                                        {customerContact}
                                     </span>
-                                )}
+                                </span>
+                            )}
                             {customerAddress && (
                                 <span className="flex items-center gap-1.5 text-muted-foreground">
                                     <MapPin className="h-3.5 w-3.5 shrink-0" />
