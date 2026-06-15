@@ -107,6 +107,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.departure_date,
@@ -114,6 +115,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.return_date,
@@ -145,6 +147,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -236,7 +239,9 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    if (userPermissions.includes('package edit')) {
+                                    if (
+                                        userPermissions.includes('package edit')
+                                    ) {
                                         router.get(edit(row.id).url);
                                     } else {
                                         router.get(show(row.id).url);

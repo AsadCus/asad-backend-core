@@ -148,12 +148,14 @@ const getColumns = (
     },
     {
         accessorKey: 'quotation_date',
+        sortingFn: 'displayDate',
         header: 'Quotation Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'expiry_date',
+        sortingFn: 'displayDate',
         header: 'Expiry Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -187,6 +189,7 @@ const getColumns = (
               {
                   id: 'email_sent_at_formatted',
                   accessorKey: 'email_sent_at_formatted',
+                  sortingFn: 'displayDate',
                   header: 'Email',
                   meta: { exportable: true },
                   filterFn: 'dateRangeFilter',
@@ -225,12 +228,14 @@ const getColumns = (
         : []),
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'updated_at',
+        sortingFn: 'displayDate',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',

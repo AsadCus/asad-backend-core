@@ -260,6 +260,7 @@ const columns: ColumnDef<ActivityLog>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Date',
         meta: { exportable: true },
         cell: ({ row }) => formatDateTime(row.getValue('created_at')),

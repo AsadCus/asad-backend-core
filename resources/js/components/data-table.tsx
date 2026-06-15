@@ -6,7 +6,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { cn, parseDisplayDate } from '@/lib/utils';
+import { cn, compareFormattedDate, parseDisplayDate } from '@/lib/utils';
 import {
     Cell,
     ColumnDef,
@@ -25,6 +25,7 @@ import {
     Row,
     RowData,
     RowSelectionState,
+    SortingFn,
     SortingState,
     Table as TanStackTable,
     useReactTable,
@@ -424,6 +425,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         return true;
     };
 
+    const displayDate: SortingFn<TData> = (rowA, rowB, columnId) =>
+        compareFormattedDate(rowA.getValue(columnId), rowB.getValue(columnId));
+
     const expandColumn: ColumnDef<TData> = {
         id: 'expander',
         header: '',
@@ -516,6 +520,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         filterFns: {
             includesValue,
             dateRangeFilter,
+        },
+        sortingFns: {
+            displayDate,
         },
         initialState: tableInitialState,
         state: {

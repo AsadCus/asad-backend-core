@@ -109,6 +109,7 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
     },
     {
         accessorKey: 'preferred_travelling_date',
+        sortingFn: 'displayDate',
         header: 'Preferred Travelling Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -159,12 +160,14 @@ const columns: ColumnDef<GeneralEnquiryDatatableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'updated_at',
+        sortingFn: 'displayDate',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',

@@ -105,6 +105,7 @@ const columns: ColumnDef<ProposalDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -125,13 +126,17 @@ const columns: ColumnDef<ProposalDataTableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
 ];
 
-export default function PackageProposalsIndex({ data, approverOptions }: Props) {
+export default function PackageProposalsIndex({
+    data,
+    approverOptions,
+}: Props) {
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
     const canEdit = userPermissions.includes('package-proposal edit');
@@ -139,7 +144,8 @@ export default function PackageProposalsIndex({ data, approverOptions }: Props) 
     const canApprove = userPermissions.includes('package-proposal approve');
 
     const actions: ActionType[] = [];
-    if (userPermissions.includes('package-proposal create')) actions.push('add');
+    if (userPermissions.includes('package-proposal create'))
+        actions.push('add');
     actions.push('view');
 
     const getRowActions = (row: ProposalDataTableSchema): ActionType[] => {
@@ -175,9 +181,13 @@ export default function PackageProposalsIndex({ data, approverOptions }: Props) 
     const { proposalsForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
-    const [submitProposalId, setSubmitProposalId] = useState<number | undefined>();
+    const [submitProposalId, setSubmitProposalId] = useState<
+        number | undefined
+    >();
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-    const [rejectProposalId, setRejectProposalId] = useState<number | undefined>();
+    const [rejectProposalId, setRejectProposalId] = useState<
+        number | undefined
+    >();
 
     const countryOptions = [
         ...new Set(

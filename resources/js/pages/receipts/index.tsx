@@ -142,6 +142,7 @@ const getColumns = (
     },
     {
         accessorKey: 'receipt_date',
+        sortingFn: 'displayDate',
         header: 'Receipt Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -157,6 +158,7 @@ const getColumns = (
               {
                   id: 'email_sent_at_formatted',
                   accessorKey: 'email_sent_at_formatted',
+                  sortingFn: 'displayDate',
                   header: 'Email',
                   meta: { exportable: true },
                   filterFn: 'dateRangeFilter',

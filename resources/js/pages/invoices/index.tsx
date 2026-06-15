@@ -8,7 +8,7 @@ import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrency, parseDisplayDate } from '@/lib/utils';
+import { compareNaturalText, formatCurrency } from '@/lib/utils';
 import {
     create as createInvoice,
     destroy as destroyInvoice,
@@ -58,32 +58,6 @@ const invoiceIndexFilterStatuses = statuses.filter(
 const defaultInvoiceIndexStatusFilters = invoiceIndexFilterStatuses.map(
     (status) => status.value,
 );
-
-const compareNaturalText = (left: unknown, right: unknown): number => {
-    return String(left ?? '').localeCompare(String(right ?? ''), undefined, {
-        numeric: true,
-        sensitivity: 'base',
-    });
-};
-
-const compareFormattedDate = (left: unknown, right: unknown): number => {
-    const leftDate = parseDisplayDate(String(left ?? ''));
-    const rightDate = parseDisplayDate(String(right ?? ''));
-
-    if (leftDate && rightDate) {
-        return leftDate.getTime() - rightDate.getTime();
-    }
-
-    if (leftDate) {
-        return 1;
-    }
-
-    if (rightDate) {
-        return -1;
-    }
-
-    return compareNaturalText(left, right);
-};
 
 const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
     const invoiceAmount = Number(invoice.amount ?? 0);
@@ -240,22 +214,14 @@ export const getInvoiceColumns = (
         header: 'Invoice Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'due_date',
         header: 'Due Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'status',
@@ -289,11 +255,7 @@ export const getInvoiceColumns = (
                   header: 'Email',
                   meta: { exportable: true },
                   filterFn: 'dateRangeFilter',
-                  sortingFn: (rowA, rowB, columnId) =>
-                      compareFormattedDate(
-                          rowA.getValue(columnId),
-                          rowB.getValue(columnId),
-                      ),
+                  sortingFn: 'displayDate',
                   cell: ({ row }) => {
                       const invoice = row.original;
                       const sentAt = invoice.email_sent_at_formatted;
@@ -402,22 +364,14 @@ export const getInvoiceColumns = (
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'updated_at',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
 ];
 

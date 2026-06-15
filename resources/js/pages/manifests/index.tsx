@@ -98,12 +98,14 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -130,14 +132,18 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
     },
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const { manifestsForDatatable, importEnabled = false, salespersons = [] } =
-        data;
+    const {
+        manifestsForDatatable,
+        importEnabled = false,
+        salespersons = [],
+    } = data;
 
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -204,9 +210,10 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
-                            showImport={importEnabled && userPermissions.includes(
-                                'manifest edit',
-                            )}
+                            showImport={
+                                importEnabled &&
+                                userPermissions.includes('manifest edit')
+                            }
                             onImport={() => setImportOpen(true)}
                             customExports={importEnabled ? customExports : []}
                             url={index().url}
@@ -223,7 +230,11 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    if (userPermissions.includes('manifest edit')) {
+                                    if (
+                                        userPermissions.includes(
+                                            'manifest edit',
+                                        )
+                                    ) {
                                         router.get(edit(row.id).url);
                                     } else {
                                         router.get(show(row.id).url);

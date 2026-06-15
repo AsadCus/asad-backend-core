@@ -473,12 +473,14 @@ export default function Dashboard({ data }: DashboardProps) {
             },
             {
                 accessorKey: 'departure_date',
+                sortingFn: 'displayDate',
                 header: 'Departure Date',
                 meta: { exportable: true },
                 filterFn: 'dateRangeFilter',
             },
             {
                 accessorKey: 'return_date',
+                sortingFn: 'displayDate',
                 header: 'Return Date',
                 meta: { exportable: true },
                 cell: ({ row }) => row.original.return_date ?? '-',
@@ -1924,6 +1926,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         },
                                         {
                                             accessorKey: 'created_at',
+                                            sortingFn: 'displayDate',
                                             header: 'Created At',
                                             meta: { exportable: true },
                                         },

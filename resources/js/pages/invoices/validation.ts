@@ -1,3 +1,4 @@
+import { parseDisplayDate } from '@/lib/utils';
 import { z } from 'zod';
 import { invoiceSchema } from './schema';
 
@@ -34,11 +35,10 @@ export const invoiceValidationSchema = invoiceSchema.superRefine((inv, ctx) => {
         });
     }
 
-    if (
-        inv.invoice_date &&
-        inv.due_date &&
-        new Date(inv.due_date) < new Date(inv.invoice_date)
-    ) {
+    const invoiceDate = parseDisplayDate(inv.invoice_date);
+    const dueDate = parseDisplayDate(inv.due_date);
+
+    if (invoiceDate && dueDate && dueDate < invoiceDate) {
         ctx.addIssue({
             path: ['due_date'],
             message: 'Due date must be after or equal to invoice date',

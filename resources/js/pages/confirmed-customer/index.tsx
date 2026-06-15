@@ -325,6 +325,7 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     },
     {
         accessorKey: 'refund_cancel_date',
+        sortingFn: 'displayDate',
         header: 'Refund Cancel Date',
         meta: { exportable: true },
         cell: ({ row }) => {
@@ -449,12 +450,14 @@ const groupColumns: ColumnDef<CustomerConfirmationDatatableSchema>[] = [
     },
     {
         accessorKey: 'date_of_application',
+        sortingFn: 'displayDate',
         header: 'Applied Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -3478,7 +3481,8 @@ export default function ConfirmedCustomerIndex({
                                                                 fieldRequirementsProps={{
                                                                     required: true,
                                                                     hint: 'Select whether the refund is calculated by percentage or a fixed amount',
-                                                                    example: 'Fixed Amount',
+                                                                    example:
+                                                                        'Fixed Amount',
                                                                 }}
                                                             >
                                                                 <ProperInputSelect
@@ -3540,7 +3544,8 @@ export default function ConfirmedCustomerIndex({
                                                                     fieldRequirementsProps={{
                                                                         required: true,
                                                                         hint: 'Specify the refund percentage',
-                                                                        example: '50',
+                                                                        example:
+                                                                            '50',
                                                                         format: 'Decimal number between 0 and 100',
                                                                     }}
                                                                 >
@@ -3583,7 +3588,8 @@ export default function ConfirmedCustomerIndex({
                                                                 fieldRequirementsProps={{
                                                                     required: true,
                                                                     hint: 'Specify the refund amount (calculated automatically if using Percentage mode)',
-                                                                    example: '250.00',
+                                                                    example:
+                                                                        '250.00',
                                                                     format: 'Decimal number up to max base amount',
                                                                 }}
                                                             >
@@ -3641,7 +3647,8 @@ export default function ConfirmedCustomerIndex({
                                                                 fieldRequirementsProps={{
                                                                     required: true,
                                                                     hint: 'Select the payment method used for issuing the refund',
-                                                                    example: 'Bank Transfer',
+                                                                    example:
+                                                                        'Bank Transfer',
                                                                 }}
                                                             >
                                                                 <ProperInputSelect
@@ -3680,7 +3687,8 @@ export default function ConfirmedCustomerIndex({
                                                                 fieldRequirementsProps={{
                                                                     required: false,
                                                                     hint: 'Recipient contact details or account info for the refund receipt (defaults to customer contact number)',
-                                                                    example: '08123456789',
+                                                                    example:
+                                                                        '08123456789',
                                                                     format: 'Up to 255 characters',
                                                                 }}
                                                             >
@@ -3716,7 +3724,8 @@ export default function ConfirmedCustomerIndex({
                                                                 fieldRequirementsProps={{
                                                                     required: false,
                                                                     hint: 'Additional notes or description for this refund',
-                                                                    example: 'Refund for flight cancellation',
+                                                                    example:
+                                                                        'Refund for flight cancellation',
                                                                     format: 'Up to 1000 characters',
                                                                 }}
                                                             >

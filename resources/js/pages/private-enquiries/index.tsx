@@ -102,18 +102,21 @@ const columns: ColumnDef<PrivateEnquiryDatatableSchema>[] = [
     { accessorKey: 'email', header: 'Email', meta: { exportable: true } },
     {
         accessorKey: 'passport_expiry_date',
+        sortingFn: 'displayDate',
         header: 'Passport Expiry Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -270,12 +273,14 @@ const columns: ColumnDef<PrivateEnquiryDatatableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'updated_at',
+        sortingFn: 'displayDate',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',

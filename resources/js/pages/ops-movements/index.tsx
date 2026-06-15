@@ -99,6 +99,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.departure_date || '-',
@@ -106,6 +107,7 @@ const columns: ColumnDef<OpsMovementDataTableSchema>[] = [
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.return_date || '-',
@@ -210,9 +212,7 @@ export default function OpsMovementsIndex({ data }: OpsMovementsProps) {
                                 vehicle_type: false,
                                 ticket_type: false,
                             },
-                            columnFilters: [
-                                { id: 'status', value: ['open'] },
-                            ],
+                            columnFilters: [{ id: 'status', value: ['open'] }],
                         }}
                         renderFilter={(table) => (
                             <>
