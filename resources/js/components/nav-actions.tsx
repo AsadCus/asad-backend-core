@@ -98,7 +98,9 @@ export function NavActions() {
         scopeCountryOptions.length > 0 &&
         selectedScopeCountryIds.length === scopeCountryOptions.length;
 
-    const unreadCount = notifications.filter((n) => !n.is_read).length;
+    // Server-computed count: the shared `notifications` list is trimmed to the
+    // latest 10, so we can't derive the badge from it.
+    const unreadCount = auth.notifications_unread_count ?? 0;
 
     const themes: Array<{ value: Appearance; label: string }> = [
         { value: 'light', label: 'Light' },
@@ -115,6 +117,8 @@ export function NavActions() {
             <Monitor className="h-4 w-4" />
         );
 
+    // Clicking a popup item marks it read, then deep-links to the index with a
+    // `#notif-{id}` hash so that page scrolls to it and opens its dialog.
     const handleNotificationClick = async (notif: NotificationItem) => {
         router.put(
             read(notif.id).url,
@@ -122,7 +126,7 @@ export function NavActions() {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    router.visit(index().url);
+                    router.visit(`${index().url}#notif-${notif.id}`);
                 },
             },
         );

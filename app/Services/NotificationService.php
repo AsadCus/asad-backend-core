@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class NotificationService
 {
     /**
-     * Get all notifications for a user.
+     * Get all notifications for a user (used by the JSON API).
      */
     public function getUserNotifications($userId)
     {
@@ -19,22 +19,65 @@ class NotificationService
             ->where('user_id', $userId)
             ->latest()
             ->get()
-            ->map(function ($userNotif) {
-                return [
-                    'id' => $userNotif->id,
-                    'title' => $userNotif->notification->title,
-                    'message' => $userNotif->notification->message,
-                    'type' => $userNotif->notification->type ?? 'info',
-                    'link' => $userNotif->notification->link,
-                    'exclusive' => (bool) $userNotif->notification->exclusive,
-                    'action_taken_by' => $userNotif->notification->action_taken_by,
-                    'action_taken_at' => $userNotif->notification->action_taken_at,
-                    'action_taken_by_name' => $userNotif->notification->actionTakenBy?->name,
-                    'is_read' => (bool) $userNotif->is_read,
-                    'read_at' => $userNotif->read_at,
-                    'created_at' => $userNotif->created_at,
-                ];
-            });
+            ->map(fn (UserNotification $userNotif) => $this->mapUserNotification($userNotif));
+    }
+
+    /**
+     * Get the most recent notifications for a user (used by the shared bell popup).
+     */
+    public function getRecentNotifications($userId, int $limit = 10)
+    {
+        return UserNotification::with('notification')
+            ->where('user_id', $userId)
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->map(fn (UserNotification $userNotif) => $this->mapUserNotification($userNotif));
+    }
+
+    /**
+     * Count a user's unread notifications.
+     */
+    public function getUnreadCount($userId): int
+    {
+        return UserNotification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->count();
+    }
+
+    /**
+     * Get a paginated list of a user's notifications (used by the index page).
+     */
+    public function getPaginatedNotifications($userId, int $perPage = 20)
+    {
+        return UserNotification::with('notification')
+            ->where('user_id', $userId)
+            ->latest()
+            ->paginate($perPage)
+            ->through(fn (UserNotification $userNotif) => $this->mapUserNotification($userNotif));
+    }
+
+    /**
+     * Project a user notification into the shape consumed by the frontend.
+     *
+     * @return array<string, mixed>
+     */
+    private function mapUserNotification(UserNotification $userNotif): array
+    {
+        return [
+            'id' => $userNotif->id,
+            'title' => $userNotif->notification->title,
+            'message' => $userNotif->notification->message,
+            'type' => $userNotif->notification->type ?? 'info',
+            'link' => $userNotif->notification->link,
+            'exclusive' => (bool) $userNotif->notification->exclusive,
+            'action_taken_by' => $userNotif->notification->action_taken_by,
+            'action_taken_at' => $userNotif->notification->action_taken_at,
+            'action_taken_by_name' => $userNotif->notification->actionTakenBy?->name,
+            'is_read' => (bool) $userNotif->is_read,
+            'read_at' => $userNotif->read_at,
+            'created_at' => $userNotif->created_at,
+        ];
     }
 
     public function createNotification(array $data, array $userIds = [], array|string|null $roles = null, ?int $branchId = null)
@@ -85,6 +128,14 @@ class NotificationService
         });
     }
 
+    /**
+     * Follow a notification's link.
+     *
+     * "Exclusive" notifications can only be acted on once (e.g. a task that a
+     * single person should claim): the first user to act is recorded, and anyone
+     * arriving afterwards is bounced back with an error. Non-exclusive
+     * notifications just redirect to their link.
+     */
     public function handleAction($request, $id)
     {
         $userNotification = UserNotification::findOrFail($id);

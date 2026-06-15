@@ -66,8 +66,11 @@ class HandleInertiaRequests extends Middleware
                 'show_two_factor_auth' => config('master.show_two_factor_auth', true),
                 'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),
                 'notifications' => $user
-                    ? $this->notificationService->getUserNotifications($user->id)
+                    ? $this->notificationService->getRecentNotifications($user->id, 10)
                     : [],
+                'notifications_unread_count' => $user
+                    ? $this->notificationService->getUnreadCount($user->id)
+                    : 0,
                 'scope_mode' => DataScope::mode(),
                 'scope_labels' => $user ? $this->resolveScopeLabels($user) : [],
                 'scope_country_options' => $user ? $this->resolveScopeCountryOptions($user) : [],
