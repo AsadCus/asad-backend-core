@@ -30,6 +30,7 @@ interface EditUserProps {
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    isOfficial: boolean;
     scopeMode?: 'country' | 'branch';
 }
 
@@ -44,6 +45,7 @@ export default function EditUser({
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    isOfficial = false,
     scopeMode = 'country',
 }: EditUserProps) {
     const handleCancel = useCallback(() => {
@@ -56,6 +58,7 @@ export default function EditUser({
         isSales,
         isOperations,
         isCustomer,
+        isOfficial,
     });
 
     return (
@@ -81,6 +84,7 @@ export default function EditUser({
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
+                        isOfficial={isOfficial}
                         scopeMode={scopeMode}
                     />
                 </div>

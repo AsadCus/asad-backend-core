@@ -24,6 +24,7 @@ interface RoleUserFormDialogProps {
     isSales?: boolean;
     isOperations?: boolean;
     isCustomer?: boolean;
+    isOfficial?: boolean;
     submitUrl: string;
     scopeMode?: 'country' | 'branch';
 }
@@ -43,6 +44,7 @@ export default function RoleUserFormDialog({
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    isOfficial = false,
     submitUrl,
     scopeMode = 'country',
 }: RoleUserFormDialogProps) {
@@ -69,6 +71,7 @@ export default function RoleUserFormDialog({
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
+                        isOfficial={isOfficial}
                         submitUrl={submitUrl}
                         scopeMode={scopeMode}
                         onCancel={() => onOpenChange(false)}

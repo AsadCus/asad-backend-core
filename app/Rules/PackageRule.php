@@ -101,6 +101,7 @@ class PackageRule
 
             // Officials (dynamic)
             'officials' => ['nullable', 'array'],
+            'officials.*.official_id' => ['nullable', 'integer', 'exists:officials,id'],
             'officials.*.type' => ['nullable', 'string', 'max:255'],
             'officials.*.name' => ['required', 'string', 'max:255'],
             'officials.*.hotel' => ['nullable', 'string', 'max:255'],

@@ -12,12 +12,21 @@ import { index as masterIndex } from '@/routes/master';
 import { index } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
+import masterOfficial from '@/routes/master/user/official';
 import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
 import masterSuperadmin from '@/routes/master/user/superadmin';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Plus, Route, Shield, TrendingUp, User, Users } from 'lucide-react';
+import {
+    BadgeCheck,
+    Plus,
+    Route,
+    Shield,
+    TrendingUp,
+    User,
+    Users,
+} from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -39,6 +48,7 @@ interface MasterUserProps {
         sales: number;
         operations: number;
         customer: number;
+        official: number;
     };
     countryStats: {
         superadmin: {
@@ -139,6 +149,16 @@ export default function MasterUser({
             href: masterOperations.index.url(),
             hasAddButton: true,
             onAdd: () => router.get(masterOperations.create().url),
+        },
+        {
+            title: 'Official',
+            description: 'Official accounts (non-login)',
+            hidden: false,
+            icon: BadgeCheck,
+            count: roleStats.official,
+            href: masterOfficial.index.url(),
+            hasAddButton: true,
+            onAdd: () => router.get(masterOfficial.create().url),
         },
     ];
 

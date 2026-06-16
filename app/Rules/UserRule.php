@@ -19,7 +19,7 @@ class UserRule
             ],
             'contact' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6|confirmed',
-            'role' => 'required|string|in:superadmin,admin,sales,operations,customer',
+            'role' => 'required|string|in:superadmin,admin,sales,operations,customer,official',
         ];
 
         if ($action === 'update') {
@@ -70,6 +70,25 @@ class UserRule
             $rules['photo_documents.*.file_name'] = ['nullable', 'string', 'max:255'];
             $rules['photo_documents.*.file_path'] = ['nullable', 'string', 'max:255'];
             $rules['photo_documents.*.removed'] = ['nullable', 'boolean'];
+
+            $rules['scope_ids'] = 'nullable|array';
+            $rules['scope_ids.*'] = 'nullable|integer';
+        }
+
+        if ($role === 'official') {
+            // Officials are non-login users; email is optional and auto-generated when blank.
+            $rules['email'] = ['nullable', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($id)];
+
+            // Type is required: a typeless official cannot be selected on package/proposal forms.
+            $rules['type'] = 'required|string|in:mutawif,mutawifah,official';
+            $rules['nationality'] = 'nullable|string|max:100';
+            $rules['passport_number'] = 'nullable|string|max:50';
+            $rules['passport_issue_date'] = 'nullable|date';
+            $rules['passport_expiry_date'] = 'nullable|date';
+            $rules['passport_place_of_issue'] = 'nullable|string|max:255';
+            $rules['gender'] = 'nullable|string|in:male,female';
+            $rules['date_of_birth'] = 'nullable|date';
+            $rules['place_of_birth'] = 'nullable|string|max:255';
 
             $rules['scope_ids'] = 'nullable|array';
             $rules['scope_ids.*'] = 'nullable|integer';

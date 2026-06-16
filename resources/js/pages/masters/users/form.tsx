@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import CustomerFormFields from '@/pages/customer/form-fields';
 import { type CustomerDocumentItemSchema } from '@/pages/customer/schema';
+import OfficialFormFields from '@/pages/official/form-fields';
 import { OptionType, SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -61,6 +62,7 @@ interface UserFormProps {
     isSales?: boolean;
     isOperations?: boolean;
     isCustomer?: boolean;
+    isOfficial?: boolean;
     submitUrl?: string;
     scopeMode?: 'country' | 'branch';
 }
@@ -79,6 +81,7 @@ export function UserForm({
     isSales,
     isOperations,
     isCustomer,
+    isOfficial,
     submitUrl,
     scopeMode,
 }: UserFormProps) {
@@ -92,6 +95,7 @@ export function UserForm({
         if (isSales) return 'sales';
         if (isOperations) return 'operations';
         if (isCustomer) return 'customer';
+        if (isOfficial) return 'official';
         return 'admin';
     };
 
@@ -112,6 +116,7 @@ export function UserForm({
         country_id: '',
         branch_id: '',
         company_name: '',
+        type: '',
         nric_number: '',
         address: '',
         nationality: '',
@@ -327,6 +332,8 @@ export function UserForm({
                 url = '/sales';
             } else if (isCustomer) {
                 url = '/customer';
+            } else if (isOfficial) {
+                url = '/master/user/official';
             }
         }
 
@@ -413,6 +420,35 @@ export function UserForm({
         }
 
         if (field === 'is_leader') {
+            return;
+        }
+
+        const normalizedField = field as keyof UserFormData;
+        setData(
+            normalizedField,
+            value as unknown as UserFormData[typeof normalizedField],
+        );
+    };
+
+    const officialData = {
+        name: data.name ?? '',
+        email: data.email ?? '',
+        contact_number: data.contact ?? '',
+        type: data.type ?? '',
+        nationality: data.nationality ?? '',
+        passport_number: data.passport_number ?? '',
+        passport_issue_date: data.passport_issue_date ?? '',
+        passport_expiry_date: data.passport_expiry_date ?? '',
+        passport_place_of_issue: data.passport_place_of_issue ?? '',
+        gender: data.gender ?? '',
+        date_of_birth: data.date_of_birth ?? '',
+        place_of_birth: data.place_of_birth ?? '',
+    };
+
+    const updateOfficialField = (field: string, value: string) => {
+        if (field === 'contact_number') {
+            setData('contact', value);
+
             return;
         }
 
@@ -585,34 +621,53 @@ export function UserForm({
                             </div>
                         )}
 
-                        {/* Password & Confirm Password */}
-                        {!isView && role !== 'customer' && (
-                            <UserPasswordFields
-                                password={data.password ?? ''}
-                                passwordConfirmation={
-                                    data.password_confirmation ?? ''
-                                }
-                                sendEmail={data.send_email ?? false}
-                                showSendEmailOption={false}
-                                isView={isView}
-                                onGenerateRandom={generatePassword}
-                                onPasswordChange={(value) => {
-                                    clearErrors('password');
-                                    setData('password', value);
-                                }}
-                                onPasswordConfirmationChange={(value) => {
-                                    clearErrors('password_confirmation');
-                                    setData('password_confirmation', value);
-                                }}
-                                onSendEmailChange={(checked) =>
-                                    setData('send_email', checked)
-                                }
-                                passwordError={errors.password}
-                                passwordConfirmationError={
-                                    errors.password_confirmation
-                                }
-                            />
+                        {role === 'official' && (
+                            <div className="space-y-4">
+                                <OfficialFormFields
+                                    official={officialData}
+                                    isView={isView}
+                                    processing={processing}
+                                    getError={getCustomerFieldError}
+                                    onUpdate={(field, value) =>
+                                        updateOfficialField(
+                                            String(field),
+                                            value,
+                                        )
+                                    }
+                                />
+                            </div>
                         )}
+
+                        {/* Password & Confirm Password */}
+                        {!isView &&
+                            role !== 'customer' &&
+                            role !== 'official' && (
+                                <UserPasswordFields
+                                    password={data.password ?? ''}
+                                    passwordConfirmation={
+                                        data.password_confirmation ?? ''
+                                    }
+                                    sendEmail={data.send_email ?? false}
+                                    showSendEmailOption={false}
+                                    isView={isView}
+                                    onGenerateRandom={generatePassword}
+                                    onPasswordChange={(value) => {
+                                        clearErrors('password');
+                                        setData('password', value);
+                                    }}
+                                    onPasswordConfirmationChange={(value) => {
+                                        clearErrors('password_confirmation');
+                                        setData('password_confirmation', value);
+                                    }}
+                                    onSendEmailChange={(checked) =>
+                                        setData('send_email', checked)
+                                    }
+                                    passwordError={errors.password}
+                                    passwordConfirmationError={
+                                        errors.password_confirmation
+                                    }
+                                />
+                            )}
                     </CardContent>
                 </Card>
 
@@ -630,7 +685,7 @@ export function UserForm({
                     {!isView && (
                         <Button
                             type="submit"
-                            className="min-w-[140px]"
+                            className="min-w-35"
                             disabled={processing}
                         >
                             {processing && (

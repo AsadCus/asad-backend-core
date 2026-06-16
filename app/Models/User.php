@@ -78,6 +78,11 @@ class User extends Authenticatable
         return $this->hasOne(Customer::class, 'user_id');
     }
 
+    public function official(): HasOne
+    {
+        return $this->hasOne(Official::class, 'user_id');
+    }
+
     public function ghostUser(): HasOne
     {
         return $this->hasOne(GhostUser::class, 'user_id');

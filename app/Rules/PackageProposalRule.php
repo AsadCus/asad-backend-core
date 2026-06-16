@@ -51,8 +51,18 @@ class PackageProposalRule
             'passenger_simulation.infant' => ['nullable', 'integer', 'min:0'],
 
             'officials' => ['nullable', 'array'],
+            'officials.*.official_id' => ['nullable', 'integer', 'exists:officials,id'],
             'officials.*.type' => ['nullable', 'string', 'max:255'],
-            'officials.*.name' => ['nullable', 'string', 'max:255'],
+            'officials.*.name' => ['required', 'string', 'max:255'],
+            'officials.*.contact_number' => ['nullable', 'string', 'max:255'],
+            'officials.*.nationality' => ['nullable', 'string', 'max:100'],
+            'officials.*.passport_number' => ['nullable', 'string', 'max:100'],
+            'officials.*.gender' => ['nullable', 'string', 'max:50'],
+            'officials.*.date_of_birth' => ['nullable', 'date'],
+            'officials.*.passport_issue_date' => ['nullable', 'date'],
+            'officials.*.passport_expiry_date' => ['nullable', 'date'],
+            'officials.*.passport_place_of_issue' => ['nullable', 'string', 'max:255'],
+            'officials.*.place_of_birth' => ['nullable', 'string', 'max:255'],
 
             'remarks' => ['nullable', 'string'],
         ];

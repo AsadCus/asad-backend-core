@@ -6,6 +6,7 @@ use App\Rules\PackageRule;
 use App\Services\CountryService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
+use App\Services\UserRoles\OfficialUserService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,12 +25,15 @@ class PackageController extends Controller
 
     protected $reportTemplateService;
 
-    public function __construct(PackageService $packageService, PackageRule $packageRule, CountryService $countryService, ReportTemplateService $reportTemplateService)
+    protected $officialUserService;
+
+    public function __construct(PackageService $packageService, PackageRule $packageRule, CountryService $countryService, ReportTemplateService $reportTemplateService, OfficialUserService $officialUserService)
     {
         $this->packageService = $packageService;
         $this->packageRule = $packageRule;
         $this->countryService = $countryService;
         $this->reportTemplateService = $reportTemplateService;
+        $this->officialUserService = $officialUserService;
 
         $this->middleware('permission:package view')->only(['index', 'show', 'getForShow', 'generatePdf']);
         $this->middleware('permission:package create')->only(['create', 'store', 'import']);
@@ -56,6 +60,7 @@ class PackageController extends Controller
     {
         return Inertia::render('packages/create', [
             'dataCountry' => $this->countryService->getForFilter(),
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 
@@ -81,6 +86,7 @@ class PackageController extends Controller
         return Inertia::render('packages/show', [
             'data' => $package,
             'dataCountry' => $this->countryService->getForFilter(),
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 
@@ -102,6 +108,7 @@ class PackageController extends Controller
         return Inertia::render('packages/edit', [
             'data' => $package,
             'dataCountry' => $this->countryService->getForFilter(),
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 

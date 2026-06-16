@@ -52,6 +52,7 @@ class UserController extends Controller
             'sales' => $this->userService->countByRole('sales'),
             'operations' => $this->userService->countByRole('operations'),
             'customer' => $this->userService->countByRole('customer'),
+            'official' => $this->userService->countByRole('official'),
         ];
 
         $countryStats = [

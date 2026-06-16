@@ -6,45 +6,33 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class PackageOfficial extends Model
+class Official extends Model
 {
     protected $fillable = [
-        'package_id',
-        'official_id',
+        'user_id',
         'type',
-        'name',
-        'hotel',
-        'contact_number',
         'nationality',
         'passport_number',
-        'gender',
-        'date_of_birth',
         'passport_issue_date',
         'passport_expiry_date',
         'passport_place_of_issue',
+        'gender',
+        'date_of_birth',
         'place_of_birth',
-        'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
-            'hotel' => 'array',
             'date_of_birth' => 'date',
             'passport_issue_date' => 'date',
             'passport_expiry_date' => 'date',
-            'sort_order' => 'integer',
         ];
     }
 
-    public function package(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Package::class);
-    }
-
-    public function official(): BelongsTo
-    {
-        return $this->belongsTo(Official::class);
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function getDateOfBirthFormattedAttribute(): ?string

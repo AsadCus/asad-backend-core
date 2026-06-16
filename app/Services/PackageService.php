@@ -9,6 +9,7 @@ use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
 use App\Rules\PackageRule;
+use App\Services\UserRoles\OfficialUserService;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +24,14 @@ class PackageService
 
     protected NumberingService $numberingService;
 
-    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService, NumberingService $numberingService)
+    protected OfficialUserService $officialUserService;
+
+    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService, NumberingService $numberingService, OfficialUserService $officialUserService)
     {
         $this->formatService = $formatService;
         $this->packageSeatService = $packageSeatService;
         $this->numberingService = $numberingService;
+        $this->officialUserService = $officialUserService;
     }
 
     public function get()
@@ -360,6 +364,7 @@ class PackageService
 
                 return [
                     'id' => $o->id,
+                    'official_id' => $o->official_id,
                     'type' => $o->type,
                     'name' => $o->name,
                     'hotel' => $this->resolvePrimaryOfficialHotel($o->hotel),
@@ -925,19 +930,28 @@ class PackageService
         $retainedOfficialIds = [];
 
         foreach ($officials as $index => $official) {
+            $masterId = isset($official['official_id']) ? (int) $official['official_id'] : null;
+
+            // When linked to a master official, the snapshot is authoritative from the
+            // server (the client copy is ignored to prevent drift/tampering). Legacy
+            // free-typed rows (no master, or master missing) keep their submitted values.
+            $snapshot = $masterId ? $this->officialUserService->findSnapshot($masterId) : null;
+            $source = $snapshot ?? $official;
+
             $payload = [
-                'type' => $official['type'] ?? null,
-                'name' => $official['name'] ?? null,
+                'official_id' => $masterId,
+                'type' => $source['type'] ?? null,
+                'name' => $source['name'] ?? null,
                 'hotel' => $this->buildOfficialHotelMap($official, $accommodationIds),
-                'contact_number' => $official['contact_number'] ?? null,
-                'nationality' => $official['nationality'] ?? null,
-                'passport_number' => $official['passport_number'] ?? null,
-                'gender' => $official['gender'] ?? null,
-                'date_of_birth' => $official['date_of_birth'] ?? null,
-                'passport_issue_date' => $official['passport_issue_date'] ?? null,
-                'passport_expiry_date' => $official['passport_expiry_date'] ?? null,
-                'passport_place_of_issue' => $official['passport_place_of_issue'] ?? null,
-                'place_of_birth' => $official['place_of_birth'] ?? null,
+                'contact_number' => $source['contact_number'] ?? null,
+                'nationality' => $source['nationality'] ?? null,
+                'passport_number' => $source['passport_number'] ?? null,
+                'gender' => $source['gender'] ?? null,
+                'date_of_birth' => $source['date_of_birth'] ?? null,
+                'passport_issue_date' => $source['passport_issue_date'] ?? null,
+                'passport_expiry_date' => $source['passport_expiry_date'] ?? null,
+                'passport_place_of_issue' => $source['passport_place_of_issue'] ?? null,
+                'place_of_birth' => $source['place_of_birth'] ?? null,
                 'sort_order' => $index,
             ];
 

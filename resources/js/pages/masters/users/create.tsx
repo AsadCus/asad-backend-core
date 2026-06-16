@@ -29,6 +29,7 @@ interface CreateUserProps {
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    isOfficial: boolean;
     submitUrl?: string;
     scopeMode?: 'country' | 'branch';
 }
@@ -39,12 +40,14 @@ export function resolveUserRoleLabel({
     isSales,
     isOperations,
     isCustomer,
+    isOfficial,
 }: {
     isSuperadmin: boolean;
     isAdmin: boolean;
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    isOfficial?: boolean;
 }) {
     if (isSuperadmin) return 'Superadmin';
     if (isAdmin) return 'Salesperson';
@@ -53,6 +56,7 @@ export function resolveUserRoleLabel({
     // if (isSales) return 'Sales';
     if (isOperations) return 'Operations';
     if (isCustomer) return 'Customer';
+    if (isOfficial) return 'Official';
     return 'User';
 }
 
@@ -66,6 +70,7 @@ export default function CreateUser({
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    isOfficial = false,
     submitUrl,
     scopeMode = 'country',
 }: CreateUserProps) {
@@ -79,6 +84,7 @@ export default function CreateUser({
         isSales,
         isOperations,
         isCustomer,
+        isOfficial,
     });
 
     return (
@@ -103,6 +109,7 @@ export default function CreateUser({
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
+                        isOfficial={isOfficial}
                         submitUrl={submitUrl}
                         scopeMode={scopeMode}
                     />

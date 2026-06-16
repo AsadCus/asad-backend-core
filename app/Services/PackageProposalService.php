@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Package;
 use App\Models\PackageProposal;
 use App\Models\User;
+use App\Services\UserRoles\OfficialUserService;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -20,6 +21,7 @@ class PackageProposalService
         private NumberingService $numberingService,
         private NotificationService $notificationService,
         private PackageService $packageService,
+        private OfficialUserService $officialUserService,
     ) {}
 
     public function getForDataTable(array $filters = [])
@@ -348,8 +350,18 @@ class PackageProposalService
             }
 
             $officials = collect($proposal->officials ?? [])->map(fn ($o) => [
+                'official_id' => $o['official_id'] ?? null,
                 'type' => $o['type'] ?? null,
                 'name' => $o['name'] ?? 'Official',
+                'contact_number' => $o['contact_number'] ?? null,
+                'nationality' => $o['nationality'] ?? null,
+                'passport_number' => $o['passport_number'] ?? null,
+                'gender' => $o['gender'] ?? null,
+                'date_of_birth' => $o['date_of_birth'] ?? null,
+                'passport_issue_date' => $o['passport_issue_date'] ?? null,
+                'passport_expiry_date' => $o['passport_expiry_date'] ?? null,
+                'passport_place_of_issue' => $o['passport_place_of_issue'] ?? null,
+                'place_of_birth' => $o['place_of_birth'] ?? null,
             ])->toArray();
 
             $package = $this->packageService->store([
@@ -522,10 +534,29 @@ class PackageProposalService
         return collect($officials)
             ->filter(fn ($o) => is_array($o) && ! empty($o['name']))
             ->values()
-            ->map(fn ($o) => [
-                'type' => $this->normalizeNullableString($o['type'] ?? null),
-                'name' => trim((string) ($o['name'] ?? '')),
-            ])
+            ->map(function ($o) {
+                $masterId = isset($o['official_id']) ? (int) $o['official_id'] : null;
+
+                // Linked rows take their snapshot from the master server-side; the
+                // client copy is ignored. Unlinked/legacy rows keep submitted values.
+                $snapshot = $masterId ? $this->officialUserService->findSnapshot($masterId) : null;
+                $source = $snapshot ?? $o;
+
+                return [
+                    'official_id' => $masterId,
+                    'type' => $this->normalizeNullableString($source['type'] ?? null),
+                    'name' => trim((string) ($source['name'] ?? '')),
+                    'contact_number' => $this->normalizeNullableString($source['contact_number'] ?? null),
+                    'nationality' => $this->normalizeNullableString($source['nationality'] ?? null),
+                    'passport_number' => $this->normalizeNullableString($source['passport_number'] ?? null),
+                    'gender' => $this->normalizeNullableString($source['gender'] ?? null),
+                    'date_of_birth' => $this->normalizeNullableString($source['date_of_birth'] ?? null),
+                    'passport_issue_date' => $this->normalizeNullableString($source['passport_issue_date'] ?? null),
+                    'passport_expiry_date' => $this->normalizeNullableString($source['passport_expiry_date'] ?? null),
+                    'passport_place_of_issue' => $this->normalizeNullableString($source['passport_place_of_issue'] ?? null),
+                    'place_of_birth' => $this->normalizeNullableString($source['place_of_birth'] ?? null),
+                ];
+            })
             ->toArray();
     }
 

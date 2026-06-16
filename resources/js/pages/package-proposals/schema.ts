@@ -23,8 +23,18 @@ export const expenditureSectionSchema = z.object({
 });
 
 export const proposalOfficialSchema = z.object({
+    official_id: z.number().nullable().optional(),
     type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
+    contact_number: z.string().nullable().optional(),
+    nationality: z.string().nullable().optional(),
+    passport_number: z.string().nullable().optional(),
+    gender: z.string().nullable().optional(),
+    date_of_birth: z.string().nullable().optional(),
+    passport_issue_date: z.string().nullable().optional(),
+    passport_expiry_date: z.string().nullable().optional(),
+    passport_place_of_issue: z.string().nullable().optional(),
+    place_of_birth: z.string().nullable().optional(),
 });
 
 export const passengerSimulationSchema = z.object({

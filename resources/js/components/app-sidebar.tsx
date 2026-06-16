@@ -27,6 +27,7 @@ import financialYear from '@/routes/master/financial-year';
 import user, { create as createUser } from '@/routes/master/user';
 import masterAdmin from '@/routes/master/user/admin';
 import masterCustomer from '@/routes/master/user/customer';
+import masterOfficial from '@/routes/master/user/official';
 import masterOperations from '@/routes/master/user/operations';
 import masterSales from '@/routes/master/user/sales';
 import masterSuperadmin from '@/routes/master/user/superadmin';
@@ -146,6 +147,10 @@ export function AppSidebar() {
                                             {
                                                 title: 'Operations',
                                                 href: masterOperations.index.url(),
+                                            },
+                                            {
+                                                title: 'Official',
+                                                href: masterOfficial.index.url(),
                                             },
                                             ...(!hideCustomerFromUserManagement
                                                 ? [

@@ -19,13 +19,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    officialTypeOptions,
-    sharingPlanPriceLabels,
-    infantAndChildPriceLabels,
-} from '@/pages/packages/schema';
+import { genderOptions } from '@/pages/customer/schema';
 import { RejectDialog } from '@/pages/package-proposals/components/reject-dialog';
 import { SubmitForApprovalDialog } from '@/pages/package-proposals/components/submit-dialog';
+import {
+    infantAndChildPriceLabels,
+    type OfficialSelectOption,
+    officialTypeOptions,
+    sharingPlanPriceLabels,
+} from '@/pages/packages/schema';
 import {
     approve,
     createPackage,
@@ -53,6 +55,7 @@ import {
     type ExpenditureExtensionSchema,
     type ExpenditureSectionSchema,
     type PackageProposalSchema,
+    type ProposalOfficialSchema,
     proposalStatusColors,
     proposalStatusLabels,
     simulationLabels,
@@ -82,7 +85,13 @@ function toDecimal(v: unknown): number {
 }
 
 function emptyItem() {
-    return { item_name: '', unit_price: null, quantity: null, remarks: '', sort_order: 1 };
+    return {
+        item_name: '',
+        unit_price: null,
+        quantity: null,
+        remarks: '',
+        sort_order: 1,
+    };
 }
 
 function emptySection(): ExpenditureSectionSchema {
@@ -91,12 +100,16 @@ function emptySection(): ExpenditureSectionSchema {
 
 function calcSectionSubtotal(items: ExpenditureSectionSchema['items']): number {
     return (items ?? []).reduce(
-        (sum, item) => sum + toDecimal(item.unit_price) * toDecimal(item.quantity),
+        (sum, item) =>
+            sum + toDecimal(item.unit_price) * toDecimal(item.quantity),
         0,
     );
 }
 
-function calcExtensionAmount(ext: ExpenditureExtensionSchema, subtotal: number): number {
+function calcExtensionAmount(
+    ext: ExpenditureExtensionSchema,
+    subtotal: number,
+): number {
     if (ext.calculation_mode === 'percentage') {
         return (subtotal * toDecimal(ext.calculation_value)) / 100;
     }
@@ -131,12 +144,15 @@ export default function ProposalForm({
 }: ProposalFormProps) {
     const countryOptions =
         assignableCountryIds.length > 0
-            ? countries.filter((c) => assignableCountryIds.includes(Number(c.value)))
+            ? countries.filter((c) =>
+                  assignableCountryIds.includes(Number(c.value)),
+              )
             : countries;
 
-    const singleCountryId = countryOptions.length === 1 ? countryOptions[0].value : '';
+    const singleCountryId =
+        countryOptions.length === 1 ? countryOptions[0].value : '';
 
-    const { data, setData, post, put, processing, errors } =
+    const { data, setData, post, put, processing, errors, transform } =
         useForm<PackageProposalSchema>({
             name: initialData?.name ?? '',
             country_id: initialData?.country_id ?? singleCountryId,
@@ -155,8 +171,13 @@ export default function ProposalForm({
                     ? initialData.expenditure
                     : defaultExpenditure,
             passenger_simulation: initialData?.passenger_simulation ?? {
-                single: null, double: null, triple: null, quad: null,
-                child_with_bed: null, child_no_bed: null, infant: null,
+                single: null,
+                double: null,
+                triple: null,
+                quad: null,
+                child_with_bed: null,
+                child_no_bed: null,
+                infant: null,
             },
             officials: initialData?.officials ?? [],
             remarks: initialData?.remarks ?? '',
@@ -167,7 +188,9 @@ export default function ProposalForm({
     const [createPkgLoading, setCreatePkgLoading] = useState(false);
     const errorBannerRef = useRef<HTMLDivElement>(null);
 
-    const { auth } = usePage<SharedData>().props;
+    const { auth, dataOfficials = [] } = usePage<
+        SharedData & { dataOfficials?: OfficialSelectOption[] }
+    >().props;
     const userPermissions = auth.permissions || [];
     const userId = auth.user?.id;
 
@@ -191,8 +214,7 @@ export default function ProposalForm({
         (status === 'draft' || status === 'rejected') &&
         userPermissions.includes('package-proposal edit');
     const canSubmit =
-        status === 'draft' &&
-        userPermissions.includes('package-proposal edit');
+        status === 'draft' && userPermissions.includes('package-proposal edit');
 
     const headerTitle = isCreate
         ? 'Package PnL - Create Proposal'
@@ -212,13 +234,17 @@ export default function ProposalForm({
     }, []);
 
     const toFieldLabel = useCallback((path: string): string => {
-        const expenditureItemMatch = path.match(/^expenditure\.(\d+)\.items\.(\d+)\.(.+)$/);
+        const expenditureItemMatch = path.match(
+            /^expenditure\.(\d+)\.items\.(\d+)\.(.+)$/,
+        );
         if (expenditureItemMatch) {
             const field = expenditureItemMatch[3].replace(/_/g, ' ');
             return `Expenditure Section ${Number(expenditureItemMatch[1]) + 1} Item ${Number(expenditureItemMatch[2]) + 1} - ${field}`;
         }
 
-        const expenditureSectionMatch = path.match(/^expenditure\.(\d+)\.(.+)$/);
+        const expenditureSectionMatch = path.match(
+            /^expenditure\.(\d+)\.(.+)$/,
+        );
         if (expenditureSectionMatch) {
             const field = expenditureSectionMatch[2].replace(/_/g, ' ');
             return `Expenditure Section ${Number(expenditureSectionMatch[1]) + 1} - ${field}`;
@@ -232,7 +258,8 @@ export default function ProposalForm({
 
         const simMatch = path.match(/^passenger_simulation\.(.+)$/);
         if (simMatch) {
-            const label = simulationLabels[simMatch[1]] ?? simMatch[1].replace(/_/g, ' ');
+            const label =
+                simulationLabels[simMatch[1]] ?? simMatch[1].replace(/_/g, ' ');
             return `Simulation - ${label}`;
         }
 
@@ -294,13 +321,21 @@ export default function ProposalForm({
             if (mode === 'view') {
                 return;
             }
+            // Drop incomplete official rows (no master selected) so the required-name
+            // rule doesn't reject a stray added-but-unselected row.
+            transform((payload) => ({
+                ...payload,
+                officials: (payload.officials ?? []).filter(
+                    (o) => o.official_id,
+                ),
+            }));
             if (mode === 'create') {
                 post(store().url, { onError: onSubmitError });
             } else if (initialData?.id) {
                 put(update(initialData.id).url, { onError: onSubmitError });
             }
         },
-        [mode, post, put, initialData?.id, onSubmitError],
+        [mode, post, put, initialData?.id, onSubmitError, transform],
     );
 
     const handleApprove = useCallback(() => {
@@ -311,9 +346,13 @@ export default function ProposalForm({
     const handleCreatePackage = useCallback(() => {
         if (!initialData?.id) return;
         setCreatePkgLoading(true);
-        router.post(createPackage(initialData.id).url, {}, {
-            onFinish: () => setCreatePkgLoading(false),
-        });
+        router.post(
+            createPackage(initialData.id).url,
+            {},
+            {
+                onFinish: () => setCreatePkgLoading(false),
+            },
+        );
     }, [initialData?.id]);
 
     // --- Expenditure helpers ---
@@ -348,7 +387,9 @@ export default function ProposalForm({
 
     const removeItem = (sectionIdx: number, itemIdx: number) => {
         const sections = [...(data.expenditure ?? [])];
-        const items = (sections[sectionIdx].items ?? []).filter((_, i) => i !== itemIdx);
+        const items = (sections[sectionIdx].items ?? []).filter(
+            (_, i) => i !== itemIdx,
+        );
         items.forEach((item, i) => (item.sort_order = i + 1));
         sections[sectionIdx] = { ...sections[sectionIdx], items };
         updateExpenditure(sections);
@@ -379,7 +420,12 @@ export default function ProposalForm({
         const sections = [...(data.expenditure ?? [])];
         const extensions = [
             ...(sections[sectionIdx].extensions ?? []),
-            { name: '', calculation_mode: 'fixed', calculation_value: null, sort_order: (sections[sectionIdx].extensions?.length ?? 0) + 1 },
+            {
+                name: '',
+                calculation_mode: 'fixed',
+                calculation_value: null,
+                sort_order: (sections[sectionIdx].extensions?.length ?? 0) + 1,
+            },
         ];
         sections[sectionIdx] = { ...sections[sectionIdx], extensions };
         updateExpenditure(sections);
@@ -387,7 +433,9 @@ export default function ProposalForm({
 
     const removeExtension = (sectionIdx: number, extIdx: number) => {
         const sections = [...(data.expenditure ?? [])];
-        const extensions = (sections[sectionIdx].extensions ?? []).filter((_, i) => i !== extIdx);
+        const extensions = (sections[sectionIdx].extensions ?? []).filter(
+            (_, i) => i !== extIdx,
+        );
         sections[sectionIdx] = { ...sections[sectionIdx], extensions };
         updateExpenditure(sections);
     };
@@ -405,31 +453,98 @@ export default function ProposalForm({
     };
 
     // --- Officials helpers ---
+    const noop = () => {};
     const addOfficial = () =>
-        setData('officials', [...(data.officials ?? []), { type: '', name: '' }]);
+        setData('officials', [
+            ...(data.officials ?? []),
+            { official_id: null, type: '', name: '' },
+        ]);
 
     const removeOfficial = (idx: number) =>
-        setData('officials', (data.officials ?? []).filter((_, i) => i !== idx));
+        setData(
+            'officials',
+            (data.officials ?? []).filter((_, i) => i !== idx),
+        );
 
-    const updateOfficial = (idx: number, patch: Record<string, string>) => {
+    const updateOfficial = (
+        idx: number,
+        patch: Record<string, string | number | null>,
+    ) => {
         const officials = [...(data.officials ?? [])];
         officials[idx] = { ...officials[idx], ...patch };
         setData('officials', officials);
     };
 
+    // Master official options for the select-by-type-then-name flow.
+    // Always include the currently selected official so its name renders even
+    // when the type filter excludes it, the master name is blank, or the master
+    // is missing — falling back to the stored snapshot name.
+    const officialNameOptions = (
+        official: ProposalOfficialSchema,
+    ): OptionType[] => {
+        const type = official.type;
+        const options: OptionType[] = dataOfficials
+            .filter((o) => !type || o.type === type)
+            .map((o) => ({ value: String(o.id), label: o.name }));
+
+        if (official.official_id) {
+            const selectedValue = String(official.official_id);
+            const master = dataOfficials.find(
+                (o) => String(o.id) === selectedValue,
+            );
+            const label = master?.name || official.name || '(unknown official)';
+            const existing = options.find((o) => o.value === selectedValue);
+            if (existing) {
+                if (!existing.label) {
+                    existing.label = label;
+                }
+            } else {
+                options.unshift({ value: selectedValue, label });
+            }
+        }
+
+        return options;
+    };
+
+    const selectProposalOfficial = (idx: number, officialId: string) => {
+        const master = dataOfficials.find((o) => String(o.id) === officialId);
+        updateOfficial(idx, {
+            official_id: master ? master.id : null,
+            name: master?.name ?? '',
+            contact_number: master?.contact_number ?? '',
+            nationality: master?.nationality ?? '',
+            passport_number: master?.passport_number ?? '',
+            gender: master?.gender ?? '',
+            date_of_birth: master?.date_of_birth ?? '',
+            place_of_birth: master?.place_of_birth ?? '',
+            passport_issue_date: master?.passport_issue_date ?? '',
+            passport_expiry_date: master?.passport_expiry_date ?? '',
+            passport_place_of_issue: master?.passport_place_of_issue ?? '',
+        });
+    };
+
     // --- Simulation helper ---
     const updateSimulation = (key: string, value: string) => {
-        const sim = { ...(data.passenger_simulation ?? {
-            single: null, double: null, triple: null, quad: null,
-            child_with_bed: null, child_no_bed: null, infant: null,
-        }) };
-        (sim as Record<string, unknown>)[key] = value === '' ? null : parseInt(value) || 0;
+        const sim = {
+            ...(data.passenger_simulation ?? {
+                single: null,
+                double: null,
+                triple: null,
+                quad: null,
+                child_with_bed: null,
+                child_no_bed: null,
+                infant: null,
+            }),
+        };
+        (sim as Record<string, unknown>)[key] =
+            value === '' ? null : parseInt(value) || 0;
         setData('passenger_simulation', sim);
     };
 
     // --- PnL Indicators ---
     const grandTotal = (data.expenditure ?? []).reduce(
-        (sum, s) => sum + calcSectionTotal(s), 0,
+        (sum, s) => sum + calcSectionTotal(s),
+        0,
     );
 
     const pnlIndicators = useMemo(() => {
@@ -465,7 +580,18 @@ export default function ProposalForm({
         const simProfit = simRevenue - totalCost;
         const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
 
-        return { totalCost, minRevenue, maxRevenue, minProfit, maxProfit, minMargin, maxMargin, simRevenue, simProfit, simMargin };
+        return {
+            totalCost,
+            minRevenue,
+            maxRevenue,
+            minProfit,
+            maxProfit,
+            minMargin,
+            maxMargin,
+            simRevenue,
+            simProfit,
+            simMargin,
+        };
     }, [data, grandTotal]);
 
     return (
@@ -484,7 +610,11 @@ export default function ProposalForm({
                         )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" onClick={onCancel}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onCancel}
+                        >
                             Cancel
                         </Button>
 
@@ -505,12 +635,19 @@ export default function ProposalForm({
                                         className="bg-blue-600 hover:bg-blue-700"
                                         onClick={() => {
                                             if (initialData?.id) {
-                                                put(`${update(initialData.id).url}?stay=1`, {
-                                                    preserveState: true,
-                                                    preserveScroll: true,
-                                                    onSuccess: () => setSubmitDialogOpen(true),
-                                                    onError: () => scrollToErrorBanner(),
-                                                });
+                                                put(
+                                                    `${update(initialData.id).url}?stay=1`,
+                                                    {
+                                                        preserveState: true,
+                                                        preserveScroll: true,
+                                                        onSuccess: () =>
+                                                            setSubmitDialogOpen(
+                                                                true,
+                                                            ),
+                                                        onError: () =>
+                                                            scrollToErrorBanner(),
+                                                    },
+                                                );
                                             }
                                         }}
                                     >
@@ -532,14 +669,18 @@ export default function ProposalForm({
                                             router.get(edit(initialData.id).url)
                                         }
                                     >
-                                        {status === 'rejected' ? 'Revise' : 'Edit'}
+                                        {status === 'rejected'
+                                            ? 'Revise'
+                                            : 'Edit'}
                                     </Button>
                                 )}
                                 {canSubmit && (
                                     <Button
                                         type="button"
                                         className="bg-blue-600 hover:bg-blue-700"
-                                        onClick={() => setSubmitDialogOpen(true)}
+                                        onClick={() =>
+                                            setSubmitDialogOpen(true)
+                                        }
                                     >
                                         <Send className="mr-1 h-4 w-4" />
                                         Submit for Approval
@@ -558,7 +699,9 @@ export default function ProposalForm({
                                         <Button
                                             type="button"
                                             variant="destructive"
-                                            onClick={() => setRejectDialogOpen(true)}
+                                            onClick={() =>
+                                                setRejectDialogOpen(true)
+                                            }
                                         >
                                             <X className="h-4 w-4" />
                                             Reject
@@ -573,7 +716,9 @@ export default function ProposalForm({
                                         onClick={handleCreatePackage}
                                     >
                                         <Package className="mr-1 h-4 w-4" />
-                                        {createPkgLoading ? 'Creating...' : 'Create Package'}
+                                        {createPkgLoading
+                                            ? 'Creating...'
+                                            : 'Create Package'}
                                     </Button>
                                 )}
                             </>
@@ -582,17 +727,20 @@ export default function ProposalForm({
                 </div>
 
                 {/* Rejection reason banner */}
-                {isView && status === 'rejected' && initialData?.rejection_reason && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-                        <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                            Rejected by{' '}
-                            {initialData.approved_rejected_by_name ?? 'Unknown'}
-                        </p>
-                        <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                            {initialData.rejection_reason}
-                        </p>
-                    </div>
-                )}
+                {isView &&
+                    status === 'rejected' &&
+                    initialData?.rejection_reason && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                            <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                                Rejected by{' '}
+                                {initialData.approved_rejected_by_name ??
+                                    'Unknown'}
+                            </p>
+                            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+                                {initialData.rejection_reason}
+                            </p>
+                        </div>
+                    )}
 
                 {/* Linked package banner */}
                 {isView && initialData?.package_id && (
@@ -603,7 +751,9 @@ export default function ProposalForm({
                                 type="button"
                                 className="font-medium underline"
                                 onClick={() =>
-                                    router.get(`/packages/${initialData.package_id}/edit`)
+                                    router.get(
+                                        `/packages/${initialData.package_id}/edit`,
+                                    )
                                 }
                             >
                                 {initialData.package_number ??
@@ -620,13 +770,22 @@ export default function ProposalForm({
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
                                 <div className="space-y-2">
-                                    <p>Please fix the errors below and try again.</p>
+                                    <p>
+                                        Please fix the errors below and try
+                                        again.
+                                    </p>
                                     <ul className="list-disc space-y-1 pl-5">
                                         {errorSummaryItems.map((item) => (
-                                            <li key={`${item.path}:${item.message}`}>
+                                            <li
+                                                key={`${item.path}:${item.message}`}
+                                            >
                                                 <button
                                                     type="button"
-                                                    onClick={() => focusErrorField(item.path)}
+                                                    onClick={() =>
+                                                        focusErrorField(
+                                                            item.path,
+                                                        )
+                                                    }
                                                     className="text-left underline underline-offset-2"
                                                 >
                                                     {item.label}: {item.message}
@@ -642,8 +801,10 @@ export default function ProposalForm({
 
                 {/* Proposal Details */}
                 <Card>
-                    <CardHeader className='gap-0'>
-                        <CardTitle className="text-lg">Proposal Details</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-lg">
+                            Proposal Details
+                        </CardTitle>
                         <CardDescription>
                             Basic details of the proposed package
                         </CardDescription>
@@ -653,7 +814,10 @@ export default function ProposalForm({
                             <FormField
                                 label="Package Name"
                                 htmlFor="name"
-                                fieldRequirementsProps={{ required: true, hint: 'Name of the proposed package' }}
+                                fieldRequirementsProps={{
+                                    required: true,
+                                    hint: 'Name of the proposed package',
+                                }}
                                 error={getError('name')}
                             >
                                 <ProperInput
@@ -667,15 +831,23 @@ export default function ProposalForm({
 
                             <FormField
                                 label="Country"
-                                fieldRequirementsProps={{ required: true, hint: 'Package destination country. Currency follows this selection.' }}
+                                fieldRequirementsProps={{
+                                    required: true,
+                                    hint: 'Package destination country. Currency follows this selection.',
+                                }}
                                 error={getError('country_id')}
                             >
                                 <ProperInputSelect
                                     id="country_id"
                                     options={countryOptions}
                                     value={data.country_id ?? ''}
-                                    onValueChange={(v) => handleCountryChange(String(v))}
-                                    disabled={countryOptions.length === 1 || fieldDisabled}
+                                    onValueChange={(v) =>
+                                        handleCountryChange(String(v))
+                                    }
+                                    disabled={
+                                        countryOptions.length === 1 ||
+                                        fieldDisabled
+                                    }
                                     placeholder="Select country"
                                 />
                             </FormField>
@@ -683,7 +855,9 @@ export default function ProposalForm({
                             {cs && (
                                 <FormField
                                     label="Currency"
-                                    fieldRequirementsProps={{ hint: 'Auto-set from selected country' }}
+                                    fieldRequirementsProps={{
+                                        hint: 'Auto-set from selected country',
+                                    }}
                                 >
                                     <ProperInput
                                         value={cs}
@@ -696,7 +870,10 @@ export default function ProposalForm({
                             <FormField
                                 label="Total Seats"
                                 htmlFor="total_seats"
-                                fieldRequirementsProps={{ required: true, hint: 'Total passenger seats for this package' }}
+                                fieldRequirementsProps={{
+                                    required: true,
+                                    hint: 'Total passenger seats for this package',
+                                }}
                                 error={getError('total_seats')}
                             >
                                 <ProperInput
@@ -704,7 +881,12 @@ export default function ProposalForm({
                                     type="number"
                                     value={data.total_seats ?? ''}
                                     disabled={fieldDisabled}
-                                    onCommit={(v) => setData('total_seats', v === '' ? null : parseInt(v) || 0)}
+                                    onCommit={(v) =>
+                                        setData(
+                                            'total_seats',
+                                            v === '' ? null : parseInt(v) || 0,
+                                        )
+                                    }
                                     inputProps={{ min: '0' }}
                                     placeholder="0"
                                 />
@@ -712,7 +894,9 @@ export default function ProposalForm({
 
                             <FormField
                                 label="Departure Date"
-                                fieldRequirementsProps={{ hint: 'Select departure date' }}
+                                fieldRequirementsProps={{
+                                    hint: 'Select departure date',
+                                }}
                                 error={getError('departure_date')}
                             >
                                 <DatePickerField
@@ -721,13 +905,17 @@ export default function ProposalForm({
                                     fromYear={new Date().getFullYear()}
                                     toYear={new Date().getFullYear() + 5}
                                     disabled={fieldDisabled}
-                                    onChange={(v) => setData('departure_date', v)}
+                                    onChange={(v) =>
+                                        setData('departure_date', v)
+                                    }
                                 />
                             </FormField>
 
                             <FormField
                                 label="Return Date"
-                                fieldRequirementsProps={{ hint: 'Select return date' }}
+                                fieldRequirementsProps={{
+                                    hint: 'Select return date',
+                                }}
                                 error={getError('return_date')}
                             >
                                 <DatePickerField
@@ -747,51 +935,217 @@ export default function ProposalForm({
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg">Officials</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={addOfficial} disabled={fieldDisabled}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addOfficial}
+                            disabled={fieldDisabled}
+                        >
                             <Plus className="mr-1 h-4 w-4" /> Add Official
                         </Button>
                     </CardHeader>
                     <CardContent>
                         {(data.officials ?? []).length === 0 ? (
                             <p className="text-base text-muted-foreground">
-                                No officials added yet. Click "Add Official" to add.
+                                No officials added yet. Click "Add Official" to
+                                add.
                             </p>
                         ) : (
                             <div className="space-y-3">
                                 {(data.officials ?? []).map((official, idx) => (
-                                    <div key={idx} className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[200px_1fr_auto]">
-                                        <FormField label="Type" error={getError(`officials.${idx}.type`)}>
-                                            <Select
-                                                value={official.type ?? ''}
-                                                onValueChange={(v) => updateOfficial(idx, { type: v })}
-                                                disabled={fieldDisabled}
+                                    <div
+                                        key={idx}
+                                        className="space-y-4 rounded-lg border px-4 py-3"
+                                    >
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[200px_1fr_auto]">
+                                            <FormField
+                                                label="Type"
+                                                error={getError(
+                                                    `officials.${idx}.type`,
+                                                )}
                                             >
-                                                <SelectTrigger id={`officials_${idx}_type`}>
-                                                    <SelectValue placeholder="Select type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {officialTypeOptions.map((o) => (
-                                                        <SelectItem key={o.value} value={o.value}>
-                                                            {o.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </FormField>
-                                        <FormField label="Name" error={getError(`officials.${idx}.name`)}>
-                                            <ProperInput
-                                                id={`officials_${idx}_name`}
-                                                value={official.name ?? ''}
-                                                disabled={fieldDisabled}
-                                                onCommit={(v) => updateOfficial(idx, { name: v })}
-                                                placeholder="Enter name"
-                                            />
-                                        </FormField>
-                                        <div className="flex items-center justify-end">
-                                            <Button type="button" variant="ghost" size="sm" disabled={fieldDisabled} onClick={() => removeOfficial(idx)} className="text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                                <Select
+                                                    value={official.type ?? ''}
+                                                    onValueChange={(v) =>
+                                                        updateOfficial(idx, {
+                                                            type: v,
+                                                            official_id: null,
+                                                            name: '',
+                                                        })
+                                                    }
+                                                    disabled={fieldDisabled}
+                                                >
+                                                    <SelectTrigger
+                                                        id={`officials_${idx}_type`}
+                                                    >
+                                                        <SelectValue placeholder="Select type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {officialTypeOptions.map(
+                                                            (o) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        o.value
+                                                                    }
+                                                                    value={
+                                                                        o.value
+                                                                    }
+                                                                >
+                                                                    {o.label}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormField>
+                                            <FormField
+                                                label="Name"
+                                                error={getError(
+                                                    `officials.${idx}.name`,
+                                                )}
+                                            >
+                                                <ProperInputSelect
+                                                    id={`officials_${idx}_name`}
+                                                    value={
+                                                        official.official_id
+                                                            ? String(
+                                                                  official.official_id,
+                                                              )
+                                                            : ''
+                                                    }
+                                                    disabled={
+                                                        fieldDisabled ||
+                                                        !official.type
+                                                    }
+                                                    onValueChange={(v) =>
+                                                        selectProposalOfficial(
+                                                            idx,
+                                                            String(v),
+                                                        )
+                                                    }
+                                                    options={officialNameOptions(
+                                                        official,
+                                                    )}
+                                                    placeholder={
+                                                        official.type
+                                                            ? 'Select official'
+                                                            : 'Select type first'
+                                                    }
+                                                    searchable
+                                                />
+                                            </FormField>
+                                            <div className="flex items-center justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    disabled={fieldDisabled}
+                                                    onClick={() =>
+                                                        removeOfficial(idx)
+                                                    }
+                                                    className="text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
+                                        {official.official_id ? (
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+                                                <FormField label="Contact Number">
+                                                    <ProperInput
+                                                        value={
+                                                            official.contact_number ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Nationality">
+                                                    <ProperInput
+                                                        value={
+                                                            official.nationality ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Passport Number">
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_number ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Gender">
+                                                    <ProperInputSelect
+                                                        value={
+                                                            official.gender ??
+                                                            ''
+                                                        }
+                                                        options={genderOptions}
+                                                        disabled
+                                                        searchable={false}
+                                                        onValueChange={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Date of Birth">
+                                                    <ProperInput
+                                                        value={
+                                                            official.date_of_birth ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Place of Birth">
+                                                    <ProperInput
+                                                        value={
+                                                            official.place_of_birth ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Passport Issue Date">
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_issue_date ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Passport Expiry Date">
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_expiry_date ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                                <FormField label="Passport Place of Issue">
+                                                    <ProperInput
+                                                        value={
+                                                            official.passport_place_of_issue ??
+                                                            ''
+                                                        }
+                                                        disabled
+                                                        onCommit={noop}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 ))}
                             </div>
@@ -802,8 +1156,16 @@ export default function ProposalForm({
                 {/* Expenditure (Cost) */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Expenditure (Cost)</CardTitle>
-                        <Button type="button" variant="outline" size="sm" onClick={addSection} disabled={fieldDisabled}>
+                        <CardTitle className="text-lg">
+                            Expenditure (Cost)
+                        </CardTitle>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addSection}
+                            disabled={fieldDisabled}
+                        >
                             <Plus className="mr-1 h-4 w-4" /> Add Section
                         </Button>
                     </CardHeader>
@@ -820,16 +1182,27 @@ export default function ProposalForm({
                                                 <FormField
                                                     label={`Title ${sIdx + 1}`}
                                                     layout="inline"
-                                                    fieldRequirementsProps={{ hint: 'Budget section title grouping related cost items.' }}
-                                                    error={getError(`expenditure.${sIdx}.title`)}
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Budget section title grouping related cost items.',
+                                                    }}
+                                                    error={getError(
+                                                        `expenditure.${sIdx}.title`,
+                                                    )}
                                                 >
                                                     <ProperInput
                                                         id={`expenditure_${sIdx}_title`}
-                                                        value={section.title ?? ''}
+                                                        value={
+                                                            section.title ?? ''
+                                                        }
                                                         disabled={fieldDisabled}
-                                                        onCommit={(v) => updateSectionTitle(sIdx, v)}
+                                                        onCommit={(v) =>
+                                                            updateSectionTitle(
+                                                                sIdx,
+                                                                v,
+                                                            )
+                                                        }
                                                         placeholder="Enter title"
-                                                        className="md:min-w-[300px]"
+                                                        className="md:min-w-75"
                                                     />
                                                 </FormField>
                                             </CardTitle>
@@ -837,8 +1210,14 @@ export default function ProposalForm({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                disabled={fieldDisabled || (data.expenditure ?? []).length <= 1}
-                                                onClick={() => removeSection(sIdx)}
+                                                disabled={
+                                                    fieldDisabled ||
+                                                    (data.expenditure ?? [])
+                                                        .length <= 1
+                                                }
+                                                onClick={() =>
+                                                    removeSection(sIdx)
+                                                }
                                                 className="text-destructive"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -846,141 +1225,384 @@ export default function ProposalForm({
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-3">
-                                        {(section.items ?? []).map((item, iIdx) => {
-                                            const lineTotal = toDecimal(item.unit_price) * toDecimal(item.quantity);
-                                            return (
-                                                <div
-                                                    key={iIdx}
-                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
-                                                >
-                                                    <FormField label="Item Name" error={getError(`expenditure.${sIdx}.items.${iIdx}.item_name`)}>
-                                                        <ProperInput
-                                                            id={`expenditure_${sIdx}_items_${iIdx}_item_name`}
-                                                            value={item.item_name ?? ''}
-                                                            disabled={fieldDisabled}
-                                                            onCommit={(v) => updateBudgetItem(sIdx, iIdx, { item_name: v })}
-                                                            placeholder="Enter item"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Unit Price"
-                                                        error={getError(`expenditure.${sIdx}.items.${iIdx}.unit_price`)}
+                                        {(section.items ?? []).map(
+                                            (item, iIdx) => {
+                                                const lineTotal =
+                                                    toDecimal(item.unit_price) *
+                                                    toDecimal(item.quantity);
+                                                return (
+                                                    <div
+                                                        key={iIdx}
+                                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
                                                     >
-                                                        <ProperInput
-                                                            id={`expenditure_${sIdx}_items_${iIdx}_unit_price`}
-                                                            value={
-                                                                item.unit_price === null || item.unit_price === undefined || toDecimal(item.unit_price) === 0
-                                                                    ? ''
-                                                                    : String(item.unit_price)
-                                                            }
-                                                            type="number"
-                                                            inputProps={{ step: 'any' }}
-                                                            disabled={fieldDisabled}
-                                                            onCommit={(v) => updateBudgetItem(sIdx, iIdx, { unit_price: v === '' ? null : toDecimal(v) })}
-                                                            placeholder="0"
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Quantity"
-                                                        error={getError(`expenditure.${sIdx}.items.${iIdx}.quantity`)}
-                                                    >
-                                                        <ProperInput
-                                                            id={`expenditure_${sIdx}_items_${iIdx}_quantity`}
-                                                            value={toDecimal(item.quantity) === 0 ? '' : String(item.quantity ?? '')}
-                                                            type="number"
-                                                            inputProps={{ min: 0, step: 'any' }}
-                                                            disabled={fieldDisabled}
-                                                            onCommit={(v) => updateBudgetItem(sIdx, iIdx, { quantity: toDecimal(v) })}
-                                                            placeholder="0"
-                                                        />
-                                                    </FormField>
-                                                    <FormField label="Amount">
-                                                        <ProperInput value={formatNumber(lineTotal, cs)} disabled={true} onCommit={() => undefined} />
-                                                    </FormField>
-                                                    <div className="flex items-center justify-end">
-                                                        <Button type="button" variant="ghost" size="sm" disabled={fieldDisabled} onClick={() => duplicateItem(sIdx, iIdx)}>
-                                                            <Copy className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={fieldDisabled || (section.items?.length ?? 0) <= 1}
-                                                            onClick={() => removeItem(sIdx, iIdx)}
-                                                            className="text-destructive"
+                                                        <FormField
+                                                            label="Item Name"
+                                                            error={getError(
+                                                                `expenditure.${sIdx}.items.${iIdx}.item_name`,
+                                                            )}
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                            <ProperInput
+                                                                id={`expenditure_${sIdx}_items_${iIdx}_item_name`}
+                                                                value={
+                                                                    item.item_name ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    fieldDisabled
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateBudgetItem(
+                                                                        sIdx,
+                                                                        iIdx,
+                                                                        {
+                                                                            item_name:
+                                                                                v,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="Enter item"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Unit Price"
+                                                            error={getError(
+                                                                `expenditure.${sIdx}.items.${iIdx}.unit_price`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                id={`expenditure_${sIdx}_items_${iIdx}_unit_price`}
+                                                                value={
+                                                                    item.unit_price ===
+                                                                        null ||
+                                                                    item.unit_price ===
+                                                                        undefined ||
+                                                                    toDecimal(
+                                                                        item.unit_price,
+                                                                    ) === 0
+                                                                        ? ''
+                                                                        : String(
+                                                                              item.unit_price,
+                                                                          )
+                                                                }
+                                                                type="number"
+                                                                inputProps={{
+                                                                    step: 'any',
+                                                                }}
+                                                                disabled={
+                                                                    fieldDisabled
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateBudgetItem(
+                                                                        sIdx,
+                                                                        iIdx,
+                                                                        {
+                                                                            unit_price:
+                                                                                v ===
+                                                                                ''
+                                                                                    ? null
+                                                                                    : toDecimal(
+                                                                                          v,
+                                                                                      ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="0"
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Quantity"
+                                                            error={getError(
+                                                                `expenditure.${sIdx}.items.${iIdx}.quantity`,
+                                                            )}
+                                                        >
+                                                            <ProperInput
+                                                                id={`expenditure_${sIdx}_items_${iIdx}_quantity`}
+                                                                value={
+                                                                    toDecimal(
+                                                                        item.quantity,
+                                                                    ) === 0
+                                                                        ? ''
+                                                                        : String(
+                                                                              item.quantity ??
+                                                                                  '',
+                                                                          )
+                                                                }
+                                                                type="number"
+                                                                inputProps={{
+                                                                    min: 0,
+                                                                    step: 'any',
+                                                                }}
+                                                                disabled={
+                                                                    fieldDisabled
+                                                                }
+                                                                onCommit={(v) =>
+                                                                    updateBudgetItem(
+                                                                        sIdx,
+                                                                        iIdx,
+                                                                        {
+                                                                            quantity:
+                                                                                toDecimal(
+                                                                                    v,
+                                                                                ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                                placeholder="0"
+                                                            />
+                                                        </FormField>
+                                                        <FormField label="Amount">
+                                                            <ProperInput
+                                                                value={formatNumber(
+                                                                    lineTotal,
+                                                                    cs,
+                                                                )}
+                                                                disabled={true}
+                                                                onCommit={() =>
+                                                                    undefined
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <div className="flex items-center justify-end">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={
+                                                                    fieldDisabled
+                                                                }
+                                                                onClick={() =>
+                                                                    duplicateItem(
+                                                                        sIdx,
+                                                                        iIdx,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Copy className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={
+                                                                    fieldDisabled ||
+                                                                    (section
+                                                                        .items
+                                                                        ?.length ??
+                                                                        0) <= 1
+                                                                }
+                                                                onClick={() =>
+                                                                    removeItem(
+                                                                        sIdx,
+                                                                        iIdx,
+                                                                    )
+                                                                }
+                                                                className="text-destructive"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            },
+                                        )}
 
                                         <div className="flex flex-col items-end gap-3 border-t pt-3">
-                                            <Button type="button" variant="outline" disabled={fieldDisabled} onClick={() => addItem(sIdx)}>
-                                                <Plus className="h-4 w-4" /> Add Item
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={fieldDisabled}
+                                                onClick={() => addItem(sIdx)}
+                                            >
+                                                <Plus className="h-4 w-4" /> Add
+                                                Item
                                             </Button>
                                             <table className="w-full max-w-sm table-fixed text-base">
                                                 <tbody className="[&>tr>td]:py-1.5">
                                                     <tr>
-                                                        <td className="w-3/4 text-right text-lg font-medium">Sub Total{cs ? ` (${cs})` : ''}:</td>
-                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">{formatNumber(subtotal, null)}</td>
+                                                        <td className="w-3/4 text-right text-lg font-medium">
+                                                            Sub Total
+                                                            {cs
+                                                                ? ` (${cs})`
+                                                                : ''}
+                                                            :
+                                                        </td>
+                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                            {formatNumber(
+                                                                subtotal,
+                                                                null,
+                                                            )}
+                                                        </td>
                                                     </tr>
-                                                    {(section.extensions ?? []).map((ext, eIdx) => {
-                                                        const amount = calcExtensionAmount(ext, subtotal);
+                                                    {(
+                                                        section.extensions ?? []
+                                                    ).map((ext, eIdx) => {
+                                                        const amount =
+                                                            calcExtensionAmount(
+                                                                ext,
+                                                                subtotal,
+                                                            );
                                                         return (
                                                             <tr key={eIdx}>
                                                                 <td className="text-right">
                                                                     <div className="flex items-center justify-end gap-2">
                                                                         <ProperInput
-                                                                            value={ext.name ?? ''}
-                                                                            disabled={fieldDisabled}
-                                                                            onCommit={(v) => updateExtension(sIdx, eIdx, { name: v })}
+                                                                            value={
+                                                                                ext.name ??
+                                                                                ''
+                                                                            }
+                                                                            disabled={
+                                                                                fieldDisabled
+                                                                            }
+                                                                            onCommit={(
+                                                                                v,
+                                                                            ) =>
+                                                                                updateExtension(
+                                                                                    sIdx,
+                                                                                    eIdx,
+                                                                                    {
+                                                                                        name: v,
+                                                                                    },
+                                                                                )
+                                                                            }
                                                                             placeholder="Name (e.g. GST)"
                                                                             className="w-36 text-right"
                                                                         />
                                                                         <Select
-                                                                            value={ext.calculation_mode ?? 'fixed'}
-                                                                            onValueChange={(v) => updateExtension(sIdx, eIdx, { calculation_mode: v })}
-                                                                            disabled={fieldDisabled}
+                                                                            value={
+                                                                                ext.calculation_mode ??
+                                                                                'fixed'
+                                                                            }
+                                                                            onValueChange={(
+                                                                                v,
+                                                                            ) =>
+                                                                                updateExtension(
+                                                                                    sIdx,
+                                                                                    eIdx,
+                                                                                    {
+                                                                                        calculation_mode:
+                                                                                            v,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                            disabled={
+                                                                                fieldDisabled
+                                                                            }
                                                                         >
                                                                             <SelectTrigger className="w-20">
                                                                                 <SelectValue />
                                                                             </SelectTrigger>
                                                                             <SelectContent>
-                                                                                <SelectItem value="fixed">Fixed</SelectItem>
-                                                                                <SelectItem value="percentage">%</SelectItem>
+                                                                                <SelectItem value="fixed">
+                                                                                    Fixed
+                                                                                </SelectItem>
+                                                                                <SelectItem value="percentage">
+                                                                                    %
+                                                                                </SelectItem>
                                                                             </SelectContent>
                                                                         </Select>
                                                                         <ProperInput
-                                                                            value={toDecimal(ext.calculation_value) === 0 ? '' : String(ext.calculation_value ?? '')}
+                                                                            value={
+                                                                                toDecimal(
+                                                                                    ext.calculation_value,
+                                                                                ) ===
+                                                                                0
+                                                                                    ? ''
+                                                                                    : String(
+                                                                                          ext.calculation_value ??
+                                                                                              '',
+                                                                                      )
+                                                                            }
                                                                             type="number"
-                                                                            inputProps={{ step: 'any' }}
-                                                                            disabled={fieldDisabled}
-                                                                            onCommit={(v) => updateExtension(sIdx, eIdx, { calculation_value: v === '' ? null : toDecimal(v) })}
+                                                                            inputProps={{
+                                                                                step: 'any',
+                                                                            }}
+                                                                            disabled={
+                                                                                fieldDisabled
+                                                                            }
+                                                                            onCommit={(
+                                                                                v,
+                                                                            ) =>
+                                                                                updateExtension(
+                                                                                    sIdx,
+                                                                                    eIdx,
+                                                                                    {
+                                                                                        calculation_value:
+                                                                                            v ===
+                                                                                            ''
+                                                                                                ? null
+                                                                                                : toDecimal(
+                                                                                                      v,
+                                                                                                  ),
+                                                                                    },
+                                                                                )
+                                                                            }
                                                                             placeholder="0"
                                                                             className="w-24"
                                                                         />
-                                                                        <Button type="button" variant="ghost" size="sm" disabled={fieldDisabled} onClick={() => removeExtension(sIdx, eIdx)} className="text-destructive">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            disabled={
+                                                                                fieldDisabled
+                                                                            }
+                                                                            onClick={() =>
+                                                                                removeExtension(
+                                                                                    sIdx,
+                                                                                    eIdx,
+                                                                                )
+                                                                            }
+                                                                            className="text-destructive"
+                                                                        >
                                                                             <Trash2 className="h-3 w-3" />
                                                                         </Button>
                                                                     </div>
                                                                 </td>
-                                                                <td className="text-right font-medium">{formatNumber(amount, null)}</td>
+                                                                <td className="text-right font-medium">
+                                                                    {formatNumber(
+                                                                        amount,
+                                                                        null,
+                                                                    )}
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })}
                                                     <tr>
                                                         <td className="text-right">
-                                                            <Button type="button" variant="ghost" size="sm" onClick={() => addExtension(sIdx)} disabled={fieldDisabled}>
-                                                                <Plus className="mr-1 h-3 w-3" /> Add Surcharge/Discount
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    addExtension(
+                                                                        sIdx,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    fieldDisabled
+                                                                }
+                                                            >
+                                                                <Plus className="mr-1 h-3 w-3" />{' '}
+                                                                Add
+                                                                Surcharge/Discount
                                                             </Button>
                                                         </td>
                                                         <td />
                                                     </tr>
                                                     <tr className="border-t">
-                                                        <td className="w-3/4 text-right text-lg font-semibold">Section Total{cs ? ` (${cs})` : ''}:</td>
-                                                        <td className="w-1/4 text-right text-lg font-bold text-primary">{formatNumber(sectionTotal, null)}</td>
+                                                        <td className="w-3/4 text-right text-lg font-semibold">
+                                                            Section Total
+                                                            {cs
+                                                                ? ` (${cs})`
+                                                                : ''}
+                                                            :
+                                                        </td>
+                                                        <td className="w-1/4 text-right text-lg font-bold text-primary">
+                                                            {formatNumber(
+                                                                sectionTotal,
+                                                                null,
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -1000,52 +1622,90 @@ export default function ProposalForm({
 
                 {/* Revenue (Pricing) */}
                 <Card>
-                    <CardHeader className='gap-0'>
-                        <CardTitle className="text-lg">Revenue (Pricing Per Pax)</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-lg">
+                            Revenue (Pricing Per Pax)
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
-                                {sharingPlanPriceLabels.map(({ key, label }) => (
-                                    <FormField
-                                        key={key}
-                                        label={label}
-                                        htmlFor={key}
-                                        fieldRequirementsProps={{ hint: 'Enter price amount' }}
-                                        error={getError(key)}
-                                    >
-                                        <ProperInput
-                                            id={key}
-                                            type="number"
-                                            value={data[key as keyof PackageProposalSchema] as number}
-                                            disabled={fieldDisabled}
-                                            onCommit={(v) => setData(key as keyof PackageProposalSchema, v === '' ? null : parseFloat(v))}
-                                            inputProps={{ min: '0', step: '0.01' }}
-                                            placeholder="0"
-                                        />
-                                    </FormField>
-                                ))}
+                                {sharingPlanPriceLabels.map(
+                                    ({ key, label }) => (
+                                        <FormField
+                                            key={key}
+                                            label={label}
+                                            htmlFor={key}
+                                            fieldRequirementsProps={{
+                                                hint: 'Enter price amount',
+                                            }}
+                                            error={getError(key)}
+                                        >
+                                            <ProperInput
+                                                id={key}
+                                                type="number"
+                                                value={
+                                                    data[
+                                                        key as keyof PackageProposalSchema
+                                                    ] as number
+                                                }
+                                                disabled={fieldDisabled}
+                                                onCommit={(v) =>
+                                                    setData(
+                                                        key as keyof PackageProposalSchema,
+                                                        v === ''
+                                                            ? null
+                                                            : parseFloat(v),
+                                                    )
+                                                }
+                                                inputProps={{
+                                                    min: '0',
+                                                    step: '0.01',
+                                                }}
+                                                placeholder="0"
+                                            />
+                                        </FormField>
+                                    ),
+                                )}
                             </div>
                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-                                {infantAndChildPriceLabels.map(({ key, label }) => (
-                                    <FormField
-                                        key={key}
-                                        label={label}
-                                        htmlFor={key}
-                                        fieldRequirementsProps={{ hint: 'Enter price amount' }}
-                                        error={getError(key)}
-                                    >
-                                        <ProperInput
-                                            id={key}
-                                            type="number"
-                                            value={data[key as keyof PackageProposalSchema] as number}
-                                            disabled={fieldDisabled}
-                                            onCommit={(v) => setData(key as keyof PackageProposalSchema, v === '' ? null : parseFloat(v))}
-                                            inputProps={{ min: '0', step: '0.01' }}
-                                            placeholder="0"
-                                        />
-                                    </FormField>
-                                ))}
+                                {infantAndChildPriceLabels.map(
+                                    ({ key, label }) => (
+                                        <FormField
+                                            key={key}
+                                            label={label}
+                                            htmlFor={key}
+                                            fieldRequirementsProps={{
+                                                hint: 'Enter price amount',
+                                            }}
+                                            error={getError(key)}
+                                        >
+                                            <ProperInput
+                                                id={key}
+                                                type="number"
+                                                value={
+                                                    data[
+                                                        key as keyof PackageProposalSchema
+                                                    ] as number
+                                                }
+                                                disabled={fieldDisabled}
+                                                onCommit={(v) =>
+                                                    setData(
+                                                        key as keyof PackageProposalSchema,
+                                                        v === ''
+                                                            ? null
+                                                            : parseFloat(v),
+                                                    )
+                                                }
+                                                inputProps={{
+                                                    min: '0',
+                                                    step: '0.01',
+                                                }}
+                                                placeholder="0"
+                                            />
+                                        </FormField>
+                                    ),
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -1053,40 +1713,82 @@ export default function ProposalForm({
 
                 {/* Passenger Simulation */}
                 <Card>
-                    <CardHeader className='gap-0'>
-                        <CardTitle className="text-lg">Passenger Simulation</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-lg">
+                            Passenger Simulation
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {Object.entries(simulationLabels).map(([key, label]) => {
-                                const priceKey = simulationPriceKeyMap[key];
-                                const count = toDecimal(data.passenger_simulation?.[key as keyof typeof data.passenger_simulation]);
-                                const price = toDecimal(data[priceKey as keyof typeof data]);
-                                return (
-                                    <div key={key} className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
-                                        <FormField label={label} fieldRequirementsProps={{ hint: `Number of ${label.toLowerCase()} passengers` }} error={getError(`passenger_simulation.${key}`)}>
-                                            <ProperInput
-                                                id={`passenger_simulation_${key}`}
-                                                type="number"
-                                                value={count === 0 ? '' : String(count)}
-                                                disabled={processing}
-                                                onCommit={(v) => updateSimulation(key, v)}
-                                                inputProps={{ min: '0' }}
-                                                placeholder="0"
-                                            />
-                                        </FormField>
-                                        <FormField label="Price/Pax">
-                                            <ProperInput value={formatNumber(price, cs)} disabled={true} onCommit={() => undefined} />
-                                        </FormField>
-                                        <FormField label="Subtotal">
-                                            <ProperInput value={formatNumber(count * price, cs)} disabled={true} onCommit={() => undefined} />
-                                        </FormField>
-                                    </div>
-                                );
-                            })}
+                            {Object.entries(simulationLabels).map(
+                                ([key, label]) => {
+                                    const priceKey = simulationPriceKeyMap[key];
+                                    const count = toDecimal(
+                                        data.passenger_simulation?.[
+                                            key as keyof typeof data.passenger_simulation
+                                        ],
+                                    );
+                                    const price = toDecimal(
+                                        data[priceKey as keyof typeof data],
+                                    );
+                                    return (
+                                        <div
+                                            key={key}
+                                            className="grid grid-cols-1 items-start gap-4 md:grid-cols-4"
+                                        >
+                                            <FormField
+                                                label={label}
+                                                fieldRequirementsProps={{
+                                                    hint: `Number of ${label.toLowerCase()} passengers`,
+                                                }}
+                                                error={getError(
+                                                    `passenger_simulation.${key}`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    id={`passenger_simulation_${key}`}
+                                                    type="number"
+                                                    value={
+                                                        count === 0
+                                                            ? ''
+                                                            : String(count)
+                                                    }
+                                                    disabled={processing}
+                                                    onCommit={(v) =>
+                                                        updateSimulation(key, v)
+                                                    }
+                                                    inputProps={{ min: '0' }}
+                                                    placeholder="0"
+                                                />
+                                            </FormField>
+                                            <FormField label="Price/Pax">
+                                                <ProperInput
+                                                    value={formatNumber(
+                                                        price,
+                                                        cs,
+                                                    )}
+                                                    disabled={true}
+                                                    onCommit={() => undefined}
+                                                />
+                                            </FormField>
+                                            <FormField label="Subtotal">
+                                                <ProperInput
+                                                    value={formatNumber(
+                                                        count * price,
+                                                        cs,
+                                                    )}
+                                                    disabled={true}
+                                                    onCommit={() => undefined}
+                                                />
+                                            </FormField>
+                                        </div>
+                                    );
+                                },
+                            )}
                             <div className="flex justify-end border-t pt-3">
                                 <span className="text-lg font-bold">
-                                    Simulated Revenue: {formatNumber(pnlIndicators.simRevenue, cs)}
+                                    Simulated Revenue:{' '}
+                                    {formatNumber(pnlIndicators.simRevenue, cs)}
                                 </span>
                             </div>
                         </div>
@@ -1095,38 +1797,92 @@ export default function ProposalForm({
 
                 {/* PnL Indicators */}
                 <Card>
-                    <CardHeader className='gap-0'>
-                        <CardTitle className="text-lg">PnL Indicators</CardTitle>
+                    <CardHeader className="gap-0">
+                        <CardTitle className="text-lg">
+                            PnL Indicators
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             <div className="space-y-3 rounded-lg border p-4">
-                                <h4 className="font-semibold">Range (All Pricing Tiers)</h4>
+                                <h4 className="font-semibold">
+                                    Range (All Pricing Tiers)
+                                </h4>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Total Cost</span>
-                                        <span>{formatNumber(pnlIndicators.totalCost, cs)}</span>
+                                        <span className="text-muted-foreground">
+                                            Total Cost
+                                        </span>
+                                        <span>
+                                            {formatNumber(
+                                                pnlIndicators.totalCost,
+                                                cs,
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Revenue Range</span>
-                                        <span>{formatNumber(pnlIndicators.minRevenue, cs)} - {formatNumber(pnlIndicators.maxRevenue, cs)}</span>
+                                        <span className="text-muted-foreground">
+                                            Revenue Range
+                                        </span>
+                                        <span>
+                                            {formatNumber(
+                                                pnlIndicators.minRevenue,
+                                                cs,
+                                            )}{' '}
+                                            -{' '}
+                                            {formatNumber(
+                                                pnlIndicators.maxRevenue,
+                                                cs,
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between border-t pt-2">
-                                        <span className="font-medium">Profit/Loss Range</span>
+                                        <span className="font-medium">
+                                            Profit/Loss Range
+                                        </span>
                                         <div className="flex items-center gap-2">
-                                            {pnlIndicators.minProfit >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
-                                            <span className={pnlIndicators.minProfit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                {formatNumber(pnlIndicators.minProfit, cs)}
+                                            {pnlIndicators.minProfit >= 0 ? (
+                                                <TrendingUp className="h-4 w-4 text-green-600" />
+                                            ) : (
+                                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                            )}
+                                            <span
+                                                className={
+                                                    pnlIndicators.minProfit >= 0
+                                                        ? 'text-green-600'
+                                                        : 'text-red-600'
+                                                }
+                                            >
+                                                {formatNumber(
+                                                    pnlIndicators.minProfit,
+                                                    cs,
+                                                )}
                                             </span>
                                             <span>to</span>
-                                            <span className={pnlIndicators.maxProfit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                {formatNumber(pnlIndicators.maxProfit, cs)}
+                                            <span
+                                                className={
+                                                    pnlIndicators.maxProfit >= 0
+                                                        ? 'text-green-600'
+                                                        : 'text-red-600'
+                                                }
+                                            >
+                                                {formatNumber(
+                                                    pnlIndicators.maxProfit,
+                                                    cs,
+                                                )}
                                             </span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Margin Range</span>
-                                        <span>{pnlIndicators.minMargin.toFixed(1)}% - {pnlIndicators.maxMargin.toFixed(1)}%</span>
+                                        <span className="text-muted-foreground">
+                                            Margin Range
+                                        </span>
+                                        <span>
+                                            {pnlIndicators.minMargin.toFixed(1)}
+                                            % -{' '}
+                                            {pnlIndicators.maxMargin.toFixed(1)}
+                                            %
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -1135,26 +1891,60 @@ export default function ProposalForm({
                                 <h4 className="font-semibold">Simulation</h4>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Total Cost</span>
-                                        <span>{formatNumber(pnlIndicators.totalCost, cs)}</span>
+                                        <span className="text-muted-foreground">
+                                            Total Cost
+                                        </span>
+                                        <span>
+                                            {formatNumber(
+                                                pnlIndicators.totalCost,
+                                                cs,
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Simulated Revenue</span>
-                                        <span>{formatNumber(pnlIndicators.simRevenue, cs)}</span>
+                                        <span className="text-muted-foreground">
+                                            Simulated Revenue
+                                        </span>
+                                        <span>
+                                            {formatNumber(
+                                                pnlIndicators.simRevenue,
+                                                cs,
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between border-t pt-2">
-                                        <span className="font-medium">Profit/Loss</span>
+                                        <span className="font-medium">
+                                            Profit/Loss
+                                        </span>
                                         <div className="flex items-center gap-2">
-                                            {pnlIndicators.simProfit >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
-                                            <span className={`text-lg font-bold ${pnlIndicators.simProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {formatNumber(pnlIndicators.simProfit, cs)}
+                                            {pnlIndicators.simProfit >= 0 ? (
+                                                <TrendingUp className="h-4 w-4 text-green-600" />
+                                            ) : (
+                                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                            )}
+                                            <span
+                                                className={`text-lg font-bold ${pnlIndicators.simProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                                            >
+                                                {formatNumber(
+                                                    pnlIndicators.simProfit,
+                                                    cs,
+                                                )}
                                             </span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Margin</span>
-                                        <span className={pnlIndicators.simMargin >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                            {pnlIndicators.simMargin.toFixed(1)}%
+                                        <span className="text-muted-foreground">
+                                            Margin
+                                        </span>
+                                        <span
+                                            className={
+                                                pnlIndicators.simMargin >= 0
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
+                                            }
+                                        >
+                                            {pnlIndicators.simMargin.toFixed(1)}
+                                            %
                                         </span>
                                     </div>
                                 </div>
@@ -1165,11 +1955,17 @@ export default function ProposalForm({
 
                 {/* Remarks */}
                 <Card>
-                    <CardHeader className='gap-0'>
+                    <CardHeader className="gap-0">
                         <CardTitle className="text-lg">Remarks</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <FormField label="Notes" fieldRequirementsProps={{ hint: 'Any additional notes for this proposal' }} error={getError('remarks')}>
+                        <FormField
+                            label="Notes"
+                            fieldRequirementsProps={{
+                                hint: 'Any additional notes for this proposal',
+                            }}
+                            error={getError('remarks')}
+                        >
                             <ProperInput
                                 id="remarks"
                                 value={data.remarks ?? ''}
@@ -1181,7 +1977,6 @@ export default function ProposalForm({
                         </FormField>
                     </CardContent>
                 </Card>
-
             </form>
 
             <SubmitForApprovalDialog

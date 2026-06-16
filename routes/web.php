@@ -17,6 +17,7 @@ use App\Http\Controllers\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
 use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\MasterController;
+use App\Http\Controllers\Master\OfficialController as MasterOfficialController;
 use App\Http\Controllers\Master\OperationsController as MasterOperationsController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\SuperadminController as MasterSuperadminController;
@@ -122,6 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('operations', MasterOperationsController::class);
             Route::resource('customer', MasterCustomerController::class);
             Route::post('customer/{id}/create-quotation', [MasterCustomerController::class, 'createQuotation'])->name('customer.create-quotation');
+            Route::resource('official', MasterOfficialController::class);
         });
 
         Route::resource('user', MasterUserController::class);

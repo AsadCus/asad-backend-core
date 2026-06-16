@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Rules\PackageProposalRule;
 use App\Services\CountryService;
 use App\Services\PackageProposalService;
+use App\Services\UserRoles\OfficialUserService;
 use App\Support\DataScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class PackageProposalController extends Controller
         private PackageProposalService $service,
         private PackageProposalRule $rule,
         private CountryService $countryService,
+        private OfficialUserService $officialUserService,
     ) {
         $this->middleware('permission:package-proposal view')->only(['index', 'show']);
         $this->middleware('permission:package-proposal create')->only(['create', 'store']);
@@ -48,6 +50,7 @@ class PackageProposalController extends Controller
             'assignableCountryIds' => $assignableCountryIds,
             'approverOptions' => [],
             'countryCurrencyMap' => $countryCurrencyMap,
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 
@@ -74,6 +77,7 @@ class PackageProposalController extends Controller
             'assignableCountryIds' => $assignableCountryIds,
             'approverOptions' => $approverOptions,
             'countryCurrencyMap' => $countryCurrencyMap,
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 
@@ -91,6 +95,7 @@ class PackageProposalController extends Controller
             'assignableCountryIds' => $assignableCountryIds,
             'approverOptions' => $approverOptions,
             'countryCurrencyMap' => $countryCurrencyMap,
+            'dataOfficials' => $this->officialUserService->getForSelect(),
         ]);
     }
 
