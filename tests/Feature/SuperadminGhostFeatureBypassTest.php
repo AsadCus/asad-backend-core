@@ -5,16 +5,13 @@ namespace Tests\Feature;
 use App\Models\GhostUser;
 use App\Models\User;
 use App\Services\CustomerConfirmationService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
+use Tests\TmsTestCase;
 
-class SuperadminGhostFeatureBypassTest extends TestCase
+class SuperadminGhostFeatureBypassTest extends TmsTestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -29,12 +26,14 @@ class SuperadminGhostFeatureBypassTest extends TestCase
 
         Role::findOrCreate('superadmin', 'web')->givePermissionTo(['customer view', 'quotation view']);
         Role::findOrCreate('admin', 'web')->givePermissionTo(['customer view', 'quotation view']);
+        Role::findOrCreate('administrator', 'web');
     }
 
     private function createSuperadminGhost(): User
     {
         $user = User::factory()->create();
-        $user->assignRole('superadmin');
+        // Elevation keys on the administrator role; superadmin keeps the TMS route role-gate access.
+        $user->assignRole(['superadmin', 'administrator']);
 
         GhostUser::create([
             'user_id' => (int) $user->id,
@@ -44,14 +43,13 @@ class SuperadminGhostFeatureBypassTest extends TestCase
     }
 
     /**
-     * The GhostUser model only allows creating ghosts for superadmins, so a
-     * non-superadmin ghost can only exist when the role is removed later.
+     * A ghost user without the administrator role is not elevated, so it does
+     * not receive the superadmin-ghost feature bypass.
      */
     private function createNonSuperadminGhost(): User
     {
         $user = $this->createSuperadminGhost();
-        $user->removeRole('superadmin');
-        $user->assignRole('admin');
+        $user->removeRole('administrator');
 
         return $user;
     }

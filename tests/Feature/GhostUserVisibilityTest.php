@@ -8,7 +8,6 @@ use App\Services\UserRoles\AdminUserService;
 use App\Services\UserService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -110,28 +109,35 @@ class GhostUserVisibilityTest extends TestCase
         $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $normalAdmin->id));
     }
 
-    public function test_non_admin_user_cannot_be_marked_as_ghost(): void
+    public function test_non_admin_ghost_is_not_elevated_to_superadmin_ghost(): void
     {
         Role::findOrCreate('sales', 'web');
 
         $salesUser = User::factory()->create();
         $salesUser->assignRole('sales');
 
-        $this->expectException(ValidationException::class);
-
         GhostUser::create([
             'user_id' => (int) $salesUser->id,
         ]);
+
+        $salesUser->load('ghostUser');
+
+        // Elevation is gated at check-time on the administrator role: a ghost
+        // record on a non-administrator never grants superadmin-ghost powers.
+        $this->assertTrue($salesUser->isGhostUser());
+        $this->assertFalse($salesUser->isSuperadminGhost());
     }
 
     public function test_documentation_visibility_follows_config_and_ghost_status(): void
     {
         Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('administrator', 'web');
 
         Config::set('documentation.visible_to_all_users', false);
 
         $ghostAdmin = User::factory()->create();
-        $ghostAdmin->assignRole('superadmin');
+        // Documentation visibility for ghosts keys on isSuperadminGhost() -> administrator role.
+        $ghostAdmin->assignRole(['superadmin', 'administrator']);
 
         GhostUser::create([
             'user_id' => (int) $ghostAdmin->id,
