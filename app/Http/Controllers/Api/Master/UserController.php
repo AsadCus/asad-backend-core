@@ -3,103 +3,55 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
-use App\Mail\WelcomeMail;
-use App\Rules\UserRule;
-use App\Services\BranchService;
-use App\Services\CountryService;
-use App\Services\SalesService;
-use App\Services\UserRoles\SalesUserService;
-use App\Services\UserService;
+use App\Rules\HrisUserRule;
+use App\Services\HrisUserService;
+use App\Services\PositionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    private const ROLES = ['superadmin', 'admin', 'sales', 'operations', 'customer'];
-
     public function __construct(
-        private UserService $userService,
-        private BranchService $branchService,
-        private CountryService $countryService,
-        private SalesService $salesService,
-        private UserRule $userRule,
+        private HrisUserService $userService,
+        private PositionService $positionService,
+        private HrisUserRule $userRule,
     ) {}
-
-    private function roleService(string $role): SalesUserService
-    {
-        if (! in_array($role, self::ROLES, true)) {
-            throw ValidationException::withMessages([
-                'role' => ['Invalid role.'],
-            ]);
-        }
-
-        return new SalesUserService($role);
-    }
 
     public function index(Request $request): JsonResponse
     {
         $role = $request->query('role');
+        $role = in_array($role, HrisUserRule::ROLES, true) ? $role : null;
 
-        if ($role && in_array($role, self::ROLES, true)) {
-            $service = $this->roleService($role);
-
-            return response()->json($service->getForDataTable());
-        }
-
-        return response()->json($this->userService->getForDataTable());
+        return response()->json($this->userService->getForDataTable($role));
     }
 
     public function options(): JsonResponse
     {
-        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
-
         return response()->json([
-            'roles' => $this->userService->getRoleForFilter($hideCustomerFromMaster),
-            'branches' => $this->branchService->getForFilter(),
-            'countries' => $this->countryService->getForFilter(),
-            'sales' => $this->salesService->getForFilter(),
-            'scope_mode' => strtolower((string) config('data_scope.mode', 'country')),
-            'hide_customer_from_master' => $hideCustomerFromMaster,
+            'roles' => array_map(
+                fn (string $role) => ['value' => $role, 'label' => ucwords(str_replace('-', ' ', $role))],
+                HrisUserRule::ROLES,
+            ),
+            'positions' => $this->positionService->getForFilter(),
         ]);
     }
 
     public function stats(): JsonResponse
     {
-        return response()->json([
-            'role_counts' => [
-                'superadmin' => $this->userService->countByRole('superadmin'),
-                'admin' => $this->userService->countByRole('admin'),
-                'sales' => $this->userService->countByRole('sales'),
-                'operations' => $this->userService->countByRole('operations'),
-                'customer' => $this->userService->countByRole('customer'),
-            ],
-            'country_stats' => [
-                'superadmin' => $this->userService->getCountryStatsByRole('superadmin'),
-                'admin' => $this->userService->getCountryStatsByRole('admin'),
-                'sales' => $this->userService->getCountryStatsByRole('sales'),
-                'operations' => $this->userService->getCountryStatsByRole('operations'),
-            ],
-        ]);
+        $roleCounts = [];
+
+        foreach (HrisUserRule::ROLES as $role) {
+            $roleCounts[$role] = $this->userService->countByRole($role);
+        }
+
+        return response()->json(['role_counts' => $roleCounts]);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $role = $request->input('role');
-        $validated = $request->validate($this->userRule->rules($role));
-        $validated['role'] = $role;
+        $validated = $request->validate($this->userRule->rules());
 
-        $service = $this->roleService($role);
-        $user = $service->store($validated);
-
-        if (! empty($validated['password']) && $request->boolean('send_email')) {
-            Mail::to($user->email)->send(
-                new WelcomeMail($user->name, $validated['email'], $validated['password'])
-            );
-        }
-
-        return response()->json($user, 201);
+        return response()->json($this->userService->store($validated), 201);
     }
 
     public function show(string $id): JsonResponse
@@ -109,14 +61,9 @@ class UserController extends Controller
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $role = $request->input('role');
-        $validated = $request->validate($this->userRule->rules($role, 'update', $id));
-        $validated['role'] = $role;
+        $validated = $request->validate($this->userRule->rules($id));
 
-        $service = $this->roleService($role);
-        $user = $service->update($validated, $id);
-
-        return response()->json($user);
+        return response()->json($this->userService->update($validated, $id));
     }
 
     public function destroy(Request $request, string $id): JsonResponse

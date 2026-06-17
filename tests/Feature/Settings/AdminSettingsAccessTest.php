@@ -14,10 +14,10 @@ class AdminSettingsAccessTest extends TestCase
 
     public function test_ghost_admin_can_open_report_template_and_appearance_settings(): void
     {
-        Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('administrator', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('superadmin');
+        $admin->assignRole('administrator');
         GhostUser::create(['user_id' => (int) $admin->id]);
 
         $this->actingAs($admin)
@@ -31,10 +31,10 @@ class AdminSettingsAccessTest extends TestCase
 
     public function test_non_ghost_admin_cannot_open_report_template_but_can_open_appearance_settings(): void
     {
-        Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('administrator', 'web');
 
         $admin = User::factory()->create();
-        $admin->assignRole('superadmin');
+        $admin->assignRole('administrator');
 
         $this->actingAs($admin)
             ->get(route('report-template.edit'))
@@ -47,7 +47,7 @@ class AdminSettingsAccessTest extends TestCase
 
     public function test_non_admin_cannot_open_report_template_and_appearance_settings(): void
     {
-        Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('administrator', 'web');
 
         $user = User::factory()->create();
 

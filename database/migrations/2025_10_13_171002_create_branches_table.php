@@ -15,6 +15,11 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->foreignId('country_id')->constrained()->cascadeOnDelete();
+            $table->string('address')->nullable();
+            $table->string('phone', 32)->nullable();
+            $table->decimal('latitude', 10, 8)->nullable();
+            $table->decimal('longitude', 11, 8)->nullable();
+            $table->unsignedInteger('geofence_radius_meters')->default(100);
             $table->timestamps();
         });
     }

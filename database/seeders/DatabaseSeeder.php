@@ -2,41 +2,45 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Seed the application's database (ERP-HRIS).
      */
     public function run(): void
     {
         $this->call([
-            // Basic Configuration
+            // App configuration
             AppearanceSettingSeeder::class,
             FinancialYearSeeder::class,
             NumberingFormatSeeder::class,
             ReportSettingSeeder::class,
 
-            // Master Data
+            // General master data
             CountrySeeder::class,
             ReligionSeeder::class,
             EducationLevelSeeder::class,
             BranchSeeder::class,
             PaymentMethodMasterSeeder::class,
 
-            // Users and Roles
+            // HRIS organisation masters (order matters: holding → BU → department)
+            HoldingSeeder::class,
+            BusinessUnitSeeder::class,
+            DepartmentSeeder::class,
+            PositionSeeder::class,
+
+            // Roles + users (roles + org/positions must exist first)
             RolePermissionSeeder::class,
             HrisRoleSeeder::class,
-            AdminSalesUserSeeder::class,
-            GhostAdministratorSeeder::class,
-            // CustomerUserSeeder::class,
+            UserSeeder::class,
 
             // HRIS reference data
             ApprovalMatrixSeeder::class,
             LeaveTypeSeeder::class,
             ShiftSeeder::class,
+            WorkScheduleSeeder::class,
             HolidaySeeder::class,
         ]);
     }

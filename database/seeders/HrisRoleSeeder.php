@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class HrisRoleSeeder extends Seeder
 {
@@ -13,7 +14,7 @@ class HrisRoleSeeder extends Seeder
      */
     public function run(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // HRIS permissions — scoped by the Role & Access Matrix in HRIS_PRESENSI_FLOWCHARTS.md.
         $permissions = [
@@ -76,8 +77,10 @@ class HrisRoleSeeder extends Seeder
             $administrator->givePermissionTo($permissions);
         }
 
-        // HR (Personalia) — verify HR, manage master + reports + audit.
+        // HR (Personalia) — verify HR, manage master + reports + audit + user accounts.
         Role::findByName('hr')->syncPermissions([
+            'dashboard view', 'master view',
+            'user view', 'user create', 'user edit', 'user delete',
             'hris.employee view-all', 'hris.employee create', 'hris.employee edit',
             'hris.holding view', 'hris.holding create', 'hris.holding edit',
             'hris.business-unit view', 'hris.business-unit create', 'hris.business-unit edit',
@@ -101,6 +104,7 @@ class HrisRoleSeeder extends Seeder
 
         // Supervisor — approve team's correction & leave; view team.
         Role::findByName('supervisor')->syncPermissions([
+            'dashboard view', 'master view',
             'hris.employee view-team',
             'hris.attendance view-team',
             'hris.attendance-correction view-team', 'hris.attendance-correction approve-supervisor',
@@ -112,6 +116,7 @@ class HrisRoleSeeder extends Seeder
 
         // Manager — read-only summary.
         Role::findByName('manager')->syncPermissions([
+            'dashboard view', 'master view',
             'hris.employee view-team',
             'hris.attendance view-team',
             'hris.attendance-correction view-team',
@@ -123,6 +128,7 @@ class HrisRoleSeeder extends Seeder
 
         // Employee — own data + create attendance/correction/leave.
         Role::findByName('employee')->syncPermissions([
+            'dashboard view', 'master view',
             'hris.employee view-own',
             'hris.attendance check-in', 'hris.attendance view-own',
             'hris.attendance-correction create', 'hris.attendance-correction view-own',

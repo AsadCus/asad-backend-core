@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Models\Admin;
 use App\Models\Branch;
 use App\Models\Country;
-use App\Models\Operation;
-use App\Models\Sales;
 use App\Models\User;
 use App\Services\BranchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,27 +26,9 @@ class BranchDeletionTest extends TestCase
             'country_id' => $country->id,
         ]);
 
-        $opsUser = User::factory()->create();
-        $operation = Operation::query()->create([
-            'user_id' => $opsUser->id,
-            'branch_id' => $branchToDelete->id,
-            'branch_ids' => [$branchToDelete->id, $branchToKeep->id],
-            'country_id' => $country->id,
-            'country_ids' => [$country->id],
-        ]);
-
         $adminUser = User::factory()->create();
         $admin = Admin::query()->create([
             'user_id' => $adminUser->id,
-            'branch_id' => $branchToDelete->id,
-            'branch_ids' => [$branchToDelete->id, $branchToKeep->id],
-            'country_id' => $country->id,
-            'country_ids' => [$country->id],
-        ]);
-
-        $salesUser = User::factory()->create();
-        $sales = Sales::query()->create([
-            'user_id' => $salesUser->id,
             'branch_id' => $branchToDelete->id,
             'branch_ids' => [$branchToDelete->id, $branchToKeep->id],
             'country_id' => $country->id,
@@ -60,23 +40,11 @@ class BranchDeletionTest extends TestCase
         $this->assertTrue($deleted);
         $this->assertDatabaseMissing('branches', ['id' => $branchToDelete->id]);
 
-        $this->assertDatabaseHas('sales', [
-            'id' => $sales->id,
-            'branch_id' => null,
-        ]);
-
         $this->assertDatabaseHas('admins', [
             'id' => $admin->id,
             'branch_id' => null,
         ]);
 
-        $this->assertDatabaseHas('operations', [
-            'id' => $operation->id,
-            'branch_id' => null,
-        ]);
-
         $this->assertSame([$branchToKeep->id], Admin::query()->findOrFail($admin->id)->branch_ids);
-        $this->assertSame([$branchToKeep->id], Operation::query()->findOrFail($operation->id)->branch_ids);
-        $this->assertSame([$branchToKeep->id], Sales::query()->findOrFail($sales->id)->branch_ids);
     }
 }

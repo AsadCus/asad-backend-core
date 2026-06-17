@@ -3,10 +3,18 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
+use App\Http\Controllers\Api\Master\BusinessUnitController as MasterBusinessUnitController;
 use App\Http\Controllers\Api\Master\CountryController as MasterCountryController;
+use App\Http\Controllers\Api\Master\DepartmentController as MasterDepartmentController;
 use App\Http\Controllers\Api\Master\FinancialYearController as MasterFinancialYearController;
+use App\Http\Controllers\Api\Master\HoldingController as MasterHoldingController;
+use App\Http\Controllers\Api\Master\HolidayController as MasterHolidayController;
+use App\Http\Controllers\Api\Master\LeaveTypeController as MasterLeaveTypeController;
 use App\Http\Controllers\Api\Master\MasterStatsController;
+use App\Http\Controllers\Api\Master\PositionController as MasterPositionController;
+use App\Http\Controllers\Api\Master\ShiftController as MasterShiftController;
 use App\Http\Controllers\Api\Master\UserController as MasterUserController;
+use App\Http\Controllers\Api\Master\WorkScheduleController as MasterWorkScheduleController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\QuotationItemController;
@@ -42,6 +50,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/master/users/options', [MasterUserController::class, 'options']);
     Route::get('/master/users/stats', [MasterUserController::class, 'stats']);
     Route::apiResource('/master/users', MasterUserController::class);
+
+    // HRIS organisation masters
+    Route::get('/master/holdings/options', [MasterHoldingController::class, 'options']);
+    Route::apiResource('/master/holdings', MasterHoldingController::class);
+
+    Route::get('/master/business-units/options', [MasterBusinessUnitController::class, 'options']);
+    Route::apiResource('/master/business-units', MasterBusinessUnitController::class);
+
+    Route::get('/master/departments/options', [MasterDepartmentController::class, 'options']);
+    Route::apiResource('/master/departments', MasterDepartmentController::class);
+
+    Route::get('/master/positions/options', [MasterPositionController::class, 'options']);
+    Route::apiResource('/master/positions', MasterPositionController::class);
+
+    // HRIS schedule + leave masters
+    Route::apiResource('/master/shifts', MasterShiftController::class);
+    Route::apiResource('/master/work-schedules', MasterWorkScheduleController::class);
+    Route::apiResource('/master/holidays', MasterHolidayController::class);
+    Route::apiResource('/master/leave-types', MasterLeaveTypeController::class);
 
     Route::get('/quotation-items', [QuotationItemController::class, 'index']);
     Route::post('/quotation-items/quick-create', [QuotationItemController::class, 'quickCreate']);

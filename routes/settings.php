@@ -22,10 +22,10 @@ Route::middleware('auth')->group(function () {
         ->name('password.update');
 
     Route::get('settings/appearance', [AppearanceController::class, 'edit'])
-        ->middleware('role:superadmin')
+        ->middleware('role:administrator')
         ->name('appearance.edit');
     Route::post('settings/appearance', [AppearanceController::class, 'update'])
-        ->middleware('role:superadmin')
+        ->middleware('role:administrator')
         ->name('appearance.update');
 
     Route::middleware('ghost_admin')->group(function (): void {

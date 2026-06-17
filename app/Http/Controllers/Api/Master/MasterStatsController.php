@@ -3,32 +3,31 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
-use App\Models\Country;
-use App\Models\FinancialYear;
+use App\Models\BusinessUnit;
+use App\Models\Department;
+use App\Models\Holding;
+use App\Models\Holiday;
+use App\Models\LeaveType;
+use App\Models\Position;
+use App\Models\Shift;
 use App\Models\User;
+use App\Models\WorkSchedule;
 use Illuminate\Http\JsonResponse;
 
 class MasterStatsController extends Controller
 {
     public function __invoke(): JsonResponse
     {
-        $hideCustomerFromMaster = (bool) config('master.hide_customer_from_user_management', false);
-
-        $userCountQuery = User::query()->whereDoesntHave('ghostUser');
-
-        if ($hideCustomerFromMaster) {
-            $userCountQuery->whereDoesntHave('roles', function ($query) {
-                $query->where('name', 'customer');
-            });
-        }
-
         return response()->json([
-            'users' => $userCountQuery->count(),
-            'countries' => Country::count(),
-            'branches' => Branch::count(),
-            'fiscal_years' => FinancialYear::count(),
-            'hide_customer_from_master' => $hideCustomerFromMaster,
+            'users' => User::query()->whereDoesntHave('ghostUser')->count(),
+            'holdings' => Holding::count(),
+            'business_units' => BusinessUnit::count(),
+            'departments' => Department::count(),
+            'positions' => Position::count(),
+            'shifts' => Shift::count(),
+            'work_schedules' => WorkSchedule::count(),
+            'holidays' => Holiday::count(),
+            'leave_types' => LeaveType::count(),
         ]);
     }
 }

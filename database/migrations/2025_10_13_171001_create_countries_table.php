@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('countries', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('adjective');
+            $table->string('adjective')->nullable();
+            $table->string('currency_symbol', 16)->nullable();
             $table->timestamps();
 
             $table->index('name');

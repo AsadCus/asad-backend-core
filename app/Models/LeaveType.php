@@ -25,7 +25,7 @@ class LeaveType extends Model
     ];
 
     protected $casts = [
-        'max_days_per_year' => 'decimal:2',
+        'max_days_per_year' => 'integer',
         'requires_balance' => 'boolean',
         'requires_attachment' => 'boolean',
         'is_paid' => 'boolean',

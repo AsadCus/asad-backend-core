@@ -169,17 +169,21 @@ class CountryService
                     ->update(['country_id' => null]);
             }
 
-            Sales::query()
-                ->where('country_id', $country->id)
-                ->update(['country_id' => null]);
+            if (Schema::hasTable('sales')) {
+                Sales::query()
+                    ->where('country_id', $country->id)
+                    ->update(['country_id' => null]);
+            }
 
             Admin::query()
                 ->where('country_id', $country->id)
                 ->update(['country_id' => null]);
 
-            Operation::query()
-                ->where('country_id', $country->id)
-                ->update(['country_id' => null]);
+            if (Schema::hasTable('operations')) {
+                Operation::query()
+                    ->where('country_id', $country->id)
+                    ->update(['country_id' => null]);
+            }
 
             $this->pruneCountryScopeListFromRoleAssignments((int) $country->id);
 
@@ -204,24 +208,28 @@ class CountryService
             $admin->update(['country_ids' => $nextCountryIds]);
         }
 
-        foreach (Operation::query()->whereJsonContains('country_ids', $countryId)->get() as $operation) {
-            $nextCountryIds = collect($operation->country_ids ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->reject(fn (int $id) => $id === $countryId)
-                ->values()
-                ->all();
+        if (Schema::hasTable('operations')) {
+            foreach (Operation::query()->whereJsonContains('country_ids', $countryId)->get() as $operation) {
+                $nextCountryIds = collect($operation->country_ids ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->reject(fn (int $id) => $id === $countryId)
+                    ->values()
+                    ->all();
 
-            $operation->update(['country_ids' => $nextCountryIds]);
+                $operation->update(['country_ids' => $nextCountryIds]);
+            }
         }
 
-        foreach (Sales::query()->whereJsonContains('country_ids', $countryId)->get() as $sales) {
-            $nextCountryIds = collect($sales->country_ids ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->reject(fn (int $id) => $id === $countryId)
-                ->values()
-                ->all();
+        if (Schema::hasTable('sales')) {
+            foreach (Sales::query()->whereJsonContains('country_ids', $countryId)->get() as $sales) {
+                $nextCountryIds = collect($sales->country_ids ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->reject(fn (int $id) => $id === $countryId)
+                    ->values()
+                    ->all();
 
-            $sales->update(['country_ids' => $nextCountryIds]);
+                $sales->update(['country_ids' => $nextCountryIds]);
+            }
         }
     }
 }

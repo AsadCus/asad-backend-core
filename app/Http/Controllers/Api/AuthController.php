@@ -57,6 +57,8 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $this->customerService->updateLastLogin($user->id);
 
+        activity()->performedOn($user)->log('User logged in');
+
         return response()->json([
             'user' => $user,
         ]);
@@ -64,9 +66,15 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($user) {
+            activity()->performedOn($user)->log('User logged out');
+        }
 
         return response()->json(['message' => 'Logged out']);
     }
@@ -94,6 +102,8 @@ class AuthController extends Controller
 
     private function canShowScopeIndicator(User $user): bool
     {
+        // HRIS users are position-scoped, not country-scoped — the country indicator
+        // stays for the legacy TMS roles only.
         return $user->hasRole('superadmin')
             || $user->hasRole('admin')
             || $user->hasRole('sales')

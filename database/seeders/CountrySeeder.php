@@ -10,13 +10,14 @@ class CountrySeeder extends Seeder
     public function run(): void
     {
         $countries = [
-            ['name' => 'Malaysia', 'adjective' => 'Malaysian'],
-            ['name' => 'Singapore', 'adjective' => 'Singaporean'],
+            ['name' => 'Malaysia', 'adjective' => 'Malaysian', 'currency_symbol' => 'RM'],
+            ['name' => 'Singapore', 'adjective' => 'Singaporean', 'currency_symbol' => 'S$'],
         ];
 
         foreach ($countries as $country) {
-            Country::firstOrCreate(
-                ['name' => $country['name'], 'adjective' => $country['adjective']]
+            Country::updateOrCreate(
+                ['name' => $country['name']],
+                ['adjective' => $country['adjective'], 'currency_symbol' => $country['currency_symbol']],
             );
         }
     }

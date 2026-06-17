@@ -99,7 +99,7 @@ class User extends Authenticatable
 
     public function isSuperadminGhost(): bool
     {
-        return $this->isGhostUser() && $this->hasRole('superadmin');
+        return $this->isGhostUser() && $this->hasRole('administrator');
     }
 
     public function userNotifications(): HasMany

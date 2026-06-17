@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('value')->unique();
             $table->boolean('is_active')->default(true);
+            $table->boolean('is_available_for_refund')->default(false);
             $table->boolean('is_default')->default(false);
             $table->unsignedInteger('sort_order')->default(1);
             $table->timestamps();

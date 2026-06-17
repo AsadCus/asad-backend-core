@@ -20,13 +20,13 @@ class ReportTemplateTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
-        Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('administrator', 'web');
     }
 
     private function createGhostAdminUser(): User
     {
         $user = User::factory()->create();
-        $user->assignRole('superadmin');
+        $user->assignRole('administrator');
         GhostUser::create(['user_id' => (int) $user->id]);
 
         return $user;

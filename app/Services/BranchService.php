@@ -102,11 +102,13 @@ class BranchService
                 return false;
             }
 
-            Sales::query()
-                ->where('branch_id', $branch->id)
-                ->update(['branch_id' => null]);
+            // ponytail: sales/operations/enquiries are TMS tables — only touch them when the TMS reference set is migrated.
+            if (Schema::hasTable('sales')) {
+                Sales::query()
+                    ->where('branch_id', $branch->id)
+                    ->update(['branch_id' => null]);
+            }
 
-            // ponytail: enquiries is a TMS table — only touch it when the TMS reference set is migrated.
             if (Schema::hasTable('enquiries')) {
                 Enquiry::query()
                     ->where('branch_id', $branch->id)
@@ -117,9 +119,11 @@ class BranchService
                 ->where('branch_id', $branch->id)
                 ->update(['branch_id' => null]);
 
-            Operation::query()
-                ->where('branch_id', $branch->id)
-                ->update(['branch_id' => null]);
+            if (Schema::hasTable('operations')) {
+                Operation::query()
+                    ->where('branch_id', $branch->id)
+                    ->update(['branch_id' => null]);
+            }
 
             $this->pruneBranchScopeListFromRoleAssignments($branch->id);
 
@@ -146,24 +150,28 @@ class BranchService
             $admin->update(['branch_ids' => $nextBranchIds]);
         }
 
-        foreach (Operation::query()->whereJsonContains('branch_ids', $branchId)->get() as $operation) {
-            $nextBranchIds = collect($operation->branch_ids ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->reject(fn (int $id) => $id === $branchId)
-                ->values()
-                ->all();
+        if (Schema::hasTable('operations')) {
+            foreach (Operation::query()->whereJsonContains('branch_ids', $branchId)->get() as $operation) {
+                $nextBranchIds = collect($operation->branch_ids ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->reject(fn (int $id) => $id === $branchId)
+                    ->values()
+                    ->all();
 
-            $operation->update(['branch_ids' => $nextBranchIds]);
+                $operation->update(['branch_ids' => $nextBranchIds]);
+            }
         }
 
-        foreach (Sales::query()->whereJsonContains('branch_ids', $branchId)->get() as $sales) {
-            $nextBranchIds = collect($sales->branch_ids ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->reject(fn (int $id) => $id === $branchId)
-                ->values()
-                ->all();
+        if (Schema::hasTable('sales')) {
+            foreach (Sales::query()->whereJsonContains('branch_ids', $branchId)->get() as $sales) {
+                $nextBranchIds = collect($sales->branch_ids ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->reject(fn (int $id) => $id === $branchId)
+                    ->values()
+                    ->all();
 
-            $sales->update(['branch_ids' => $nextBranchIds]);
+                $sales->update(['branch_ids' => $nextBranchIds]);
+            }
         }
     }
 }

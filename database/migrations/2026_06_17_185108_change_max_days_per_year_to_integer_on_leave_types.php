@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->json('selected_country_ids')->nullable()->after('photo_profile');
+        Schema::table('leave_types', function (Blueprint $table) {
+            $table->integer('max_days_per_year')->nullable()->change();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('selected_country_ids');
+        Schema::table('leave_types', function (Blueprint $table) {
+            $table->decimal('max_days_per_year', 5, 2)->nullable()->change();
         });
     }
 };
