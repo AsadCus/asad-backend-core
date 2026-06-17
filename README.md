@@ -9,9 +9,9 @@ Enterprise Resource Planning system built on Laravel, with **HRIS (Human Resourc
 
 ```mermaid
 flowchart LR
-    A["HRIS SPA<br/>(React 19, port 5173)"] -->|axios + Sanctum cookies| C["backend-codebase<br/>(Laravel 13, port 8000)"]
-    B["ERP Inertia UI<br/>(port 8000)"] -->|Inertia.render()| C
-    C --> D[(Database)]
+    A["HRIS SPA<br/>(React 19, port 5173)"] -->|"axios + Sanctum cookies"| C["backend-codebase<br/>(Laravel 13, port 8000)"]
+    B["ERP Inertia UI<br/>(port 8000)"] -->|"Inertia.render()"| C
+    C --> D["(Database)"]
 ```
 
 | Frontend           | Location                    | Stack                         | Scope                                                                |
