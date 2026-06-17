@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Validation\ValidationException;
 
 class GhostUser extends Model
 {
@@ -13,19 +12,6 @@ class GhostUser extends Model
     protected $fillable = [
         'user_id',
     ];
-
-    protected static function booted(): void
-    {
-        static::saving(function (GhostUser $ghostUser): void {
-            $user = User::query()->find($ghostUser->user_id);
-
-            if (! $user || ! $user->hasRole('superadmin')) {
-                throw ValidationException::withMessages([
-                    'user_id' => 'Ghost user only supports superadmin role users.',
-                ]);
-            }
-        });
-    }
 
     public function user(): BelongsTo
     {

@@ -30,8 +30,16 @@ class DatabaseSeeder extends Seeder
 
             // Users and Roles
             RolePermissionSeeder::class,
+            HrisRoleSeeder::class,
             AdminSalesUserSeeder::class,
+            GhostAdministratorSeeder::class,
             // CustomerUserSeeder::class,
+
+            // HRIS reference data
+            ApprovalMatrixSeeder::class,
+            LeaveTypeSeeder::class,
+            ShiftSeeder::class,
+            HolidaySeeder::class,
         ]);
     }
 }

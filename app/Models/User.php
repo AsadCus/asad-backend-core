@@ -95,4 +95,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserNotification::class, 'user_id');
     }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class, 'user_id');
+    }
 }
