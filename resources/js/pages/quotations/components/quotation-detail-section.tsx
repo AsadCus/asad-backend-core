@@ -118,6 +118,7 @@ export default function QuotationDetailSection({
     quotationNotes = [],
     noteErrors = [],
     extensionMasters: rawExtensionMasters = [],
+    availableMembers = [],
     status,
 }: Props) {
     const hasOrderInvoices = Boolean(data.have_invoices);
@@ -200,6 +201,9 @@ export default function QuotationDetailSection({
 
             const lineAmount =
                 Number(item.quantity ?? 0) * Number(item.rate ?? 0);
+            const memberName = item.member_name || (item.customer_confirmation_member_id && availableMembers
+                ? availableMembers.find(m => Number(m.member_id) === Number(item.customer_confirmation_member_id))?.name
+                : null);
 
             (item.taxes ?? []).forEach((tax) => {
                 const calculationMode = String(tax.calculation_mode ?? '');
@@ -215,15 +219,21 @@ export default function QuotationDetailSection({
                 const taxType: 'tax' | 'discount' =
                     calculationValue < 0 ? 'discount' : 'tax';
 
+                let taxName = String(tax.name ?? 'Tax');
+                if (memberName) {
+                    taxName = `${taxName} (${memberName})`;
+                }
+
                 const key = [
-                    String(tax.name ?? 'Tax').toLowerCase(),
+                    taxName.toLowerCase(),
                     taxType,
                     calculationMode,
                     calculationValue,
+                    memberName || '',
                 ].join('|');
 
                 const current = grouped.get(key) ?? {
-                    name: String(tax.name ?? 'Tax'),
+                    name: taxName,
                     type: taxType,
                     calculation_mode: calculationMode,
                     calculation_value: calculationValue,
@@ -240,7 +250,7 @@ export default function QuotationDetailSection({
         });
 
         return Array.from(grouped.values());
-    }, [items]);
+    }, [items, availableMembers]);
 
     const itemTaxTotal = itemTaxSummaries.reduce((sum, tax) => {
         return sum + tax.amount;

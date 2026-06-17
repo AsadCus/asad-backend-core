@@ -4,7 +4,9 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -63,6 +65,8 @@ const formatReceiptAmount = (receipt: ReceiptSchema): string => {
 
 const getColumns = (
     paymentMethods: OptionType[],
+    openEmailModal: (id: number, number: string) => void,
+    sendEmailEnabled: boolean,
 ): ColumnDef<ReceiptSchema>[] => [
     createSelectColumn<ReceiptSchema>(),
     {
@@ -138,6 +142,7 @@ const getColumns = (
     },
     {
         accessorKey: 'receipt_date',
+        sortingFn: 'displayDate',
         header: 'Receipt Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -148,6 +153,48 @@ const getColumns = (
         meta: { exportable: true },
         cell: ({ row }) => formatReceiptAmount(row.original),
     },
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  sortingFn: 'displayDate',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  cell: ({ row }) => {
+                      const receipt = row.original;
+                      const sentAt = receipt.email_sent_at_formatted;
+                      const isSent = !!receipt.email_sent_at;
+
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!receipt.id) return;
+                                      openEmailModal(
+                                          receipt.id,
+                                          receipt.receipt_number ?? '',
+                                      );
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<ReceiptSchema>[])
+        : []),
     {
         accessorKey: 'invoice_description',
         header: 'Description',
@@ -186,12 +233,39 @@ const getColumns = (
 
 export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const { receiptsForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
+    const { confirm, ConfirmDialog } = useConfirmDialog();
+
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedReceipts: ReceiptSchema[]) => {
+        const ids = selectedReceipts
+            .map((receipt) => receipt.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
+
     const columns = useMemo(
-        () => getColumns(data.paymentMethods ?? []),
-        [data.paymentMethods],
+        () =>
+            getColumns(
+                data.paymentMethods ?? [],
+                handleOpenEmailModal,
+                sendEmailEnabled,
+            ),
+        [data.paymentMethods, sendEmailEnabled],
     );
 
     const actions: ActionType[] = [];
@@ -203,6 +277,10 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     if (userPermissions.includes('receipt view')) {
         actions.push('preview');
         actions.push('download');
+        if (sendEmailEnabled) {
+            actions.push('send-email');
+            actions.push('copy-link');
+        }
     }
     // if (userPermissions.includes('receipt delete')) actions.push('delete');
 
@@ -210,8 +288,6 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
     const [selectedReceipt, setSelectedReceipt] =
         useState<ReceiptSchema | null>(null);
     const [items, setItems] = useState<InvoiceItemSchema[]>([]);
-
-    const { confirm, ConfirmDialog } = useConfirmDialog();
 
     const handlePreview = async (receipt: ReceiptSchema) => {
         try {
@@ -255,6 +331,11 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             // groupByRowColorKey="package_number"
                             url={receiptIndex().url}
                             exportFilename="receipts"
@@ -303,6 +384,16 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                             );
                                         }
                                     })();
+                                } else if (action === 'send-email') {
+                                    handleOpenEmailModal(
+                                        receiptId,
+                                        receipt.receipt_number ?? '',
+                                    );
+                                } else if (action === 'copy-link') {
+                                    handleOpenEmailModal(
+                                        receiptId,
+                                        receipt.receipt_number ?? '',
+                                    );
                                 } else if (action === 'delete') {
                                     confirm({
                                         title: 'Delete Receipt',
@@ -355,6 +446,7 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                                     invoice_status: true,
                                     receipt_number: false,
                                     receipt_date: true,
+                                    email_sent_at_formatted: true,
                                     amount: true,
                                     payment_method: true,
                                     sales_id: false,
@@ -409,6 +501,14 @@ export default function ReceiptsIndex({ data }: ReceiptsProps) {
                     onOpenChange={setPreviewModalOpen}
                 />
             )}
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="receipt"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
+            />
         </>
     );
 }

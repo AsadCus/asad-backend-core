@@ -27,7 +27,7 @@ class DocumentationPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('documentations/v3/index')
                 ->has('documentation', fn (Assert $documentation) => $documentation
-                    ->where('manual.title', 'Documentation - Travel Management System Manual')
+                    ->where('manual.title', 'Documentation - '.config('app.name').' Manual')
                     ->hasAll([
                         'introduction',
                         'menuGroups',

@@ -1,5 +1,5 @@
-import { FormField } from '@/components/form-field';
 import { FieldRequirements } from '@/components/field-requirements';
+import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -23,7 +23,10 @@ interface ModuleTemplateSectionProps {
     activeDefinition: RegisteredModule | undefined;
     builtinModules: RegisteredModule[];
     registeredModules: RegisteredModule[];
-    updateModule: (field: keyof ModuleTemplate, value: string | boolean) => void;
+    updateModule: (
+        field: keyof ModuleTemplate,
+        value: string | boolean,
+    ) => void;
     updateModuleSignatureStampNameDateVisibility: (value: boolean) => void;
     handleDeleteModule: (key: string) => void;
     /** Rendered element — caller controls key, no wrapper needed */
@@ -47,11 +50,13 @@ function ToggleRow({
     return (
         <div className="flex items-start justify-between gap-4 rounded-lg border p-3.5 lg:p-4">
             <div className="min-w-0">
-                <p className="inline-flex items-center gap-1.5 text-base font-medium leading-tight">
+                <p className="inline-flex items-center gap-1.5 text-base leading-tight font-medium">
                     {title}
                     <FieldRequirements hint={hint} />
                 </p>
-                <p className="mt-1 text-base text-muted-foreground">{description}</p>
+                <p className="mt-1 text-base text-muted-foreground">
+                    {description}
+                </p>
             </div>
             <Switch
                 checked={checked}
@@ -106,7 +111,10 @@ export function ModuleTemplateSection({
                                 <SelectGroup>
                                     <SelectLabel>Built-in</SelectLabel>
                                     {builtinModules.map((module) => (
-                                        <SelectItem key={module.key} value={module.key}>
+                                        <SelectItem
+                                            key={module.key}
+                                            value={module.key}
+                                        >
                                             {module.label}
                                         </SelectItem>
                                     ))}
@@ -116,7 +124,10 @@ export function ModuleTemplateSection({
                                 <SelectGroup>
                                     <SelectLabel>Custom</SelectLabel>
                                     {registeredModules.map((module) => (
-                                        <SelectItem key={module.key} value={module.key}>
+                                        <SelectItem
+                                            key={module.key}
+                                            value={module.key}
+                                        >
                                             {module.label}
                                         </SelectItem>
                                     ))}
@@ -129,7 +140,7 @@ export function ModuleTemplateSection({
             </div>
 
             {/* Body: Settings Panel */}
-            <div className="flex min-w-0 flex-col min-h-[460px]">
+            <div className="flex min-h-[460px] min-w-0 flex-col">
                 {/* Settings sub-header */}
                 <div className="flex flex-col gap-3 border-b bg-muted/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between xl:px-6">
                     <div className="flex min-w-0 items-center gap-2">
@@ -137,7 +148,7 @@ export function ModuleTemplateSection({
                         <span className="truncate text-base font-medium">
                             {activeDefinition?.label ?? selectedModule}
                         </span>
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             {activeDefinition?.document_type ?? '—'}
                         </span>
                     </div>
@@ -148,7 +159,9 @@ export function ModuleTemplateSection({
                                 variant="ghost"
                                 size="sm"
                                 className="flex shrink-0 items-center gap-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => handleDeleteModule(selectedModule)}
+                                onClick={() =>
+                                    handleDeleteModule(selectedModule)
+                                }
                             >
                                 <Trash2 className="h-4 w-4" />
                                 Delete
@@ -190,13 +203,14 @@ export function ModuleTemplateSection({
                         </FormField>
 
                         <p className="text-base leading-relaxed text-muted-foreground">
-                            Footer text is best used for compact payment terms, short policy notes, or module-specific disclaimers.
+                            Footer text is best used for compact payment terms,
+                            short policy notes, or module-specific disclaimers.
                         </p>
                     </section>
 
                     <section className="space-y-3 rounded-xl border bg-background p-4 shadow-sm lg:p-5">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                            <h4 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
                                 Document Elements
                             </h4>
                         </div>
@@ -206,7 +220,9 @@ export function ModuleTemplateSection({
                             description="Display stamp from Branding section."
                             hint="Enable to render company stamp in this module report output."
                             checked={activeModule?.show_stamp ?? false}
-                            onCheckedChange={(v) => updateModule('show_stamp', v)}
+                            onCheckedChange={(v) =>
+                                updateModule('show_stamp', v)
+                            }
                         />
 
                         <ToggleRow
@@ -214,7 +230,9 @@ export function ModuleTemplateSection({
                             description="Display signature from Branding section."
                             hint="Enable to render authorised signature in this module report output."
                             checked={activeModule?.show_signature ?? false}
-                            onCheckedChange={(v) => updateModule('show_signature', v)}
+                            onCheckedChange={(v) =>
+                                updateModule('show_signature', v)
+                            }
                         />
 
                         <ToggleRow
@@ -230,10 +248,14 @@ export function ModuleTemplateSection({
                             description="Display name and date below signature and stamp."
                             hint="Shows configured signer full name and date together below signature and stamp."
                             checked={
-                                (activeModule?.show_signature_stamp_name ?? false) &&
-                                (activeModule?.show_signature_stamp_date ?? false)
+                                (activeModule?.show_signature_stamp_name ??
+                                    false) &&
+                                (activeModule?.show_signature_stamp_date ??
+                                    false)
                             }
-                            onCheckedChange={updateModuleSignatureStampNameDateVisibility}
+                            onCheckedChange={
+                                updateModuleSignatureStampNameDateVisibility
+                            }
                         />
                     </section>
                 </div>

@@ -447,6 +447,7 @@ class FinancialTransactionService
                 'invoice.order.invoices',
                 'invoice.order.quotation.handledBy',
                 'invoice.order.quotation.customerConfirmation.package',
+                'invoice.order.quotation.country',
             ])
             ->whereDate('receipt_date', '>=', $startDate->copy()->startOfDay()->toDateString())
             ->whereDate('receipt_date', '<=', $endDate->copy()->endOfDay()->toDateString())
@@ -506,6 +507,7 @@ class FinancialTransactionService
         }
 
         $categoryTotals = [];
+        $categoryTotalsByCountry = [];
         $bucketTotals = [];
         $reportRows = [];
         $rowSequence = 0;
@@ -565,6 +567,11 @@ class FinancialTransactionService
 
             if ($items->isEmpty()) {
                 $this->addCategoryAmount($categoryTotals, 'Others', $receiptAmount);
+
+                $countryId = (int) ($quotation?->country_id ?? 0);
+                if ($countryId > 0) {
+                    $this->addCountryCategoryAmount($categoryTotalsByCountry, $countryId, $quotation->country, 'Others', $receiptAmount);
+                }
 
                 $reportRows[] = [
                     'date' => $dateLabel,
@@ -658,6 +665,11 @@ class FinancialTransactionService
 
                 $this->addCategoryAmount($categoryTotals, $category, $allocatedAmount);
 
+                $countryId = (int) ($quotation?->country_id ?? 0);
+                if ($countryId > 0) {
+                    $this->addCountryCategoryAmount($categoryTotalsByCountry, $countryId, $quotation->country, $category, $allocatedAmount);
+                }
+
                 $reportRows[] = [
                     'date' => $dateLabel,
                     'category' => $category,
@@ -733,6 +745,29 @@ class FinancialTransactionService
             ->values()
             ->all();
 
+        $byCountry = collect($categoryTotalsByCountry)
+            ->sortBy('country_name')
+            ->values()
+            ->map(function (array $entry): array {
+                $categories = collect($entry['categories'])
+                    ->map(fn (array $row): array => [
+                        'category' => $row['category'],
+                        'amount' => round((float) $row['amount'], 2),
+                        'receipt_count' => (int) $row['receipt_count'],
+                    ])
+                    ->sortByDesc('amount')
+                    ->values()
+                    ->all();
+
+                return [
+                    'country_id' => $entry['country_id'],
+                    'country_name' => $entry['country_name'],
+                    'currency_symbol' => $entry['currency_symbol'],
+                    'categories' => $categories,
+                ];
+            })
+            ->all();
+
         return [
             'period' => $resolvedPeriod,
             'period_label' => $periodLabel,
@@ -745,6 +780,7 @@ class FinancialTransactionService
             'buckets' => $buckets,
             'payment_methods' => $paymentMethods,
             'rows' => $reportRows,
+            'by_country' => $byCountry,
         ];
     }
 
@@ -792,6 +828,36 @@ class FinancialTransactionService
 
         $categoryTotals[$normalizedCategory]['amount'] += $amount;
         $categoryTotals[$normalizedCategory]['receipt_count']++;
+    }
+
+    private function addCountryCategoryAmount(
+        array &$countryTotals,
+        int $countryId,
+        ?object $country,
+        string $category,
+        float $amount,
+    ): void {
+        $normalizedCategory = trim($category) !== '' ? trim($category) : 'Others';
+
+        if (! isset($countryTotals[$countryId])) {
+            $countryTotals[$countryId] = [
+                'country_id' => $countryId,
+                'country_name' => (string) ($country?->name ?? 'Unknown'),
+                'currency_symbol' => $country?->currency_symbol,
+                'categories' => [],
+            ];
+        }
+
+        if (! isset($countryTotals[$countryId]['categories'][$normalizedCategory])) {
+            $countryTotals[$countryId]['categories'][$normalizedCategory] = [
+                'category' => $normalizedCategory,
+                'amount' => 0.0,
+                'receipt_count' => 0,
+            ];
+        }
+
+        $countryTotals[$countryId]['categories'][$normalizedCategory]['amount'] += $amount;
+        $countryTotals[$countryId]['categories'][$normalizedCategory]['receipt_count']++;
     }
 
     /**

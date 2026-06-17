@@ -14,8 +14,8 @@ import {
     index,
     show,
 } from '@/routes/packages';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import { FileSpreadsheetIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -107,6 +107,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.departure_date,
@@ -114,6 +115,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         cell: ({ row }) => row.original.return_date,
@@ -145,6 +147,7 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -152,7 +155,14 @@ const columns: ColumnDef<PackageDataTableSchema>[] = [
 ];
 
 export default function PackagesIndex({ data }: PackagesProps) {
-    const actions: ActionType[] = ['add', 'view', 'edit', 'download', 'delete'];
+    const { auth } = usePage<SharedData>().props;
+    const userPermissions = auth.permissions || [];
+    const actions: ActionType[] = [];
+    if (userPermissions.includes('package create')) actions.push('add');
+    actions.push('view');
+    if (userPermissions.includes('package edit')) actions.push('edit');
+    actions.push('download');
+    if (userPermissions.includes('package delete')) actions.push('delete');
     const { packagesForDatatable } = data;
     const { confirm, ConfirmDialog } = useConfirmDialog();
     const [importOpen, setImportOpen] = useState(false);
@@ -229,7 +239,13 @@ export default function PackagesIndex({ data }: PackagesProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    router.get(edit(row.id).url);
+                                    if (
+                                        userPermissions.includes('package edit')
+                                    ) {
+                                        router.get(edit(row.id).url);
+                                    } else {
+                                        router.get(show(row.id).url);
+                                    }
                                 }
                             }}
                             initialState={{
@@ -244,9 +260,23 @@ export default function PackagesIndex({ data }: PackagesProps) {
                                     manifests_count: false,
                                     created_at: false,
                                 },
+                                columnFilters: [
+                                    { id: 'status', value: ['open'] },
+                                ],
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={Object.entries(
+                                            packageStatusLabels,
+                                        ).map(([value, label]) => ({
+                                            value,
+                                            label,
+                                        }))}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="country_name"

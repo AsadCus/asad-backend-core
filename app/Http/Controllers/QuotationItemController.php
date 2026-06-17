@@ -9,6 +9,7 @@ use App\Services\NoteService;
 use App\Services\QuotationItemService;
 use App\Services\QuotationService;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -28,6 +29,11 @@ class QuotationItemController extends Controller
         $this->quotationItemRule = $quotationItemRule;
         $this->noteService = $noteService;
         $this->quotationService = $quotationService;
+
+        $this->middleware('permission:product-services view')->only(['index']);
+        $this->middleware('permission:product-services edit')->only([
+            'store', 'storePaymentMethodMasters', 'storeExtensionMasters',
+        ]);
     }
 
     public function index()
@@ -194,6 +200,7 @@ class QuotationItemController extends Controller
             'payment_methods.*.name' => ['required', 'string', 'max:255'],
             'payment_methods.*.value' => ['nullable', 'string', 'max:100'],
             'payment_methods.*.is_active' => ['nullable', 'boolean'],
+            'payment_methods.*.is_available_for_refund' => ['nullable', 'boolean'],
             'payment_methods.*.is_default' => ['nullable', 'boolean'],
             'payment_methods.*.sort_order' => ['nullable', 'integer'],
         ]);

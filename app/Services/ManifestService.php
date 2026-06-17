@@ -12,6 +12,7 @@ use App\Models\ManifestSharingGroup;
 use App\Models\ModelFile;
 use App\Models\Package;
 use App\Models\PackageOfficial;
+use App\Models\QuotationItem;
 use App\Support\DataScope;
 use App\Support\InvoiceStatus;
 use Carbon\Carbon;
@@ -72,6 +73,7 @@ class ManifestService
                     'total_seats' => $q->package?->total_seats,
                     'seats_left' => $q->package?->seats_left,
                     'country_name' => $q->package?->country?->name,
+                    'country_id' => $q->package?->country_id,
                     'status' => $q->package?->status,
                     'members_count' => $q->members_count,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),
@@ -369,6 +371,7 @@ class ManifestService
                         'role_in_room' => $member?->relationship,
                         'sort_order' => $roomMember->sort_order,
                         'remarks' => $roomMember->remarks,
+                        'meal' => $roomMember->meal,
                         'customer_confirmation_member_id' => $member?->id,
                         'customer_id' => $customer?->id,
                     ];
@@ -455,6 +458,7 @@ class ManifestService
                         'package_official_id' => $member['package_official_id'] ?? null,
                         'sort_order' => $member['sort_order'] ?? null,
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ];
                 }, $room['members'] ?? []),
             ];
@@ -669,6 +673,7 @@ class ManifestService
                         'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ]);
                 }
             }
@@ -715,6 +720,7 @@ class ManifestService
                         'manifest_member_id' => $manifestMemberId,
                         'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                         'remarks' => $member['remarks'] ?? null,
+                        'meal' => $member['meal'] ?? null,
                     ]);
                 }
             }
@@ -1286,6 +1292,138 @@ class ManifestService
     }
 
     /**
+     * Append freshly-imported confirmation members to a manifest as new
+     * ManifestMembers, bin-packed into NEW ManifestSharingGroups.
+     *
+     * Unlike {@see syncMembers()}, this NEVER reconciles or deletes existing
+     * members/groups — it only adds. This is safe for the import flow because
+     * each import creates brand-new CustomerConfirmations, so the new members'
+     * bucket key (confirmationId|sharingPlan) can never collide with an
+     * existing group, keeping the new groups disjoint from prior data.
+     *
+     * Each descriptor must provide:
+     *   - customer_confirmation_member_id (int)  — the CC member to mirror
+     *   - sharing_plan (string)                  — single/double/triple/quad/...
+     *   - sharing_group_key (?string)            — explicit room group (optional)
+     *
+     * @param  array<int, array<string, mixed>>  $newMembers
+     */
+    public function appendImportedMembers(Manifest $manifest, array $newMembers): void
+    {
+        if ($newMembers === []) {
+            return;
+        }
+
+        $confirmationMemberIds = collect($newMembers)
+            ->pluck('customer_confirmation_member_id')
+            ->filter(fn ($value) => ! empty($value))
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $confirmationMembers = CustomerConfirmationMember::query()
+            ->with(['customer.user'])
+            ->whereIn('id', $confirmationMemberIds)
+            ->get()
+            ->keyBy(fn (CustomerConfirmationMember $member) => (int) $member->id);
+
+        // Idempotency guard: never create a second ManifestMember for a CC member
+        // already on this manifest (e.g. one auto-linked by the Receipt hook).
+        $alreadyOnManifest = ManifestMember::query()
+            ->where('manifest_id', $manifest->id)
+            ->whereIn('customer_confirmation_member_id', $confirmationMemberIds)
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($value) => (int) $value)
+            ->flip();
+
+        // Bin-pack into group keys (new batch only — no reconcile pass).
+        $groupedMembers = [];     // groupKey => [['cm' => ..., 'descriptor' => ...], ...]
+        $groupSizes = [];
+        $groupBuckets = [];       // bucketKey => [groupKey, ...]
+        $groupKeyCounter = [];
+        $groupConfirmationId = []; // groupKey => confirmationId
+
+        foreach (array_values($newMembers) as $descriptor) {
+            $cmId = (int) ($descriptor['customer_confirmation_member_id'] ?? 0);
+
+            if ($alreadyOnManifest->has($cmId)) {
+                continue;
+            }
+
+            $confirmationMember = $confirmationMembers->get($cmId);
+
+            if (! $confirmationMember) {
+                continue;
+            }
+
+            $sharingPlan = strtolower(trim((string) ($descriptor['sharing_plan'] ?? $confirmationMember->sharing_plan ?? '')));
+            $confirmationId = (int) $confirmationMember->customer_confirmation_id;
+            $capacity = $this->capacityFromSharingPlan($sharingPlan !== '' ? $sharingPlan : null);
+
+            $explicitKey = isset($descriptor['sharing_group_key']) && is_string($descriptor['sharing_group_key'])
+                ? trim($descriptor['sharing_group_key'])
+                : '';
+
+            if ($explicitKey !== '') {
+                // Scope the explicit key to the confirmation so the same room label
+                // in two different bookings does not merge into one group.
+                $groupKey = 'import-'.$confirmationId.'-'.$explicitKey;
+            } else {
+                $bucketKey = $confirmationId.'|'.$sharingPlan;
+                $groupKey = null;
+
+                foreach ($groupBuckets[$bucketKey] ?? [] as $candidateKey) {
+                    if (($groupSizes[$candidateKey] ?? 0) < $capacity) {
+                        $groupKey = $candidateKey;
+                        break;
+                    }
+                }
+
+                if ($groupKey === null) {
+                    $groupKeyCounter[$bucketKey] = ($groupKeyCounter[$bucketKey] ?? 0) + 1;
+                    $groupKey = 'auto-'.$bucketKey.'-'.$groupKeyCounter[$bucketKey];
+                    $groupBuckets[$bucketKey][] = $groupKey;
+                }
+            }
+
+            $groupSizes[$groupKey] = ($groupSizes[$groupKey] ?? 0) + 1;
+            $groupConfirmationId[$groupKey] = $confirmationId;
+            $groupedMembers[$groupKey][] = [
+                'cm' => $confirmationMember,
+                'descriptor' => $descriptor,
+            ];
+        }
+
+        $memberSortOrder = (int) ($manifest->members()->max('sort_order') ?? 0);
+        $groupSortOrder = (int) ($manifest->manifestSharingGroups()->max('sort_order') ?? 0);
+
+        foreach ($groupedMembers as $groupKey => $entries) {
+            $groupSortOrder++;
+            $firstMember = $entries[0]['cm'];
+
+            $sharingGroup = $manifest->manifestSharingGroups()->create([
+                'customer_confirmation_id' => $groupConfirmationId[$groupKey] ?? null,
+                'sort_order' => $groupSortOrder,
+                'group_relationship' => $firstMember->relationship ?? null,
+            ]);
+
+            foreach ($entries as $entry) {
+                /** @var CustomerConfirmationMember $confirmationMember */
+                $confirmationMember = $entry['cm'];
+                $memberSortOrder++;
+
+                $manifest->members()->create([
+                    'manifest_sharing_group_id' => $sharingGroup->id,
+                    'customer_confirmation_member_id' => $confirmationMember->id,
+                    ...$this->buildManifestMemberSnapshot($confirmationMember, [], null),
+                    'sort_order' => $memberSortOrder,
+                ]);
+            }
+        }
+    }
+
+    /**
      * Sync rooms for a manifest while preserving existing IDs.
      */
     private function syncRooms(Manifest $manifest, array $rooms): void
@@ -1404,6 +1542,13 @@ class ManifestService
             if ($incomingRoomId > 0) {
                 /** @var ManifestRoom|null $savedRoom */
                 $savedRoom = $existingRoomsById->get($incomingRoomId);
+
+                // Two incoming groups must never resolve to the same physical
+                // room (e.g. a split member still carrying its old room id).
+                // If this room was already claimed this pass, force a new room.
+                if ($savedRoom && in_array((int) $savedRoom->id, $retainedRoomIds, true)) {
+                    $savedRoom = null;
+                }
             }
 
             if (! $savedRoom) {
@@ -1511,6 +1656,7 @@ class ManifestService
                     'manifest_member_id' => $manifestMemberId,
                     'sort_order' => (int) ($member['sort_order'] ?? ($index + 1)),
                     'remarks' => $member['remarks'] ?? null,
+                    'meal' => $member['meal'] ?? null,
                 ];
 
                 if ($existingRoomMember) {
@@ -1688,7 +1834,7 @@ class ManifestService
                                     'room_type' => $room->room_type,
                                     'bed_type' => $room->bed_type,
                                     'number_of_beds_checked' => (bool) $room->number_of_beds_checked,
-                                    'meal' => $room->meal,
+                                    'meal' => $roomMember->meal,
                                     'room_remarks' => $room->remarks,
                                     'remarks' => $memberRow['remarks'] ?? null,
                                 ]);
@@ -2324,7 +2470,7 @@ class ManifestService
     }
 
     /**
-     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     * @param  Collection<int, QuotationItem>  $invoiceItems
      */
     private function resolvePositiveItemTaxTotalFromInvoiceItems(Collection $invoiceItems): float
     {
@@ -2355,7 +2501,7 @@ class ManifestService
     }
 
     /**
-     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     * @param  Collection<int, QuotationItem>  $invoiceItems
      */
     private function resolveNegativeItemDiscountTotalFromInvoiceItems(Collection $invoiceItems): float
     {
@@ -2363,7 +2509,7 @@ class ManifestService
     }
 
     /**
-     * @param  Collection<int, \App\Models\QuotationItem>  $invoiceItems
+     * @param  Collection<int, QuotationItem>  $invoiceItems
      * @return array<int, float>
      */
     private function resolveNegativeItemDiscountByMemberFromInvoiceItems(Collection $invoiceItems): array
@@ -3062,7 +3208,7 @@ class ManifestService
         return Carbon::parse((string) $value)->translatedFormat('d F Y');
     }
 
-    private function getPackagePriceForSharingPlan(?\App\Models\Package $package, ?string $sharingPlan): float
+    private function getPackagePriceForSharingPlan(?Package $package, ?string $sharingPlan): float
     {
         if (! $package) {
             return 0.0;

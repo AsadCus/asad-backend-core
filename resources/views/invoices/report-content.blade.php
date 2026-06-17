@@ -227,12 +227,7 @@
                 <td width="58%">
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
-                            <td class="lbl">Customer No.</td>
-                            <td class="sep">:</td>
-                            <td>{{ $data['customer_number'] ?? '-' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Customer</td>
+                            <td class="lbl">Name</td>
                             <td class="sep">:</td>
                             <td>{{ $data['customer_name'] ?? '-' }}</td>
                         </tr>
@@ -497,6 +492,13 @@
                         <td class="total-label payment-info-head">Balance Due:</td>
                         <td class="total-amount payment-info-head">
                             {{ formatCurrency($data['balance_due_amount'] ?? 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="total-label payment-info-head">Grand Total:</td>
+                        <td class="total-amount payment-info-head">
+                            {{ formatCurrency($data['invoice_paid_amount'] ?? 0) }} /
+                            {{ formatCurrency(($data['invoice_total_amount'] ?? 0) ?: ($data['total_amount'] ?? $subtotal)) }}
                         </td>
                     </tr>
                 </tbody>

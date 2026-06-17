@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FormatService;
 use App\Models\FinancialYear;
+use App\Models\Package;
 use App\Services\CountryService;
 use App\Services\CustomerService;
 use App\Services\EducationLevelService;
@@ -18,6 +19,7 @@ use App\Services\SalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 class DashboardController extends Controller
 {
@@ -182,12 +184,25 @@ class DashboardController extends Controller
         $selectedYear = $this->resolveDashboardFinancialYear($selectedYearId);
 
         if (! $selectedYear) {
-            return response()->json(['count' => 0, 'amount' => 0]);
+            return response()->json(['count' => 0, 'amount' => 0, 'by_country' => []]);
         }
 
         $data = $this->salesService->getFiscalYearTotalSales($selectedYear);
 
         return response()->json($data);
+    }
+
+    /**
+     * Admin users may only view today's Daily Received data (no date range).
+     * Superadmin keeps full access.
+     */
+    private function isDailyReceivedLockedToToday(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null
+            && $user->hasRole('admin')
+            && ! $user->hasRole('superadmin');
     }
 
     public function paymentReport(Request $request)
@@ -197,6 +212,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
+
+        // Admin users are locked to today's daily received only.
+        if ($this->isDailyReceivedLockedToToday($request)) {
+            $period = 'daily';
+            $rangeStartUtc = null;
+            $rangeEndUtc = null;
+        }
 
         $packageIds = $request->input('packages');
         if (is_string($packageIds)) {
@@ -228,6 +250,13 @@ class DashboardController extends Controller
         $timezone = $request->input('timezone');
         $rangeStartUtc = $request->input('range_start_utc');
         $rangeEndUtc = $request->input('range_end_utc');
+
+        // Admin users are locked to today's daily received only.
+        if ($this->isDailyReceivedLockedToToday($request)) {
+            $period = 'daily';
+            $rangeStartUtc = null;
+            $rangeEndUtc = null;
+        }
 
         $packageIds = $request->input('packages');
         if (is_string($packageIds)) {
@@ -263,7 +292,7 @@ class DashboardController extends Controller
         return $pdf->download($filename);
     }
 
-    public function exportClosingReport(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function exportClosingReport(Request $request): Response
     {
         $period = (string) $request->input('period', 'monthly');
         $financialYearId = $request->input('financial_year_id');
@@ -292,6 +321,18 @@ class DashboardController extends Controller
             empty($packageIds) ? null : (is_array($packageIds) ? $packageIds : null),
             empty($categoryIds) ? null : (is_array($categoryIds) ? $categoryIds : null),
         );
+
+        if (! empty($packageIds) && count($packageIds) > 1 && isset($summary['package'])) {
+            $pkgList = Package::whereIn('id', $packageIds)
+                ->get(['package_number', 'name'])
+                ->map(fn ($p) => $p->package_number.' - '.$p->name)
+                ->implode(', ');
+            $summary['package']['name'] = $pkgList ?: (count($packageIds).' packages');
+        }
+
+        $summary['selected_categories'] = ! empty($categoryIds)
+            ? array_values((array) $categoryIds)
+            : null;
 
         $report = $this->reportTemplateService->build('closing_report', $summary);
         $report['is_pdf'] = true;

@@ -55,9 +55,24 @@ class CustomerService
 
     public function getForDataTable($request)
     {
-        $data = User::role('customer')->with('customer')
+        $data = User::role('customer')
+            ->with([
+                'customer',
+                'customer.confirmationMembers' => function ($q) {
+                    $q->whereHas('confirmation.package', function ($pq) {
+                        $pq->whereIn('status', ['open', 'ongoing']);
+                    })->with(['confirmation.package']);
+                },
+            ])
             ->orderBy('created_at', 'desc')
-            ->get()->map(function ($q) {
+            ->get()
+            ->map(function ($q) {
+                $activePackage = $q->customer
+                    ->confirmationMembers
+                    ->first()
+                    ?->confirmation
+                    ?->package;
+
                 return [
                     'id' => $q->id,
                     'customer_id' => $q->customer->id,
@@ -69,6 +84,7 @@ class CustomerService
                     'address' => $q->customer->address ?? '-',
                     'last_login' => $q->customer->last_login ?? null,
                     'is_active' => $q->customer->is_active ?? true,
+                    'package_name' => $activePackage?->name ?? null,
                 ];
             });
 

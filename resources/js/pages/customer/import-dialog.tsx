@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { importMethod } from '@/routes/customer';
 import type { FormDataConvertible } from '@inertiajs/core';
-import { router, usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     AlertCircleIcon,
     ArrowLeftIcon,
@@ -359,14 +359,17 @@ export function CustomerImportDialog({ open, onClose }: Props) {
     >([]);
     const [parseError, setParseError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { errors } = usePage().props as { errors: Record<string, string> };
 
     const resetDialog = () => {
         setStep('upload');
         setParsedCustomers([]);
         setParseError(null);
         setIsSubmitting(false);
+        setSubmitError(null);
+        setIsDragging(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -375,11 +378,9 @@ export function CustomerImportDialog({ open, onClose }: Props) {
         onClose();
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const processFile = (file: File) => {
         setParseError(null);
-
+        setSubmitError(null);
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
@@ -399,24 +400,51 @@ export function CustomerImportDialog({ open, onClose }: Props) {
         reader.readAsArrayBuffer(file);
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) processFile(file);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) processFile(file);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
+
     const handleSubmit = () => {
         if (parsedCustomers.length === 0) return;
         setIsSubmitting(true);
+        setSubmitError(null);
         router.post(
             importMethod().url,
             { data: parsedCustomers },
             {
                 onFinish: () => setIsSubmitting(false),
                 onSuccess: () => handleClose(),
+                onError: (errs) => {
+                    setSubmitError(
+                        typeof errs.import === 'string'
+                            ? errs.import
+                            : 'Import failed. Please check your data and try again.',
+                    );
+                },
             },
         );
     };
 
-    const importError = errors?.import;
-
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col">
+            <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-auto md:min-w-4xl">
                 <DialogHeader>
                     <DialogTitle>
                         {step === 'upload'
@@ -433,16 +461,12 @@ export function CustomerImportDialog({ open, onClose }: Props) {
                 <div className="flex-1 overflow-y-auto">
                     {step === 'upload' && (
                         <div className="space-y-4 py-2">
-                            {importError && (
-                                <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                                    <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                                    <span>{importError}</span>
-                                </div>
-                            )}
-
                             <label
                                 htmlFor="customer-import-file"
-                                className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/30 px-6 py-12 text-center transition-colors hover:border-primary/50 hover:bg-muted/30"
+                                className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${isDragging ? 'border-primary/70 bg-muted/50' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30'}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
                             >
                                 <FileSpreadsheetIcon className="h-10 w-10 text-muted-foreground" />
                                 <div>
@@ -474,6 +498,13 @@ export function CustomerImportDialog({ open, onClose }: Props) {
 
                     {step === 'preview' && (
                         <div className="space-y-4 py-2">
+                            {submitError && (
+                                <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                                    <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span>{submitError}</span>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-2">
                                 <CheckCircleIcon className="h-4 w-4 text-green-600" />
                                 <span className="text-sm font-medium">

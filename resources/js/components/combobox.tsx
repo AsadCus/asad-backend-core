@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, X } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ interface ComboboxProps {
     disabled?: boolean;
     className?: string;
     truncate?: number;
+    clearable?: boolean;
 }
 
 export function Combobox({
@@ -40,6 +41,7 @@ export function Combobox({
     disabled = false,
     className,
     truncate = 100,
+    clearable = false,
 }: ComboboxProps) {
     const [open, setOpen] = React.useState(false);
 
@@ -66,7 +68,31 @@ export function Combobox({
                             ? selected.label.slice(0, truncate) + '…'
                             : selected.label
                         : placeholder}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <span className="ml-2 flex items-center gap-1">
+                        {clearable && selected && !disabled && (
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                aria-label="Clear selection"
+                                className="rounded-sm opacity-50 hover:opacity-100"
+                                onPointerDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange('');
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onChange('');
+                                    }
+                                }}
+                            >
+                                <X className="h-4 w-4" />
+                            </span>
+                        )}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </span>
                 </Button>
             </PopoverTrigger>
 

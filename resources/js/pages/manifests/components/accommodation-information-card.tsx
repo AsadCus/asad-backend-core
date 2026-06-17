@@ -1,5 +1,5 @@
-import { FormField } from '@/components/form-field';
 import { DatePickerField } from '@/components/date-picker';
+import { FormField } from '@/components/form-field';
 import { ProperInput } from '@/components/proper-input';
 import {
     Card,
@@ -47,7 +47,16 @@ export default function AccommodationInformationCard({
                 </FormField>
                 <FormField label="Check In">
                     <DatePickerField
-                        id={`accommodation-check-in-${accommodation.id ?? String(accommodation.location ?? accommodation.hotel_name ?? 'row').toLowerCase().replace(/\s+/g, '-')}`}
+                        id={`accommodation-check-in-${
+                            accommodation.id ??
+                            String(
+                                accommodation.location ??
+                                    accommodation.hotel_name ??
+                                    'row',
+                            )
+                                .toLowerCase()
+                                .replace(/\s+/g, '-')
+                        }`}
                         value={accommodation.check_in ?? ''}
                         disabled
                         onChange={() => undefined}
@@ -55,7 +64,16 @@ export default function AccommodationInformationCard({
                 </FormField>
                 <FormField label="Check Out">
                     <DatePickerField
-                        id={`accommodation-check-out-${accommodation.id ?? String(accommodation.location ?? accommodation.hotel_name ?? 'row').toLowerCase().replace(/\s+/g, '-')}`}
+                        id={`accommodation-check-out-${
+                            accommodation.id ??
+                            String(
+                                accommodation.location ??
+                                    accommodation.hotel_name ??
+                                    'row',
+                            )
+                                .toLowerCase()
+                                .replace(/\s+/g, '-')
+                        }`}
                         value={accommodation.check_out ?? ''}
                         disabled
                         onChange={() => undefined}

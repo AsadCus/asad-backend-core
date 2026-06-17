@@ -20,6 +20,7 @@ export const flightSchema = z.object({
     to: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     airline: z.string().nullable().optional(),
+    flight_number: z.string().nullable().optional(),
     pnr: z.string().nullable().optional(),
     departure_datetime: z.string().nullable().optional(),
     arrival_datetime: z.string().nullable().optional(),
@@ -56,6 +57,7 @@ export const rawdahTasreehSchema = z.object({
 
 export const officialSchema = z.object({
     id: z.number().optional(),
+    official_id: z.number().nullable().optional(),
     type: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
     hotel: z.string().nullable().optional(),
@@ -78,6 +80,7 @@ export const packageSchema = z.object({
     name: z.string().optional(),
     status: z.string().optional(),
     country_id: z.string().optional(),
+    country_name: z.string().nullable().optional(),
 
     price_single: z.union([z.string(), z.number()]).nullable().optional(),
     price_double: z.union([z.string(), z.number()]).nullable().optional(),
@@ -259,6 +262,22 @@ export const officialTypeOptions = [
     { label: 'Mutawifah', value: 'mutawifah' },
     { label: 'Official', value: 'official' },
 ];
+
+// Master official option fed to package & proposal forms (select by type, then name).
+export type OfficialSelectOption = {
+    id: number;
+    type: string | null;
+    name: string;
+    contact_number: string | null;
+    nationality: string | null;
+    passport_number: string | null;
+    gender: string | null;
+    date_of_birth: string | null;
+    place_of_birth: string | null;
+    passport_issue_date: string | null;
+    passport_expiry_date: string | null;
+    passport_place_of_issue: string | null;
+};
 
 export const packageMealPlanOptions = [
     { value: 'Breakfast Only', label: 'Breakfast Only' },

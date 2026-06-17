@@ -8,14 +8,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import {
     create as generalPublicCreate,
     store as generalPublicStore,
 } from '@/routes/general-enquiries/public';
@@ -54,7 +46,7 @@ export default function GeneralEnquiryForm({
     // const isCreate = mode === 'create';
 
     const title = 'General Enquiry Form';
-    const [successModalOpen, setSuccessModalOpen] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
 
     // Force light mode for public enquiry form
     useEffect(() => {
@@ -170,8 +162,7 @@ export default function GeneralEnquiryForm({
             preserveScroll: true,
             onSuccess: () => {
                 reset();
-                setSuccessModalOpen(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setSubmitted(true);
             },
             onError: (errors) => {
                 setError(errors);
@@ -190,6 +181,38 @@ export default function GeneralEnquiryForm({
     const handleReset = () => {
         reset();
     };
+
+    if (submitted) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-white p-4">
+                <Head title="Enquiry Submitted" />
+                <Card className="w-full gap-0 border-1 shadow-sm md:max-w-[90%]">
+                    <CardHeader className="pb-6">
+                        <CardTitle className="flex items-center gap-2 text-2xl font-light text-green-700">
+                            <CheckCircle className="h-6 w-6" />
+                            Enquiry Submitted
+                        </CardTitle>
+                        <CardDescription className="mt-2 text-base">
+                            Your enquiry has been submitted successfully. We
+                            will contact you soon.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                reset();
+                                setSubmitted(false);
+                            }}
+                        >
+                            Submit Another Enquiry
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center bg-white p-4">
@@ -276,30 +299,6 @@ export default function GeneralEnquiryForm({
                     </form>
                 </CardContent>
             </Card>
-
-            <Dialog open={successModalOpen} onOpenChange={setSuccessModalOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-green-700">
-                            <CheckCircle className="h-5 w-5" />
-                            Enquiry Submitted
-                        </DialogTitle>
-                        <DialogDescription>
-                            Your enquiry has been submitted successfully. We
-                            will contact you soon.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setSuccessModalOpen(false)}
-                        >
-                            Close
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

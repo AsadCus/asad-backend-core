@@ -10,6 +10,7 @@ class PackageOfficial extends Model
 {
     protected $fillable = [
         'package_id',
+        'official_id',
         'type',
         'name',
         'hotel',
@@ -39,6 +40,11 @@ class PackageOfficial extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function official(): BelongsTo
+    {
+        return $this->belongsTo(Official::class);
     }
 
     public function getDateOfBirthFormattedAttribute(): ?string

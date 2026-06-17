@@ -32,6 +32,9 @@ class Quotation extends Model
         'status',
         'reason',
         'is_locked',
+        'email_sent_at',
+        'voided_by',
+        'voided_at',
     ];
 
     protected $casts = [
@@ -40,6 +43,8 @@ class Quotation extends Model
         'extensions' => 'array',
         'is_locked' => 'boolean',
         'status' => QuotationStatus::class,
+        'email_sent_at' => 'datetime',
+        'voided_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo
@@ -55,6 +60,11 @@ class Quotation extends Model
     public function handledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'handled_by');
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
     }
 
     public function country(): BelongsTo

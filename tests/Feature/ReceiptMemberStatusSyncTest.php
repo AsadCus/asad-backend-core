@@ -344,6 +344,33 @@ class ReceiptMemberStatusSyncTest extends TestCase
         $this->assertSame(5000.0, (float) ($memberRow['paid_amount'] ?? 0));
     }
 
+    public function test_grouped_index_paid_amount_excludes_voided_invoice_receipts(): void
+    {
+        $data = $this->createConfirmationWithQuotationOrder();
+
+        Receipt::create([
+            'invoice_id' => $data['depositInvoice']->id,
+            'amount' => 5000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $data['depositInvoice']->update([
+            'status' => 'cancelled',
+        ]);
+
+        $grouped = app(CustomerConfirmationService::class)->getForGroupedIndex(true);
+
+        $group = collect($grouped)->firstWhere('id', $data['confirmation']->id);
+        $this->assertNotNull($group);
+        $this->assertSame(0.0, (float) ($group['paid_amount'] ?? 0));
+
+        $memberRow = collect($group['members'] ?? [])->firstWhere('id', $data['member']->id);
+        $this->assertNotNull($memberRow);
+        $this->assertSame(0.0, (float) ($memberRow['paid_amount'] ?? 0));
+        $this->assertSame(0.0, (float) ($memberRow['invoice_paid_amount'] ?? 0));
+    }
+
     public function test_grouped_index_totals_consider_negative_quotation_and_invoice_extensions(): void
     {
         $data = $this->createConfirmationWithQuotationOrder();

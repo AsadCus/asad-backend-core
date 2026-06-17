@@ -30,6 +30,7 @@ interface ViewUserProps {
     isSales: boolean;
     isOperations: boolean;
     isCustomer: boolean;
+    isOfficial: boolean;
     scopeMode?: 'country' | 'branch';
 }
 
@@ -44,6 +45,7 @@ export default function ViewUser({
     isSales = false,
     isOperations = false,
     isCustomer = false,
+    isOfficial = false,
     scopeMode = 'country',
 }: ViewUserProps) {
     const handleCancel = useCallback(() => {
@@ -56,6 +58,7 @@ export default function ViewUser({
         isSales,
         isOperations,
         isCustomer,
+        isOfficial,
     });
 
     return (
@@ -81,6 +84,7 @@ export default function ViewUser({
                         isSales={isSales}
                         isOperations={isOperations}
                         isCustomer={isCustomer}
+                        isOfficial={isOfficial}
                         scopeMode={scopeMode}
                     />
                 </div>

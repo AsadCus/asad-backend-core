@@ -22,7 +22,7 @@ export function InvoiceHeader({
 }) {
     return (
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
-            <section className="grid grid-cols-1 gap-3">
+            <section className="grid grid-cols-1 gap-3 items-start">
                 <FormField
                     label="Invoice Name"
                     htmlFor="description"
@@ -45,7 +45,7 @@ export function InvoiceHeader({
                 </FormField>
             </section>
 
-            <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <section className="grid grid-cols-1 gap-3 items-start md:grid-cols-2">
                 {modelNumberField && <div>{modelNumberField}</div>}
 
                 {paymentMethodField && (

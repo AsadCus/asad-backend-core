@@ -38,6 +38,7 @@ const columns: ColumnDef<FinancialYearDatatableSchema>[] = [
     },
     {
         accessorKey: 'start_date',
+        sortingFn: 'displayDate',
         header: 'Start Date',
         meta: { exportable: true },
         cell: ({ row }) => {
@@ -52,6 +53,7 @@ const columns: ColumnDef<FinancialYearDatatableSchema>[] = [
     },
     {
         accessorKey: 'end_date',
+        sortingFn: 'displayDate',
         header: 'End Date',
         meta: { exportable: true },
         cell: ({ row }) => {

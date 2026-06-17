@@ -49,6 +49,8 @@ interface GeneralEnquiryPackageOption extends OptionType {
     status?: string | null;
     is_private?: boolean;
     is_selectable?: boolean;
+    country_id?: number | null;
+    country_name?: string | null;
 }
 
 export default function GeneralEnquiryForm({
@@ -130,6 +132,7 @@ export default function GeneralEnquiryForm({
 
     const groupedPackageOptions = useMemo(() => {
         const selectedPackageId = Number(data.package_id ?? 0);
+        const selectedCountryId = Number(data.country_id ?? 0);
 
         const options = normalizedPackageOptions
             .filter((option) => {
@@ -139,6 +142,10 @@ export default function GeneralEnquiryForm({
 
                 if (isCurrentSelection) {
                     return true;
+                }
+
+                if (selectedCountryId > 0 && Number(option.country_id ?? 0) !== selectedCountryId) {
+                    return false;
                 }
 
                 return isPackageSelectable(option);
@@ -200,7 +207,7 @@ export default function GeneralEnquiryForm({
         });
 
         return grouped;
-    }, [data.package_id, isPackageSelectable, normalizedPackageOptions]);
+    }, [data.package_id, data.country_id, isPackageSelectable, normalizedPackageOptions]);
 
     const [linkedPackageInfo, setLinkedPackageInfo] = useState<{
         id: number;
@@ -208,6 +215,7 @@ export default function GeneralEnquiryForm({
         status?: string;
         departure_date?: string | null;
         return_date?: string | null;
+        country_name?: string | null;
     } | null>(null);
     const [linkedPackageData, setLinkedPackageData] =
         useState<PackageSchema | null>(null);
@@ -247,6 +255,7 @@ export default function GeneralEnquiryForm({
                 status: pkg.status,
                 departure_date: pkg.departure_date,
                 return_date: pkg.return_date,
+                country_name: pkg.country?.name ?? pkg.country_name ?? null,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -274,6 +283,7 @@ export default function GeneralEnquiryForm({
             status: current?.status,
             departure_date: current?.departure_date,
             return_date: current?.return_date,
+            country_name: (selected as OptionType & { country_name?: string })?.country_name ?? current?.country_name ?? null,
         }));
 
         loadPackageInfo(Number(packageId));
@@ -485,7 +495,7 @@ export default function GeneralEnquiryForm({
 
                         {isCreate && !isView && customerOptions.length > 0 && (
                             <div className="flex flex-col justify-start md:flex-row md:justify-end">
-                                <div className="w-full md:w-auto md:max-w-[320px]">
+                                <div className="w-full">
                                     <FormField
                                         label="Existing Customer"
                                         fieldRequirementsProps={{
@@ -499,7 +509,9 @@ export default function GeneralEnquiryForm({
                                                     value: String(
                                                         customer.value,
                                                     ),
-                                                    label: customer.label,
+                                                    label: customer.name
+                                                        ? `${customer.name} - ${customer.email}`
+                                                        : customer.email,
                                                 }),
                                             )}
                                             value={selectedExistingCustomerId}
@@ -547,7 +559,7 @@ export default function GeneralEnquiryForm({
                                                 );
                                             }}
                                             placeholder="Search & select customer..."
-                                            maxWidth="320px"
+                                            maxWidth="480px"
                                             responsive={true}
                                             disabled={processing}
                                         />
@@ -612,11 +624,12 @@ export default function GeneralEnquiryForm({
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                        <div className="h-full w-full flex-1 overflow-y-auto p-2">
                             {linkedPackageData ? (
                                 <PackageForm
                                     mode="view"
                                     initialData={linkedPackageData}
+                                    countries={countryOptions}
                                     onCancel={() => setPackageDialogOpen(false)}
                                 />
                             ) : (

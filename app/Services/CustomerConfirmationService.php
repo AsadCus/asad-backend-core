@@ -23,6 +23,7 @@ use App\Models\QuotationNotes;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use App\Support\InvoiceStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
@@ -43,6 +44,18 @@ class CustomerConfirmationService
     public function isAutoBillingSyncEnabled(): bool
     {
         return (bool) config('customer_confirmation.auto_sync_billing_mutations', true);
+    }
+
+    public function isCombineFeatureEnabled(): bool
+    {
+        return FeatureFlag::enabled('customer_confirmation.combine_feature_enabled');
+    }
+
+    private function assertCombineFeatureEnabled(): void
+    {
+        if (! $this->isCombineFeatureEnabled()) {
+            abort(403, 'Combine feature is disabled.');
+        }
     }
 
     /** Create a customer confirmation from request data. */
@@ -427,6 +440,10 @@ class CustomerConfirmationService
             'members.quotationItems.quotation.quotationItems',
             'members.quotationItems.quotation.order.invoices.quotationItems',
             'members.quotationItems.quotation.order.invoices.quotationItems.taxes',
+            'quotations.customer.user',
+            'quotations.quotationItems.confirmationMember.customer.user',
+            'quotations.quotationItems.taxes',
+            'quotations.order.invoices.receipt',
             'enquiry.handledBy:id,name',
             'package.country',
         ])
@@ -463,6 +480,12 @@ class CustomerConfirmationService
                 $canCreateQuotation = $activeMembers
                     ->contains(fn (CustomerConfirmationMember $member) => ! $this->hasActiveQuotationItemLink($member));
 
+                $quotationSummaries = $group->quotations
+                    ->filter(fn (Quotation $quotation): bool => ! $this->isInactiveQuotation($quotation))
+                    ->map(fn (Quotation $quotation): array => $this->buildQuotationSummaryForIndex($quotation, $activeMembers))
+                    ->values()
+                    ->all();
+
                 return [
                     'id' => $group->id,
                     'number' => $group->number,
@@ -486,6 +509,8 @@ class CustomerConfirmationService
                     'refunded_amount' => round($groupRefundedAmount, 2),
                     'overpaid_amount' => round($groupOverpaidAmount, 2),
                     'can_create_quotation' => $canCreateQuotation,
+                    'quotation_count' => count($quotationSummaries),
+                    'quotations' => $quotationSummaries,
                     'can_delete' => $activeMembers->count() === 0,
                     'created_at' => $group->created_at?->translatedFormat('d F Y'),
                     'members' => $activeMembers->map(function (CustomerConfirmationMember $member) use ($group) {
@@ -882,6 +907,7 @@ class CustomerConfirmationService
                 'payment_method_label' => $paymentMethodLabel,
                 'reference' => (string) ($receipt->reference ?? ''),
                 'description' => (string) ($receipt->description ?? ''),
+                'refund_to' => (string) ($receipt->refund_to ?? ''),
                 'subtotal_amount' => round($subtotalAmount, 2),
                 'total_amount' => round($totalAmount, 2),
                 'extensions' => [],
@@ -945,6 +971,12 @@ class CustomerConfirmationService
             ->values();
 
         foreach ($invoices as $invoice) {
+            $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+            if ($normalizedStatus === InvoiceStatus::Cancelled) {
+                continue;
+            }
+
             $invoiceItems = $invoice->quotationItems
                 ->filter(fn ($item): bool => ! (bool) $item->is_header)
                 ->values();
@@ -1253,6 +1285,12 @@ class CustomerConfirmationService
                     return null;
                 }
 
+                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
+
+                if ($normalizedStatus === InvoiceStatus::Cancelled) {
+                    return null;
+                }
+
                 $memberSubtotal = (float) $invoiceItems
                     ->where('customer_confirmation_member_id', $member->id)
                     ->sum(function ($item): float {
@@ -1267,7 +1305,6 @@ class CustomerConfirmationService
                     ->pluck('receipt_date')
                     ->contains(fn ($date): bool => ! empty($date));
 
-                $normalizedStatus = strtolower(trim((string) ($invoice->status ?? '')));
                 $isPaid = $normalizedStatus === InvoiceStatus::Paid;
                 $isRefund = $normalizedStatus === InvoiceStatus::Refund;
 
@@ -1838,7 +1875,7 @@ class CustomerConfirmationService
     /** Get full customer confirmation details for edit or show. */
     public function getForEditShow(int $id): array
     {
-        $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package'])
+        $group = CustomerConfirmation::with(['members.customer.user', 'members.customer.files', 'members.quotationItems.quotation', 'enquiry.package', 'package.country'])
             ->findOrFail($id);
 
         $visibleMembers = $group->members
@@ -1850,6 +1887,8 @@ class CustomerConfirmationService
             'enquiry_id' => $group->enquiry_id,
             'package_id' => $group->package_id,
             'package_name' => $group->package?->name,
+            'package_country_id' => $group->package?->country_id,
+            'package_country_name' => $group->package?->country?->name,
             'package_price_single' => $group->package?->price_single,
             'package_price_double' => $group->package?->price_double,
             'package_price_triple' => $group->package?->price_triple,
@@ -1978,15 +2017,15 @@ class CustomerConfirmationService
 
                 if ($matchedMember) {
                     $incomingSharingPlan = $memberData['sharing_plan'] ?? null;
-                    $sharingPlanChanged = $incomingSharingPlan !== $matchedMember->sharing_plan;
-                    $hasAnyBilling = $this->memberHasAnyBilling($matchedMember->id);
-                    $hasPaidBilling = $this->memberHasPaidBilling($matchedMember->id);
+                    // $sharingPlanChanged = $incomingSharingPlan !== $matchedMember->sharing_plan;
+                    // $hasAnyBilling = $this->memberHasAnyBilling($matchedMember->id);
+                    // $hasPaidBilling = $this->memberHasPaidBilling($matchedMember->id);
 
                     $resolvedSharingPlan = $incomingSharingPlan;
 
-                    if ($sharingPlanChanged && $hasAnyBilling && ! $hasPaidBilling) {
-                        $this->resetMemberBillingLinksForRecreate($matchedMember->id);
-                    }
+                    // if ($sharingPlanChanged && $hasAnyBilling && !$hasPaidBilling) {
+                    //     $this->resetMemberBillingLinksForRecreate($matchedMember->id);
+                    // }
 
                     $matchedMember->update([
                         'customer_id' => $customer->id,
@@ -2146,19 +2185,19 @@ class CustomerConfirmationService
             ->exists();
     }
 
-    private function resetMemberBillingLinksForRecreate(int $memberId): void
-    {
-        $activeItemIds = $this->activeMemberQuotationItemsQuery($memberId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+    // private function resetMemberBillingLinksForRecreate(int $memberId): void
+    // {
+    //     $activeItemIds = $this->activeMemberQuotationItemsQuery($memberId)
+    //         ->pluck('id')
+    //         ->map(fn($id) => (int) $id)
+    //         ->all();
 
-        if (! empty($activeItemIds)) {
-            QuotationItem::query()
-                ->whereIn('id', $activeItemIds)
-                ->update(['customer_confirmation_member_id' => null]);
-        }
-    }
+    //     if (!empty($activeItemIds)) {
+    //         QuotationItem::query()
+    //             ->whereIn('id', $activeItemIds)
+    //             ->update(['customer_confirmation_member_id' => null]);
+    //     }
+    // }
 
     private function activeMemberQuotationItemsQuery(int $memberId)
     {
@@ -2780,6 +2819,641 @@ class CustomerConfirmationService
 
             return $newGroup;
         });
+    }
+
+    /**
+     * Combine quotations within a single confirmation: move the selected members
+     * (with their items + billing) from their current quotation into the target
+     * quotation. Source quotations that end up empty are removed.
+     *
+     * @param  array<int, int>  $memberIds
+     */
+    public function combineQuotations(int $confirmationId, int $targetQuotationId, array $memberIds): Quotation
+    {
+        $this->assertCombineFeatureEnabled();
+
+        return DB::transaction(function () use ($confirmationId, $targetQuotationId, $memberIds) {
+            $previousSuppress = PaymentStatusService::$suppressManifestAutoLink;
+            PaymentStatusService::$suppressManifestAutoLink = true;
+
+            try {
+                $group = CustomerConfirmation::query()->findOrFail($confirmationId);
+
+                $targetQuotation = $this->combineQuotationsCore($confirmationId, $targetQuotationId, $memberIds);
+
+                $this->syncMemberStatusesForConfirmation($confirmationId);
+                app(PackageSeatService::class)->recalculateForPackageId((int) ($group->package_id ?? 0));
+
+                activity()
+                    ->performedOn($targetQuotation)
+                    ->withProperties([
+                        'subject_type' => 'Quotation',
+                        'subject_id' => $targetQuotation->id,
+                        'context' => $this->buildLogContext(
+                            operation: 'combine_quotations',
+                            enquiryId: $group->enquiry_id,
+                            packageId: $group->package_id,
+                        ),
+                        'confirmation_id' => $confirmationId,
+                        'target_quotation_id' => (int) $targetQuotation->id,
+                        'member_ids' => array_values(array_map('intval', $memberIds)),
+                    ])
+                    ->log('Quotations combined into quotation #'.$targetQuotation->id);
+
+                return $targetQuotation->fresh() ?? $targetQuotation;
+            } finally {
+                PaymentStatusService::$suppressManifestAutoLink = $previousSuppress;
+            }
+        });
+    }
+
+    /**
+     * Combine two confirmations in the same package: re-home the selected members
+     * (and their quotations) from the source confirmation into the target. Optionally
+     * also merge the moved members into one quotation in the target confirmation.
+     *
+     * @param  array<int, int>  $memberIds
+     */
+    public function combineConfirmations(
+        int $sourceConfirmationId,
+        int $targetConfirmationId,
+        array $memberIds,
+        ?int $targetQuotationId = null,
+    ): CustomerConfirmation {
+        $this->assertCombineFeatureEnabled();
+
+        return DB::transaction(function () use ($sourceConfirmationId, $targetConfirmationId, $memberIds, $targetQuotationId) {
+            $previousSuppress = PaymentStatusService::$suppressManifestAutoLink;
+            PaymentStatusService::$suppressManifestAutoLink = true;
+
+            try {
+                $source = CustomerConfirmation::query()->findOrFail($sourceConfirmationId);
+                $target = CustomerConfirmation::query()->findOrFail($targetConfirmationId);
+
+                if ((int) $source->id === (int) $target->id) {
+                    abort(422, 'Cannot combine a confirmation with itself.');
+                }
+
+                if (! $source->package_id || (int) $source->package_id !== (int) $target->package_id) {
+                    abort(422, 'Both confirmations must belong to the same package.');
+                }
+
+                $memberIds = array_values(array_unique(array_map('intval', $memberIds)));
+
+                $movedMembers = CustomerConfirmationMember::query()
+                    ->where('customer_confirmation_id', $source->id)
+                    ->whereIn('id', $memberIds)
+                    ->get()
+                    ->filter(fn (CustomerConfirmationMember $member): bool => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+                    ->values();
+
+                if ($movedMembers->isEmpty()) {
+                    abort(422, 'No valid members selected to combine.');
+                }
+
+                $movedMemberIds = $movedMembers
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+
+                $stayBehindMemberIds = CustomerConfirmationMember::query()
+                    ->where('customer_confirmation_id', $source->id)
+                    ->whereNotIn('id', $movedMemberIds)
+                    ->get()
+                    ->filter(fn (CustomerConfirmationMember $member): bool => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled')
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+
+                $sourceQuotations = Quotation::query()
+                    ->with(['quotationItems'])
+                    ->where('customer_confirmation_id', $source->id)
+                    ->get();
+
+                $quotationIdsToRehome = [];
+
+                foreach ($sourceQuotations as $sourceQuotation) {
+                    if ($this->isInactiveQuotation($sourceQuotation)) {
+                        continue;
+                    }
+
+                    $coveredMemberIds = $sourceQuotation->quotationItems
+                        ->where('is_header', false)
+                        ->pluck('customer_confirmation_member_id')
+                        ->filter()
+                        ->map(fn ($id): int => (int) $id)
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    $movedCovered = array_values(array_intersect($coveredMemberIds, $movedMemberIds));
+                    $stayCovered = array_values(array_intersect($coveredMemberIds, $stayBehindMemberIds));
+
+                    if ($movedCovered !== [] && $stayCovered !== []) {
+                        abort(422, 'Quotation #'.$sourceQuotation->quotation_number.' also covers members staying behind. Move all of its members together, or run Combine Quotation on it first.');
+                    }
+
+                    if ($movedCovered !== []) {
+                        $quotationIdsToRehome[] = (int) $sourceQuotation->id;
+                    }
+                }
+
+                CustomerConfirmationMember::query()
+                    ->whereIn('id', $movedMemberIds)
+                    ->update([
+                        'customer_confirmation_id' => $target->id,
+                        'is_leader' => false,
+                    ]);
+
+                if ($quotationIdsToRehome !== []) {
+                    Quotation::query()
+                        ->whereIn('id', $quotationIdsToRehome)
+                        ->update(['customer_confirmation_id' => $target->id]);
+
+                    ManifestSharingGroup::query()
+                        ->whereIn('source_quotation_id', $quotationIdsToRehome)
+                        ->update(['customer_confirmation_id' => $target->id]);
+                }
+
+                $this->ensureLeaderAssignmentForActiveMembers((int) $source->id);
+                $this->ensureLeaderAssignmentForActiveMembers((int) $target->id);
+
+                if ($targetQuotationId) {
+                    $this->combineQuotationsCore((int) $target->id, (int) $targetQuotationId, $movedMemberIds);
+                }
+
+                $source->load('members');
+                $hasActiveSourceMembers = $source->members->contains(
+                    fn (CustomerConfirmationMember $member): bool => $this->normalizePaymentStatus($member->status ?? null) !== 'cancelled',
+                );
+
+                if (! $hasActiveSourceMembers) {
+                    $source->delete();
+                } else {
+                    $this->syncMemberStatusesForConfirmation((int) $source->id);
+                }
+
+                $this->syncMemberStatusesForConfirmation((int) $target->id);
+                app(PackageSeatService::class)->recalculateForPackageId((int) ($target->package_id ?? 0));
+
+                $target->load('members.customer.user', 'enquiry', 'package');
+
+                activity()
+                    ->performedOn($target)
+                    ->withProperties([
+                        'subject_type' => 'CustomerConfirmation',
+                        'subject_id' => $target->id,
+                        'context' => $this->buildLogContext(
+                            operation: 'combine_confirmations',
+                            enquiryId: $target->enquiry_id,
+                            packageId: $target->package_id,
+                        ),
+                        'source_confirmation_id' => (int) $source->id,
+                        'target_confirmation_id' => (int) $target->id,
+                        'member_ids' => $movedMemberIds,
+                        'rehomed_quotation_ids' => $quotationIdsToRehome,
+                        'merged_into_quotation_id' => $targetQuotationId ? (int) $targetQuotationId : null,
+                    ])
+                    ->log('Customer confirmation #'.$source->id.' members combined into confirmation #'.$target->id);
+
+                return $target->fresh() ?? $target;
+            } finally {
+                PaymentStatusService::$suppressManifestAutoLink = $previousSuppress;
+            }
+        });
+    }
+
+    /**
+     * Engine shared by combineQuotations() and combineConfirmations(): move the
+     * selected members' items + billing into the target quotation, then drop any
+     * emptied source quotations. Caller owns the transaction + manifest suppression.
+     *
+     * @param  array<int, int>  $memberIds
+     */
+    private function combineQuotationsCore(int $confirmationId, int $targetQuotationId, array $memberIds): Quotation
+    {
+        $memberIds = array_values(array_unique(array_map('intval', $memberIds)));
+
+        if ($memberIds === []) {
+            abort(422, 'No members selected to combine.');
+        }
+
+        $targetQuotation = $this->loadQuotationGraph($targetQuotationId);
+
+        if (! $targetQuotation || (int) $targetQuotation->customer_confirmation_id !== $confirmationId) {
+            abort(422, 'Target quotation does not belong to this confirmation.');
+        }
+
+        if ($this->isInactiveQuotation($targetQuotation)) {
+            abort(422, 'Target quotation is not active.');
+        }
+
+        $sourceQuotationIds = QuotationItem::query()
+            ->whereIn('customer_confirmation_member_id', $memberIds)
+            ->where('is_header', false)
+            ->whereNotNull('quotation_id')
+            ->where('quotation_id', '!=', $targetQuotationId)
+            ->distinct()
+            ->pluck('quotation_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        foreach ($sourceQuotationIds as $sourceQuotationId) {
+            $sourceQuotation = $this->loadQuotationGraph($sourceQuotationId);
+
+            if (! $sourceQuotation || (int) $sourceQuotation->customer_confirmation_id !== $confirmationId) {
+                continue;
+            }
+
+            if ($this->isInactiveQuotation($sourceQuotation)) {
+                continue;
+            }
+
+            $movedMemberIds = $sourceQuotation->quotationItems
+                ->where('is_header', false)
+                ->pluck('customer_confirmation_member_id')
+                ->filter()
+                ->map(fn ($id): int => (int) $id)
+                ->unique()
+                ->intersect($memberIds)
+                ->values()
+                ->all();
+
+            if ($movedMemberIds === []) {
+                continue;
+            }
+
+            $this->mirrorMovedItemsIntoExistingQuotation($sourceQuotation, $targetQuotation, $movedMemberIds);
+            $this->repointManifestSourceQuotation($sourceQuotationId, $targetQuotationId);
+            $this->deleteQuotationIfEmpty($sourceQuotation);
+
+            $targetQuotation = $this->loadQuotationGraph($targetQuotationId) ?? $targetQuotation;
+        }
+
+        return $targetQuotation;
+    }
+
+    /**
+     * Recreate the moved members' items under the target quotation and mirror their
+     * invoices + receipts onto the target order (mirror/append — amounts are never
+     * recomputed across members, only proportionally split off the source).
+     *
+     * @param  array<int, int>  $movedMemberIds
+     */
+    private function mirrorMovedItemsIntoExistingQuotation(
+        Quotation $sourceQuotation,
+        Quotation $targetQuotation,
+        array $movedMemberIds,
+    ): void {
+        $movedItems = $sourceQuotation->quotationItems
+            ->whereIn('customer_confirmation_member_id', $movedMemberIds)
+            ->where('is_header', false)
+            ->values();
+
+        if ($movedItems->isEmpty()) {
+            return;
+        }
+
+        $newHeaderIdsBySourceHeaderId = [];
+        $newItemIdsBySourceId = [];
+
+        foreach ($movedItems as $item) {
+            $targetParentHeaderId = $this->resolveOrCreateTargetHeaderForCombine(
+                $item,
+                $targetQuotation,
+                $newHeaderIdsBySourceHeaderId,
+            );
+
+            $createdItem = QuotationItem::create([
+                'quotation_id' => (int) $targetQuotation->id,
+                'customer_confirmation_member_id' => (int) ($item->customer_confirmation_member_id ?? 0),
+                'parent_id' => $targetParentHeaderId,
+                'description' => $item->description,
+                'is_header' => false,
+                'quantity' => $item->quantity,
+                'rate' => $item->rate,
+                'sort_order' => $item->sort_order,
+            ]);
+
+            $this->duplicateQuotationItemTaxes($item, $createdItem);
+
+            $newItemIdsBySourceId[(int) $item->id] = (int) $createdItem->id;
+        }
+
+        $sourceOrder = $sourceQuotation->order;
+
+        if ($sourceOrder) {
+            $targetOrder = $targetQuotation->order;
+
+            if (! $targetOrder) {
+                $targetOrder = Order::create([
+                    'quotation_id' => (int) $targetQuotation->id,
+                    'payment_plan' => $sourceOrder->payment_plan,
+                ]);
+                $targetQuotation->setRelation('order', $targetOrder);
+            }
+
+            foreach ($sourceOrder->invoices as $sourceInvoice) {
+                $sourceInvoiceItemIds = $sourceInvoice->quotationItems
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+
+                $movedSourceInvoiceItemIds = array_values(array_intersect(
+                    $sourceInvoiceItemIds,
+                    array_keys($newItemIdsBySourceId),
+                ));
+
+                if ($movedSourceInvoiceItemIds === []) {
+                    continue;
+                }
+
+                $remainingSourceInvoiceItemIds = array_values(array_diff(
+                    $sourceInvoiceItemIds,
+                    $movedSourceInvoiceItemIds,
+                ));
+
+                $sourceInvoiceItemsById = $sourceInvoice->quotationItems
+                    ->keyBy(fn (QuotationItem $item): int => (int) $item->id);
+
+                $movedSourceInvoiceItems = collect($movedSourceInvoiceItemIds)
+                    ->map(fn (int $itemId): ?QuotationItem => $sourceInvoiceItemsById->get($itemId))
+                    ->filter(fn ($item): bool => $item instanceof QuotationItem)
+                    ->values();
+
+                $remainingSourceInvoiceItems = collect($remainingSourceInvoiceItemIds)
+                    ->map(fn (int $itemId): ?QuotationItem => $sourceInvoiceItemsById->get($itemId))
+                    ->filter(fn ($item): bool => $item instanceof QuotationItem)
+                    ->values();
+
+                $movedInvoiceBaseAmount = round((float) $movedSourceInvoiceItems
+                    ->sum(fn (QuotationItem $item): float => $this->quotationItemAmount($item)), 2);
+
+                $remainingInvoiceBaseAmount = round((float) $remainingSourceInvoiceItems
+                    ->sum(fn (QuotationItem $item): float => $this->quotationItemAmount($item)), 2);
+
+                $movedInvoiceItemTaxAmount = round((float) $movedSourceInvoiceItems
+                    ->sum(fn (QuotationItem $item): float => $this->quotationItemTaxAmount($item)), 2);
+
+                $remainingInvoiceItemTaxAmount = round((float) $remainingSourceInvoiceItems
+                    ->sum(fn (QuotationItem $item): float => $this->quotationItemTaxAmount($item)), 2);
+
+                [
+                    'source_extensions' => $updatedSourceExtensions,
+                    'new_extensions' => $newInvoiceExtensions,
+                    'source_extensions_total' => $updatedSourceExtensionsTotal,
+                    'new_extensions_total' => $newInvoiceExtensionsTotal,
+                ] = $this->splitInvoiceExtensionsForMovedItems(
+                    is_array($sourceInvoice->extensions) ? $sourceInvoice->extensions : [],
+                    $movedInvoiceBaseAmount,
+                    $remainingInvoiceBaseAmount,
+                );
+
+                $movedInvoiceAmount = round(
+                    $movedInvoiceBaseAmount + $movedInvoiceItemTaxAmount + $newInvoiceExtensionsTotal,
+                    2,
+                );
+
+                $updatedSourceInvoiceAmount = round(
+                    $remainingInvoiceBaseAmount + $remainingInvoiceItemTaxAmount + $updatedSourceExtensionsTotal,
+                    2,
+                );
+
+                $newInvoiceItemIds = array_values(array_filter(array_map(
+                    fn (int $sourceItemId) => $newItemIdsBySourceId[$sourceItemId] ?? null,
+                    $movedSourceInvoiceItemIds,
+                )));
+
+                $newInvoice = Invoice::create([
+                    'order_id' => (int) $targetOrder->id,
+                    'description' => $sourceInvoice->description,
+                    'payment_method' => $sourceInvoice->payment_method,
+                    'extensions' => $newInvoiceExtensions,
+                    'amount' => $movedInvoiceAmount,
+                    'invoice_date' => optional($sourceInvoice->invoice_date)?->format('Y-m-d') ?? now()->format('Y-m-d'),
+                    'due_date' => optional($sourceInvoice->due_date)?->format('Y-m-d'),
+                    'status' => $sourceInvoice->status,
+                ]);
+
+                $newInvoice->quotationItems()->sync($newInvoiceItemIds);
+
+                $sourcePrimaryReceipt = $sourceInvoice->receipt
+                    ->sortBy('id')
+                    ->first();
+
+                if ($sourcePrimaryReceipt) {
+                    $this->syncInvoiceReceiptsToAmount($sourceInvoice, $updatedSourceInvoiceAmount);
+                    $this->cloneReceiptToInvoice($sourcePrimaryReceipt, $newInvoice, $movedInvoiceAmount);
+                }
+
+                $this->syncSourceInvoiceAfterMovedItemSplit(
+                    $sourceInvoice,
+                    $remainingSourceInvoiceItemIds,
+                    $updatedSourceInvoiceAmount,
+                    $updatedSourceExtensions,
+                );
+
+                app(PaymentStatusService::class)->syncAfterReceiptMutation((int) $sourceInvoice->id);
+                app(PaymentStatusService::class)->syncAfterReceiptMutation((int) $newInvoice->id);
+            }
+        }
+
+        QuotationItem::query()
+            ->whereIn('id', array_keys($newItemIdsBySourceId))
+            ->delete();
+
+        $this->deleteQuotationHeadersWithoutChildren((int) $sourceQuotation->id);
+    }
+
+    private function loadQuotationGraph(int $quotationId): ?Quotation
+    {
+        return Quotation::query()
+            ->with([
+                'quotationItems.invoices.receipt',
+                'quotationItems.parent',
+                'quotationItems.taxes',
+                'quotationNotes',
+                'order.invoices.quotationItems',
+                'order.invoices.receipt',
+            ])
+            ->find($quotationId);
+    }
+
+    private function isInactiveQuotation(Quotation $quotation): bool
+    {
+        if ($quotation->trashed()) {
+            return true;
+        }
+
+        $status = strtolower((string) ($quotation->status?->value ?? $quotation->status ?? ''));
+
+        return in_array($status, ['cancelled', 'expired', 'rejected'], true);
+    }
+
+    /**
+     * Build the per-quotation summary consumed by the Combine dialogs on the index.
+     *
+     * @param  Collection<int, CustomerConfirmationMember>  $activeMembers
+     * @return array<string, mixed>
+     */
+    private function buildQuotationSummaryForIndex(Quotation $quotation, Collection $activeMembers): array
+    {
+        $memberItems = $quotation->quotationItems
+            ->where('is_header', false)
+            ->filter(fn (QuotationItem $item): bool => $item->customer_confirmation_member_id !== null)
+            ->unique('customer_confirmation_member_id')
+            ->values();
+
+        $memberIds = $memberItems
+            ->pluck('customer_confirmation_member_id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $memberNames = $memberItems
+            ->map(fn (QuotationItem $item): string => $item->confirmationMember?->customer?->user?->name ?? '-')
+            ->values()
+            ->all();
+
+        $paidAmount = round((float) (($quotation->order?->invoices
+            ->flatMap(fn (Invoice $invoice) => $invoice->receipt)
+            ->sum(fn (Receipt $receipt): float => (float) ($receipt->amount ?? 0))) ?? 0), 2);
+
+        $payerMember = $activeMembers->firstWhere('customer_id', $quotation->customer_id);
+        $status = strtolower((string) ($quotation->status?->value ?? $quotation->status ?? 'draft'));
+
+        return [
+            'id' => (int) $quotation->id,
+            'number' => $quotation->quotation_number,
+            'status' => $status,
+            'status_label' => $this->formatQuotationStatusLabel($status),
+            'payer_member_id' => $payerMember ? (int) $payerMember->id : null,
+            'payer_name' => $quotation->customer?->user?->name ?? '-',
+            'member_ids' => $memberIds,
+            'member_names' => $memberNames,
+            'member_count' => count($memberIds),
+            'total_amount' => round((float) $quotation->total_amount, 2),
+            'paid_amount' => $paidAmount,
+            'has_order' => $quotation->order !== null,
+        ];
+    }
+
+    private function formatQuotationStatusLabel(string $status): string
+    {
+        return match (strtolower(trim($status))) {
+            'draft' => 'Draft',
+            'ready' => 'Ready',
+            'accepted' => 'Accepted',
+            'rejected' => 'Rejected',
+            'expired' => 'Expired',
+            'converted' => 'Converted',
+            'cancelled' => 'Cancelled',
+            default => ucfirst($status),
+        };
+    }
+
+    private function repointManifestSourceQuotation(int $fromQuotationId, int $toQuotationId): void
+    {
+        ManifestSharingGroup::query()
+            ->where('source_quotation_id', $fromQuotationId)
+            ->update(['source_quotation_id' => $toQuotationId]);
+
+        ManifestRoom::query()
+            ->where('source_quotation_id', $fromQuotationId)
+            ->update(['source_quotation_id' => $toQuotationId]);
+    }
+
+    private function deleteQuotationIfEmpty(Quotation $sourceQuotation): void
+    {
+        $sourceQuotation->load('order.invoices.receipt');
+
+        $hasRemainingItems = QuotationItem::query()
+            ->where('quotation_id', (int) $sourceQuotation->id)
+            ->where('is_header', false)
+            ->exists();
+
+        if ($hasRemainingItems) {
+            return;
+        }
+
+        $sourceOrder = $sourceQuotation->order;
+        $hasReceipts = $sourceOrder
+            ? $sourceOrder->invoices()->whereHas('receipt')->exists()
+            : false;
+
+        if ($hasReceipts) {
+            return;
+        }
+
+        QuotationItem::query()
+            ->where('quotation_id', (int) $sourceQuotation->id)
+            ->delete();
+
+        if ($sourceOrder) {
+            $sourceOrder->invoices()->delete();
+            $sourceOrder->delete();
+        }
+
+        $sourceQuotation->delete();
+    }
+
+    /**
+     * Resolve the target header an item should sit under when combining into an
+     * existing quotation: reuse a same-named header if present, else create one.
+     *
+     * @param  array<int, int>  $newHeaderIdsBySourceHeaderId
+     */
+    private function resolveOrCreateTargetHeaderForCombine(
+        QuotationItem $sourceItem,
+        Quotation $targetQuotation,
+        array &$newHeaderIdsBySourceHeaderId,
+    ): int {
+        $sourceHeader = $sourceItem->parent;
+
+        if (! $sourceHeader || ! (bool) ($sourceHeader->is_header ?? false)) {
+            return (int) $this->resolveOrCreateUmrahPackagesHeaderItem($targetQuotation)->id;
+        }
+
+        $sourceHeaderId = (int) ($sourceHeader->id ?? 0);
+
+        if ($sourceHeaderId > 0 && isset($newHeaderIdsBySourceHeaderId[$sourceHeaderId])) {
+            return (int) $newHeaderIdsBySourceHeaderId[$sourceHeaderId];
+        }
+
+        $description = trim((string) ($sourceHeader->description ?? ''));
+
+        $existingHeader = QuotationItem::query()
+            ->where('quotation_id', (int) $targetQuotation->id)
+            ->where('is_header', true)
+            ->whereNull('parent_id')
+            ->whereRaw('LOWER(TRIM(description)) = ?', [strtolower($description)])
+            ->orderBy('id')
+            ->first();
+
+        if ($existingHeader) {
+            if ($sourceHeaderId > 0) {
+                $newHeaderIdsBySourceHeaderId[$sourceHeaderId] = (int) $existingHeader->id;
+            }
+
+            return (int) $existingHeader->id;
+        }
+
+        $createdHeader = QuotationItem::create([
+            'quotation_id' => (int) $targetQuotation->id,
+            'customer_confirmation_member_id' => null,
+            'parent_id' => null,
+            'description' => $description !== '' ? $description : 'Umrah Packages',
+            'is_header' => true,
+            'sort_order' => ((int) QuotationItem::query()
+                ->where('quotation_id', (int) $targetQuotation->id)
+                ->max('sort_order')) + 1,
+        ]);
+
+        if ($sourceHeaderId > 0) {
+            $newHeaderIdsBySourceHeaderId[$sourceHeaderId] = (int) $createdHeader->id;
+        }
+
+        return (int) $createdHeader->id;
     }
 
     private function ensureLeaderAssignmentForActiveMembers(int $confirmationId): void
@@ -4660,9 +5334,9 @@ class CustomerConfirmationService
      * @param  array<int, int[]>  $payerToMembers  Maps payer member ID → array of member IDs they pay for.
      * @return Quotation[]
      */
-    public function generateQuotationsFromConfirmation(int $confirmationId, array $payerToMembers): array
+    public function generateQuotationsFromConfirmation(int $confirmationId, array $payerToMembers, ?int $handledBy = null): array
     {
-        return DB::transaction(function () use ($confirmationId, $payerToMembers) {
+        return DB::transaction(function () use ($confirmationId, $payerToMembers, $handledBy) {
             $group = CustomerConfirmation::with(['members.customer.user', 'package'])
                 ->findOrFail($confirmationId);
 
@@ -4686,7 +5360,7 @@ class CustomerConfirmationService
                 $quotation = Quotation::create([
                     'customer_id' => $payerMember->customer->id,
                     'customer_confirmation_id' => $confirmationId,
-                    'handled_by' => auth()->id(),
+                    'handled_by' => $handledBy ?? auth()->id(),
                     'quotation_date' => now()->format('Y-m-d'),
                     'expiry_date' => now()->addDays(30)->format('Y-m-d'),
                     'payment_plan' => 'full',
@@ -4899,6 +5573,11 @@ class CustomerConfirmationService
                     $paymentMethod = 'refund';
                 }
 
+                $refundTo = trim((string) ($refundPayload['refund_to'] ?? ''));
+                if ($refundTo === '') {
+                    $refundTo = $member->customer?->user?->contact ?? '';
+                }
+
                 $refundDescription = trim((string) ($refundPayload['description'] ?? ''));
 
                 if ($refundDescription === '') {
@@ -4952,6 +5631,7 @@ class CustomerConfirmationService
                     'amount' => -$refundAmount,
                     'receipt_date' => now()->format('Y-m-d'),
                     'payment_method' => $paymentMethod,
+                    'refund_to' => $refundTo ?: null,
                     'reference' => null,
                     'description' => $refundDescription,
                 ]);

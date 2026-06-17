@@ -34,6 +34,7 @@ interface PaymentMethodMasterSchema {
     name: string;
     value?: string;
     is_active?: boolean;
+    is_available_for_refund?: boolean;
     is_default?: boolean;
     sort_order?: number;
 }
@@ -105,6 +106,8 @@ export default function MastersQuotationIndex({
                 paymentMethod._key ??
                 (paymentMethod.id ? `id-${paymentMethod.id}` : nanoid()),
             is_active: paymentMethod.is_active ?? true,
+            is_available_for_refund:
+                paymentMethod.is_available_for_refund ?? false,
             is_default: paymentMethod.is_default ?? false,
             sort_order: paymentMethod.sort_order ?? index + 1,
         }),
@@ -268,6 +271,7 @@ export default function MastersQuotationIndex({
                     name: '',
                     value: '',
                     is_active: true,
+                    is_available_for_refund: false,
                     is_default: false,
                     sort_order: (prev.payment_methods?.length ?? 0) + 1,
                 },
@@ -566,7 +570,7 @@ export default function MastersQuotationIndex({
                                                 key={key}
                                                 className="grid gap-3 rounded-lg border p-3 md:grid-cols-12"
                                             >
-                                                <div className="md:col-span-6">
+                                                <div className="md:col-span-4">
                                                     <FormField label="Name">
                                                         <ProperInput
                                                             value={
@@ -642,6 +646,36 @@ export default function MastersQuotationIndex({
                                                                 }
                                                             />
                                                             Active
+                                                        </label>
+                                                    </FormField>
+                                                </div>
+
+                                                <div className="md:col-span-2">
+                                                    <FormField label="For Refund">
+                                                        <label className="mt-2 inline-flex items-center gap-2 text-sm">
+                                                            <Checkbox
+                                                                checked={
+                                                                    paymentMethod.is_available_for_refund ??
+                                                                    false
+                                                                }
+                                                                onCheckedChange={(
+                                                                    checked,
+                                                                ) =>
+                                                                    handlePaymentMethodChange(
+                                                                        key,
+                                                                        {
+                                                                            is_available_for_refund:
+                                                                                Boolean(
+                                                                                    checked,
+                                                                                ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    processingPaymentMethods
+                                                                }
+                                                            />
+                                                            For Refund
                                                         </label>
                                                     </FormField>
                                                 </div>

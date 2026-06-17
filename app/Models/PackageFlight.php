@@ -14,6 +14,7 @@ class PackageFlight extends Model
         'to',
         'description',
         'airline',
+        'flight_number',
         'pnr',
         'departure_datetime',
         'arrival_datetime',

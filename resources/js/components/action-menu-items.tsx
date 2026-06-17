@@ -27,6 +27,7 @@ function isTableRow<TData>(obj: unknown): obj is Row<TData> {
 }
 
 type WithHandledBy = { handled_by?: string | null };
+type WithEmailSentAt = { email_sent_at?: string | null };
 
 export function ActionMenuItems<TData>({
     row,
@@ -87,6 +88,12 @@ export function ActionMenuItems<TData>({
 
             {actions.includes('view') && (
                 <Item onClick={() => onAction?.('view', row)}>View</Item>
+            )}
+
+            {actions.includes('view-customer-history') && (
+                <Item onClick={() => onAction?.('view-customer-history', row)}>
+                    History Record
+                </Item>
             )}
 
             {actions.includes('edit') && (
@@ -279,6 +286,18 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('combine-quotations') && (
+                <Item onClick={() => onAction?.('combine-quotations', row)}>
+                    Combine Quotations
+                </Item>
+            )}
+
+            {actions.includes('combine-confirmations') && (
+                <Item onClick={() => onAction?.('combine-confirmations', row)}>
+                    Combine Confirmations
+                </Item>
+            )}
+
             {actions.includes('sync-billing') && (
                 <Item onClick={() => onAction?.('sync-billing', row)}>
                     Sync Billing
@@ -311,6 +330,24 @@ export function ActionMenuItems<TData>({
                 </Item>
             )}
 
+            {actions.includes('copy-link') && (
+                <Item onClick={() => onAction?.('copy-link', row)}>
+                    Copy Link
+                </Item>
+            )}
+
+            {actions.includes('send-email') && (
+                <Item onClick={() => onAction?.('send-email', row)}>
+                    {(
+                        isTableRow<TData>(row)
+                            ? (row.original as WithEmailSentAt)?.email_sent_at
+                            : (row as TData & WithEmailSentAt)?.email_sent_at
+                    )
+                        ? 'Resend Email'
+                        : 'Send Email'}
+                </Item>
+            )}
+
             {actions.includes('handle-customer') && !handledBy && (
                 <Item onClick={() => onAction?.('handle-customer', row)}>
                     Handle
@@ -332,6 +369,27 @@ export function ActionMenuItems<TData>({
             {actions.includes('disable-customer') && (
                 <Item onClick={() => onAction?.('disable-customer', row)}>
                     Disable Customer
+                </Item>
+            )}
+
+            {actions.includes('proposal-submit') && (
+                <Item onClick={() => onAction?.('proposal-submit', row)}>
+                    Submit for Approval
+                </Item>
+            )}
+
+            {actions.includes('proposal-approve') && (
+                <Item onClick={() => onAction?.('proposal-approve', row)}>
+                    Approve
+                </Item>
+            )}
+
+            {actions.includes('proposal-reject') && (
+                <Item
+                    onClick={() => onAction?.('proposal-reject', row)}
+                    className="text-red-600"
+                >
+                    Reject
                 </Item>
             )}
 

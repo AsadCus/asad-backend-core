@@ -12,6 +12,7 @@ use App\Models\NumberingSequence;
 use App\Models\NumberingSimpleCounter;
 use App\Models\Order;
 use App\Models\Package;
+use App\Models\PackageProposal;
 use App\Models\Quotation;
 use App\Models\Receipt;
 use Illuminate\Database\Eloquent\Builder;
@@ -84,6 +85,12 @@ class NumberingService
             'increment_start' => 1,
             'increment_scope' => 'format',
         ],
+        'package_proposal' => [
+            'name' => 'PNL-%YYYY%-%I%',
+            'increment_padding' => 3,
+            'increment_start' => 1,
+            'increment_scope' => 'format',
+        ],
     ];
 
     private const MODEL_DEFINITIONS = [
@@ -136,6 +143,11 @@ class NumberingService
             'model' => Enquiry::class,
             'column' => 'enquiry_number',
             'field' => 'enquiry_number',
+        ],
+        'package_proposal' => [
+            'model' => PackageProposal::class,
+            'column' => 'proposal_number',
+            'field' => 'proposal_number',
         ],
     ];
 

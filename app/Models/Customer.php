@@ -6,6 +6,7 @@ use App\Helpers\NumberGenerator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Customer extends Model
@@ -60,6 +61,16 @@ class Customer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();
+    }
+
+    public function confirmationMembers(): HasMany
+    {
+        return $this->hasMany(CustomerConfirmationMember::class, 'customer_id');
+    }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class, 'customer_id');
     }
 
     public function files(): MorphMany

@@ -8,7 +8,7 @@ const baseUserSchema = z
         customer_number: z.string().optional(),
         number_format_id: z.number().nullable().optional(),
         name: z.string().min(1, 'The name field is required.'),
-        email: z.email().min(1, 'The email field is required.'),
+        email: z.string().optional(),
         password: z.string().optional(),
         password_confirmation: z.string().optional(),
         send_email: z.boolean().optional(),
@@ -19,7 +19,9 @@ const baseUserSchema = z
             'sales',
             'operations',
             'customer',
+            'official',
         ]),
+        type: z.string().optional(),
         scope_mode: z.enum(['country', 'branch']).optional(),
         scope_ids: z.array(z.string()).optional(),
         country_id: z.string().optional(),
@@ -114,7 +116,10 @@ export type UserFormMode = 'create' | 'edit' | 'view';
 export function validateUserData(data: UserSchema, mode: UserFormMode) {
     return userSchema
         .superRefine((currentData, ctx) => {
-            const requiresManualPassword = currentData.role !== 'customer';
+            // Officials are non-login users; password & email are optional for them.
+            const requiresManualPassword =
+                currentData.role !== 'customer' &&
+                currentData.role !== 'official';
 
             if (
                 mode === 'create' &&
@@ -125,6 +130,32 @@ export function validateUserData(data: UserSchema, mode: UserFormMode) {
                     code: 'custom',
                     path: ['password'],
                     message: 'The password field is required.',
+                });
+            }
+
+            if (currentData.role !== 'official') {
+                const email = currentData.email?.trim() ?? '';
+                if (!email) {
+                    ctx.addIssue({
+                        code: 'custom',
+                        path: ['email'],
+                        message: 'The email field is required.',
+                    });
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    ctx.addIssue({
+                        code: 'custom',
+                        path: ['email'],
+                        message: 'The email field must be a valid email.',
+                    });
+                }
+            }
+
+            // Officials must have a type, or they can never be selected on packages/proposals.
+            if (currentData.role === 'official' && !currentData.type?.trim()) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['type'],
+                    message: 'The type field is required.',
                 });
             }
         })

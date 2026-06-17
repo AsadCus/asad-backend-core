@@ -486,7 +486,7 @@ export default function CustomerFormFields({
                     </FormField>
 
                     <FormField
-                        label="Has chronic disease"
+                        label="Has chronic illness"
                         fieldRequirementsProps={{
                             hint: 'Indicate if you have any chronic health conditions',
                         }}
@@ -523,7 +523,7 @@ export default function CustomerFormFields({
                         <FormField
                             label="Disease Details"
                             fieldRequirementsProps={{
-                                hint: 'Provide details about the chronic disease or health condition',
+                                hint: 'Provide details about the chronic illness or health condition',
                                 example: 'Diabetes, Hypertension, Asthma, etc.',
                             }}
                             htmlFor={fieldPath('chronic_disease_details')}
@@ -543,7 +543,7 @@ export default function CustomerFormFields({
                                         v,
                                     )
                                 }
-                                placeholder="Describe the chronic disease or health condition"
+                                placeholder="Describe the chronic illness or health condition"
                             />
                         </FormField>
                     )}

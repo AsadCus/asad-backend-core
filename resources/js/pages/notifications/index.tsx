@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { action, index, read, readAll } from '@/routes/notifications';
-import { BreadcrumbItem, SharedData } from '@/types';
+import { BreadcrumbItem, Paginator, SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -49,17 +49,42 @@ export const typeStyles: Record<
 export default function Notification({
     notifications,
 }: {
-    notifications: NotificationItem[];
+    notifications: Paginator<NotificationItem>;
 }) {
     const { auth } = usePage<SharedData>().props;
 
+    // Local copy of the current page's rows so reads can be reflected instantly
+    // (optimistic UI) without waiting for a server round-trip. `notifications`
+    // (the paginator prop) stays the source of truth across page changes.
     const [notifList, setNotifList] = useState<NotificationItem[]>(
-        notifications.sort((a, b) => Number(a.is_read) - Number(b.is_read)),
-    );
-    const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(
-        null,
+        notifications.data,
     );
 
+    // Which notification's detail dialog is open (null = closed). The lazy
+    // initializer handles the deep-link case: when arriving from the bell popup
+    // at `…/notifications#notif-{id}`, open that notification straight away.
+    // Guarded for SSR (no `window` on the server) and only runs once on mount,
+    // so the effect below stays free of reactive deps (no eslint-disable needed).
+    const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(
+        () => {
+            if (typeof window === 'undefined') {
+                return null;
+            }
+            const hash = window.location.hash;
+            if (!hash.startsWith('#notif-')) {
+                return null;
+            }
+            const id = Number(hash.replace('#notif-', ''));
+            return notifications.data.find((n) => n.id === id) ?? null;
+        },
+    );
+
+    // Re-seed the optimistic list when the server sends a different page.
+    useEffect(() => {
+        setNotifList(notifications.data);
+    }, [notifications.current_page, notifications.data]);
+
+    // Mark every notification read, then flip them locally on success.
     const handleMarkAllRead = () => {
         router.put(
             readAll().url,
@@ -75,6 +100,7 @@ export default function Notification({
         );
     };
 
+    // Open a notification's dialog and mark it read (optimistically).
     const handleOpenNotif = (id: number) => {
         router.put(
             read(id).url,
@@ -95,6 +121,9 @@ export default function Notification({
         setSelectedNotif(notif || null);
     };
 
+    // Take the notification's action (the "Go there" button). For exclusive
+    // notifications this claims it server-side; locally we stamp who/when so the
+    // dialog reflects it without a reload.
     const handleNotificationLinkAction = (id: number) => {
         router.post(
             action(id),
@@ -121,18 +150,29 @@ export default function Notification({
 
     const handleCloseDialog = () => setSelectedNotif(null);
 
+    // Navigate to a paginator link (prev/next). `preserveState: false` lets the
+    // new page's props re-seed component state via the sync effect above.
+    const goToPage = (url: string | null) => {
+        if (url) {
+            router.get(url, {}, { preserveScroll: true, preserveState: false });
+        }
+    };
+
+    // Scroll to and highlight a deep-linked notification (#notif-{id}) on mount.
+    // The dialog itself is opened via the lazy `selectedNotif` initializer above.
     useEffect(() => {
         const hash = window.location.hash;
-        if (hash) {
-            const element = document.querySelector(hash);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element.classList.add('ring-2', 'ring-primary');
-                setTimeout(
-                    () => element.classList.remove('ring-2', 'ring-primary'),
-                    2000,
-                );
-            }
+        if (!hash) {
+            return;
+        }
+        const element = document.querySelector(hash);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('ring-2', 'ring-primary');
+            setTimeout(
+                () => element.classList.remove('ring-2', 'ring-primary'),
+                2000,
+            );
         }
     }, []);
 
@@ -210,6 +250,30 @@ export default function Notification({
                         </div>
                     )}
                 </div>
+                {notifications.last_page > 1 && (
+                    <div className="mt-4 flex items-center justify-end gap-3">
+                        <span className="text-sm text-muted-foreground">
+                            Page {notifications.current_page} of{' '}
+                            {notifications.last_page}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!notifications.prev_page_url}
+                            onClick={() => goToPage(notifications.prev_page_url)}
+                        >
+                            Prev
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!notifications.next_page_url}
+                            onClick={() => goToPage(notifications.next_page_url)}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )}
             </div>
             <Dialog open={!!selectedNotif} onOpenChange={handleCloseDialog}>
                 <DialogContent>

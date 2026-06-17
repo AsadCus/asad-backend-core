@@ -37,11 +37,19 @@ export type ActionType =
     | 'copy-customer-confirmation-public-edit-link'
     | 'move'
     | 'move-members'
+    | 'combine-quotations'
+    | 'combine-confirmations'
     | 'sync-billing'
     | 'cancel-member'
     | 'refund'
     | 'create-balance-invoice'
-    | 'export-member-receipts-pdf';
+    | 'export-member-receipts-pdf'
+    | 'view-customer-history'
+    | 'proposal-submit'
+    | 'proposal-approve'
+    | 'proposal-reject'
+    | 'send-email'
+    | 'copy-link';
 
 interface ActionColumnProps<TData> {
     row: Row<TData> | TData;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ArabicTextHelper;
+use App\Http\Requests\ManifestImportRequest;
 use App\Models\CustomerConfirmationMember;
 use App\Models\Manifest;
 use App\Models\ManifestMember;
@@ -10,21 +11,26 @@ use App\Models\ModelFile;
 use App\Models\Package;
 use App\Rules\ManifestRule;
 use App\Services\CustomerConfirmationService;
+use App\Services\ManifestImportService;
 use App\Services\ManifestService;
 use App\Services\PackageSeatService;
 use App\Services\PackageService;
 use App\Services\Report\ReportTemplateService;
+use App\Services\SalesService;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class ManifestController extends Controller
 {
@@ -34,14 +40,31 @@ class ManifestController extends Controller
         protected PackageService $packageService,
         protected CustomerConfirmationService $customerConfirmationService,
         protected ReportTemplateService $reportTemplateService,
-    ) {}
+        protected SalesService $salesService,
+    ) {
+        $this->middleware('permission:manifest view')->only([
+            'index', 'show', 'edit', 'getForShow',
+            'exportCollectionItemsPdf', 'exportArabicNamesPdf',
+            'exportAirlineNamesPdf', 'exportRoomCheckPdf',
+        ]);
+        $this->middleware('permission:manifest edit')->only([
+            'store', 'import', 'destroy',
+            'addRoom', 'updateRoom', 'deleteRoom',
+            'updateCoreSection', 'updateSharingGroupsSection', 'updateRoomsSection',
+            'updateDocumentsSection', 'updateReceiptDocumentsSection',
+            'attachSharingGroup', 'detachSharingGroup',
+            'moveMemberToHolding',
+        ]);
+    }
 
     /**
      * Display a listing of the resource.
      */
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         $data['manifestsForDatatable'] = $this->manifestService->getForDataTable();
+        $data['importEnabled'] = FeatureFlag::enabled('manifest.import_enabled', null, false);
+        $data['salespersons'] = $this->salesService->getForQuotationAssignment();
 
         return Inertia::render('manifests/index', [
             'data' => $data,
@@ -97,7 +120,7 @@ class ManifestController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): \Inertia\Response
+    public function show(string $id): Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
@@ -111,7 +134,7 @@ class ManifestController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id): \Inertia\Response
+    public function edit(string $id): Response
     {
         $manifest = $this->manifestService->getForEditShow($id);
         $dataPackage = $this->packageService->getForFilter();
@@ -120,6 +143,72 @@ class ManifestController extends Controller
             'data' => $manifest,
             'dataPackage' => $dataPackage,
         ]);
+    }
+
+    /**
+     * Import a batch of manifest members (with full chain: customer, confirmation,
+     * quotation, order, invoice, receipt) from a parsed Excel payload.
+     */
+    public function import(
+        ManifestImportRequest $request,
+        ManifestImportService $importService,
+        string $id,
+    ): RedirectResponse {
+        if (! FeatureFlag::enabled('manifest.import_enabled', $request->user(), false)) {
+            abort(403, 'Manifest import feature is currently disabled.');
+        }
+
+        $manifest = Manifest::findOrFail($id);
+
+        $context = (array) $request->input('context', []);
+        $actor = $request->user();
+
+        // Defense-in-depth: only a superadmin may assign the booking to another
+        // salesperson. Everyone else (admin/sales) is pinned to themselves.
+        if (! $actor?->hasRole('superadmin')) {
+            $context['sales_id'] = $actor?->id;
+        }
+
+        // A supplied country must be one the importer is actually allowed to use.
+        // An empty assignable list means the user is unrestricted, so don't strip.
+        $assignableCountryIds = $actor ? DataScope::assignableCountryIds($actor) : [];
+        if (! empty($context['country_id'])
+            && ! empty($assignableCountryIds)
+            && ! in_array((int) $context['country_id'], $assignableCountryIds, true)) {
+            unset($context['country_id']);
+        }
+
+        $result = $importService->importFromPayload(
+            $manifest,
+            $context,
+            (array) $request->input('members', $request->input('data', [])),
+            (array) $request->input('payments', []),
+        );
+
+        $summary = "Imported {$result['imported_members']} member(s) across {$result['bookings']} booking(s): "
+            ."{$result['quotations']} quotation(s), {$result['invoices']} invoice(s), {$result['receipts']} receipt(s).";
+
+        if (! empty($result['errors'])) {
+            // Successful bookings are already committed; report the failures while
+            // still telling the user what got through (partial-success semantics).
+            $errorLines = collect($result['errors'])
+                ->map(function ($e) {
+                    $location = $e['booking_ref'] ? "Booking {$e['booking_ref']}" : 'Import';
+                    if (! empty($e['row'])) {
+                        $location .= " (row {$e['row']})";
+                    }
+
+                    return "{$location}: {$e['message']}";
+                })
+                ->join(' | ');
+
+            throw ValidationException::withMessages([
+                'import' => "{$summary} Some bookings failed — {$errorLines}",
+            ]);
+        }
+
+        return redirect()->route('manifests.edit', ['manifest' => $manifest->id])
+            ->with('success', $summary);
     }
 
     /**
@@ -847,10 +936,12 @@ class ManifestController extends Controller
                 : '';
 
             $locationKey = $location !== '' ? $location : 'unknown';
-            $roomId = isset($room['id']) ? (int) $room['id'] : null;
-            $groupKey = $roomId
-                ? 'room-'.$roomId
-                : 'room-canonical-'.($roomIndex + 1);
+            // Each canonical room entry is already its own room. Keying by room
+            // id alone would merge two entries that share an id — e.g. a member
+            // split out of a room that still carries the original manifest_room_id
+            // — collapsing the split back into one room. Use the entry index so
+            // every room entry stays a distinct group.
+            $groupKey = 'room-canonical-'.($roomIndex + 1);
 
             $members = isset($room['members']) && is_array($room['members'])
                 ? array_values($room['members'])
@@ -881,7 +972,7 @@ class ManifestController extends Controller
                     'room_type' => $room['room_type'] ?? null,
                     'bed_type' => $room['bed_type'] ?? null,
                     'number_of_beds_checked' => (bool) ($room['number_of_beds_checked'] ?? false),
-                    'meal' => $room['meal'] ?? null,
+                    'meal' => $member['meal'] ?? $room['meal'] ?? null,
                     'room_remarks' => $room['remarks'] ?? null,
                     'remarks' => $member['remarks'] ?? null,
                 ];
@@ -1440,6 +1531,7 @@ class ManifestController extends Controller
                                 : null,
                             'sort_order' => (int) ($member['sort_order'] ?? $member['sn'] ?? ($index + 1)),
                             'remarks' => $member['remarks'] ?? null,
+                            'meal' => $member['meal'] ?? null,
                         ];
                     }, $members, array_keys($members))),
                 ];

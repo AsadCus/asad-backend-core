@@ -26,6 +26,7 @@ class CountryService
                 'id' => $q->id,
                 'name' => $q->name,
                 'adjective' => $q->adjective,
+                'currency_symbol' => $q->currency_symbol,
             ];
         });
 
@@ -108,6 +109,7 @@ class CountryService
             $country = Country::create([
                 'name' => $data['name'],
                 'adjective' => $data['adjective'] ?? null,
+                'currency_symbol' => $data['currency_symbol'] ?? null,
             ]);
 
             activity()
@@ -127,6 +129,7 @@ class CountryService
             'id' => $country->id,
             'name' => $country->name,
             'adjective' => $country->adjective,
+            'currency_symbol' => $country->currency_symbol,
         ];
     }
 
@@ -138,6 +141,7 @@ class CountryService
             $country->update([
                 'name' => $data['name'],
                 'adjective' => $data['adjective'] ?? null,
+                'currency_symbol' => $data['currency_symbol'] ?? null,
             ]);
 
             activity()

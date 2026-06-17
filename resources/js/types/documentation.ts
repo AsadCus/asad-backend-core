@@ -1,8 +1,6 @@
 export interface ManualInfo {
     title: string;
-    version: string;
-    date: string;
-    author: string;
+    copyright: string;
 }
 
 export interface BibliographyItem {
@@ -21,13 +19,25 @@ export interface MenuStructureItem {
     children: string[];
 }
 
+export interface PlaybookContentBlock {
+    type: 'text' | 'image' | 'gif' | 'video';
+    text?: string;
+    src?: string;
+    alt?: string;
+}
+
 export interface PlaybookStep {
-    text: string;
+    text?: string;
     path?: string;
+    screenshot?: string;
+    content_blocks?: PlaybookContentBlock[];
 }
 
 export interface PlaybookProcedure {
     name: string;
+    screenshot?: string;
+    purpose?: string;
+    features?: string[];
     steps: PlaybookStep[];
 }
 
@@ -90,4 +100,6 @@ export interface DocumentationData {
 
 export interface DocumentationPageProps {
     documentation: DocumentationData;
+    moduleSlug?: string | null;
+    procedureSlug?: string | null;
 }

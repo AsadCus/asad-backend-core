@@ -301,6 +301,7 @@ class OpsMovementService
                     'from' => $flight->from,
                     'departure_datetime' => $flight->departure_datetime_formatted,
                     'airline' => $flight->airline,
+                    'flight_number' => $flight->flight_number,
                     'pnr' => $flight->pnr,
                     'ic' => $flightOps['ic'] ?? null,
                     'to' => $flight->to,

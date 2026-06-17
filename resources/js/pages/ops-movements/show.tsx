@@ -27,10 +27,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
     const { auth } = usePage<SharedData>().props;
-    const canEditOpsMovement =
-        auth?.permissions?.includes('ops-movement edit') ?? false;
-    const canManageBudget =
-        auth?.roles?.includes('admin') || auth?.roles?.includes('superadmin');
+    const roles = auth?.roles ?? [];
+    const isSuperadmin = roles.includes('superadmin');
+    const isAdmin = roles.includes('admin');
+    const isOperations = roles.includes('operations');
+
+    const canEditForm = isSuperadmin || isOperations;
+    const canViewAllTabs = isSuperadmin || isAdmin || isOperations;
     const [budgetSnapshot, setBudgetSnapshot] = useState<{
         budget: OpsBudgetTitleSchema[];
         budget_currency: string;
@@ -109,8 +112,8 @@ export default function ShowOpsMovement({ data }: ShowOpsMovementProps) {
                     <OpsMovementForm
                         initialData={data}
                         onCancel={handleBack}
-                        canEdit={canEditOpsMovement}
-                        canManageBudget={canManageBudget}
+                        canEdit={canEditForm}
+                        showAllTabs={canViewAllTabs}
                         onBudgetSnapshotChange={setBudgetSnapshot}
                     />
                 </div>

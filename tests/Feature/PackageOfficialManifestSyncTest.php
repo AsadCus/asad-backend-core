@@ -7,6 +7,7 @@ use App\Services\ManifestService;
 use App\Services\PackageSeatService;
 use App\Services\PackageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class PackageOfficialManifestSyncTest extends TestCase
@@ -247,7 +248,7 @@ class PackageOfficialManifestSyncTest extends TestCase
         $manifest = $package->manifests()->firstOrFail();
 
         $officialRooms = $manifest->rooms()
-            ->where('remarks', 'like', '[package-official-room]%')
+            ->where('remarks', 'like', 'Official Room%')
             ->with('roomMembers.member')
             ->get();
 
@@ -270,7 +271,7 @@ class PackageOfficialManifestSyncTest extends TestCase
             ->where('remarks', 'like', '[package-official]%')
             ->count());
         $this->assertSame(0, $manifest->rooms()
-            ->where('remarks', 'like', '[package-official-room]%')
+            ->where('remarks', 'like', 'Official Room%')
             ->count());
     }
 
@@ -463,6 +464,9 @@ class PackageOfficialManifestSyncTest extends TestCase
     public function test_updating_manifest_persists_official_room_members_with_id_fallback(): void
     {
         $actingUser = User::factory()->create();
+        Permission::findOrCreate('manifest view', 'web');
+        Permission::findOrCreate('manifest edit', 'web');
+        $actingUser->givePermissionTo(['manifest view', 'manifest edit']);
         $this->actingAs($actingUser);
 
         $package = app(PackageService::class)->store([
@@ -692,5 +696,218 @@ class PackageOfficialManifestSyncTest extends TestCase
             'manifest_room_id' => $manualRoom->id,
             'manifest_member_id' => $refreshedOfficialMember->id,
         ]);
+    }
+
+    public function test_official_gets_a_room_in_every_accommodation_for_multi_accommodation_package(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Multi Accommodation Official Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Multi',
+                    'contact_number' => '0188888001',
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Makkah Hotel',
+                    'type_of_meal' => 'Breakfast Only',
+                ],
+                [
+                    'location' => 'Madinah',
+                    'hotel_name' => 'Madinah Hotel',
+                    'type_of_meal' => 'Full Board',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $official = $package->officials()->firstOrFail();
+        $officialMember = $manifest->members()
+            ->where('package_official_id', $official->id)
+            ->firstOrFail();
+
+        foreach (['makkah', 'madinah'] as $location) {
+            $room = $manifest->rooms()
+                ->where('remarks', 'like', 'Official Room%')
+                ->where('location', $location)
+                ->first();
+
+            $this->assertNotNull($room, "Expected an official room at {$location}.");
+
+            $this->assertDatabaseHas('manifest_room_members', [
+                'manifest_room_id' => $room->id,
+                'manifest_member_id' => $officialMember->id,
+            ]);
+        }
+    }
+
+    public function test_adding_an_official_keeps_existing_official_rooms_and_groups_intact(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Incremental Add Official Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Alpha',
+                    'contact_number' => '0189999001',
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Makkah Hotel',
+                    'type_of_meal' => 'Breakfast Only',
+                ],
+                [
+                    'location' => 'Madinah',
+                    'hotel_name' => 'Madinah Hotel',
+                    'type_of_meal' => 'Full Board',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $officialA = $package->officials()->firstOrFail();
+        $memberA = $manifest->members()
+            ->where('package_official_id', $officialA->id)
+            ->firstOrFail();
+
+        $groupAId = (int) $memberA->manifest_sharing_group_id;
+        $roomAssignmentIds = $memberA->roomAssignments()->orderBy('id')->pluck('id')->all();
+        $this->assertCount(2, $roomAssignmentIds);
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $officialA->id,
+                    'type' => 'official',
+                    'name' => 'Ops Alpha',
+                    'contact_number' => '0189999001',
+                ],
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Bravo',
+                    'contact_number' => '0189999002',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $manifest->refresh();
+        $memberA->refresh();
+
+        // Official A is untouched: same member id, same group, same two room assignments.
+        $this->assertSame($groupAId, (int) $memberA->manifest_sharing_group_id);
+        $this->assertSame(
+            $roomAssignmentIds,
+            $memberA->roomAssignments()->orderBy('id')->pluck('id')->all(),
+        );
+
+        // Official B was added with rooms in both accommodations.
+        $officialB = $package->officials()
+            ->where('name', 'Ops Bravo')
+            ->firstOrFail();
+        $memberB = $manifest->members()
+            ->where('package_official_id', $officialB->id)
+            ->firstOrFail();
+
+        foreach (['makkah', 'madinah'] as $location) {
+            $room = $manifest->rooms()
+                ->where('remarks', 'like', 'Official Room%')
+                ->where('location', $location)
+                ->whereHas('roomMembers', function ($query) use ($memberB): void {
+                    $query->where('manifest_member_id', $memberB->id);
+                })
+                ->first();
+
+            $this->assertNotNull($room, "Expected Ops Bravo to have a room at {$location}.");
+        }
+    }
+
+    public function test_removing_an_official_only_removes_that_official(): void
+    {
+        $package = app(PackageService::class)->store([
+            'name' => 'Incremental Remove Official Package',
+            'status' => 'open',
+            'total_seats' => 8,
+            'officials' => [
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Keep',
+                    'contact_number' => '0190000001',
+                ],
+                [
+                    'type' => 'official',
+                    'name' => 'Ops Drop',
+                    'contact_number' => '0190000002',
+                ],
+            ],
+            'accommodations' => [
+                [
+                    'location' => 'Makkah',
+                    'hotel_name' => 'Makkah Hotel',
+                    'type_of_meal' => 'Breakfast Only',
+                ],
+                [
+                    'location' => 'Madinah',
+                    'hotel_name' => 'Madinah Hotel',
+                    'type_of_meal' => 'Full Board',
+                ],
+            ],
+        ]);
+
+        $manifest = $package->manifests()->firstOrFail();
+        $officialKeep = $package->officials()->where('name', 'Ops Keep')->firstOrFail();
+        $officialDrop = $package->officials()->where('name', 'Ops Drop')->firstOrFail();
+
+        $memberKeep = $manifest->members()
+            ->where('package_official_id', $officialKeep->id)
+            ->firstOrFail();
+        $memberDrop = $manifest->members()
+            ->where('package_official_id', $officialDrop->id)
+            ->firstOrFail();
+
+        $keepRoomAssignmentIds = $memberKeep->roomAssignments()->orderBy('id')->pluck('id')->all();
+        $this->assertCount(2, $keepRoomAssignmentIds);
+
+        app(PackageService::class)->update([
+            'officials' => [
+                [
+                    'id' => $officialKeep->id,
+                    'type' => 'official',
+                    'name' => 'Ops Keep',
+                    'contact_number' => '0190000001',
+                ],
+            ],
+        ], (int) $package->id);
+
+        $manifest->refresh();
+        $memberKeep->refresh();
+
+        // Dropped official's member and its rooms are gone.
+        $this->assertDatabaseMissing('manifest_members', [
+            'id' => $memberDrop->id,
+        ]);
+        $this->assertSame(
+            0,
+            $manifest->rooms()
+                ->where('remarks', 'like', 'Official Room%')
+                ->whereHas('roomMembers', function ($query) use ($memberDrop): void {
+                    $query->where('manifest_member_id', $memberDrop->id);
+                })
+                ->count(),
+        );
+
+        // Kept official is untouched: same member id and same two room assignments.
+        $this->assertSame(
+            $keepRoomAssignmentIds,
+            $memberKeep->roomAssignments()->orderBy('id')->pluck('id')->all(),
+        );
     }
 }

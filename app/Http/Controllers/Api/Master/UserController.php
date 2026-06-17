@@ -34,6 +34,7 @@ class UserController extends Controller
                 'role' => ['Invalid role.'],
             ]);
         }
+
         return new SalesUserService($role);
     }
 
@@ -43,6 +44,7 @@ class UserController extends Controller
 
         if ($role && in_array($role, self::ROLES, true)) {
             $service = $this->roleService($role);
+
             return response()->json($service->getForDataTable());
         }
 
@@ -125,10 +127,12 @@ class UserController extends Controller
             foreach ($ids as $userId) {
                 $this->userService->delete($userId);
             }
+
             return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
         }
 
         $this->userService->delete($id);
+
         return response()->json(['status' => 'ok', 'deleted' => 1]);
     }
 }

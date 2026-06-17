@@ -21,12 +21,14 @@ class NotificationController extends Controller
     public function markRead(Request $request, int $id): JsonResponse
     {
         $this->notificationService->markAsRead($request->user()->id, $id);
+
         return response()->json(['status' => 'ok']);
     }
 
     public function markAllRead(Request $request): JsonResponse
     {
         $this->notificationService->markAllAsRead($request->user()->id);
+
         return response()->json(['status' => 'ok']);
     }
 }

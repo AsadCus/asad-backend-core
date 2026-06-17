@@ -8,10 +8,13 @@ use App\Models\Enquiry;
 use App\Models\Manifest;
 use App\Models\Package;
 use App\Models\PrivateEnquiry;
+use App\Rules\PackageRule;
+use App\Services\UserRoles\OfficialUserService;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class PackageService
 {
@@ -21,11 +24,14 @@ class PackageService
 
     protected NumberingService $numberingService;
 
-    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService, NumberingService $numberingService)
+    protected OfficialUserService $officialUserService;
+
+    public function __construct(FormatService $formatService, PackageSeatService $packageSeatService, NumberingService $numberingService, OfficialUserService $officialUserService)
     {
         $this->formatService = $formatService;
         $this->packageSeatService = $packageSeatService;
         $this->numberingService = $numberingService;
+        $this->officialUserService = $officialUserService;
     }
 
     public function get()
@@ -138,6 +144,7 @@ class PackageService
                         'to' => $flight->to,
                         'description' => $flight->description,
                         'airline' => $flight->airline,
+                        'flight_number' => $flight->flight_number,
                         'pnr' => $flight->pnr,
                         'departure_datetime' => $flight->departure_datetime_formatted,
                         'arrival_datetime' => $flight->arrival_datetime_formatted,
@@ -230,6 +237,7 @@ class PackageService
     public function getForEditShow($id): array
     {
         $query = Package::with([
+            'country',
             'accommodations',
             'flights',
             'trainTickets',
@@ -270,6 +278,7 @@ class PackageService
             'status' => $package->status,
             'launched' => $package->launched,
             'country_id' => $package->country_id ? (string) $package->country_id : '',
+            'country_name' => $package->country?->name,
             'price_single' => $this->formatService->cleanDecimal($package->price_single),
             'price_double' => $this->formatService->cleanDecimal($package->price_double),
             'price_triple' => $this->formatService->cleanDecimal($package->price_triple),
@@ -314,6 +323,7 @@ class PackageService
                     'to' => $f->to,
                     'description' => $f->description,
                     'airline' => $f->airline,
+                    'flight_number' => $f->flight_number,
                     'pnr' => $f->pnr,
                     'departure_datetime' => $f->departure_datetime_formatted,
                     'arrival_datetime' => $f->arrival_datetime_formatted,
@@ -356,6 +366,7 @@ class PackageService
 
                 return [
                     'id' => $o->id,
+                    'official_id' => $o->official_id,
                     'type' => $o->type,
                     'name' => $o->name,
                     'hotel' => $this->resolvePrimaryOfficialHotel($o->hotel),
@@ -487,7 +498,7 @@ class PackageService
     {
         $imported = 0;
         $errors = [];
-        $packageRule = new \App\Rules\PackageRule;
+        $packageRule = new PackageRule;
 
         foreach ($items as $index => $item) {
             $row = $index + 1;
@@ -655,7 +666,7 @@ class PackageService
         }
         $remarks[] = 'Wheelchair support: '.($privateEnquiry->need_wheelchair ? 'Yes' : 'No');
         if ($privateEnquiry->has_chronic_disease) {
-            $remarks[] = 'Chronic disease: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
+            $remarks[] = 'Chronic illness: '.($privateEnquiry->chronic_disease_details ?: 'Yes');
         }
         if (! empty($privateEnquiry->other_remarks)) {
             $remarks[] = 'Other remarks: '.$privateEnquiry->other_remarks;
@@ -822,6 +833,7 @@ class PackageService
                 'to' => $flight['to'] ?? null,
                 'description' => $flight['description'] ?? null,
                 'airline' => $flight['airline'] ?? null,
+                'flight_number' => $flight['flight_number'] ?? null,
                 'pnr' => $flight['pnr'] ?? null,
                 'departure_datetime' => $flight['departure_datetime'] ?? null,
                 'arrival_datetime' => $flight['arrival_datetime'] ?? null,
@@ -921,19 +933,28 @@ class PackageService
         $retainedOfficialIds = [];
 
         foreach ($officials as $index => $official) {
+            $masterId = isset($official['official_id']) ? (int) $official['official_id'] : null;
+
+            // When linked to a master official, the snapshot is authoritative from the
+            // server (the client copy is ignored to prevent drift/tampering). Legacy
+            // free-typed rows (no master, or master missing) keep their submitted values.
+            $snapshot = $masterId ? $this->officialUserService->findSnapshot($masterId) : null;
+            $source = $snapshot ?? $official;
+
             $payload = [
-                'type' => $official['type'] ?? null,
-                'name' => $official['name'] ?? null,
+                'official_id' => $masterId,
+                'type' => $source['type'] ?? null,
+                'name' => $source['name'] ?? null,
                 'hotel' => $this->buildOfficialHotelMap($official, $accommodationIds),
-                'contact_number' => $official['contact_number'] ?? null,
-                'nationality' => $official['nationality'] ?? null,
-                'passport_number' => $official['passport_number'] ?? null,
-                'gender' => $official['gender'] ?? null,
-                'date_of_birth' => $official['date_of_birth'] ?? null,
-                'passport_issue_date' => $official['passport_issue_date'] ?? null,
-                'passport_expiry_date' => $official['passport_expiry_date'] ?? null,
-                'passport_place_of_issue' => $official['passport_place_of_issue'] ?? null,
-                'place_of_birth' => $official['place_of_birth'] ?? null,
+                'contact_number' => $source['contact_number'] ?? null,
+                'nationality' => $source['nationality'] ?? null,
+                'passport_number' => $source['passport_number'] ?? null,
+                'gender' => $source['gender'] ?? null,
+                'date_of_birth' => $source['date_of_birth'] ?? null,
+                'passport_issue_date' => $source['passport_issue_date'] ?? null,
+                'passport_expiry_date' => $source['passport_expiry_date'] ?? null,
+                'passport_place_of_issue' => $source['passport_place_of_issue'] ?? null,
+                'place_of_birth' => $source['place_of_birth'] ?? null,
                 'sort_order' => $index,
             ];
 
@@ -1014,7 +1035,7 @@ class PackageService
             ->where('remarks', 'like', $officialGroupMarker.'%')
             ->get()
             ->mapWithKeys(function ($group) use ($officialGroupMarker) {
-                $suffix = trim((string) \Illuminate\Support\Str::after((string) $group->remarks, $officialGroupMarker));
+                $suffix = trim((string) Str::after((string) $group->remarks, $officialGroupMarker));
                 $officialId = (int) $suffix;
 
                 if ($officialId <= 0) {
@@ -1128,13 +1149,13 @@ class PackageService
 
     private function syncManifestOfficialRooms(Manifest $manifest, Package $package): void
     {
-        $officialRoomMarker = '[package-official-room]';
+        $officialRoomMarker = 'Official Room';
 
         $officialMembers = $manifest->members()
             ->whereNotNull('package_official_id')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->with('roomAssignments')
+            ->with('roomAssignments.room')
             ->get();
 
         if ($officialMembers->isEmpty()) {
@@ -1185,43 +1206,65 @@ class PackageService
 
         $package->loadMissing('accommodations');
 
-        $defaultAccommodation = $package->accommodations
-            ->first(fn ($accommodation) => ! empty($accommodation->hotel_name));
-        $defaultLocation = $defaultAccommodation
-            ? (\Illuminate\Support\Str::slug((string) ($defaultAccommodation->location ?? $defaultAccommodation->hotel_name)) ?: 'makkah')
-            : 'makkah';
-        $defaultMeal = $defaultAccommodation->type_of_meal ?? null;
+        $accommodationTargets = $package->accommodations
+            ->filter(fn ($accommodation) => ! empty($accommodation->hotel_name))
+            ->map(function ($accommodation): array {
+                $location = Str::slug((string) ($accommodation->location ?: $accommodation->hotel_name)) ?: 'makkah';
+
+                return [
+                    'location' => $location,
+                    'meal' => $accommodation->type_of_meal ?? null,
+                ];
+            })
+            ->unique('location')
+            ->values();
+
+        if ($accommodationTargets->isEmpty()) {
+            $accommodationTargets = collect([
+                ['location' => 'makkah', 'meal' => null],
+            ]);
+        }
 
         $nextSortOrder = (int) (($manifest->rooms()->max('sort_order') ?? 0) + 1);
 
-        $officialMembers->each(function ($officialMember) use ($manifest, $officialRoomMarker, $defaultLocation, $defaultMeal, &$nextSortOrder): void {
-            if ($officialMember->roomAssignments()->exists()) {
-                return;
+        foreach ($officialMembers as $officialMember) {
+            $assignedLocations = $officialMember->roomAssignments
+                ->map(fn ($assignment) => strtolower(trim((string) ($assignment->room?->location ?? ''))))
+                ->filter(fn ($location) => $location !== '')
+                ->unique()
+                ->values()
+                ->all();
+
+            foreach ($accommodationTargets as $target) {
+                if (in_array($target['location'], $assignedLocations, true)) {
+                    continue;
+                }
+
+                $room = $manifest->rooms()->create([
+                    'sort_order' => $nextSortOrder,
+                    'location' => $target['location'],
+                    'group_relationship' => 'official',
+                    'room_label' => 'Official Room',
+                    'room_number' => null,
+                    'room_type' => 'single',
+                    'bed_type' => 'single',
+                    'capacity' => 1,
+                    'status' => 'pending',
+                    'meal' => $target['meal'],
+                    'number_of_beds_checked' => false,
+                    'remarks' => $officialRoomMarker,
+                ]);
+
+                $room->roomMembers()->create([
+                    'manifest_member_id' => $officialMember->id,
+                    'sort_order' => 1,
+                    'remarks' => null,
+                ]);
+
+                $assignedLocations[] = $target['location'];
+                $nextSortOrder++;
             }
-
-            $room = $manifest->rooms()->create([
-                'sort_order' => $nextSortOrder,
-                'location' => $defaultLocation,
-                'group_relationship' => 'official',
-                'room_label' => 'Official Room',
-                'room_number' => null,
-                'room_type' => 'single',
-                'bed_type' => 'single',
-                'capacity' => 1,
-                'status' => 'pending',
-                'meal' => $defaultMeal,
-                'number_of_beds_checked' => false,
-                'remarks' => $officialRoomMarker,
-            ]);
-
-            $room->roomMembers()->create([
-                'manifest_member_id' => $officialMember->id,
-                'sort_order' => 1,
-                'remarks' => null,
-            ]);
-
-            $nextSortOrder++;
-        });
+        }
     }
 
     /**

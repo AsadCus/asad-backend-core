@@ -44,6 +44,7 @@ export interface LinkedPackageInfo {
     child_with_bed_price?: number | null;
     child_no_bed_price?: number | null;
     infant_price?: number | null;
+    country_name?: string | null;
 }
 
 export interface CustomerConfirmationFormProps {
@@ -59,6 +60,8 @@ export interface CustomerConfirmationFormProps {
     publicSubmitUrl?: string;
     initialData?: CustomerConfirmationFormSchema;
     packageOptions?: OptionType[];
+    countryOptions?: OptionType[];
+    branchOptions?: OptionType[];
     packageData?: PackageSchema;
     onSuccess?: () => void;
     onCancel?: () => void;

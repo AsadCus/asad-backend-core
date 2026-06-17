@@ -28,10 +28,16 @@ export default function SalesViewDialog({
 }: SalesViewDialogProps) {
     const title =
         mode === 'create'
-            ? 'Create Salesperson'
+            ? 'Create Financeperson'
             : mode === 'edit'
-              ? 'Edit Salesperson'
-              : 'View Salesperson';
+              ? 'Edit Financeperson'
+              : 'View Financeperson';
+    // const title =
+    //     mode === 'create'
+    //         ? 'Create Salesperson'
+    //         : mode === 'edit'
+    //           ? 'Edit Salesperson'
+    //           : 'View Salesperson';
 
     return (
         <RoleUserFormDialog

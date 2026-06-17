@@ -19,6 +19,7 @@ export interface PackageInformationSectionData {
     status?: string;
     departure_date?: string | null;
     return_date?: string | null;
+    country_name?: string | null;
 }
 
 interface PackageInformationSectionProps {
@@ -71,7 +72,7 @@ export default function PackageInformationSection({
                     </div>
                 ) : (
                     packageInfo && (
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
                             <FormField label="Package Number">
                                 <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
                                     {packageInfo.package_number ||
@@ -88,6 +89,11 @@ export default function PackageInformationSection({
                                     <Badge variant="secondary">
                                         {packageStatusLabel}
                                     </Badge>
+                                </div>
+                            </FormField>
+                            <FormField label="Package Location">
+                                <div className="rounded-md border bg-muted/30 px-3 py-1.25 text-base select-text">
+                                    {packageInfo.country_name || '-'}
                                 </div>
                             </FormField>
                             <FormField label="Departure Date">

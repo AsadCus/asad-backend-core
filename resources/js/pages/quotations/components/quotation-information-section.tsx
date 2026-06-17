@@ -99,12 +99,17 @@ export default function QuotationInformationSection({
                     >
                         <Combobox
                             disabled={isView || disableCustomerConfirmation}
+                            clearable
                             value={data.customer_confirmation_id ?? ''}
                             onChange={(value) => {
                                 const nextValue = Number(value);
                                 setData(
                                     'customer_confirmation_id',
-                                    Number.isNaN(nextValue) ? null : nextValue,
+                                    !value ||
+                                        Number.isNaN(nextValue) ||
+                                        nextValue <= 0
+                                        ? null
+                                        : nextValue,
                                 );
                                 onCustomerConfirmationChange?.(value);
                             }}
@@ -198,6 +203,7 @@ export default function QuotationInformationSection({
                                 disabled={
                                     isView || customerOptions.length === 0
                                 }
+                                clearable
                                 value={selectedCustomerValue ?? ''}
                                 onChange={(value) => onCustomerChange?.(value)}
                                 options={customerOptions}
@@ -262,6 +268,7 @@ export default function QuotationInformationSection({
                         <div id="salesperson_id" tabIndex={-1}>
                             <Combobox
                                 disabled={isView || salespersonDisabled}
+                                clearable
                                 value={
                                     data.salesperson_id != null
                                         ? String(data.salesperson_id)

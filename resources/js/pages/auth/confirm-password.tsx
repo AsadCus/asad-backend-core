@@ -47,8 +47,10 @@ export default function ConfirmPassword() {
                                 disabled={processing}
                                 data-test="confirm-password-button"
                                 style={{
-                                    background: appearance?.primary_color || undefined,
-                                    borderRadius: appearance?.border_radius || undefined,
+                                    background:
+                                        appearance?.primary_color || undefined,
+                                    borderRadius:
+                                        appearance?.border_radius || undefined,
                                 }}
                             >
                                 {processing && (

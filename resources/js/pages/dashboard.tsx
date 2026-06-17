@@ -2,6 +2,7 @@ import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,10 @@ import { toast } from 'sonner';
 import { UserSchema } from './masters/users/schema';
 import { packageStatusColors, packageStatusLabels } from './packages/schema';
 
+type CustomerDashboardRow = UserSchema & {
+    package_name?: string | null;
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -94,6 +99,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface FiscalYearTotalSalesType {
     count: number;
     amount: number | string;
+    by_country?: Array<{
+        country_id: number;
+        country_name: string;
+        currency_symbol?: string | null;
+        count: number;
+        amount: number | string;
+    }>;
 }
 
 interface PaymentSummaryCategoryType {
@@ -115,6 +127,16 @@ interface PaymentSummaryType {
         key: string;
         label: string;
         amount: number | string;
+    }>;
+    by_country?: Array<{
+        country_id: number;
+        country_name: string;
+        currency_symbol?: string | null;
+        categories: Array<{
+            category: string;
+            amount: number | string;
+            receipt_count: number;
+        }>;
     }>;
 }
 
@@ -181,7 +203,7 @@ interface DashboardProps {
             period_start?: string;
             period_type?: 'year' | 'month';
         }[];
-        customers?: UserSchema[];
+        customers?: CustomerDashboardRow[];
         fiscalYear?: string;
         selectedYearId?: number;
         fiscalYearStartDate?: string;
@@ -451,11 +473,14 @@ export default function Dashboard({ data }: DashboardProps) {
             },
             {
                 accessorKey: 'departure_date',
+                sortingFn: 'displayDate',
                 header: 'Departure Date',
                 meta: { exportable: true },
+                filterFn: 'dateRangeFilter',
             },
             {
                 accessorKey: 'return_date',
+                sortingFn: 'displayDate',
                 header: 'Return Date',
                 meta: { exportable: true },
                 cell: ({ row }) => row.original.return_date ?? '-',
@@ -479,6 +504,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 accessorKey: 'status',
                 header: 'Status',
                 meta: { exportable: true },
+                filterFn: 'includesValue',
                 cell: ({ row }) => {
                     const normalizedStatus = String(row.original.status ?? '')
                         .trim()
@@ -802,11 +828,35 @@ export default function Dashboard({ data }: DashboardProps) {
     if (userPermissions.includes('customer delete')) actions.push('delete');
 
     // columns
-    const customerColumns: ColumnDef<UserSchema>[] = [
-        createSelectColumn<UserSchema>(),
-        { accessorKey: 'name', header: 'Name' },
+    const customerColumns: ColumnDef<CustomerDashboardRow>[] = [
+        createSelectColumn<CustomerDashboardRow>(),
+        {
+            accessorKey: 'name',
+            header: 'Name',
+        },
         { accessorKey: 'email', header: 'Email' },
         { accessorKey: 'contact', header: 'Contact' },
+        {
+            accessorKey: 'package_name',
+            header: 'Interested Package',
+            meta: { exportable: true },
+            cell: ({ row }) => {
+                const name = row.original.package_name;
+
+                if (!name) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
+
+                return (
+                    <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1 text-base"
+                    >
+                        {name}
+                    </Badge>
+                );
+            },
+        },
         {
             accessorKey: 'last_login',
             header: 'Last Login',
@@ -814,8 +864,9 @@ export default function Dashboard({ data }: DashboardProps) {
             cell: ({ row }) => {
                 const value = row.getValue('last_login');
 
-                if (!value)
+                if (!value) {
                     return <span className="text-muted-foreground">Never</span>;
+                }
 
                 return (
                     <span className="text-base text-muted-foreground capitalize">
@@ -904,46 +955,59 @@ export default function Dashboard({ data }: DashboardProps) {
                             </div>
                         )}
 
-                    {/* Admin: Fiscal Year - Total Sales (FYTD # and $) */}
+                    {/* Admin: Fiscal Year - Total Sales (FYTD by Country) */}
                     {isSuperadmin && fiscalYearTotalSalesData && (
                         <div>
                             <h2 className="mb-3 text-lg font-semibold">
                                 Fiscal Year - Total Sales
                             </h2>
-                            <div className="grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]">
-                                {/* <div className="mx-auto grid grid-cols-1 gap-4 md:w-[80%] md:grid-cols-2 lg:w-[50%]"> */}
-                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
-                                    <CardHeader className="gap-0">
-                                        <CardTitle className="text-md font-semibold">
-                                            FYTD (#)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">
-                                            {fiscalYearTotalSalesData.count}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Total Number of Sales
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="gap-3 bg-gradient-to-t from-primary/5 to-card">
-                                    <CardHeader className="gap-0">
-                                        <CardTitle className="text-md font-semibold">
-                                            FYTD ($)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">
-                                            {formatCurrency(
-                                                fiscalYearTotalSalesData.amount,
-                                            )}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Total Amount
-                                        </p>
-                                    </CardContent>
-                                </Card>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+                                {(
+                                    fiscalYearTotalSalesData.by_country ?? []
+                                ).flatMap((entry) => [
+                                    <Card
+                                        key={`fytd-count-${entry.country_id}`}
+                                        className="gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                    >
+                                        <CardHeader className="gap-0">
+                                            <CardTitle className="text-md font-semibold">
+                                                FYTD (#) — {entry.country_name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-3xl font-bold">
+                                                {entry.count}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Total Number of Sales
+                                            </p>
+                                        </CardContent>
+                                    </Card>,
+                                    <Card
+                                        key={`fytd-amount-${entry.country_id}`}
+                                        className="gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                    >
+                                        <CardHeader className="gap-0">
+                                            <CardTitle className="text-md font-semibold">
+                                                FYTD (
+                                                {entry.currency_symbol ?? '$'})
+                                                — {entry.country_name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-3xl font-bold">
+                                                {formatCurrency(
+                                                    entry.amount,
+                                                    entry.currency_symbol ??
+                                                        '$',
+                                                )}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Total Amount
+                                            </p>
+                                        </CardContent>
+                                    </Card>,
+                                ])}
                             </div>
                         </div>
                     )}
@@ -1143,51 +1207,75 @@ export default function Dashboard({ data }: DashboardProps) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            <div className="space-y-4">
                                 {isLoadingPaymentSummary && (
-                                    <Card className="bg-gradient-to-t from-primary/5 to-card">
-                                        <CardContent className="pt-6">
-                                            <p className="text-base text-muted-foreground">
-                                                Loading payment summary...
-                                            </p>
-                                        </CardContent>
-                                    </Card>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                                        <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                            <CardContent>
+                                                <p className="text-base text-muted-foreground">
+                                                    Loading payment summary...
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
                                 )}
 
                                 {!isLoadingPaymentSummary &&
-                                    paymentSummaryData?.categories?.map(
-                                        (category) => (
-                                            <Card
-                                                key={category.category}
-                                                className="bg-gradient-to-t from-primary/5 to-card"
+                                    (paymentSummaryData?.by_country ?? []).map(
+                                        (entry) => (
+                                            <div
+                                                key={entry.country_id}
+                                                className="space-y-2"
                                             >
-                                                <CardHeader className="gap-1 pb-2">
-                                                    <CardTitle className="text-base font-semibold">
-                                                        {category.category}
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="pt-0">
-                                                    <p className="text-2xl font-bold">
-                                                        {formatCurrency(
-                                                            category.amount,
-                                                        )}
-                                                    </p>
-                                                </CardContent>
-                                            </Card>
+                                                <h3 className="text-base font-semibold">
+                                                    {entry.country_name}
+                                                </h3>
+                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+                                                    {entry.categories.map(
+                                                        (category) => (
+                                                            <Card
+                                                                key={
+                                                                    category.category
+                                                                }
+                                                                className="justify-between gap-3 bg-gradient-to-t from-primary/5 to-card"
+                                                            >
+                                                                <CardHeader className="gap-0">
+                                                                    <CardTitle className="text-base font-semibold">
+                                                                        {
+                                                                            category.category
+                                                                        }
+                                                                    </CardTitle>
+                                                                </CardHeader>
+                                                                <CardContent className="pt-0">
+                                                                    <p className="text-2xl font-bold">
+                                                                        {formatCurrency(
+                                                                            category.amount,
+                                                                            entry.currency_symbol ??
+                                                                                '$',
+                                                                        )}
+                                                                    </p>
+                                                                </CardContent>
+                                                            </Card>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
                                         ),
                                     )}
 
                                 {!isLoadingPaymentSummary &&
-                                    (!paymentSummaryData?.categories ||
-                                        paymentSummaryData.categories.length ===
+                                    (!paymentSummaryData?.by_country ||
+                                        paymentSummaryData.by_country.length ===
                                             0) && (
-                                        <Card className="bg-gradient-to-t from-primary/5 to-card">
-                                            <CardContent>
-                                                <p className="text-base text-muted-foreground">
-                                                    No payment data found.
-                                                </p>
-                                            </CardContent>
-                                        </Card>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                                            <Card className="bg-gradient-to-t from-primary/5 to-card">
+                                                <CardContent>
+                                                    <p className="text-base text-muted-foreground">
+                                                        No payment data found.
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                     )}
                             </div>
                         </div>
@@ -1608,6 +1696,8 @@ export default function Dashboard({ data }: DashboardProps) {
                                     ]}
                                     addButtonText="Create New Package"
                                     url={packageIndex().url}
+                                    searchFilterMode="outside"
+                                    columnFilterMode="outside"
                                     onAction={(action, row) => {
                                         if (action === 'add') {
                                             router.get(packageCreate().url);
@@ -1646,9 +1736,29 @@ export default function Dashboard({ data }: DashboardProps) {
                                         columnVisibility: {
                                             country_id: false,
                                         },
+                                        columnFilters: [
+                                            { id: 'status', value: ['open'] },
+                                        ],
                                     }}
                                     renderFilter={(table) => (
                                         <>
+                                            <ColumnFilter
+                                                table={table}
+                                                columnId="status"
+                                                title="Status"
+                                                options={Object.entries(
+                                                    packageStatusLabels,
+                                                ).map(([value, label]) => ({
+                                                    value,
+                                                    label,
+                                                }))}
+                                            />
+                                            <DateRangeFilter
+                                                table={table}
+                                                columnId="departure_date"
+                                                title="Departure Date"
+                                                quickDate={true}
+                                            />
                                             {scopeMode === 'country' &&
                                                 scopeCountryOptions.length >
                                                     0 && (
@@ -1816,6 +1926,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                         },
                                         {
                                             accessorKey: 'created_at',
+                                            sortingFn: 'displayDate',
                                             header: 'Created At',
                                             meta: { exportable: true },
                                         },
@@ -1915,6 +2026,9 @@ export default function Dashboard({ data }: DashboardProps) {
                                         }
                                     }}
                                     initialState={{
+                                        columnVisibility: {
+                                            last_login: false,
+                                        },
                                         pagination: {
                                             pageIndex: 0,
                                             pageSize: 10,

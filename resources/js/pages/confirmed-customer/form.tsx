@@ -20,7 +20,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { handleDialogTabKey } from '@/lib/dialog-focus';
 import {
@@ -35,6 +34,7 @@ import {
     getForShow,
     listCustomers,
 } from '@/routes/enquiries';
+import { OptionType } from '@/types';
 import { useForm } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -123,6 +123,8 @@ export default function CustomerConfirmationForm({
     publicSubmitUrl,
     initialData,
     packageOptions = [],
+    countryOptions = [],
+    branchOptions = [],
     packageData,
     onSuccess,
     onCancel,
@@ -191,6 +193,7 @@ export default function CustomerConfirmationForm({
                 child_with_bed_price: pkg.child_with_bed_price,
                 child_no_bed_price: pkg.child_no_bed_price,
                 infant_price: pkg.infant_price,
+                country_name: pkg.country?.name ?? pkg.country_name ?? null,
             });
             setLinkedPackageData(pkg);
         } finally {
@@ -434,6 +437,7 @@ export default function CustomerConfirmationForm({
                 vehicle_type: packageData.vehicle_type,
                 ticket_type: packageData.ticket_type,
                 remarks: packageData.remarks,
+                country_name: packageData.country_name,
             });
 
             return;
@@ -449,7 +453,7 @@ export default function CustomerConfirmationForm({
 
         const selectedOption = packageOptions.find(
             (option) => Number(option.value) === Number(packageId),
-        );
+        ) as (OptionType & { country_name?: string }) | undefined;
 
         if (selectedOption) {
             setLinkedPackageInfo((current) => ({
@@ -472,6 +476,8 @@ export default function CustomerConfirmationForm({
                 child_with_bed_price: current?.child_with_bed_price,
                 child_no_bed_price: current?.child_no_bed_price,
                 infant_price: current?.infant_price,
+                country_name:
+                    selectedOption.country_name ?? current?.country_name,
             }));
         }
 
@@ -1373,7 +1379,9 @@ export default function CustomerConfirmationForm({
                                     <ProperInputSelect
                                         mode="multi"
                                         options={customerOptions.map((c) => ({
-                                            label: c.label,
+                                            label: c.name
+                                                ? `${c.name} - ${c.email}`
+                                                : c.email,
                                             value: String(c.value),
                                         }))}
                                         value={selectedCustomerValues}
@@ -1385,7 +1393,7 @@ export default function CustomerConfirmationForm({
                                             handleMultiSelectChange(nextValue);
                                         }}
                                         placeholder="Search & select customers..."
-                                        maxWidth="320px"
+                                        maxWidth="480px"
                                         responsive={true}
                                         disabled={processing}
                                         maxCount={0}
@@ -1419,7 +1427,7 @@ export default function CustomerConfirmationForm({
                                 value={activeTab}
                                 onValueChange={setActiveTab}
                             >
-                                <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="always-scrollbars w-full overflow-x-auto pb-0.5 whitespace-nowrap">
                                     <TabsList>
                                         {data.members?.map((customer, idx) => (
                                             <TabsTrigger
@@ -1442,8 +1450,7 @@ export default function CustomerConfirmationForm({
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
-                                    <ScrollBar orientation="horizontal" />
-                                </ScrollArea>
+                                </div>
 
                                 {data.members?.map((customer, idx) => (
                                     <TabsContent
@@ -1660,7 +1667,7 @@ export default function CustomerConfirmationForm({
                     {!isView && (
                         <Button
                             type="submit"
-                            className="min-w-[140px]"
+                            className="min-w-35"
                             disabled={
                                 processing || (isPublic && !data.terms_accepted)
                             }
@@ -1687,6 +1694,9 @@ export default function CustomerConfirmationForm({
                     }
                     isLoadingChild={isLoadingEnquiryChild}
                     showStatusActions={false}
+                    countryOptions={countryOptions}
+                    branchOptions={branchOptions}
+                    packageOptions={packageOptions}
                 />
 
                 {/* Package dialog */}
@@ -1705,11 +1715,12 @@ export default function CustomerConfirmationForm({
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="h-full w-full flex-1 overflow-y-auto pb-2">
+                        <div className="h-full w-full flex-1 overflow-y-auto p-2">
                             {linkedPackageData ? (
                                 <PackageForm
                                     mode="view"
                                     initialData={linkedPackageData}
+                                    countries={countryOptions}
                                     onCancel={() => setPackageDialogOpen(false)}
                                 />
                             ) : (

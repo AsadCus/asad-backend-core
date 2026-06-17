@@ -3,11 +3,12 @@ import { ColumnFilter } from '@/components/column-filter';
 import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
-// import { createSelectColumn } from '@/components/select-column';
+import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrency, parseDisplayDate } from '@/lib/utils';
+import { compareNaturalText, formatCurrency } from '@/lib/utils';
 import {
     create as createInvoice,
     destroy as destroyInvoice,
@@ -57,32 +58,6 @@ const invoiceIndexFilterStatuses = statuses.filter(
 const defaultInvoiceIndexStatusFilters = invoiceIndexFilterStatuses.map(
     (status) => status.value,
 );
-
-const compareNaturalText = (left: unknown, right: unknown): number => {
-    return String(left ?? '').localeCompare(String(right ?? ''), undefined, {
-        numeric: true,
-        sensitivity: 'base',
-    });
-};
-
-const compareFormattedDate = (left: unknown, right: unknown): number => {
-    const leftDate = parseDisplayDate(String(left ?? ''));
-    const rightDate = parseDisplayDate(String(right ?? ''));
-
-    if (leftDate && rightDate) {
-        return leftDate.getTime() - rightDate.getTime();
-    }
-
-    if (leftDate) {
-        return 1;
-    }
-
-    if (rightDate) {
-        return -1;
-    }
-
-    return compareNaturalText(left, right);
-};
 
 const shouldProceedWithNegativeReceipt = (invoice: InvoiceSchema): boolean => {
     const invoiceAmount = Number(invoice.amount ?? 0);
@@ -146,8 +121,11 @@ const getCreateReceiptStatusLabel = (invoice: InvoiceSchema): string => {
     return 'Not Available';
 };
 
-export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
-    // createSelectColumn<InvoiceSchema>(),
+export const getInvoiceColumns = (
+    sendEmailEnabled: boolean = true,
+    openEmailModal?: (id: number, number: string) => void,
+): ColumnDef<InvoiceSchema>[] => [
+    createSelectColumn<InvoiceSchema>(),
     {
         accessorKey: 'id',
         header: 'ID',
@@ -236,22 +214,14 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         header: 'Invoice Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'due_date',
         header: 'Due Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'status',
@@ -277,6 +247,61 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         meta: { exportable: true },
         cell: ({ row }) => formatCurrency(row.original.amount),
     },
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  sortingFn: 'displayDate',
+                  cell: ({ row }) => {
+                      const invoice = row.original;
+                      const sentAt = invoice.email_sent_at_formatted;
+                      const isSent = !!invoice.email_sent_at;
+                      const canSend = !['cancelled'].includes(
+                          invoice.status ?? '',
+                      );
+
+                      if (!canSend) {
+                          return (
+                              <span className="text-xs text-muted-foreground">
+                                  —
+                              </span>
+                          );
+                      }
+
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!invoice.id) return;
+                                      if (openEmailModal) {
+                                          openEmailModal(
+                                              invoice.id,
+                                              invoice.invoice_number ?? '',
+                                          );
+                                      }
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<InvoiceSchema>[])
+        : []),
     {
         id: 'create_receipt',
         header: 'Create Receipt',
@@ -339,28 +364,23 @@ export const invoiceColumns: ColumnDef<InvoiceSchema>[] = [
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
     {
         accessorKey: 'updated_at',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
-        sortingFn: (rowA, rowB, columnId) =>
-            compareFormattedDate(
-                rowA.getValue(columnId),
-                rowB.getValue(columnId),
-            ),
+        sortingFn: 'displayDate',
     },
 ];
 
+export const invoiceColumns: ColumnDef<InvoiceSchema>[] = getInvoiceColumns();
+
 export default function InvoicesIndex({ data }: InvoicesProps) {
     const { invoicesForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const userPermissions = auth.permissions || [];
 
@@ -378,6 +398,25 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
     const [receiptPreviewItems, setReceiptPreviewItems] = useState<
         InvoiceItemSchema[]
     >([]);
+
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedInvoices: InvoiceSchema[]) => {
+        const ids = selectedInvoices
+            .map((invoice) => invoice.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
 
     const handlePreview = async (invoice: InvoiceSchema) => {
         try {
@@ -439,6 +478,16 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
         // }
 
         if (
+            userPermissions.includes('invoice view') &&
+            !['cancelled'].includes(invoice.status ?? '')
+        ) {
+            if (sendEmailEnabled) {
+                rowActions.push('send-email');
+                rowActions.push('copy-link');
+            }
+        }
+
+        if (
             userPermissions.includes('receipt view') &&
             invoice.status === 'paid' &&
             invoice.has_receipt
@@ -471,12 +520,20 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
                             enableExpand={false}
-                            columns={invoiceColumns}
+                            columns={getInvoiceColumns(
+                                sendEmailEnabled,
+                                handleOpenEmailModal,
+                            )}
                             data={invoicesForDatatable}
                             actions={actions}
                             getRowActions={getRowActions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             // groupByRowColorKey="package_number"
                             url={invoiceIndex().url}
                             exportFilename="invoice"
@@ -568,6 +625,19 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                             );
                                         }
                                     })();
+                                } else if (action === 'send-email') {
+                                    handleOpenEmailModal(
+                                        invoiceId,
+                                        invoice.invoice_number ?? '',
+                                    );
+                                } else if (action === 'copy-link') {
+                                    // Let modal handle public link generation via single view or we can do it directly.
+                                    // Wait, the copy link action will just open the modal, then user clicks "Get Public Link"
+                                    // Alternatively, we can just open the modal. For now, open the modal for copy-link too.
+                                    handleOpenEmailModal(
+                                        invoiceId,
+                                        invoice.invoice_number ?? '',
+                                    );
                                 } else if (action === 'edit') {
                                     router.get(editInvoice(invoiceId).url);
                                 } else if (action === 'delete') {
@@ -615,6 +685,7 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                                     invoice_number: true,
                                     invoice_date: true,
                                     due_date: false,
+                                    email_sent_at_formatted: true,
                                     status: true,
                                     amount: true,
                                     create_receipt: true,
@@ -692,6 +763,14 @@ export default function InvoicesIndex({ data }: InvoicesProps) {
                     onOpenChange={setReceiptPreviewOpen}
                 />
             )}
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="invoice"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
+            />
         </>
     );
 }

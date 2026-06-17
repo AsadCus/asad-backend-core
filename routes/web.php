@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CustomerConfirmationController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerHistoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataScopeController;
 use App\Http\Controllers\DocumentationController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Master\CustomerController as MasterCustomerController;
 use App\Http\Controllers\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Master\MasterController;
+use App\Http\Controllers\Master\OfficialController as MasterOfficialController;
 use App\Http\Controllers\Master\OperationsController as MasterOperationsController;
 use App\Http\Controllers\Master\SalesController as MasterSalesController;
 use App\Http\Controllers\Master\SuperadminController as MasterSuperadminController;
@@ -26,6 +28,7 @@ use App\Http\Controllers\NumberingFormatController;
 use App\Http\Controllers\OpsMovementController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PackageController;
+use App\Http\Controllers\PackageProposalController;
 use App\Http\Controllers\PrivateEnquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationItemController;
@@ -57,26 +60,37 @@ Route::post('customer-confirmation/public/create', [CustomerConfirmationControll
 Route::get('customer-confirmation/public/edit/{encryptedId}', [CustomerConfirmationController::class, 'publicEditForm'])->name('customer-confirmation.public.edit');
 Route::post('customer-confirmation/public/update/{encryptedId}', [CustomerConfirmationController::class, 'publicEditStore'])->name('customer-confirmation.public.update');
 
+// Public document viewing via signed URLs
+Route::get('public/invoice/{id}', [InvoiceController::class, 'viewPublicDocument'])
+    ->name('public.invoice.view')
+    ->middleware('signed');
+Route::get('public/receipt/{id}', [ReceiptController::class, 'viewPublicDocument'])
+    ->name('public.receipt.view')
+    ->middleware('signed');
+Route::get('public/quotation/{id}', [QuotationController::class, 'viewPublicDocument'])
+    ->name('public.quotation.view')
+    ->middleware('signed');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('data-scope/countries', [DataScopeController::class, 'updateCountrySelection'])->name('data-scope.countries.update');
 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/fiscal-year-sales', [DashboardController::class, 'fiscalYearSales'])->name('dashboard.fiscal-year-sales');
     Route::get('dashboard/payment-report', [DashboardController::class, 'paymentReport'])
-        ->middleware(['role:superadmin|sales'])
+        ->middleware(['role:superadmin|admin|sales'])
         ->name('dashboard.payment-report');
     Route::get('dashboard/payment-report/export', [DashboardController::class, 'exportPaymentReport'])
-        ->middleware(['role:superadmin|sales'])
+        ->middleware(['role:superadmin|admin|sales'])
         ->name('dashboard.payment-report-export');
     Route::get('dashboard/closing-report/export', [DashboardController::class, 'exportClosingReport'])
-        ->middleware(['role:superadmin|admin|sales'])
+        ->middleware(['role:superadmin|sales'])
         ->name('dashboard.closing-report-export');
 
     // Reports
-    Route::middleware(['role:superadmin|sales'])->group(function () {
+    Route::middleware(['role:superadmin|admin|sales'])->group(function () {
         Route::get('reports/payment', [ReportController::class, 'paymentIndex'])->name('reports.payment.index');
     });
-    Route::middleware(['role:superadmin|admin|sales'])->group(function () {
+    Route::middleware(['role:superadmin|sales'])->group(function () {
         Route::get('reports/closing', [ReportController::class, 'closingIndex'])->name('reports.closing.index');
         Route::get('reports/closing/data', [ReportController::class, 'closingData'])->name('reports.closing.data');
     });
@@ -90,8 +104,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Documentation
-    Route::get('documentations', [DocumentationController::class, 'index'])
+    Route::get('documentation', [DocumentationController::class, 'index'])
         ->name('documentations.index');
+    Route::get('documentation/{moduleSlug}', [DocumentationController::class, 'showModule'])
+        ->name('documentations.showModule');
+    Route::get('documentation/{moduleSlug}/{procedureSlug}', [DocumentationController::class, 'showProcedure'])
+        ->name('documentations.showProcedure');
 
     // Masters
     Route::prefix('master')->name('master.')->middleware(['role:superadmin'])->group(function () {
@@ -105,6 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('operations', MasterOperationsController::class);
             Route::resource('customer', MasterCustomerController::class);
             Route::post('customer/{id}/create-quotation', [MasterCustomerController::class, 'createQuotation'])->name('customer.create-quotation');
+            Route::resource('official', MasterOfficialController::class);
         });
 
         Route::resource('user', MasterUserController::class);
@@ -132,7 +151,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('customer/{id}/enable', [CustomerController::class, 'enableCustomer'])->name('customer.enable');
     Route::put('customer/{id}/disable', [CustomerController::class, 'disableCustomer'])->name('customer.disable');
 
+    // Customer History
+    Route::get('customer-history', [CustomerHistoryController::class, 'index'])->middleware(['permission:customer view', 'feature:customer_history.enabled'])->name('customer-history.index');
+    Route::get('customer-history/{customerId}', [CustomerHistoryController::class, 'show'])->middleware(['permission:customer view', 'feature:customer_history.enabled'])->name('customer-history.show');
+
     // Quotation
+    Route::get('quotation/bulk/email-data', [QuotationController::class, 'getBulkEmailData'])->middleware('feature:email.send_enabled')->name('quotation.bulk-email-data');
+    Route::post('quotation/bulk/email-preview', [QuotationController::class, 'previewBulkEmail'])->middleware('feature:email.send_enabled')->name('quotation.bulk-email-preview');
+    Route::post('quotation/bulk/send-email', [QuotationController::class, 'sendBulkEmail'])->middleware('feature:email.send_enabled')->name('quotation.bulk-send-email');
     Route::resource('quotation', QuotationController::class);
     Route::get('quotation-get-for-show/{id}', [QuotationController::class, 'getForShow'])->name('quotation.get-for-show');
     Route::get('quotation/{id}/preview', [QuotationController::class, 'preview'])->name('quotation.preview');
@@ -142,8 +168,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('quotation/{id}/accept', [QuotationController::class, 'acceptQuotation'])->name('quotation.accept');
     Route::put('quotation/{id}/reject', [QuotationController::class, 'rejectQuotation'])->name('quotation.reject');
     Route::put('quotation/{id}/expire', [QuotationController::class, 'expireQuotation'])->name('quotation.expire');
-    Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->name('quotation.cancel');
+    Route::put('quotation/{id}/cancel', [QuotationController::class, 'cancelQuotation'])->middleware('role:superadmin')->name('quotation.cancel');
     Route::post('quotation/{id}/handle', [QuotationController::class, 'handle'])->middleware('permission:quotation edit')->name('quotation.handle');
+    Route::get('quotation/{id}/email-data', [QuotationController::class, 'getEmailData'])->middleware('feature:email.send_enabled')->name('quotation.email-data');
+    Route::post('quotation/{id}/email-preview', [QuotationController::class, 'previewEmail'])->middleware('feature:email.send_enabled')->name('quotation.email-preview');
+    Route::post('quotation/{id}/send-email', [QuotationController::class, 'sendEmail'])->middleware('feature:email.send_enabled')->name('quotation.send-email');
+    Route::get('quotation/{id}/copy-link', [QuotationController::class, 'generatePublicLink'])->name('quotation.copy-link');
 
     Route::resource('product-services', QuotationItemController::class)->names('quotation-items');
     Route::post('product-services/payment-methods', [QuotationItemController::class, 'storePaymentMethodMasters'])->name('quotation-items.payment-methods.store');
@@ -167,20 +197,36 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('order', OrderController::class);
 
     // Invoice
+    Route::get('invoice/bulk/email-data', [InvoiceController::class, 'getBulkEmailData'])->middleware('feature:email.send_enabled')->name('invoice.bulk-email-data');
+    Route::post('invoice/bulk/email-preview', [InvoiceController::class, 'previewBulkEmail'])->middleware('feature:email.send_enabled')->name('invoice.bulk-email-preview');
+    Route::post('invoice/bulk/send-email', [InvoiceController::class, 'sendBulkEmail'])->middleware('feature:email.send_enabled')->name('invoice.bulk-send-email');
     Route::resource('invoice', InvoiceController::class);
     Route::get('invoice/{id}/preview', [InvoiceController::class, 'preview'])->name('invoice.preview');
     Route::get('invoice/{id}/generate-pdf', [InvoiceController::class, 'generatePdf'])->name('invoice.generate.pdf');
     Route::get('invoice-get-for-show/{id}', [InvoiceController::class, 'getForShow'])->name('invoice.get-for-show');
     Route::post('invoice/{id}/recreate-receipt', [InvoiceController::class, 'recreateReceipt'])->name('invoice.recreate-receipt');
+    Route::get('invoice/{id}/email-data', [InvoiceController::class, 'getEmailData'])->middleware('feature:email.send_enabled')->name('invoice.email-data');
+    Route::post('invoice/{id}/email-preview', [InvoiceController::class, 'previewEmail'])->middleware('feature:email.send_enabled')->name('invoice.email-preview');
+    Route::post('invoice/{id}/send-email', [InvoiceController::class, 'sendEmail'])->middleware('feature:email.send_enabled')->name('invoice.send-email');
+    Route::get('invoice/{id}/copy-link', [InvoiceController::class, 'generatePublicLink'])->name('invoice.copy-link');
 
     // Receipt
+    Route::get('receipt/bulk/email-data', [ReceiptController::class, 'getBulkEmailData'])->middleware('feature:email.send_enabled')->name('receipt.bulk-email-data');
+    Route::post('receipt/bulk/email-preview', [ReceiptController::class, 'previewBulkEmail'])->middleware('feature:email.send_enabled')->name('receipt.bulk-email-preview');
+    Route::post('receipt/bulk/send-email', [ReceiptController::class, 'sendBulkEmail'])->middleware('feature:email.send_enabled')->name('receipt.bulk-send-email');
     Route::resource('receipt', ReceiptController::class);
     Route::get('receipt/{id}/preview', [ReceiptController::class, 'preview'])->name('receipt.preview');
     Route::get('receipt/{id}/generate-pdf', [ReceiptController::class, 'generatePdf'])->name('receipt.generate.pdf');
     Route::get('receipt-get-for-show/{id}', [ReceiptController::class, 'getForShow'])->name('receipt.get-for-show');
+    Route::get('receipt/{id}/email-data', [ReceiptController::class, 'getEmailData'])->middleware('feature:email.send_enabled')->name('receipt.email-data');
+    Route::post('receipt/{id}/email-preview', [ReceiptController::class, 'previewEmail'])->middleware('feature:email.send_enabled')->name('receipt.email-preview');
+    Route::post('receipt/{id}/send-email', [ReceiptController::class, 'sendEmail'])->middleware('feature:email.send_enabled')->name('receipt.send-email');
+    Route::get('receipt/{id}/copy-link', [ReceiptController::class, 'generatePublicLink'])->name('receipt.copy-link');
 
-    // User Logs
-    Route::get('user-logs', [UserLogsController::class, 'index'])->name('user-logs.index');
+    // User Logs — SuperAdmin only per access matrix
+    Route::get('user-logs', [UserLogsController::class, 'index'])
+        ->middleware('permission:user-log view')
+        ->name('user-logs.index');
 
     // General Enquiries
     Route::resource('general-enquiries', GeneralEnquiryController::class);
@@ -209,6 +255,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('customer-confirmations/members/{memberId}', [CustomerConfirmationController::class, 'updateMember'])->name('customer-confirmations.members.update');
     Route::post('customer-confirmations/members/{memberId}/cancel', [CustomerConfirmationController::class, 'cancelMember'])->name('customer-confirmations.members.cancel');
     Route::post('customer-confirmations/{id}/move-members', [CustomerConfirmationController::class, 'moveMembers'])->name('customer-confirmations.move-members');
+    Route::post('customer-confirmations/{id}/combine-quotations', [CustomerConfirmationController::class, 'combineQuotations'])->name('customer-confirmations.combine-quotations');
+    Route::post('customer-confirmations/{id}/combine-confirmation', [CustomerConfirmationController::class, 'combineConfirmation'])->name('customer-confirmations.combine-confirmation');
     Route::post('customer-confirmations/{id}/sync-billing', [CustomerConfirmationController::class, 'syncBilling'])->name('customer-confirmations.sync-billing');
     Route::post('customer-confirmations/{id}/generate-quotations', [CustomerConfirmationController::class, 'generateQuotations'])->name('customer-confirmations.generate-quotations');
     Route::post('customer-confirmations/{id}/refunds', [CustomerConfirmationController::class, 'createRefunds'])->name('customer-confirmations.refunds.store');
@@ -236,8 +284,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('packages/{id}/download', [PackageController::class, 'generatePdf'])->name('packages.download');
     Route::get('packages-get-for-show/{id}', [PackageController::class, 'getForShow'])->name('packages.get-for-show');
 
+    // Package Proposals (PnL)
+    Route::middleware('feature:package_proposal.enabled')->group(function () {
+        Route::resource('package-proposals', PackageProposalController::class);
+        Route::post('package-proposals/{id}/submit', [PackageProposalController::class, 'submit'])->name('package-proposals.submit');
+        Route::post('package-proposals/{id}/approve', [PackageProposalController::class, 'approve'])->name('package-proposals.approve');
+        Route::post('package-proposals/{id}/reject', [PackageProposalController::class, 'reject'])->name('package-proposals.reject');
+        Route::post('package-proposals/{id}/create-package', [PackageProposalController::class, 'createPackage'])->name('package-proposals.create-package');
+    });
+
     // Manifests
     Route::resource('manifests', ManifestController::class)->except(['create', 'update', 'destroy']);
+    Route::post('manifests/{id}/import', [ManifestController::class, 'import'])->name('manifests.import');
     Route::get('manifests-get-for-show/{id}', [ManifestController::class, 'getForShow'])->name('manifests.get-for-show');
     Route::match(['get', 'post'], 'manifests/{id}/collection-items-pdf', [ManifestController::class, 'exportCollectionItemsPdf'])->name('manifests.collection-items-pdf');
     Route::match(['get', 'post'], 'manifests/{id}/arabic-names-pdf', [ManifestController::class, 'exportArabicNamesPdf'])->name('manifests.arabic-names-pdf');

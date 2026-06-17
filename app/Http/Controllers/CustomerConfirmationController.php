@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CustomerConfirmation\CombineConfirmationsRequest;
+use App\Http\Requests\CustomerConfirmation\CombineQuotationsRequest;
 use App\Http\Requests\CustomerConfirmation\GenerateQuotationsRequest;
 use App\Models\CustomerConfirmation;
 use App\Rules\CustomerConfirmationRule;
+use App\Services\BranchService;
+use App\Services\CountryService;
 use App\Services\CustomerConfirmationService;
 use App\Services\PackageService;
 use App\Services\ReceiptService;
@@ -20,6 +24,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class CustomerConfirmationController extends Controller
 {
@@ -29,6 +34,8 @@ class CustomerConfirmationController extends Controller
         protected PackageService $packageService,
         protected ReceiptService $receiptService,
         protected ReportTemplateService $reportTemplateService,
+        protected CountryService $countryService,
+        protected BranchService $branchService,
     ) {}
 
     /**
@@ -42,8 +49,11 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
+            'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
             'pageTitle' => 'Confirmed Customers',
             'indexUrl' => route('confirmed-customer.index'),
         ]);
@@ -60,8 +70,11 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
+            'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
             'pageTitle' => 'Customer Holding',
             'indexUrl' => route('customer-holding.index'),
         ]);
@@ -78,8 +91,11 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
+            'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
             'pageTitle' => 'Completed Customers',
             'indexUrl' => route('completed-customer.index'),
         ]);
@@ -96,8 +112,11 @@ class CustomerConfirmationController extends Controller
         return Inertia::render('confirmed-customer/index', [
             'dataGroups' => $dataGroups,
             'packageOptions' => $packageOptions,
+            'countryOptions' => $this->countryService->getForFilter(),
+            'branchOptions' => $this->branchService->getForFilter(),
             'paymentMethods' => $this->receiptService->getPaymentMethodOptions(),
             'autoBillingSyncEnabled' => $this->customerConfirmationService->isAutoBillingSyncEnabled(),
+            'combineFeatureEnabled' => $this->customerConfirmationService->isCombineFeatureEnabled(),
             'pageTitle' => 'Cancelled Customers',
             'indexUrl' => route('cancelled-customer.index'),
         ]);
@@ -206,6 +225,74 @@ class CustomerConfirmationController extends Controller
             ->log('Customer confirmation members moved to holding confirmation');
 
         return back()->with('success', 'Customer members moved to holding confirmation successfully.');
+    }
+
+    /**
+     * Combine quotations within one confirmation: pull the selected members
+     * (and their billing) into the target quotation.
+     */
+    public function combineQuotations(CombineQuotationsRequest $request, string $id): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $validated = $request->validated();
+
+        try {
+            $this->customerConfirmationService->combineQuotations(
+                (int) $id,
+                (int) $validated['target_quotation_id'],
+                array_map('intval', $validated['member_ids']),
+            );
+        } catch (ValidationException $exception) {
+            return back()
+                ->withErrors($exception->errors())
+                ->with('error', $this->firstErrorMessage($exception->errors(), 'Failed to combine quotations.'));
+        } catch (HttpException $exception) {
+            return back()->with('error', $exception->getMessage() ?: 'Failed to combine quotations.');
+        }
+
+        return back()->with('success', 'Quotations combined successfully.');
+    }
+
+    /**
+     * Combine two confirmations in the same package: move the selected members
+     * (and their quotations) into the target confirmation, optionally merging
+     * them into one quotation.
+     */
+    public function combineConfirmation(CombineConfirmationsRequest $request, string $id): RedirectResponse
+    {
+        CustomerConfirmation::query()->findOrFail((int) $id);
+
+        $validated = $request->validated();
+
+        try {
+            $this->customerConfirmationService->combineConfirmations(
+                (int) $id,
+                (int) $validated['target_confirmation_id'],
+                array_map('intval', $validated['member_ids']),
+                isset($validated['target_quotation_id']) ? (int) $validated['target_quotation_id'] : null,
+            );
+        } catch (ValidationException $exception) {
+            return back()
+                ->withErrors($exception->errors())
+                ->with('error', $this->firstErrorMessage($exception->errors(), 'Failed to combine confirmations.'));
+        } catch (HttpException $exception) {
+            return back()->with('error', $exception->getMessage() ?: 'Failed to combine confirmations.');
+        }
+
+        return back()->with('success', 'Customer confirmations combined successfully.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $errors
+     */
+    private function firstErrorMessage(array $errors, string $fallback): string
+    {
+        return collect($errors)
+            ->flatten()
+            ->filter(fn ($message) => is_string($message) && trim($message) !== '')
+            ->map(fn ($message) => trim((string) $message))
+            ->first() ?? $fallback;
     }
 
     private function isHoldingIndexRequest(Request $request): bool
@@ -338,6 +425,7 @@ class CustomerConfirmationController extends Controller
             'member_refunds.*.percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'member_refunds.*.amount' => ['nullable', 'numeric', 'min:0'],
             'member_refunds.*.payment_method' => ['nullable', 'string', 'max:255'],
+            'member_refunds.*.refund_to' => ['nullable', 'string', 'max:255'],
             'member_refunds.*.description' => ['nullable', 'string', 'max:1000'],
         ]);
 

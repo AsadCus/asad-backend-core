@@ -16,12 +16,13 @@ import {
 } from '@/components/ui/dialog';
 import { importMethod } from '@/routes/packages';
 import type { FormDataConvertible } from '@inertiajs/core';
-import { router, usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     AlertCircleIcon,
     ArrowLeftIcon,
     CheckCircleIcon,
     FileSpreadsheetIcon,
+    Loader2,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { read, utils, writeFile, type WorkBook } from 'xlsx';
@@ -131,6 +132,46 @@ function cell(value: unknown): string {
     return String(value).trim();
 }
 
+function parseDate(value: unknown): string | null {
+    const s = cell(value);
+    if (s === '') return null;
+    if (/^\d+$/.test(s)) {
+        const d = new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    }
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    return s;
+}
+
+function parseTime(value: unknown): string | null {
+    const s = cell(value);
+    if (s === '') return null;
+
+    // Excel time serial: fraction of a day (e.g. 0.375 = 09:00)
+    const num = Number(s);
+    if (!isNaN(num) && num >= 0 && num < 1) {
+        const totalMinutes = Math.round(num * 24 * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    // "H.MM" or "H.MM.SS" (Excel dot-formatted time, e.g. "9.00", "9.00.00")
+    const dotMatch = s.match(/^(\d{1,2})\.(\d{2})(?:\.\d+)?$/);
+    if (dotMatch) {
+        return `${String(Number(dotMatch[1])).padStart(2, '0')}:${dotMatch[2]}`;
+    }
+
+    // "H:MM" or "H:MM:SS" — normalise to HH:MM
+    const colonMatch = s.match(/^(\d{1,2}):(\d{2})(?::\d+)?$/);
+    if (colonMatch) {
+        return `${String(Number(colonMatch[1])).padStart(2, '0')}:${colonMatch[2]}`;
+    }
+
+    return s;
+}
+
 function parseSheetRows<T>(
     workbook: WorkBook,
     sheetName: string,
@@ -189,8 +230,8 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
             type_of_meal: cell(row.type_of_meal) || undefined,
             first_meal: cell(row.first_meal) || undefined,
             last_meal: cell(row.last_meal) || undefined,
-            check_in: cell(row.check_in) || undefined,
-            check_out: cell(row.check_out) || undefined,
+            check_in: parseDate(row.check_in) ?? undefined,
+            check_out: parseDate(row.check_out) ?? undefined,
             ic: cell(row.ic) || undefined,
             ic_contact_number: cell(row.ic_contact_number) || undefined,
             remarks: cell(row.remarks) || undefined,
@@ -198,10 +239,10 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
     );
 
     const flights = parseSheetRows(workbook, 'Flights', (row) => {
-        const depDate = cell(row.departure_date);
-        const depTime = cell(row.departure_time);
-        const arrDate = cell(row.arrival_date);
-        const arrTime = cell(row.arrival_time);
+        const depDate = parseDate(row.departure_date);
+        const depTime = parseTime(row.departure_time);
+        const arrDate = parseDate(row.arrival_date);
+        const arrTime = parseTime(row.arrival_time);
 
         return {
             from: cell(row.from) || undefined,
@@ -224,8 +265,8 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
     const trainTickets = parseSheetRows(workbook, 'Train_Tickets', (row) => ({
         from: cell(row.from) || undefined,
         to: cell(row.to) || undefined,
-        travel_date: cell(row.travel_date) || undefined,
-        travel_time: cell(row.travel_time) || undefined,
+        travel_date: parseDate(row.travel_date) ?? undefined,
+        travel_time: parseTime(row.travel_time) ?? undefined,
         remarks: cell(row.remarks) || undefined,
     }));
 
@@ -235,8 +276,8 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
         (row) => ({
             from: cell(row.from) || undefined,
             to: cell(row.to) || undefined,
-            travel_date: cell(row.travel_date) || undefined,
-            travel_time: cell(row.travel_time) || undefined,
+            travel_date: parseDate(row.travel_date) ?? undefined,
+            travel_time: parseTime(row.travel_time) ?? undefined,
             remarks: cell(row.remarks) || undefined,
         }),
     );
@@ -245,11 +286,11 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
         workbook,
         'Rawdah_Tasreehs',
         (row) => ({
-            date: cell(row.date) || undefined,
+            date: parseDate(row.date) ?? undefined,
             women_passengers: cell(row.women_passengers) || undefined,
-            women_time: cell(row.women_time) || undefined,
+            women_time: parseTime(row.women_time) ?? undefined,
             men_passengers: cell(row.men_passengers) || undefined,
-            men_time: cell(row.men_time) || undefined,
+            men_time: parseTime(row.men_time) ?? undefined,
             remarks: cell(row.remarks) || undefined,
         }),
     );
@@ -261,10 +302,10 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
         nationality: cell(row.nationality) || undefined,
         passport_number: cell(row.passport_number) || undefined,
         gender: cell(row.gender) || undefined,
-        date_of_birth: cell(row.date_of_birth) || undefined,
+        date_of_birth: parseDate(row.date_of_birth) ?? undefined,
         place_of_birth: cell(row.place_of_birth) || undefined,
-        passport_issue_date: cell(row.passport_issue_date) || undefined,
-        passport_expiry_date: cell(row.passport_expiry_date) || undefined,
+        passport_issue_date: parseDate(row.passport_issue_date) ?? undefined,
+        passport_expiry_date: parseDate(row.passport_expiry_date) ?? undefined,
         passport_place_of_issue: cell(row.passport_place_of_issue) || undefined,
     }));
 
@@ -273,8 +314,8 @@ function parsePackageImportFile(workbook: WorkBook): ParsedPackagePayload {
         name: cell(pkg.name),
         status: cell(pkg.status) || 'open',
         total_seats: Number(pkg.total_seats) || 0,
-        departure_date: cell(pkg.departure_date) || null,
-        return_date: cell(pkg.return_date) || null,
+        departure_date: parseDate(pkg.departure_date),
+        return_date: parseDate(pkg.return_date),
         price_single: cell(pkg.price_single) || null,
         price_double: cell(pkg.price_double) || null,
         price_triple: cell(pkg.price_triple) || null,
@@ -313,28 +354,29 @@ export function PackageImportDialog({ open, onClose }: Props) {
         useState<ParsedPackagePayload | null>(null);
     const [parseError, setParseError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { errors } = usePage().props as { errors: Record<string, string> };
 
     const resetDialog = () => {
         setStep('upload');
         setParsedPayload(null);
         setParseError(null);
         setIsSubmitting(false);
+        setSubmitError(null);
+        setIsDragging(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleClose = () => {
+        if (isSubmitting) return;
         resetDialog();
         onClose();
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
+    const processFile = (file: File) => {
         setParseError(null);
-
+        setSubmitError(null);
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
@@ -354,9 +396,31 @@ export function PackageImportDialog({ open, onClose }: Props) {
         reader.readAsArrayBuffer(file);
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) processFile(file);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) processFile(file);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
+
     const handleSubmit = () => {
         if (!parsedPayload) return;
         setIsSubmitting(true);
+        setSubmitError(null);
         const payload = parsedPayload as unknown as FormDataConvertible;
         router.post(
             importMethod().url,
@@ -364,15 +428,28 @@ export function PackageImportDialog({ open, onClose }: Props) {
             {
                 onFinish: () => setIsSubmitting(false),
                 onSuccess: () => handleClose(),
+                onError: (errs) => {
+                    setSubmitError(
+                        typeof errs.import === 'string'
+                            ? errs.import
+                            : 'Import failed. Please check your data and try again.',
+                    );
+                },
             },
         );
     };
 
-    const importError = errors?.import;
-
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-auto md:min-w-4xl">
+                {isSubmitting && (
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/70 backdrop-blur-[1px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="text-sm font-medium">
+                            Importing… please wait
+                        </span>
+                    </div>
+                )}
                 {step === 'upload' ? (
                     <>
                         <DialogHeader>
@@ -386,7 +463,10 @@ export function PackageImportDialog({ open, onClose }: Props) {
                         <div className="py-4">
                             <label
                                 htmlFor="pkg-import-file"
-                                className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border p-10 transition-colors hover:border-primary/50 hover:bg-muted/30"
+                                className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-10 transition-colors ${isDragging ? 'border-primary/70 bg-muted/50' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
                             >
                                 <FileSpreadsheetIcon className="h-10 w-10 text-muted-foreground" />
                                 <div className="text-center">
@@ -432,10 +512,10 @@ export function PackageImportDialog({ open, onClose }: Props) {
 
                         {parsedPayload && (
                             <div className="space-y-4 py-2">
-                                {importError && (
-                                    <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-base text-destructive">
+                                {submitError && (
+                                    <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                                         <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                                        <span>{importError}</span>
+                                        <span>{submitError}</span>
                                     </div>
                                 )}
 
@@ -795,9 +875,13 @@ export function PackageImportDialog({ open, onClose }: Props) {
                             <Button
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || !parsedPayload}
+                                className="gap-2"
                             >
                                 {isSubmitting ? (
-                                    <>Importing...</>
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Importing…
+                                    </>
                                 ) : (
                                     <>
                                         <CheckCircleIcon className="h-4 w-4" />

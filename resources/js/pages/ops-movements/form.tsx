@@ -18,8 +18,7 @@ import {
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { type SharedData } from '@/types';
-import { useForm, usePage } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -39,7 +38,7 @@ interface OpsMovementFormProps {
     initialData: OpsMovementSchema;
     onCancel: () => void;
     canEdit?: boolean;
-    canManageBudget?: boolean;
+    showAllTabs?: boolean;
     onBudgetSnapshotChange?: (snapshot: {
         budget: OpsBudgetTitleSchema[];
         budget_currency: string;
@@ -566,12 +565,12 @@ export default function OpsMovementForm({
     initialData,
     onCancel,
     canEdit = true,
-    canManageBudget = false,
+    showAllTabs = true,
     onBudgetSnapshotChange,
 }: OpsMovementFormProps) {
-    const { auth } = usePage<SharedData>().props;
-    const isAdminUser = auth?.roles?.includes('admin') ?? false;
-    const canEditOpsAndPif = canEdit && isAdminUser;
+    // Ops Movement & PIF tabs are editable by anyone with the
+    // `ops-movement edit` permission (superadmin & operations).
+    const canEditOpsAndPif = canEdit;
 
     const [activeTab, setActiveTab] = useState('ops-movement');
     const [openOpsSections, setOpenOpsSections] = useState<string[]>([
@@ -1574,20 +1573,24 @@ export default function OpsMovementForm({
                         <TabsTrigger value="ops-movement" className="text-lg">
                             Ops Movement
                         </TabsTrigger>
-                        <TabsTrigger value="pif" className="text-lg">
-                            PIF
-                        </TabsTrigger>
-                        <TabsTrigger value="itinerary" className="text-lg">
-                            Itinerary
-                        </TabsTrigger>
-                        <TabsTrigger value="booklet" className="text-lg">
-                            Booklet
-                        </TabsTrigger>
-                        {canManageBudget && (
-                            <TabsTrigger value="budget" className="text-lg">
-                                Budget
+                        {showAllTabs && (
+                            <TabsTrigger value="pif" className="text-lg">
+                                PIF
                             </TabsTrigger>
                         )}
+                        {showAllTabs && (
+                            <TabsTrigger value="itinerary" className="text-lg">
+                                Itinerary
+                            </TabsTrigger>
+                        )}
+                        {showAllTabs && (
+                            <TabsTrigger value="booklet" className="text-lg">
+                                Booklet
+                            </TabsTrigger>
+                        )}
+                        <TabsTrigger value="budget" className="text-lg">
+                            Budget
+                        </TabsTrigger>
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
@@ -2034,11 +2037,20 @@ export default function OpsMovementForm({
                                                       : `Flight ${index + 1}`)}
                                         </div>
                                         <div className="grid grid-cols-1 gap-4">
-                                            <FormField label="Flight No">
-                                                <CopyableText
-                                                    value={flight.pnr}
-                                                />
-                                            </FormField>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField label="Flight No">
+                                                    <CopyableText
+                                                        value={
+                                                            flight.flight_number
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField label="PNR">
+                                                    <CopyableText
+                                                        value={flight.pnr}
+                                                    />
+                                                </FormField>
+                                            </div>
                                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField label="From">
                                                     <CopyableText
@@ -2276,136 +2288,165 @@ export default function OpsMovementForm({
                     </Accordion>
                 </TabsContent>
 
-                {OPS_DOCUMENT_TABS.map((tab) => {
-                    const allRows =
-                        (data.documents?.[tab.key] as
-                            | OpsDocumentItemSchema[]
-                            | undefined) ?? [];
-                    const visibleRowIndexes = allRows
-                        .map((row, rowIndex) => (row.removed ? null : rowIndex))
-                        .filter(
-                            (rowIndex): rowIndex is number => rowIndex !== null,
+                {showAllTabs &&
+                    OPS_DOCUMENT_TABS.map((tab) => {
+                        const allRows =
+                            (data.documents?.[tab.key] as
+                                | OpsDocumentItemSchema[]
+                                | undefined) ?? [];
+                        const visibleRowIndexes = allRows
+                            .map((row, rowIndex) =>
+                                row.removed ? null : rowIndex,
+                            )
+                            .filter(
+                                (rowIndex): rowIndex is number =>
+                                    rowIndex !== null,
+                            );
+                        const visibleRows = visibleRowIndexes.map(
+                            (actualIndex, visibleIndex) => ({
+                                row: allRows[actualIndex],
+                                actualIndex,
+                                visibleIndex,
+                            }),
                         );
-                    const rowsToRender =
-                        visibleRowIndexes.length > 0
-                            ? visibleRowIndexes.map(
-                                  (actualIndex, visibleIndex) => ({
-                                      row: allRows[actualIndex],
-                                      actualIndex,
-                                      visibleIndex,
-                                  }),
-                              )
-                            : [
-                                  {
-                                      row: createEmptyDocumentEntry(),
-                                      actualIndex: -1,
-                                      visibleIndex: 0,
-                                  },
-                              ];
+                        // A row has a real file if a new File is staged or an
+                        // existing stored path exists.
+                        const uploadedRows = visibleRows
+                            .filter(
+                                ({ row }) =>
+                                    Boolean(row.file) ||
+                                    Boolean(row.file_path),
+                            )
+                            .map((entry, visibleIndex) => ({
+                                ...entry,
+                                visibleIndex,
+                            }));
+                        const rowsToRender = canEdit
+                            ? visibleRows.length > 0
+                                ? visibleRows
+                                : [
+                                      {
+                                          row: createEmptyDocumentEntry(),
+                                          actualIndex: -1,
+                                          visibleIndex: 0,
+                                      },
+                                  ]
+                            : uploadedRows;
 
-                    return (
-                        <TabsContent
-                            key={tab.key}
-                            value={tab.key}
-                            className="space-y-4"
-                        >
-                            <div className="rounded-xl border border-border/70 p-4">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-lg font-semibold">
-                                            {tab.label} Documents
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground">
-                                            {tab.hint}
-                                        </p>
+                        return (
+                            <TabsContent
+                                key={tab.key}
+                                value={tab.key}
+                                className="space-y-4"
+                            >
+                                <div className="rounded-xl border border-border/70 p-4">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-semibold">
+                                                {tab.label} Documents
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {tab.hint}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={!canEdit || processing}
+                                            onClick={() => {
+                                                updateDocumentRows(tab.key, [
+                                                    ...allRows,
+                                                    createEmptyDocumentEntry(),
+                                                ]);
+                                            }}
+                                        >
+                                            Add Document
+                                        </Button>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        disabled={processing}
-                                        onClick={() => {
-                                            updateDocumentRows(tab.key, [
-                                                ...allRows,
-                                                createEmptyDocumentEntry(),
-                                            ]);
-                                        }}
-                                    >
-                                        Add Document
-                                    </Button>
-                                </div>
 
-                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                    {rowsToRender.map((renderRow) => {
-                                        const {
-                                            row,
-                                            actualIndex,
-                                            visibleIndex,
-                                        } = renderRow;
+                                    {rowsToRender.length > 0 ? (
+                                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                        {rowsToRender.map((renderRow) => {
+                                            const {
+                                                row,
+                                                actualIndex,
+                                                visibleIndex,
+                                            } = renderRow;
 
-                                        return (
-                                            <div
-                                                key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
-                                                className="rounded-lg border p-3"
-                                            >
-                                                {actualIndex >= 0 && (
-                                                    <div className="mb-3 flex justify-end">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 px-2 text-destructive hover:text-destructive"
-                                                            disabled={
-                                                                processing
-                                                            }
-                                                            onClick={() => {
-                                                                updateDocumentRows(
-                                                                    tab.key,
-                                                                    removeDocumentEntryAtIndex(
-                                                                        allRows,
-                                                                        actualIndex,
-                                                                    ),
-                                                                );
-                                                            }}
-                                                        >
-                                                            Remove
-                                                        </Button>
-                                                    </div>
-                                                )}
+                                            return (
+                                                <div
+                                                    key={`${tab.key}-${row.id ?? `new-${visibleIndex}`}`}
+                                                    className="rounded-lg border p-3"
+                                                >
+                                                    {canEdit &&
+                                                        actualIndex >= 0 && (
+                                                        <div className="mb-3 flex justify-end">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 px-2 text-destructive hover:text-destructive"
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                                onClick={() => {
+                                                                    updateDocumentRows(
+                                                                        tab.key,
+                                                                        removeDocumentEntryAtIndex(
+                                                                            allRows,
+                                                                            actualIndex,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                            >
+                                                                Remove
+                                                            </Button>
+                                                        </div>
+                                                    )}
 
-                                                <DocumentField
-                                                    label={`${tab.label} #${visibleIndex + 1}`}
-                                                    hint={tab.hint}
-                                                    accept={tab.accept}
-                                                    fileValue={
-                                                        row.file ?? undefined
-                                                    }
-                                                    existingPath={
-                                                        row.file_path ??
-                                                        undefined
-                                                    }
-                                                    existingFileName={
-                                                        row.file_name ??
-                                                        undefined
-                                                    }
-                                                    useFileNameInput
-                                                    fileNameValue={
-                                                        row.file_name ?? null
-                                                    }
-                                                    isView={false}
-                                                    disabled={processing}
-                                                    onSelect={(file) => {
-                                                        const nextRows =
-                                                            allRows.length > 0
-                                                                ? [...allRows]
-                                                                : [
-                                                                      createEmptyDocumentEntry(),
-                                                                  ];
-                                                        const targetIndex =
-                                                            actualIndex >= 0
-                                                                ? actualIndex
-                                                                : 0;
-                                                        nextRows[targetIndex] =
-                                                            {
+                                                    <DocumentField
+                                                        label={`${tab.label} #${visibleIndex + 1}`}
+                                                        hint={tab.hint}
+                                                        accept={tab.accept}
+                                                        fileValue={
+                                                            row.file ??
+                                                            undefined
+                                                        }
+                                                        existingPath={
+                                                            row.file_path ??
+                                                            undefined
+                                                        }
+                                                        existingFileName={
+                                                            row.file_name ??
+                                                            undefined
+                                                        }
+                                                        useFileNameInput
+                                                        fileNameValue={
+                                                            row.file_name ??
+                                                            null
+                                                        }
+                                                        isView={!canEdit}
+                                                        disabled={
+                                                            !canEdit ||
+                                                            processing
+                                                        }
+                                                        onSelect={(file) => {
+                                                            const nextRows =
+                                                                allRows.length >
+                                                                0
+                                                                    ? [
+                                                                          ...allRows,
+                                                                      ]
+                                                                    : [
+                                                                          createEmptyDocumentEntry(),
+                                                                      ];
+                                                            const targetIndex =
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
+                                                                    : 0;
+                                                            nextRows[
+                                                                targetIndex
+                                                            ] = {
                                                                 ...nextRows[
                                                                     targetIndex
                                                                 ],
@@ -2423,1417 +2464,1454 @@ export default function OpsMovementForm({
                                                                         data.package_number,
                                                                     ),
                                                             };
-                                                        updateDocumentRows(
-                                                            tab.key,
-                                                            nextRows,
-                                                        );
-                                                    }}
-                                                    onFileNameChange={(
-                                                        fileName,
-                                                    ) => {
-                                                        const nextRows =
-                                                            allRows.length > 0
-                                                                ? [...allRows]
-                                                                : [
-                                                                      createEmptyDocumentEntry(),
-                                                                  ];
-                                                        const targetIndex =
-                                                            actualIndex >= 0
-                                                                ? actualIndex
-                                                                : 0;
-                                                        nextRows[targetIndex] =
-                                                            {
+                                                            updateDocumentRows(
+                                                                tab.key,
+                                                                nextRows,
+                                                            );
+                                                        }}
+                                                        onFileNameChange={(
+                                                            fileName,
+                                                        ) => {
+                                                            const nextRows =
+                                                                allRows.length >
+                                                                0
+                                                                    ? [
+                                                                          ...allRows,
+                                                                      ]
+                                                                    : [
+                                                                          createEmptyDocumentEntry(),
+                                                                      ];
+                                                            const targetIndex =
+                                                                actualIndex >= 0
+                                                                    ? actualIndex
+                                                                    : 0;
+                                                            nextRows[
+                                                                targetIndex
+                                                            ] = {
                                                                 ...nextRows[
                                                                     targetIndex
                                                                 ],
                                                                 file_name:
                                                                     fileName,
                                                             };
-                                                        updateDocumentRows(
-                                                            tab.key,
-                                                            nextRows,
-                                                        );
-                                                    }}
-                                                    onClear={() => {
-                                                        updateDocumentRows(
-                                                            tab.key,
-                                                            removeDocumentEntryAtIndex(
-                                                                allRows,
-                                                                actualIndex,
-                                                            ),
-                                                        );
-                                                    }}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </TabsContent>
-                    );
-                })}
-
-                {canManageBudget && (
-                    <TabsContent value="budget" className="space-y-3">
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
-                            <FormField
-                                label="Budget Currency"
-                                fieldRequirementsProps={{
-                                    hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
-                                    example: 'SGD',
-                                }}
-                            >
-                                <ProperInput
-                                    value={data.budget_currency ?? ''}
-                                    disabled={processing}
-                                    placeholder="e.g. SGD"
-                                    onCommit={(value) =>
-                                        setFormData(
-                                            'budget_currency',
-                                            value.trim().toUpperCase(),
-                                        )
-                                    }
-                                />
-                            </FormField>
-                            <div className="flex justify-end">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={processing}
-                                    onClick={addBudgetTitle}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Title
-                                </Button>
-                            </div>
-                        </div>
-
-                        {budgetTotals.sections.map((sectionRow, titleIndex) => {
-                            const section = sectionRow.section;
-
-                            return (
-                                <Card
-                                    key={`budget-title-${titleIndex}`}
-                                    className="border-border/70"
-                                >
-                                    <CardHeader className="gap-3">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <CardTitle className="text-lg">
-                                                <FormField
-                                                    label={`Title ${titleIndex + 1}`}
-                                                    layout="inline"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Budget section title grouping related cost items.',
-                                                        example:
-                                                            'Hotel Logistics',
-                                                    }}
-                                                >
-                                                    <ProperInput
-                                                        value={
-                                                            section.title ?? ''
-                                                        }
-                                                        disabled={processing}
-                                                        onCommit={(value) =>
-                                                            updateBudgetTitle(
-                                                                titleIndex,
-                                                                {
-                                                                    title: value,
-                                                                },
-                                                            )
-                                                        }
-                                                        placeholder="Enter title"
-                                                        className="md:min-w-[300px]"
-                                                    />
-                                                </FormField>
-                                            </CardTitle>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                disabled={
-                                                    processing ||
-                                                    (data.budget ?? [])
-                                                        .length <= 1
-                                                }
-                                                onClick={() =>
-                                                    removeBudgetTitle(
-                                                        titleIndex,
-                                                    )
-                                                }
-                                                className="text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        {(section.items ?? []).map(
-                                            (item, itemIndex) => {
-                                                const lineTotal =
-                                                    toDecimal(item.unit_price) *
-                                                    toDecimal(item.quantity);
-
-                                                return (
-                                                    <div
-                                                        key={`budget-item-${titleIndex}-${itemIndex}`}
-                                                        className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
-                                                    >
-                                                        <FormField label="Item Name">
-                                                            <ProperInput
-                                                                value={
-                                                                    item.item_name ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            item_name:
-                                                                                value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Enter item"
-                                                            />
-                                                        </FormField>
-                                                        <FormField
-                                                            label="Unit Price"
-                                                            error={getError(
-                                                                `budget.${titleIndex}.items.${itemIndex}.unit_price`,
-                                                            )}
-                                                        >
-                                                            <ProperInput
-                                                                value={
-                                                                    item.unit_price ===
-                                                                        null ||
-                                                                    item.unit_price ===
-                                                                        undefined ||
-                                                                    toDecimal(
-                                                                        item.unit_price,
-                                                                    ) === 0
-                                                                        ? ''
-                                                                        : String(
-                                                                              item.unit_price,
-                                                                          )
-                                                                }
-                                                                type="number"
-                                                                inputProps={{
-                                                                    step: 'any',
-                                                                }}
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            unit_price:
-                                                                                value ===
-                                                                                ''
-                                                                                    ? null
-                                                                                    : toDecimal(
-                                                                                          value,
-                                                                                      ),
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="0"
-                                                            />
-                                                        </FormField>
-                                                        <FormField
-                                                            label="Quantity"
-                                                            error={getError(
-                                                                `budget.${titleIndex}.items.${itemIndex}.quantity`,
-                                                            )}
-                                                        >
-                                                            <ProperInput
-                                                                value={
-                                                                    toDecimal(
-                                                                        item.quantity,
-                                                                    ) === 0
-                                                                        ? ''
-                                                                        : String(
-                                                                              item.quantity ??
-                                                                                  '',
-                                                                          )
-                                                                }
-                                                                type="number"
-                                                                inputProps={{
-                                                                    min: 0,
-                                                                    step: 'any',
-                                                                }}
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            quantity:
-                                                                                toDecimal(
-                                                                                    value,
-                                                                                ),
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="0"
-                                                            />
-                                                        </FormField>
-                                                        <FormField label="Amount">
-                                                            <CopyableText
-                                                                value={
-                                                                    lineTotal
-                                                                }
-                                                            />
-                                                        </FormField>
-                                                        <FormField label="Remarks">
-                                                            <ProperInput
-                                                                value={
-                                                                    item.remarks ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                textarea
-                                                                onCommit={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                        {
-                                                                            remarks:
-                                                                                value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Remarks"
-                                                            />
-                                                        </FormField>
-                                                        <div className="flex items-center justify-end">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                disabled={
-                                                                    processing ||
-                                                                    !canEdit
-                                                                }
-                                                                onClick={() =>
-                                                                    duplicateBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Copy className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                disabled={
-                                                                    processing ||
-                                                                    (section
-                                                                        .items
-                                                                        ?.length ??
-                                                                        0) <= 1
-                                                                }
-                                                                onClick={() =>
-                                                                    removeBudgetItem(
-                                                                        titleIndex,
-                                                                        itemIndex,
-                                                                    )
-                                                                }
-                                                                className="text-destructive"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            },
-                                        )}
-
-                                        <div className="flex flex-col items-end gap-3 border-t pt-3">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                disabled={processing}
-                                                onClick={() =>
-                                                    addBudgetItem(titleIndex)
-                                                }
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                                Add Item
-                                            </Button>
-                                            <table className="w-full max-w-sm table-fixed text-base">
-                                                <tbody className="[&>tr>td]:py-1.5">
-                                                    <tr>
-                                                        <td className="w-3/4 text-right text-lg font-medium">
-                                                            {`Sub Total (${data.budget_currency}):`}
-                                                        </td>
-                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">
-                                                            {formatWithInputtedBudgetCurrency(
-                                                                sectionRow.subtotal,
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                    {(
-                                                        section.extensions ?? []
-                                                    ).map(
-                                                        (
-                                                            extension,
-                                                            extensionIndex,
-                                                        ) => {
-                                                            const amount =
-                                                                sectionRow
-                                                                    .extensions[
-                                                                    extensionIndex
-                                                                ]?.amount ?? 0;
-
-                                                            return (
-                                                                <tr
-                                                                    key={`budget-extension-${titleIndex}-${extensionIndex}`}
-                                                                >
-                                                                    <td className="w-3/4 text-right">
-                                                                        <div className="inline-flex items-center gap-2">
-                                                                            <button
-                                                                                type="button"
-                                                                                className="cursor-pointer font-medium underline"
-                                                                                disabled={
-                                                                                    processing ||
-                                                                                    !canEdit
-                                                                                }
-                                                                                onClick={() =>
-                                                                                    openEditBudgetExtension(
-                                                                                        titleIndex,
-                                                                                        extensionIndex,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                {formatBudgetExtensionLabel(
-                                                                                    extension,
-                                                                                )}
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                className="cursor-pointer font-medium text-destructive"
-                                                                                disabled={
-                                                                                    processing ||
-                                                                                    !canEdit
-                                                                                }
-                                                                                onClick={() =>
-                                                                                    removeBudgetExtension(
-                                                                                        titleIndex,
-                                                                                        extensionIndex,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="w-1/4 text-right font-medium">
-                                                                        {formatWithInputtedBudgetCurrency(
-                                                                            amount,
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
+                                                            updateDocumentRows(
+                                                                tab.key,
+                                                                nextRows,
                                                             );
-                                                        },
-                                                    )}
-                                                    <tr>
-                                                        <td className="text-right">
-                                                            <button
-                                                                type="button"
-                                                                className="cursor-pointer font-medium text-primary underline"
-                                                                disabled={
-                                                                    processing ||
-                                                                    !canEdit
-                                                                }
-                                                                onClick={() =>
-                                                                    openCreateBudgetExtension(
-                                                                        titleIndex,
-                                                                    )
-                                                                }
-                                                            >
-                                                                Add Extension
-                                                            </button>
-                                                        </td>
-                                                        <td className="text-right"></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="w-3/4 text-right text-lg font-semibold">
-                                                            {`Total (${data.budget_currency}):`}
-                                                        </td>
-                                                        <td className="w-1/4 text-right text-lg font-semibold text-primary">
-                                                            {formatWithInputtedBudgetCurrency(
-                                                                sectionRow.total,
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                                        }}
+                                                        onClear={() => {
+                                                            updateDocumentRows(
+                                                                tab.key,
+                                                                removeDocumentEntryAtIndex(
+                                                                    allRows,
+                                                                    actualIndex,
+                                                                ),
+                                                            );
+                                                        }}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            No {tab.label.toLowerCase()} uploaded.
+                                        </p>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        );
+                    })}
 
-                        <Dialog
-                            open={budgetExtensionEditor !== null}
-                            onOpenChange={(isOpen) => {
-                                if (!isOpen) {
-                                    setBudgetExtensionEditor(null);
-                                }
+                <TabsContent value="budget" className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end">
+                        <FormField
+                            label="Budget Currency"
+                            fieldRequirementsProps={{
+                                hint: 'Currency code used for budget totals (e.g. SAR, SGD, USD, MYR).',
+                                example: 'SGD',
                             }}
                         >
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>
-                                        {budgetExtensionEditor?.extensionIndex ===
-                                        null
-                                            ? 'Add Extension'
-                                            : 'Edit Extension'}
-                                    </DialogTitle>
-                                </DialogHeader>
+                            <ProperInput
+                                value={data.budget_currency ?? ''}
+                                disabled={!canEdit || processing}
+                                placeholder="e.g. SGD"
+                                onCommit={(value) =>
+                                    setFormData(
+                                        'budget_currency',
+                                        value.trim().toUpperCase(),
+                                    )
+                                }
+                            />
+                        </FormField>
+                        <div className="flex justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={!canEdit || processing}
+                                onClick={addBudgetTitle}
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Title
+                            </Button>
+                        </div>
+                    </div>
 
-                                <div className="space-y-3">
-                                    <FormField label="Extension Name">
-                                        <ProperInput
-                                            value={
-                                                budgetExtensionEditor?.draft
-                                                    .name ?? ''
+                    {budgetTotals.sections.map((sectionRow, titleIndex) => {
+                        const section = sectionRow.section;
+
+                        return (
+                            <Card
+                                key={`budget-title-${titleIndex}`}
+                                className="border-border/70"
+                            >
+                                <CardHeader className="gap-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <CardTitle className="text-lg">
+                                            <FormField
+                                                label={`Title ${titleIndex + 1}`}
+                                                layout="inline"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Budget section title grouping related cost items.',
+                                                    example: 'Hotel Logistics',
+                                                }}
+                                            >
+                                                <ProperInput
+                                                    value={section.title ?? ''}
+                                                    disabled={!canEdit || processing}
+                                                    onCommit={(value) =>
+                                                        updateBudgetTitle(
+                                                            titleIndex,
+                                                            {
+                                                                title: value,
+                                                            },
+                                                        )
+                                                    }
+                                                    placeholder="Enter title"
+                                                    className="md:min-w-[300px]"
+                                                />
+                                            </FormField>
+                                        </CardTitle>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={
+                                                !canEdit ||
+                                                processing ||
+                                                (data.budget ?? []).length <= 1
                                             }
-                                            onCommit={(value) => {
-                                                if (!budgetExtensionEditor) {
-                                                    return;
-                                                }
-
-                                                setBudgetExtensionEditor({
-                                                    ...budgetExtensionEditor,
-                                                    draft: {
-                                                        ...budgetExtensionEditor.draft,
-                                                        name: value,
-                                                    },
-                                                });
-                                            }}
-                                            placeholder="Enter Extension Name"
-                                        />
-                                    </FormField>
-
-                                    <FormField label="Calculation">
-                                        <ProperInputSelect
-                                            value={normalizeBudgetExtensionMode(
-                                                budgetExtensionEditor?.draft
-                                                    .calculation_mode,
-                                            )}
-                                            onValueChange={(value) => {
-                                                if (!budgetExtensionEditor) {
-                                                    return;
-                                                }
-
-                                                setBudgetExtensionEditor({
-                                                    ...budgetExtensionEditor,
-                                                    draft: {
-                                                        ...budgetExtensionEditor.draft,
-                                                        calculation_mode:
-                                                            normalizeBudgetExtensionMode(
-                                                                value,
-                                                            ),
-                                                    },
-                                                });
-                                            }}
-                                            options={[
-                                                {
-                                                    label: 'Fixed Amount',
-                                                    value: 'fixed',
-                                                },
-                                                {
-                                                    label: 'Percentage',
-                                                    value: 'percentage',
-                                                },
-                                            ]}
-                                        />
-                                    </FormField>
-
-                                    <FormField label="Value">
-                                        <ProperInput
-                                            value={
-                                                toDecimal(
-                                                    budgetExtensionEditor?.draft
-                                                        .calculation_value,
-                                                ) === 0
-                                                    ? ''
-                                                    : String(
-                                                          budgetExtensionEditor
-                                                              ?.draft
-                                                              .calculation_value ??
-                                                              '',
-                                                      )
+                                            onClick={() =>
+                                                removeBudgetTitle(titleIndex)
                                             }
-                                            type="number"
-                                            inputProps={{
-                                                step: 'any',
-                                            }}
-                                            onCommit={(value) => {
-                                                if (!budgetExtensionEditor) {
-                                                    return;
-                                                }
+                                            className="text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {(section.items ?? []).map(
+                                        (item, itemIndex) => {
+                                            const lineTotal =
+                                                toDecimal(item.unit_price) *
+                                                toDecimal(item.quantity);
 
-                                                setBudgetExtensionEditor({
-                                                    ...budgetExtensionEditor,
-                                                    draft: {
-                                                        ...budgetExtensionEditor.draft,
-                                                        calculation_value:
-                                                            toDecimal(value),
+                                            return (
+                                                <div
+                                                    key={`budget-item-${titleIndex}-${itemIndex}`}
+                                                    className="grid grid-cols-1 items-start gap-4 rounded-lg border px-4 py-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
+                                                >
+                                                    <FormField label="Item Name">
+                                                        <ProperInput
+                                                            value={
+                                                                item.item_name ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                !canEdit ||
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        item_name:
+                                                                            value,
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="Enter item"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Unit Price"
+                                                        error={getError(
+                                                            `budget.${titleIndex}.items.${itemIndex}.unit_price`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                item.unit_price ===
+                                                                    null ||
+                                                                item.unit_price ===
+                                                                    undefined ||
+                                                                toDecimal(
+                                                                    item.unit_price,
+                                                                ) === 0
+                                                                    ? ''
+                                                                    : String(
+                                                                          item.unit_price,
+                                                                      )
+                                                            }
+                                                            type="number"
+                                                            inputProps={{
+                                                                step: 'any',
+                                                            }}
+                                                            disabled={
+                                                                !canEdit ||
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        unit_price:
+                                                                            value ===
+                                                                            ''
+                                                                                ? null
+                                                                                : toDecimal(
+                                                                                      value,
+                                                                                  ),
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="0"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Quantity"
+                                                        error={getError(
+                                                            `budget.${titleIndex}.items.${itemIndex}.quantity`,
+                                                        )}
+                                                    >
+                                                        <ProperInput
+                                                            value={
+                                                                toDecimal(
+                                                                    item.quantity,
+                                                                ) === 0
+                                                                    ? ''
+                                                                    : String(
+                                                                          item.quantity ??
+                                                                              '',
+                                                                      )
+                                                            }
+                                                            type="number"
+                                                            inputProps={{
+                                                                min: 0,
+                                                                step: 'any',
+                                                            }}
+                                                            disabled={
+                                                                !canEdit ||
+                                                                processing
+                                                            }
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        quantity:
+                                                                            toDecimal(
+                                                                                value,
+                                                                            ),
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="0"
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Amount">
+                                                        <CopyableText
+                                                            value={lineTotal}
+                                                        />
+                                                    </FormField>
+                                                    <FormField label="Remarks">
+                                                        <ProperInput
+                                                            value={
+                                                                item.remarks ??
+                                                                ''
+                                                            }
+                                                            disabled={
+                                                                !canEdit ||
+                                                                processing
+                                                            }
+                                                            textarea
+                                                            onCommit={(value) =>
+                                                                updateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                    {
+                                                                        remarks:
+                                                                            value,
+                                                                    },
+                                                                )
+                                                            }
+                                                            placeholder="Remarks"
+                                                        />
+                                                    </FormField>
+                                                    <div className="flex items-center justify-end">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={
+                                                                processing ||
+                                                                !canEdit
+                                                            }
+                                                            onClick={() =>
+                                                                duplicateBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={
+                                                                !canEdit ||
+                                                                processing ||
+                                                                (section.items
+                                                                    ?.length ??
+                                                                    0) <= 1
+                                                            }
+                                                            onClick={() =>
+                                                                removeBudgetItem(
+                                                                    titleIndex,
+                                                                    itemIndex,
+                                                                )
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        },
+                                    )}
+
+                                    <div className="flex flex-col items-end gap-3 border-t pt-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={!canEdit || processing}
+                                            onClick={() =>
+                                                addBudgetItem(titleIndex)
+                                            }
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            Add Item
+                                        </Button>
+                                        <table className="w-full max-w-sm table-fixed text-base">
+                                            <tbody className="[&>tr>td]:py-1.5">
+                                                <tr>
+                                                    <td className="w-3/4 text-right text-lg font-medium">
+                                                        {`Sub Total (${data.budget_currency}):`}
+                                                    </td>
+                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                        {formatWithInputtedBudgetCurrency(
+                                                            sectionRow.subtotal,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {(section.extensions ?? []).map(
+                                                    (
+                                                        extension,
+                                                        extensionIndex,
+                                                    ) => {
+                                                        const amount =
+                                                            sectionRow
+                                                                .extensions[
+                                                                extensionIndex
+                                                            ]?.amount ?? 0;
+
+                                                        return (
+                                                            <tr
+                                                                key={`budget-extension-${titleIndex}-${extensionIndex}`}
+                                                            >
+                                                                <td className="w-3/4 text-right">
+                                                                    <div className="inline-flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="cursor-pointer font-medium underline"
+                                                                            disabled={
+                                                                                processing ||
+                                                                                !canEdit
+                                                                            }
+                                                                            onClick={() =>
+                                                                                openEditBudgetExtension(
+                                                                                    titleIndex,
+                                                                                    extensionIndex,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            {formatBudgetExtensionLabel(
+                                                                                extension,
+                                                                            )}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="cursor-pointer font-medium text-destructive"
+                                                                            disabled={
+                                                                                processing ||
+                                                                                !canEdit
+                                                                            }
+                                                                            onClick={() =>
+                                                                                removeBudgetExtension(
+                                                                                    titleIndex,
+                                                                                    extensionIndex,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="w-1/4 text-right font-medium">
+                                                                    {formatWithInputtedBudgetCurrency(
+                                                                        amount,
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
                                                     },
-                                                });
-                                            }}
-                                            placeholder="0"
-                                        />
-                                    </FormField>
-                                </div>
+                                                )}
+                                                <tr>
+                                                    <td className="text-right">
+                                                        <button
+                                                            type="button"
+                                                            className="cursor-pointer font-medium text-primary underline"
+                                                            disabled={
+                                                                processing ||
+                                                                !canEdit
+                                                            }
+                                                            onClick={() =>
+                                                                openCreateBudgetExtension(
+                                                                    titleIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            Add Extension
+                                                        </button>
+                                                    </td>
+                                                    <td className="text-right"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-3/4 text-right text-lg font-semibold">
+                                                        {`Total (${data.budget_currency}):`}
+                                                    </td>
+                                                    <td className="w-1/4 text-right text-lg font-semibold text-primary">
+                                                        {formatWithInputtedBudgetCurrency(
+                                                            sectionRow.total,
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
 
-                                <DialogFooter>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() =>
-                                            setBudgetExtensionEditor(null)
-                                        }
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        onClick={saveBudgetExtensionEditor}
-                                    >
-                                        Save
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-
-                        <Card>
-                            <CardContent>
-                                <div className="flex items-center justify-end">
-                                    <p className="text-lg font-semibold">
-                                        {`Grand Total (${data.budget_currency}):`}{' '}
-                                        <span className="text-primary">
-                                            {formatWithInputtedBudgetCurrency(
-                                                budgetTotals.grandTotal,
-                                            )}
-                                        </span>
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                )}
-
-                <TabsContent value="pif" className="space-y-6">
-                    <FormProgressHeader
-                        title="PIF"
-                        sections={pifSections}
-                        onSectionClick={handlePifSectionClick}
-                    />
-                    <Accordion
-                        type="multiple"
-                        value={openPifSections}
-                        onValueChange={setOpenPifSections}
-                        className="space-y-4"
+                    <Dialog
+                        open={budgetExtensionEditor !== null}
+                        onOpenChange={(isOpen) => {
+                            if (!isOpen) {
+                                setBudgetExtensionEditor(null);
+                            }
+                        }}
                     >
-                        <FormSection
-                            value="passenger-details"
-                            title="Passenger Details"
-                            description="Passenger breakdown details for the linked manifest."
-                            status={pifSectionStatuses.passengerDetails}
-                        >
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 items-start gap-4 md:grid-cols-4">
-                                    <FormField
-                                        label="Adult"
-                                        fieldRequirementsProps={{
-                                            hint: 'Total adult passengers in this manifest.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={
-                                                data.passengers?.adult_total ??
-                                                0
-                                            }
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="Child"
-                                        fieldRequirementsProps={{
-                                            hint: 'Total child passengers (with and without bed).',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={
-                                                data.passengers?.child_total ??
-                                                0
-                                            }
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="Infant"
-                                        fieldRequirementsProps={{
-                                            hint: 'Number of infant passengers in this manifest.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={
-                                                data.passengers?.infant_total ??
-                                                0
-                                            }
-                                        />
-                                    </FormField>
-                                    <FormField
-                                        label="Official / Mutawif"
-                                        fieldRequirementsProps={{
-                                            hint: 'Number of Mutawif and officials included in this movement.',
-                                        }}
-                                    >
-                                        <CopyableText
-                                            value={
-                                                data.passengers
-                                                    ?.official_total ?? 0
-                                            }
-                                        />
-                                    </FormField>
-                                </div>
-                            </div>
-                        </FormSection>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {budgetExtensionEditor?.extensionIndex ===
+                                    null
+                                        ? 'Add Extension'
+                                        : 'Edit Extension'}
+                                </DialogTitle>
+                            </DialogHeader>
 
-                        <FormSection
-                            value="tour-leader"
-                            title="Tour Leader"
-                            description="Assigned tour leader details for the linked manifest."
-                            status={pifSectionStatuses.tourLeader}
-                        >
-                            <div className="flex items-center justify-end">
+                            <div className="space-y-3">
+                                <FormField label="Extension Name">
+                                    <ProperInput
+                                        value={
+                                            budgetExtensionEditor?.draft.name ??
+                                            ''
+                                        }
+                                        onCommit={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    name: value,
+                                                },
+                                            });
+                                        }}
+                                        placeholder="Enter Extension Name"
+                                    />
+                                </FormField>
+
+                                <FormField label="Calculation">
+                                    <ProperInputSelect
+                                        value={normalizeBudgetExtensionMode(
+                                            budgetExtensionEditor?.draft
+                                                .calculation_mode,
+                                        )}
+                                        onValueChange={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    calculation_mode:
+                                                        normalizeBudgetExtensionMode(
+                                                            value,
+                                                        ),
+                                                },
+                                            });
+                                        }}
+                                        options={[
+                                            {
+                                                label: 'Fixed Amount',
+                                                value: 'fixed',
+                                            },
+                                            {
+                                                label: 'Percentage',
+                                                value: 'percentage',
+                                            },
+                                        ]}
+                                    />
+                                </FormField>
+
+                                <FormField label="Value">
+                                    <ProperInput
+                                        value={
+                                            toDecimal(
+                                                budgetExtensionEditor?.draft
+                                                    .calculation_value,
+                                            ) === 0
+                                                ? ''
+                                                : String(
+                                                      budgetExtensionEditor
+                                                          ?.draft
+                                                          .calculation_value ??
+                                                          '',
+                                                  )
+                                        }
+                                        type="number"
+                                        inputProps={{
+                                            step: 'any',
+                                        }}
+                                        onCommit={(value) => {
+                                            if (!budgetExtensionEditor) {
+                                                return;
+                                            }
+
+                                            setBudgetExtensionEditor({
+                                                ...budgetExtensionEditor,
+                                                draft: {
+                                                    ...budgetExtensionEditor.draft,
+                                                    calculation_value:
+                                                        toDecimal(value),
+                                                },
+                                            });
+                                        }}
+                                        placeholder="0"
+                                    />
+                                </FormField>
+                            </div>
+
+                            <DialogFooter>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    disabled={processing || !canEditOpsAndPif}
-                                    onClick={addTourLeader}
+                                    onClick={() =>
+                                        setBudgetExtensionEditor(null)
+                                    }
                                 >
-                                    <Plus className="h-4 w-4" />
-                                    Add Tour Leader
+                                    Cancel
                                 </Button>
-                            </div>
-                            <div className="space-y-4">
-                                {(data.pif?.tour_leaders ?? []).map(
-                                    (tourLeader, index) => (
-                                        <div
-                                            key={`tour-leader-${index}`}
-                                            className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
-                                        >
-                                            <FormField
-                                                label="Official Location"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Official location label synced from package official locations.',
-                                                    example: 'Makkah / Madinah',
-                                                }}
-                                                error={getError(
-                                                    `pif.tour_leaders.${index}.type`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        tourLeader.type ?? ''
-                                                    }
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    onCommit={(value) =>
-                                                        updateTourLeader(
-                                                            index,
-                                                            'type',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Makkah / Madinah"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Official Name"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Full name of the tour leader or official.',
-                                                }}
-                                                error={getError(
-                                                    `pif.tour_leaders.${index}.name`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        tourLeader.name ?? ''
-                                                    }
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    onCommit={(value) =>
-                                                        updateTourLeader(
-                                                            index,
-                                                            'name',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter official name"
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Contact Number"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Phone number of the official, including country code.',
-                                                    example: '+65 9123 4567',
-                                                }}
-                                                error={getError(
-                                                    `pif.tour_leaders.${index}.contact_number`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={
-                                                        tourLeader.contact_number ??
-                                                        ''
-                                                    }
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    onCommit={(value) =>
-                                                        updateTourLeader(
-                                                            index,
-                                                            'contact_number',
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Enter contact number"
-                                                />
-                                            </FormField>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                disabled={
-                                                    processing ||
-                                                    !canEditOpsAndPif
-                                                }
-                                                onClick={() =>
-                                                    removeTourLeader(index)
-                                                }
-                                                className="text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ),
-                                )}
-                                {(data.pif?.tour_leaders ?? []).length ===
-                                    0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No tour leader rows available.
-                                    </p>
-                                )}
-                            </div>
-                        </FormSection>
+                                <Button
+                                    type="button"
+                                    onClick={saveBudgetExtensionEditor}
+                                >
+                                    Save
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
-                        <FormSection
-                            value="flight-schedule"
-                            title="Flight Schedule"
-                            description="Departure and return flights for this movement, pulled from the package flight details. Add remarks for each flight as needed."
-                            status={pifSectionStatuses.flightSchedule}
+                    <Card>
+                        <CardContent>
+                            <div className="flex items-center justify-end">
+                                <p className="text-lg font-semibold">
+                                    {`Grand Total (${data.budget_currency}):`}{' '}
+                                    <span className="text-primary">
+                                        {formatWithInputtedBudgetCurrency(
+                                            budgetTotals.grandTotal,
+                                        )}
+                                    </span>
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {showAllTabs && (
+                    <TabsContent value="pif" className="space-y-6">
+                        <FormProgressHeader
+                            title="PIF"
+                            sections={pifSections}
+                            onSectionClick={handlePifSectionClick}
+                        />
+                        <Accordion
+                            type="multiple"
+                            value={openPifSections}
+                            onValueChange={setOpenPifSections}
+                            className="space-y-4"
                         >
-                            <div className="space-y-4">
-                                {(data.flights ?? []).map((flight, index) => (
-                                    <div
-                                        key={`pif-flight-${flight.id}`}
-                                        className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
-                                    >
+                            <FormSection
+                                value="passenger-details"
+                                title="Passenger Details"
+                                description="Passenger breakdown details for the linked manifest."
+                                status={pifSectionStatuses.passengerDetails}
+                            >
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 items-start gap-4 md:grid-cols-4">
                                         <FormField
-                                            label="Airline / Carrier"
+                                            label="Adult"
                                             fieldRequirementsProps={{
-                                                hint: 'Airline carrier code or name for this flight.',
-                                            }}
-                                        >
-                                            <CopyableText
-                                                value={flight.airline}
-                                            />
-                                        </FormField>
-                                        <FormField
-                                            label="From"
-                                            fieldRequirementsProps={{
-                                                hint: 'Departure airport or city.',
-                                            }}
-                                        >
-                                            <CopyableText value={flight.from} />
-                                        </FormField>
-                                        <FormField
-                                            label="To"
-                                            fieldRequirementsProps={{
-                                                hint: 'Arrival airport or city.',
-                                            }}
-                                        >
-                                            <CopyableText value={flight.to} />
-                                        </FormField>
-                                        <FormField
-                                            label="ETD (Departure Datetime)"
-                                            fieldRequirementsProps={{
-                                                hint: 'Estimated time of departure.',
+                                                hint: 'Total adult passengers in this manifest.',
                                             }}
                                         >
                                             <CopyableText
                                                 value={
-                                                    flight.departure_datetime
+                                                    data.passengers
+                                                        ?.adult_total ?? 0
                                                 }
                                             />
                                         </FormField>
                                         <FormField
-                                            label="ETA (Arrival Datetime)"
+                                            label="Child"
                                             fieldRequirementsProps={{
-                                                hint: 'Estimated time of arrival.',
+                                                hint: 'Total child passengers (with and without bed).',
                                             }}
                                         >
                                             <CopyableText
-                                                value={flight.arrival_datetime}
+                                                value={
+                                                    data.passengers
+                                                        ?.child_total ?? 0
+                                                }
                                             />
                                         </FormField>
                                         <FormField
-                                            label="PNR"
+                                            label="Infant"
                                             fieldRequirementsProps={{
-                                                hint: 'Flight booking reference / PNR.',
+                                                hint: 'Number of infant passengers in this manifest.',
                                             }}
                                         >
-                                            <CopyableText value={flight.pnr} />
+                                            <CopyableText
+                                                value={
+                                                    data.passengers
+                                                        ?.infant_total ?? 0
+                                                }
+                                            />
                                         </FormField>
                                         <FormField
-                                            label="Remarks"
-                                            className="md:col-span-3"
+                                            label="Official / Mutawif"
                                             fieldRequirementsProps={{
-                                                hint: 'Any additional notes for this flight, e.g. meal arrangements or special instructions.',
-                                                example:
-                                                    'Dinner at Hotel (International Buffet Dinner Hours: 7.30 till 10.30 pm)',
+                                                hint: 'Number of Mutawif and officials included in this movement.',
                                             }}
-                                            error={getError(
-                                                `flights.${index}.remarks`,
-                                            )}
                                         >
-                                            <ProperInput
-                                                value={flight.remarks ?? ''}
-                                                disabled={
-                                                    processing ||
-                                                    !canEditOpsAndPif
+                                            <CopyableText
+                                                value={
+                                                    data.passengers
+                                                        ?.official_total ?? 0
                                                 }
-                                                textarea
-                                                onCommit={(value) =>
-                                                    updatePifFlightRemarks(
-                                                        index,
-                                                        value,
-                                                    )
-                                                }
-                                                placeholder="Optional remarks"
                                             />
                                         </FormField>
                                     </div>
-                                ))}
-                                {(data.flights ?? []).length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No flight data available.
-                                    </p>
-                                )}
-                            </div>
-                        </FormSection>
+                                </div>
+                            </FormSection>
 
-                        <FormSection
-                            value="accommodation"
-                            title="Accommodation"
-                            description="Hotel stays per city for this movement. Room counts and member category counts are derived from manifest room allocations. Add remarks per accommodation as needed."
-                            status={pifSectionStatuses.accommodation}
-                        >
-                            <div className="space-y-4">
-                                {(data.accommodations ?? []).map(
-                                    (accommodation, index) => (
-                                        <div
-                                            key={`pif-accommodation-${accommodation.id}`}
-                                            className="space-y-3 rounded-lg border p-4"
-                                        >
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                <FormField
-                                                    label="City"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'City or destination of this accommodation.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.location
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Hotel Name"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Name of the hotel for this stay.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.hotel_name
-                                                        }
-                                                    />
-                                                </FormField>
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                                <FormField
-                                                    label="Meal"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Total number of meals provided.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.type_of_meal ??
-                                                            0
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="First Meal"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Enter first meal.',
-                                                    }}
-                                                >
-                                                    <ProperInputSelect
-                                                        options={MEAL_OPTIONS}
-                                                        value={
-                                                            accommodation.first_meal ??
-                                                            ''
-                                                        }
-                                                        disabled
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'first_meal',
-                                                                String(value),
-                                                            )
-                                                        }
-                                                        placeholder="Select first meal"
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Last Meal"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Enter last meal.',
-                                                    }}
-                                                >
-                                                    <ProperInputSelect
-                                                        options={MEAL_OPTIONS}
-                                                        value={
-                                                            accommodation.last_meal ??
-                                                            ''
-                                                        }
-                                                        disabled
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            updateAccommodation(
-                                                                index,
-                                                                'last_meal',
-                                                                String(value),
-                                                            )
-                                                        }
-                                                        placeholder="Select last meal"
-                                                    />
-                                                </FormField>
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                                <FormField
-                                                    label="Nights"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Total number of nights at this hotel.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.nights ??
-                                                            0
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Check In"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Check-in date.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.check_in
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Check Out"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Check-out date.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation.check_out
-                                                        }
-                                                    />
-                                                </FormField>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                                <FormField
-                                                    label="Single"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Number of single rooms allocated from manifest.',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation
-                                                                .room_counts
-                                                                ?.single ?? 0
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Double"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Number of double rooms (2 pax per room).',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation
-                                                                .room_counts
-                                                                ?.double ?? 0
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Triple"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Number of triple rooms (3 pax per room).',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation
-                                                                .room_counts
-                                                                ?.triple ?? 0
-                                                        }
-                                                    />
-                                                </FormField>
-                                                <FormField
-                                                    label="Quad"
-                                                    fieldRequirementsProps={{
-                                                        hint: 'Number of quad rooms (4 pax per room).',
-                                                    }}
-                                                >
-                                                    <CopyableText
-                                                        value={
-                                                            accommodation
-                                                                .room_counts
-                                                                ?.quad ?? 0
-                                                        }
-                                                    />
-                                                </FormField>
-                                            </div>
-                                            <FormField
-                                                label="Remarks"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
-                                                    example:
-                                                        'Breakfast included',
-                                                }}
-                                                error={getError(
-                                                    `accommodations.${index}.remarks`,
-                                                )}
+                            <FormSection
+                                value="tour-leader"
+                                title="Tour Leader"
+                                description="Assigned tour leader details for the linked manifest."
+                                status={pifSectionStatuses.tourLeader}
+                            >
+                                <div className="flex items-center justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={
+                                            processing || !canEditOpsAndPif
+                                        }
+                                        onClick={addTourLeader}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add Tour Leader
+                                    </Button>
+                                </div>
+                                <div className="space-y-4">
+                                    {(data.pif?.tour_leaders ?? []).map(
+                                        (tourLeader, index) => (
+                                            <div
+                                                key={`tour-leader-${index}`}
+                                                className="grid grid-cols-1 items-end gap-4 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
                                             >
-                                                <ProperInput
-                                                    value={
-                                                        accommodation.remarks ??
-                                                        ''
-                                                    }
+                                                <FormField
+                                                    label="Official Location"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Official location label synced from package official locations.',
+                                                        example:
+                                                            'Makkah / Madinah',
+                                                    }}
+                                                    error={getError(
+                                                        `pif.tour_leaders.${index}.type`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            tourLeader.type ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        onCommit={(value) =>
+                                                            updateTourLeader(
+                                                                index,
+                                                                'type',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Makkah / Madinah"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Official Name"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Full name of the tour leader or official.',
+                                                    }}
+                                                    error={getError(
+                                                        `pif.tour_leaders.${index}.name`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            tourLeader.name ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        onCommit={(value) =>
+                                                            updateTourLeader(
+                                                                index,
+                                                                'name',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter official name"
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Contact Number"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Phone number of the official, including country code.',
+                                                        example:
+                                                            '+65 9123 4567',
+                                                    }}
+                                                    error={getError(
+                                                        `pif.tour_leaders.${index}.contact_number`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            tourLeader.contact_number ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        onCommit={(value) =>
+                                                            updateTourLeader(
+                                                                index,
+                                                                'contact_number',
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter contact number"
+                                                    />
+                                                </FormField>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
                                                     disabled={
                                                         processing ||
                                                         !canEditOpsAndPif
                                                     }
-                                                    textarea
-                                                    onCommit={(value) =>
-                                                        updatePifAccommodationRemarks(
-                                                            index,
-                                                            value,
-                                                        )
+                                                    onClick={() =>
+                                                        removeTourLeader(index)
                                                     }
-                                                    placeholder="Optional remarks"
-                                                />
-                                            </FormField>
-                                        </div>
-                                    ),
-                                )}
-                                {(data.accommodations ?? []).length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No accommodation data available.
-                                    </p>
-                                )}
-                            </div>
-                        </FormSection>
+                                                    className="text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ),
+                                    )}
+                                    {(data.pif?.tour_leaders ?? []).length ===
+                                        0 && (
+                                        <p className="text-sm text-muted-foreground">
+                                            No tour leader rows available.
+                                        </p>
+                                    )}
+                                </div>
+                            </FormSection>
 
-                        <FormSection
-                            value="rawdah-tasreeh"
-                            title="Rawdah Tasreeh"
-                            description="Rawdah visit permit details for women and men passengers. Dates and pax counts are sourced from the package. Add remarks for any scheduling notes."
-                            status={pifSectionStatuses.rawdahTasreeh}
-                        >
-                            <div className="space-y-4">
-                                {(data.rawdah_tasreehs ?? []).map(
-                                    (row, index) => (
-                                        <div
-                                            key={`pif-rawdah-${row.id}`}
-                                            className="space-y-3 rounded-lg border p-4"
-                                        >
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                <div className="space-y-4">
+                            <FormSection
+                                value="flight-schedule"
+                                title="Flight Schedule"
+                                description="Departure and return flights for this movement, pulled from the package flight details. Add remarks for each flight as needed."
+                                status={pifSectionStatuses.flightSchedule}
+                            >
+                                <div className="space-y-4">
+                                    {(data.flights ?? []).map(
+                                        (flight, index) => (
+                                            <div
+                                                key={`pif-flight-${flight.id}`}
+                                                className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3"
+                                            >
+                                                <FormField
+                                                    label="Airline / Carrier"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Airline carrier code or name for this flight.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={flight.airline}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="From"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Departure airport or city.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={flight.from}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="To"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Arrival airport or city.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={flight.to}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="ETD (Departure Datetime)"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Estimated time of departure.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            flight.departure_datetime
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="ETA (Arrival Datetime)"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Estimated time of arrival.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={
+                                                            flight.arrival_datetime
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="PNR"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Flight booking reference / PNR.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={flight.pnr}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Remarks"
+                                                    className="md:col-span-3"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Any additional notes for this flight, e.g. meal arrangements or special instructions.',
+                                                        example:
+                                                            'Dinner at Hotel (International Buffet Dinner Hours: 7.30 till 10.30 pm)',
+                                                    }}
+                                                    error={getError(
+                                                        `flights.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            flight.remarks ?? ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        textarea
+                                                        onCommit={(value) =>
+                                                            updatePifFlightRemarks(
+                                                                index,
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        ),
+                                    )}
+                                    {(data.flights ?? []).length === 0 && (
+                                        <p className="text-sm text-muted-foreground">
+                                            No flight data available.
+                                        </p>
+                                    )}
+                                </div>
+                            </FormSection>
+
+                            <FormSection
+                                value="accommodation"
+                                title="Accommodation"
+                                description="Hotel stays per city for this movement. Room counts and member category counts are derived from manifest room allocations. Add remarks per accommodation as needed."
+                                status={pifSectionStatuses.accommodation}
+                            >
+                                <div className="space-y-4">
+                                    {(data.accommodations ?? []).map(
+                                        (accommodation, index) => (
+                                            <div
+                                                key={`pif-accommodation-${accommodation.id}`}
+                                                className="space-y-3 rounded-lg border p-4"
+                                            >
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                                     <FormField
-                                                        label="Date"
+                                                        label="City"
                                                         fieldRequirementsProps={{
-                                                            hint: 'Scheduled date for the Rawdah visit.',
-                                                        }}
-                                                    >
-                                                        <CopyableText
-                                                            value={row.date}
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Women Time"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Scheduled entry time for female passengers.',
+                                                            hint: 'City or destination of this accommodation.',
                                                         }}
                                                     >
                                                         <CopyableText
                                                             value={
-                                                                row.women_time
+                                                                accommodation.location
                                                             }
                                                         />
                                                     </FormField>
                                                     <FormField
-                                                        label="Men Time"
+                                                        label="Hotel Name"
                                                         fieldRequirementsProps={{
-                                                            hint: 'Scheduled entry time for male passengers.',
-                                                        }}
-                                                    >
-                                                        <CopyableText
-                                                            value={row.men_time}
-                                                        />
-                                                    </FormField>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    <FormField
-                                                        label="Total Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Total passengers (women + men) for this slot.',
+                                                            hint: 'Name of the hotel for this stay.',
                                                         }}
                                                     >
                                                         <CopyableText
                                                             value={
-                                                                (row.women_passengers ??
-                                                                    0) +
-                                                                (row.men_passengers ??
-                                                                    0)
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Women Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Number of female passengers for this Rawdah slot.',
-                                                        }}
-                                                    >
-                                                        <CopyableText
-                                                            value={
-                                                                row.women_passengers ===
-                                                                0
-                                                                    ? '-'
-                                                                    : row.women_passengers
-                                                            }
-                                                        />
-                                                    </FormField>
-                                                    <FormField
-                                                        label="Men Passengers"
-                                                        fieldRequirementsProps={{
-                                                            hint: 'Number of male passengers for this Rawdah slot.',
-                                                        }}
-                                                    >
-                                                        <CopyableText
-                                                            value={
-                                                                row.men_passengers ===
-                                                                0
-                                                                    ? '-'
-                                                                    : row.men_passengers
+                                                                accommodation.hotel_name
                                                             }
                                                         />
                                                     </FormField>
                                                 </div>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <FormField
+                                                        label="Meal"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Total number of meals provided.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation.type_of_meal ??
+                                                                0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="First Meal"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Enter first meal.',
+                                                        }}
+                                                    >
+                                                        <ProperInputSelect
+                                                            options={
+                                                                MEAL_OPTIONS
+                                                            }
+                                                            value={
+                                                                accommodation.first_meal ??
+                                                                ''
+                                                            }
+                                                            disabled
+                                                            onValueChange={(
+                                                                value,
+                                                            ) =>
+                                                                updateAccommodation(
+                                                                    index,
+                                                                    'first_meal',
+                                                                    String(
+                                                                        value,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            placeholder="Select first meal"
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Last Meal"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Enter last meal.',
+                                                        }}
+                                                    >
+                                                        <ProperInputSelect
+                                                            options={
+                                                                MEAL_OPTIONS
+                                                            }
+                                                            value={
+                                                                accommodation.last_meal ??
+                                                                ''
+                                                            }
+                                                            disabled
+                                                            onValueChange={(
+                                                                value,
+                                                            ) =>
+                                                                updateAccommodation(
+                                                                    index,
+                                                                    'last_meal',
+                                                                    String(
+                                                                        value,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            placeholder="Select last meal"
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    <FormField
+                                                        label="Nights"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Total number of nights at this hotel.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation.nights ??
+                                                                0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Check In"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Check-in date.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation.check_in
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Check Out"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Check-out date.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation.check_out
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                                    <FormField
+                                                        label="Single"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of single rooms allocated from manifest.',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation
+                                                                    .room_counts
+                                                                    ?.single ??
+                                                                0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Double"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of double rooms (2 pax per room).',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation
+                                                                    .room_counts
+                                                                    ?.double ??
+                                                                0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Triple"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of triple rooms (3 pax per room).',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation
+                                                                    .room_counts
+                                                                    ?.triple ??
+                                                                0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                    <FormField
+                                                        label="Quad"
+                                                        fieldRequirementsProps={{
+                                                            hint: 'Number of quad rooms (4 pax per room).',
+                                                        }}
+                                                    >
+                                                        <CopyableText
+                                                            value={
+                                                                accommodation
+                                                                    .room_counts
+                                                                    ?.quad ?? 0
+                                                            }
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <FormField
+                                                    label="Remarks"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Additional notes for this accommodation, e.g. meal type or special arrangements.',
+                                                        example:
+                                                            'Breakfast included',
+                                                    }}
+                                                    error={getError(
+                                                        `accommodations.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            accommodation.remarks ??
+                                                            ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        textarea
+                                                        onCommit={(value) =>
+                                                            updatePifAccommodationRemarks(
+                                                                index,
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
                                             </div>
-                                            <FormField
-                                                label="Remarks"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Any scheduling notes, blocked dates, or departure info.',
-                                                    example:
-                                                        'Mazarat 10 Jan, DEP 7.30 AM',
-                                                }}
-                                                error={getError(
-                                                    `rawdah_tasreehs.${index}.remarks`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={row.remarks ?? ''}
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    textarea
-                                                    onCommit={(value) =>
-                                                        updatePifRawdahRemarks(
-                                                            index,
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Optional remarks"
-                                                />
-                                            </FormField>
-                                        </div>
-                                    ),
-                                )}
-                                {(data.rawdah_tasreehs ?? []).length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No rawdah tasreeh data available.
-                                    </p>
-                                )}
-                            </div>
-                        </FormSection>
+                                        ),
+                                    )}
+                                    {(data.accommodations ?? []).length ===
+                                        0 && (
+                                        <p className="text-sm text-muted-foreground">
+                                            No accommodation data available.
+                                        </p>
+                                    )}
+                                </div>
+                            </FormSection>
 
-                        <FormSection
-                            value="transportation-plan"
-                            title="Transportation Plan"
-                            description="Ground transport itinerary for the movement, covering airport transfers, city tours, and inter-city travel. Add remarks for special instructions per leg."
-                            status={pifSectionStatuses.transportationPlan}
-                        >
-                            <div className="space-y-4">
-                                {(data.transportation_plans ?? []).map(
-                                    (row, index) => (
-                                        <div
-                                            key={`pif-transport-${row.id}`}
-                                            className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3"
-                                        >
-                                            <FormField
-                                                label="From"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Departure point for this transport leg.',
-                                                    example: 'Jeddah Airport',
-                                                }}
+                            <FormSection
+                                value="rawdah-tasreeh"
+                                title="Rawdah Tasreeh"
+                                description="Rawdah visit permit details for women and men passengers. Dates and pax counts are sourced from the package. Add remarks for any scheduling notes."
+                                status={pifSectionStatuses.rawdahTasreeh}
+                            >
+                                <div className="space-y-4">
+                                    {(data.rawdah_tasreehs ?? []).map(
+                                        (row, index) => (
+                                            <div
+                                                key={`pif-rawdah-${row.id}`}
+                                                className="space-y-3 rounded-lg border p-4"
                                             >
-                                                <CopyableText
-                                                    value={row.from}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="To"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Destination for this transport leg.',
-                                                    example: 'Sofitel Hotel',
-                                                }}
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    <div className="space-y-4">
+                                                        <FormField
+                                                            label="Date"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Scheduled date for the Rawdah visit.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={row.date}
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Women Time"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Scheduled entry time for female passengers.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={
+                                                                    row.women_time
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Men Time"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Scheduled entry time for male passengers.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={
+                                                                    row.men_time
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                    </div>
+                                                    <div className="space-y-4">
+                                                        <FormField
+                                                            label="Total Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Total passengers (women + men) for this slot.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={
+                                                                    (row.women_passengers ??
+                                                                        0) +
+                                                                    (row.men_passengers ??
+                                                                        0)
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Women Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Number of female passengers for this Rawdah slot.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={
+                                                                    row.women_passengers ===
+                                                                    0
+                                                                        ? '-'
+                                                                        : row.women_passengers
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                        <FormField
+                                                            label="Men Passengers"
+                                                            fieldRequirementsProps={{
+                                                                hint: 'Number of male passengers for this Rawdah slot.',
+                                                            }}
+                                                        >
+                                                            <CopyableText
+                                                                value={
+                                                                    row.men_passengers ===
+                                                                    0
+                                                                        ? '-'
+                                                                        : row.men_passengers
+                                                                }
+                                                            />
+                                                        </FormField>
+                                                    </div>
+                                                </div>
+                                                <FormField
+                                                    label="Remarks"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Any scheduling notes, blocked dates, or departure info.',
+                                                        example:
+                                                            'Mazarat 10 Jan, DEP 7.30 AM',
+                                                    }}
+                                                    error={getError(
+                                                        `rawdah_tasreehs.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            row.remarks ?? ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        textarea
+                                                        onCommit={(value) =>
+                                                            updatePifRawdahRemarks(
+                                                                index,
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        ),
+                                    )}
+                                    {(data.rawdah_tasreehs ?? []).length ===
+                                        0 && (
+                                        <p className="text-sm text-muted-foreground">
+                                            No rawdah tasreeh data available.
+                                        </p>
+                                    )}
+                                </div>
+                            </FormSection>
+
+                            <FormSection
+                                value="transportation-plan"
+                                title="Transportation Plan"
+                                description="Ground transport itinerary for the movement, covering airport transfers, city tours, and inter-city travel. Add remarks for special instructions per leg."
+                                status={pifSectionStatuses.transportationPlan}
+                            >
+                                <div className="space-y-4">
+                                    {(data.transportation_plans ?? []).map(
+                                        (row, index) => (
+                                            <div
+                                                key={`pif-transport-${row.id}`}
+                                                className="grid grid-cols-1 items-start gap-4 rounded-lg border p-4 md:grid-cols-3"
                                             >
-                                                <CopyableText value={row.to} />
-                                            </FormField>
-                                            <FormField
-                                                label="Date"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Date of travel for this transport leg.',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={row.travel_date}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Time"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Scheduled departure or pickup time.',
-                                                    example: '07:30 AM',
-                                                }}
-                                            >
-                                                <CopyableText
-                                                    value={row.travel_time}
-                                                />
-                                            </FormField>
-                                            <FormField
-                                                label="Remarks"
-                                                className="md:col-span-2"
-                                                fieldRequirementsProps={{
-                                                    hint: 'Any notes for this leg, e.g. pending confirmation, special stops, or vehicle type.',
-                                                    example:
-                                                        'REHAL / MAKKAH HOTEL',
-                                                }}
-                                                error={getError(
-                                                    `transportation_plans.${index}.remarks`,
-                                                )}
-                                            >
-                                                <ProperInput
-                                                    value={row.remarks ?? ''}
-                                                    disabled={
-                                                        processing ||
-                                                        !canEditOpsAndPif
-                                                    }
-                                                    textarea
-                                                    onCommit={(value) =>
-                                                        updatePifTransportationRemarks(
-                                                            index,
-                                                            value,
-                                                        )
-                                                    }
-                                                    placeholder="Optional remarks"
-                                                />
-                                            </FormField>
-                                        </div>
-                                    ),
-                                )}
-                                {(data.transportation_plans ?? []).length ===
-                                    0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No transportation data available.
-                                    </p>
-                                )}
-                            </div>
-                        </FormSection>
-                    </Accordion>
-                </TabsContent>
+                                                <FormField
+                                                    label="From"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Departure point for this transport leg.',
+                                                        example:
+                                                            'Jeddah Airport',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={row.from}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="To"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Destination for this transport leg.',
+                                                        example:
+                                                            'Sofitel Hotel',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={row.to}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Date"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Date of travel for this transport leg.',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={row.travel_date}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Time"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Scheduled departure or pickup time.',
+                                                        example: '07:30 AM',
+                                                    }}
+                                                >
+                                                    <CopyableText
+                                                        value={row.travel_time}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label="Remarks"
+                                                    className="md:col-span-2"
+                                                    fieldRequirementsProps={{
+                                                        hint: 'Any notes for this leg, e.g. pending confirmation, special stops, or vehicle type.',
+                                                        example:
+                                                            'REHAL / MAKKAH HOTEL',
+                                                    }}
+                                                    error={getError(
+                                                        `transportation_plans.${index}.remarks`,
+                                                    )}
+                                                >
+                                                    <ProperInput
+                                                        value={
+                                                            row.remarks ?? ''
+                                                        }
+                                                        disabled={
+                                                            processing ||
+                                                            !canEditOpsAndPif
+                                                        }
+                                                        textarea
+                                                        onCommit={(value) =>
+                                                            updatePifTransportationRemarks(
+                                                                index,
+                                                                value,
+                                                            )
+                                                        }
+                                                        placeholder="Optional remarks"
+                                                    />
+                                                </FormField>
+                                            </div>
+                                        ),
+                                    )}
+                                    {(data.transportation_plans ?? [])
+                                        .length === 0 && (
+                                        <p className="text-sm text-muted-foreground">
+                                            No transportation data available.
+                                        </p>
+                                    )}
+                                </div>
+                            </FormSection>
+                        </Accordion>
+                    </TabsContent>
+                )}
             </Tabs>
 
             <div className="flex justify-end gap-2">

@@ -8,8 +8,10 @@ export interface Auth {
     permissions: string[];
     is_ghost_user?: boolean;
     hide_customer_from_user_management: boolean;
+    show_two_factor_auth?: boolean;
     can_view_documentation?: boolean;
     notifications: NotificationItem[];
+    notifications_unread_count?: number;
     scope_mode?: 'country' | 'branch' | string;
     scope_labels?: string[];
     scope_country_options?: Array<{ id: number; label: string }>;
@@ -20,6 +22,16 @@ export interface Auth {
 export interface BreadcrumbItem {
     title: string;
     href: string;
+}
+
+export interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
 }
 
 export interface NavGroup {
@@ -40,6 +52,11 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    features: {
+        send_email: boolean;
+        customer_history: boolean;
+        package_pnl: boolean;
+    };
     sidebarOpen: boolean;
     flash: {
         success?: string | null;
@@ -99,6 +116,7 @@ export interface Sales {
 export interface OptionType {
     value: string;
     label: string;
+    is_available_for_refund?: boolean;
 }
 
 export interface ValueNumberOptionType {

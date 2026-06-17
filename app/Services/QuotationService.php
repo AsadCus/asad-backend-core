@@ -51,6 +51,7 @@ class QuotationService
                 'quotationItems',
                 'order.invoices.receipt',
                 'handledBy:id,name',
+                'voidedBy:id,name',
                 'country:id,name',
                 'branch:id,name',
             ])->withTrashed()
@@ -93,6 +94,7 @@ class QuotationService
                     'payment_plan' => $q->payment_plan_label,
                     'status' => $q->status?->value,
                     'reason' => $q->reason,
+                    'voided_by_name' => $q->voidedBy?->name ?? '-',
                     'have_invoices' => $q->order?->invoices()->exists() ?? false,
                     'created_at' => $q->created_at?->translatedFormat('d F Y'),
                     'updated_at' => $q->updated_at?->translatedFormat('d F Y'),
@@ -207,6 +209,7 @@ class QuotationService
                     'name' => $master->name,
                     'value' => $master->value,
                     'is_active' => (bool) $master->is_active,
+                    'is_available_for_refund' => (bool) $master->is_available_for_refund,
                     'is_default' => (bool) $master->is_default,
                     'sort_order' => (int) ($master->sort_order ?? 0),
                 ];
@@ -229,6 +232,7 @@ class QuotationService
                         'name' => $name,
                         'value' => $value,
                         'is_active' => (bool) ($row['is_active'] ?? true),
+                        'is_available_for_refund' => (bool) ($row['is_available_for_refund'] ?? false),
                         'is_default' => (bool) ($row['is_default'] ?? false),
                         'sort_order' => (int) ($row['sort_order'] ?? ($index + 1)),
                     ];
@@ -279,6 +283,7 @@ class QuotationService
                             'name' => $row['name'],
                             'value' => $row['value'],
                             'is_active' => $row['is_active'],
+                            'is_available_for_refund' => $row['is_available_for_refund'],
                             'is_default' => $row['is_default'],
                             'sort_order' => $row['sort_order'],
                         ]);
@@ -290,6 +295,7 @@ class QuotationService
                     'name' => $row['name'],
                     'value' => $row['value'],
                     'is_active' => $row['is_active'],
+                    'is_available_for_refund' => $row['is_available_for_refund'],
                     'is_default' => $row['is_default'],
                     'sort_order' => $row['sort_order'],
                 ]);
@@ -543,10 +549,11 @@ class QuotationService
         $quotation = DataScope::applyPaymentCreatorCountryScopeToQuotations(
             Quotation::with([
                 'customer.user',
-                'quotationItems.confirmationMember',
+                'quotationItems.confirmationMember.customer.user',
                 'quotationItems.taxes',
                 'customerConfirmation.package',
                 'order.invoices.receipt',
+                'voidedBy:id,name',
             ])
         )->findOrFail($id);
 
@@ -578,6 +585,8 @@ class QuotationService
             'payment_plan' => $quotation->payment_plan,
             'status' => $quotation->status?->value,
             'reason' => $quotation->reason,
+            'voided_by_name' => $quotation->voidedBy?->name,
+            'voided_at_formatted' => $quotation->voided_at?->translatedFormat('d F Y H:i'),
             'have_invoices' => $quotation->order?->invoices()->exists() ?? false,
             'package_name' => $quotation->customerConfirmation?->package?->name,
             'package_departure_date' => $quotation->customerConfirmation?->package?->departure_date?->format('Y-m-d'),
@@ -616,6 +625,7 @@ class QuotationService
                     'parent_id' => $it->parent_id,
                     'customer_confirmation_member_id' => $it->customer_confirmation_member_id,
                     'sharing_plan' => $it->confirmationMember?->sharing_plan,
+                    'member_name' => $it->confirmationMember?->customer?->user?->name,
                     'description' => $it->description,
                     'is_header' => $it->is_header,
                     'is_optional' => $it->is_optional,
@@ -660,7 +670,7 @@ class QuotationService
                 ], true);
             })
             ->sortBy(function ($invoice): int {
-                return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
+                return (int) ($invoice->id ?? 0);
             })
             ->values();
 
@@ -1645,7 +1655,11 @@ class QuotationService
             $this->removeLinkedMembersFromPackageManifest($quotation, $linkedMemberIds);
             $this->cancelLinkedInvoicesAndDropReceiptTransactions($quotation);
 
-            $quotation->update(['status' => QuotationStatus::Cancelled->value]);
+            $quotation->update([
+                'status' => QuotationStatus::Cancelled->value,
+                'voided_by' => auth()->id(),
+                'voided_at' => now(),
+            ]);
 
             return $quotation;
         });
@@ -1711,6 +1725,8 @@ class QuotationService
             $quotation->update([
                 'status' => QuotationStatus::Draft->value,
                 'reason' => null,
+                'voided_by' => null,
+                'voided_at' => null,
             ]);
 
             return $quotation->fresh();

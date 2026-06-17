@@ -12,6 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+use function collect;
+
 class InvoiceService
 {
     protected $formatService;
@@ -141,6 +143,8 @@ class InvoiceService
                 'is_refund' => InvoiceStatus::isRefund($i->status),
                 'has_receipt' => (int) ($i->receipt_count ?? 0) > 0,
                 'receipt_id' => $i->receipt->first()?->id,
+                'email_sent_at' => $i->email_sent_at ? $i->email_sent_at->toIso8601String() : null,
+                'email_sent_at_formatted' => $i->email_sent_at ? $i->email_sent_at->translatedFormat('d F Y, H:i') : null,
                 'created_at' => $i->created_at?->translatedFormat('d F Y'),
                 'updated_at' => $i->updated_at?->translatedFormat('d F Y'),
             ];
@@ -209,6 +213,7 @@ class InvoiceService
         $i = DataScope::applyPaymentCreatorCountryScopeViaQuotationRelation(
             Invoice::with([
                 'quotationItems.taxes',
+                'quotationItems.confirmationMember.customer.user',
                 'order.quotation.customer.user',
                 'order.invoices',
                 'invoiceNotes',
@@ -299,6 +304,9 @@ class InvoiceService
                 'id' => $item->id,
                 'quotation_id' => $item->quotation_id,
                 'parent_id' => $item->parent_id,
+                'customer_confirmation_member_id' => $item->customer_confirmation_member_id,
+                'sharing_plan' => $item->confirmationMember?->sharing_plan,
+                'member_name' => $item->confirmationMember?->customer?->user?->name,
                 'type' => $item->type,
                 'description' => $item->description,
                 'is_header' => $item->is_header,
@@ -342,7 +350,7 @@ class InvoiceService
                 ], true);
             })
             ->sortBy(function ($invoice): int {
-                return (int) ($invoice->invoice_date?->timestamp ?? $invoice->id ?? 0);
+                return (int) ($invoice->id ?? 0);
             })
             ->values();
 
@@ -420,6 +428,7 @@ class InvoiceService
                 continue;
             }
             $lineAmount = (float) ($item->quantity ?? 0) * (float) ($item->rate ?? 0);
+            $memberName = $item->confirmationMember?->customer?->user?->name;
 
             foreach ($item->taxes as $tax) {
                 $calculationMode = (string) ($tax->calculation_mode ?? '');
@@ -435,19 +444,25 @@ class InvoiceService
                     ? ($lineAmount * $calculationValue / 100)
                     : $calculationValue;
 
+                $taxName = $tax->name ?: 'Tax';
+                if ($memberName) {
+                    $taxName = "{$taxName} ({$memberName})";
+                }
+
                 $key = implode('|', [
                     (int) ($tax->quotation_extension_master_id ?? 0),
-                    strtolower(trim((string) ($tax->name ?? 'Tax'))),
+                    strtolower(trim((string) $taxName)),
                     $extensionType,
                     $calculationMode,
                     (string) $calculationValue,
+                    $memberName,
                 ]);
 
                 if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'id' => null,
                         'quotation_extension_master_id' => $tax->quotation_extension_master_id,
-                        'name' => $tax->name ?: 'Tax',
+                        'name' => $taxName,
                         'type' => $extensionType,
                         'calculation_mode' => $calculationMode,
                         'calculation_value' => $this->formatService->cleanDecimal($calculationValue),

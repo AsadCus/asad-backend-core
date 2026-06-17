@@ -24,6 +24,7 @@ class CountryController extends Controller
     {
         $validated = $request->validate($this->countryRule->rules());
         $country = $this->countryService->store($validated);
+
         return response()->json($country, 201);
     }
 
@@ -36,6 +37,7 @@ class CountryController extends Controller
     {
         $validated = $request->validate($this->countryRule->rules());
         $country = $this->countryService->update($validated, $id);
+
         return response()->json($country);
     }
 
@@ -47,10 +49,12 @@ class CountryController extends Controller
             foreach ($ids as $countryId) {
                 $this->countryService->delete($countryId);
             }
+
             return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
         }
 
         $this->countryService->delete($id);
+
         return response()->json(['status' => 'ok', 'deleted' => 1]);
     }
 }

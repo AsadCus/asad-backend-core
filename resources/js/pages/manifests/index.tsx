@@ -1,6 +1,7 @@
 import { ActionType } from '@/components/action-column';
 import { ColumnFilter } from '@/components/column-filter';
 import { DataTable } from '@/components/data-table';
+import { CustomExport } from '@/components/data-table-export';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,15 @@ import { edit, index, show } from '@/routes/manifests';
 import { SharedData, type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
+import { Download } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { packageStatusColors, packageStatusLabels } from '../packages/schema';
+import {
+    generateManifestImportTemplate,
+    ManifestImportDialog,
+    type ManifestImportOption,
+    type ManifestSalespersonOption,
+} from './import-dialog';
 import { type ManifestSchema } from './schema';
 
 type ManifestDataTableSchema = ManifestSchema & {
@@ -18,12 +27,15 @@ type ManifestDataTableSchema = ManifestSchema & {
     departure_date?: string | null;
     return_date?: string | null;
     country_name?: string | null;
+    country_id?: number | null;
     created_at?: string | null;
 };
 
 interface ManifestsProps {
     data: {
         manifestsForDatatable: ManifestDataTableSchema[];
+        importEnabled?: boolean;
+        salespersons?: ManifestSalespersonOption[];
     };
 }
 
@@ -86,12 +98,14 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
     },
     {
         accessorKey: 'departure_date',
+        sortingFn: 'displayDate',
         header: 'Departure Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'return_date',
+        sortingFn: 'displayDate',
         header: 'Return Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -118,13 +132,18 @@ const columns: ColumnDef<ManifestDataTableSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
     },
 ];
 
 export default function ManifestsIndex({ data }: ManifestsProps) {
-    const { manifestsForDatatable } = data;
+    const {
+        manifestsForDatatable,
+        importEnabled = false,
+        salespersons = [],
+    } = data;
 
     const { auth } = usePage<SharedData>().props;
     const userPermissions = auth.permissions || [];
@@ -142,6 +161,39 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
     if (userPermissions.includes('manifest view')) actions.push('view');
     if (userPermissions.includes('manifest edit')) actions.push('edit');
 
+    const [importOpen, setImportOpen] = useState(false);
+
+    const manifestOptions: ManifestImportOption[] = useMemo(
+        () =>
+            manifestsForDatatable
+                .filter((m) => m.id != null)
+                .map((m) => {
+                    const idValue = Number(m.id);
+                    const parts = [
+                        m.package_number,
+                        m.package_name,
+                        m.departure_date ? `(${m.departure_date})` : null,
+                    ].filter(Boolean);
+                    return {
+                        id: idValue,
+                        label:
+                            parts.length > 0
+                                ? `#${idValue} — ${parts.join(' ')}`
+                                : `Manifest #${idValue}`,
+                        country_id: m.country_id ?? null,
+                    };
+                }),
+        [manifestsForDatatable],
+    );
+
+    const customExports: CustomExport[] = [
+        {
+            label: 'Download Import Template',
+            icon: Download,
+            onClick: generateManifestImportTemplate,
+        },
+    ];
+
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -158,6 +210,12 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             actions={actions}
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            showImport={
+                                importEnabled &&
+                                userPermissions.includes('manifest edit')
+                            }
+                            onImport={() => setImportOpen(true)}
+                            customExports={importEnabled ? customExports : []}
                             url={index().url}
                             onAction={(action, row) => {
                                 const manifestId = row?.original.id;
@@ -172,7 +230,15 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                             }}
                             onRowDoubleClick={(row) => {
                                 if (row.id) {
-                                    router.get(edit(row.id).url);
+                                    if (
+                                        userPermissions.includes(
+                                            'manifest edit',
+                                        )
+                                    ) {
+                                        router.get(edit(row.id).url);
+                                    } else {
+                                        router.get(show(row.id).url);
+                                    }
                                 }
                             }}
                             initialState={{
@@ -185,9 +251,23 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                                     created_at: false,
                                     members_count: false,
                                 },
+                                columnFilters: [
+                                    { id: 'status', value: ['open'] },
+                                ],
                             }}
                             renderFilter={(table) => (
                                 <>
+                                    <ColumnFilter
+                                        table={table}
+                                        columnId="status"
+                                        title="Status"
+                                        options={Object.entries(
+                                            packageStatusLabels,
+                                        ).map(([value, label]) => ({
+                                            value,
+                                            label,
+                                        }))}
+                                    />
                                     <ColumnFilter
                                         table={table}
                                         columnId="country_name"
@@ -206,6 +286,12 @@ export default function ManifestsIndex({ data }: ManifestsProps) {
                     </div>
                 </div>
             </AppLayout>
+            <ManifestImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                manifests={manifestOptions}
+                salespersons={salespersons}
+            />
         </>
     );
 }

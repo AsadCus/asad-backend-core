@@ -21,6 +21,7 @@ export const quotationItemSchema = z.object({
     invoice_id: z.number().nullable().optional(),
     customer_confirmation_member_id: z.number().nullable().optional(),
     sharing_plan: z.string().nullable().optional(),
+    member_name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     is_header: z.boolean().nullable().optional(),
     is_optional: z.boolean().nullable().optional(),

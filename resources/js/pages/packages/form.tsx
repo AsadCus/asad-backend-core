@@ -19,8 +19,8 @@ import {
 import { navigateToSection } from '@/lib/navigation-helper';
 import { isBeforeToday, parseDisplayDate } from '@/lib/utils';
 import { store, update } from '@/routes/packages';
-import { OptionType } from '@/types';
-import { useForm } from '@inertiajs/react';
+import { OptionType, SharedData } from '@/types';
+import { useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { genderOptions } from '../customer/schema';
@@ -35,6 +35,7 @@ import {
     type AccommodationSchema,
     type FlightSchema,
     type OfficialSchema,
+    type OfficialSelectOption,
     type PackageSchema,
     type RawdahTasreehSchema,
     type TrainTicketSchema,
@@ -48,6 +49,7 @@ const defaultFlights: FlightSchema[] = [
         to: '',
         description: 'Departure',
         airline: '',
+        flight_number: '',
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
@@ -58,6 +60,7 @@ const defaultFlights: FlightSchema[] = [
         to: '',
         description: 'Return',
         airline: '',
+        flight_number: '',
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
@@ -156,6 +159,10 @@ export default function PackageForm({
     const isView = mode === 'view';
     const isEdit = mode === 'edit';
     const isCreate = mode === 'create';
+
+    const { dataOfficials = [] } = usePage<
+        SharedData & { dataOfficials?: OfficialSelectOption[] }
+    >().props;
     const hasPersistedPackageLocation =
         String(initialData?.country_id ?? '').trim().length > 0;
 
@@ -521,7 +528,6 @@ export default function PackageForm({
 
     useEffect(() => {
         if (errorSummaryItems.length > 0 && !isView) {
-            scrollToErrorBanner();
             const errorSectionIds = sections
                 .filter((s) => s.status === 'error')
                 .map((s) => s.id);
@@ -531,7 +537,7 @@ export default function PackageForm({
                 ]);
             }
         }
-    }, [errorSummaryItems.length, isView, scrollToErrorBanner, sections]);
+    }, [errorSummaryItems.length, isView, sections]);
 
     useEffect(() => {
         if (!isCreate || !prefillData) {
@@ -878,6 +884,7 @@ export default function PackageForm({
                 to: '',
                 description: '',
                 airline: '',
+                flight_number: '',
                 pnr: '',
                 departure_datetime: defaultDate,
                 arrival_datetime: defaultDate,
@@ -1034,6 +1041,60 @@ export default function PackageForm({
     ) => {
         const current = [...(data.officials || [])];
         current[index] = { ...current[index], [field]: value };
+        setData('officials', current);
+    };
+
+    // Name options for the currently chosen type (select by type, then name).
+    // Always include the currently selected official so its name renders even
+    // when the type filter excludes it, the master name is blank, or the master
+    // is missing — falling back to the stored snapshot name.
+    const officialNameOptions = useCallback(
+        (official: OfficialSchema): OptionType[] => {
+            const type = official.type;
+            const options: OptionType[] = dataOfficials
+                .filter((o) => !type || o.type === type)
+                .map((o) => ({ value: String(o.id), label: o.name }));
+
+            if (official.official_id) {
+                const selectedValue = String(official.official_id);
+                const master = dataOfficials.find(
+                    (o) => String(o.id) === selectedValue,
+                );
+                const label =
+                    master?.name || official.name || '(unknown official)';
+                const existing = options.find((o) => o.value === selectedValue);
+                if (existing) {
+                    if (!existing.label) {
+                        existing.label = label;
+                    }
+                } else {
+                    options.unshift({ value: selectedValue, label });
+                }
+            }
+
+            return options;
+        },
+        [dataOfficials],
+    );
+
+    // Snapshot the chosen master official's details onto the package official.
+    const selectOfficial = (index: number, officialId: string) => {
+        const master = dataOfficials.find((o) => String(o.id) === officialId);
+        const current = [...(data.officials || [])];
+        current[index] = {
+            ...current[index],
+            official_id: master ? master.id : null,
+            name: master?.name ?? '',
+            contact_number: master?.contact_number ?? '',
+            nationality: master?.nationality ?? '',
+            passport_number: master?.passport_number ?? '',
+            gender: master?.gender ?? '',
+            date_of_birth: master?.date_of_birth ?? '',
+            place_of_birth: master?.place_of_birth ?? '',
+            passport_issue_date: master?.passport_issue_date ?? '',
+            passport_expiry_date: master?.passport_expiry_date ?? '',
+            passport_place_of_issue: master?.passport_place_of_issue ?? '',
+        };
         setData('officials', current);
     };
 
@@ -1705,7 +1766,7 @@ export default function PackageForm({
                                                 />
                                             </FormField>
                                         </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                             <FormField
                                                 label="Airline"
                                                 fieldRequirementsProps={{
@@ -1728,6 +1789,33 @@ export default function PackageForm({
                                                         )
                                                     }
                                                     placeholder="e.g., Saudi Airlines"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Flight Number"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Flight number, e.g. SV123',
+                                                }}
+                                                error={getError(
+                                                    `flights.${index}.flight_number`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        flight.flight_number ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        updateFlight(
+                                                            index,
+                                                            'flight_number',
+                                                            v || null,
+                                                        )
+                                                    }
+                                                    placeholder="e.g., SV123"
                                                 />
                                             </FormField>
                                             <FormField
@@ -1754,6 +1842,8 @@ export default function PackageForm({
                                                     placeholder="Enter PNR"
                                                 />
                                             </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField
                                                 label="Departure"
                                                 fieldRequirementsProps={{
@@ -3237,13 +3327,26 @@ export default function PackageForm({
                                                         disabled={
                                                             isView || processing
                                                         }
-                                                        onValueChange={(v) =>
-                                                            updateOfficial(
-                                                                index,
-                                                                'type',
-                                                                v,
-                                                            )
-                                                        }
+                                                        onValueChange={(v) => {
+                                                            // Changing the type clears the chosen official.
+                                                            const current = [
+                                                                ...(data.officials ||
+                                                                    []),
+                                                            ];
+                                                            current[index] = {
+                                                                ...current[
+                                                                    index
+                                                                ],
+                                                                type: String(v),
+                                                                official_id:
+                                                                    null,
+                                                                name: '',
+                                                            };
+                                                            setData(
+                                                                'officials',
+                                                                current,
+                                                            );
+                                                        }}
                                                         options={
                                                             officialTypeOptions
                                                         }
@@ -3254,27 +3357,41 @@ export default function PackageForm({
                                                     label="Name"
                                                     fieldRequirementsProps={{
                                                         required: true,
-                                                        hint: 'Enter official name',
+                                                        hint: 'Select an official from the master',
                                                     }}
                                                     error={getError(
                                                         `officials.${index}.name`,
                                                     )}
                                                 >
-                                                    <ProperInput
+                                                    <ProperInputSelect
+                                                        id={`officials_${index}_name`}
                                                         value={
-                                                            official.name ?? ''
+                                                            official.official_id
+                                                                ? String(
+                                                                      official.official_id,
+                                                                  )
+                                                                : ''
                                                         }
                                                         disabled={
-                                                            isView || processing
+                                                            isView ||
+                                                            processing ||
+                                                            !official.type
                                                         }
-                                                        onCommit={(v) =>
-                                                            updateOfficial(
+                                                        onValueChange={(v) =>
+                                                            selectOfficial(
                                                                 index,
-                                                                'name',
-                                                                v || null,
+                                                                String(v),
                                                             )
                                                         }
-                                                        placeholder="Enter name"
+                                                        options={officialNameOptions(
+                                                            official,
+                                                        )}
+                                                        placeholder={
+                                                            official.type
+                                                                ? 'Select official'
+                                                                : 'Select type first'
+                                                        }
+                                                        searchable
                                                     />
                                                 </FormField>
                                                 <FormField
@@ -3291,9 +3408,7 @@ export default function PackageForm({
                                                             official.contact_number ??
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onCommit={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3318,9 +3433,7 @@ export default function PackageForm({
                                                             official.nationality ??
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onCommit={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3348,9 +3461,7 @@ export default function PackageForm({
                                                             official.passport_number ??
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onCommit={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3378,9 +3489,7 @@ export default function PackageForm({
                                                             official.gender ||
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onValueChange={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3408,9 +3517,7 @@ export default function PackageForm({
                                                             official.date_of_birth ||
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         fromYear={
                                                             new Date().getFullYear() -
                                                             100
@@ -3439,9 +3546,7 @@ export default function PackageForm({
                                                             official.place_of_birth ??
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onCommit={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3471,9 +3576,7 @@ export default function PackageForm({
                                                             official.passport_issue_date ||
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         fromYear={
                                                             new Date().getFullYear() -
                                                             10
@@ -3507,9 +3610,7 @@ export default function PackageForm({
                                                             official.passport_expiry_date ||
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         fromYear={
                                                             new Date().getFullYear() -
                                                             10
@@ -3541,9 +3642,7 @@ export default function PackageForm({
                                                             official.passport_place_of_issue ??
                                                             ''
                                                         }
-                                                        disabled={
-                                                            isView || processing
-                                                        }
+                                                        disabled
                                                         onCommit={(v) =>
                                                             updateOfficial(
                                                                 index,
@@ -3773,7 +3872,7 @@ export default function PackageForm({
                             </Button>
                             <Button
                                 type="submit"
-                                className="min-w-[140px]"
+                                className="min-w-35"
                                 disabled={processing}
                             >
                                 {processing && (

@@ -165,6 +165,7 @@ export interface CanonicalManifestRoomMember {
     sharing_plan?: string | null;
     sort_order?: number | null;
     remarks?: string | null;
+    meal?: string | null;
 }
 
 export interface CanonicalManifestRoom {
@@ -195,8 +196,8 @@ export interface ManifestFormProps {
 export type MemberWithUI = MemberSchema & {
     row_key?: string;
     manifest_member_id?: number;
-    manifest_room_id?: number;
-    room_member_id?: number;
+    manifest_room_id?: number | null;
+    room_member_id?: number | null;
     customer_confirmation_id?: number;
     customer_confirmation_number?: string | null;
     customer_name?: string;

@@ -28,15 +28,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     convertNameToArabic,
     normalizeArabicNameInput,
 } from '@/lib/arabic-name';
 import { navigateToSection } from '@/lib/navigation-helper';
-import { router, useForm, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
+import { router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowLeft,
@@ -800,7 +799,13 @@ function buildRoomRowsFromMembers(
                 member.number_of_beds_checked ??
                 false,
             room_label: existing?.room_label ?? member.room_label ?? '',
-            meal: existing?.meal ?? member.meal ?? defaultMealPlan ?? '',
+            // Officials usually skip meals, so default new official rows to "Exclude Meal".
+            meal:
+                existing?.meal ??
+                member.meal ??
+                (member.package_official_id || member.is_official
+                    ? 'Exclude Meal'
+                    : (defaultMealPlan ?? '')),
             sharing_group_key:
                 member.sharing_group_key ??
                 existing?.sharing_group_key ??
@@ -1562,7 +1567,8 @@ function buildCanonicalRoomsFromRoomLists(
                     bed_type: String(base.bed_type ?? '').trim() || null,
                     sharing_plan:
                         String(base.sharing_plan ?? '').trim() || null,
-                    meal: String(base.meal ?? '').trim() || null,
+                    // Meal moved to per-member; room-level value is no longer authoritative.
+                    meal: null,
                     number_of_beds_checked: !!base.number_of_beds_checked,
                     remarks:
                         (base.room_remarks as string | null | undefined) ??
@@ -1592,6 +1598,7 @@ function buildCanonicalRoomsFromRoomLists(
                                 null,
                             String(member.sharing_plan ?? ''),
                         ),
+                        meal: String(member.meal ?? '').trim() || null,
                     })),
                 });
             },
@@ -3340,7 +3347,7 @@ export default function ManifestForm({
                             </TabsTrigger>
                         </TabsList>
 
-                        <ScrollArea className="w-full whitespace-nowrap">
+                        <div className="always-scrollbars w-full overflow-x-auto pb-0.5 whitespace-nowrap">
                             <TabsList
                                 className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11"
                                 variant="primary"
@@ -3377,10 +3384,9 @@ export default function ManifestForm({
                                     Namelist Course & Collection Items
                                 </TabsTrigger>
                             </TabsList>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
+                        </div>
 
-                        <ScrollArea className="w-full whitespace-nowrap">
+                        <div className="always-scrollbars w-full overflow-x-auto pb-0.5 whitespace-nowrap">
                             <TabsList
                                 className="w-fit gap-1 group-data-[orientation=horizontal]/tabs:h-11"
                                 variant="primary"
@@ -3434,8 +3440,7 @@ export default function ManifestForm({
                                     Receipt
                                 </TabsTrigger>
                             </TabsList>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
+                        </div>
                     </div>
 
                     <TabsContent value="main" className="space-y-4">

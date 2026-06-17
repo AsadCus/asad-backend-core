@@ -1,5 +1,5 @@
 import '@tanstack/table-core';
-import type { FilterFn, RowData } from '@tanstack/table-core';
+import type { FilterFn, RowData, SortingFn } from '@tanstack/table-core';
 
 declare module '@tanstack/table-core' {
     interface FilterFns {
@@ -7,8 +7,16 @@ declare module '@tanstack/table-core' {
         dateRangeFilter: FilterFn<unknown>;
     }
 
+    interface SortingFns {
+        displayDate: SortingFn<unknown>;
+    }
+
     interface ColumnFiltersOptions<TData extends RowData> {
         filterFns?: Record<keyof FilterFns, FilterFn<TData>>;
+    }
+
+    interface SortingOptions<TData extends RowData> {
+        sortingFns?: Record<keyof SortingFns, SortingFn<TData>>;
     }
 
     interface ColumnMeta<_TData extends RowData, _TValue> {

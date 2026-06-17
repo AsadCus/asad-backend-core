@@ -130,6 +130,10 @@
             font-size: 8px;
             color: #687583;
         }
+
+        tr {
+            page-break-inside: avoid;
+        }
     </style>
 @endpush
 
@@ -194,6 +198,39 @@
             'king' => 'King',
             'queen' => 'Queen',
         ];
+
+        // Manual pagination: dompdf won't keep a rowspan group together across a page,
+        // so we pack rooms into pages ourselves and render one table per page (with a
+        // hard page break between them) — a room's rowspan can then never cross a page.
+        // Capacities below are calibrated against the real PDF (rows render ~41px tall;
+        // page 1 also carries the header, title bar and summary). Biased low on purpose:
+        // overfilling re-breaks a table across pages (the bug); underfilling only wastes
+        // a little space. Tune $rowPx / $firstPageOverheadPx if the layout changes.
+        $marginCm = ['narrow' => 0.56, 'normal' => 0.85, 'wide' => 1.7][$branding['page_margin_preset'] ?? 'normal'] ?? 0.85;
+        $pageBodyPx = 210 * 3.78 - 2 * ($marginCm * 37.8); // A4 landscape height minus top/bottom margins
+        $rowPx = 41;
+        $theadPx = 60;
+        $firstPageOverheadPx = 320; // company header + title bar + summary table
+        $rowsPage1 = max(1, (int) floor(($pageBodyPx - $firstPageOverheadPx - $theadPx) / $rowPx));
+        $rowsPageN = max(1, (int) floor(($pageBodyPx - $theadPx) / $rowPx));
+
+        $pages = [];
+        $pageGroups = [];
+        $pageRows = 0;
+        foreach ($groupedRows as $groupKey => $groupRows) {
+            $roomRows = count($groupRows);
+            $capacity = empty($pages) ? $rowsPage1 : $rowsPageN;
+            if ($pageGroups !== [] && $pageRows + $roomRows > $capacity) {
+                $pages[] = $pageGroups;
+                $pageGroups = [];
+                $pageRows = 0;
+            }
+            $pageGroups[$groupKey] = $groupRows;
+            $pageRows += $roomRows;
+        }
+        if ($pageGroups !== []) {
+            $pages[] = $pageGroups;
+        }
     @endphp
 
     <table class="summary-grid">
@@ -250,7 +287,8 @@
         @endforelse
     </table>
 
-    <table class="room-check-table">
+    @forelse ($pages as $pageIndex => $pageGroups)
+    <table class="room-check-table"@if ($pageIndex > 0) style="page-break-before: always;"@endif>
         <thead>
             <tr>
                 <th class="sn-col" rowspan="2">S/N</th>
@@ -277,7 +315,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($groupedRows as $groupKey => $groupRows)
+            @foreach ($pageGroups as $groupKey => $groupRows)
                 @php
                     $rowSpan = count($groupRows);
                     $first = $groupRows[0];
@@ -315,6 +353,22 @@
                     }
 
                     $bedsCount += $extraBedCount;
+
+                    // Meal is per-member: rowspan-merge only consecutive members with the
+                    // same meal (so an official's "Exclude Meal" stays separate).
+$groupMeals = array_map(fn($r) => (string) ($r['meal'] ?? ''), array_values($groupRows));
+                    $mealRunStartAt = array_fill(0, $rowSpan, false);
+                    $mealRunLen = array_fill(0, $rowSpan, 1);
+                    $i = 0;
+                    while ($i < $rowSpan) {
+                        $j = $i;
+                        while ($j + 1 < $rowSpan && $groupMeals[$j + 1] === $groupMeals[$i]) {
+                            $j++;
+                        }
+                        $mealRunStartAt[$i] = true;
+                        $mealRunLen[$i] = $j - $i + 1;
+                        $i = $j + 1;
+                    }
                 @endphp
 
                 @foreach ($groupRows as $memberIndex => $row)
@@ -355,7 +409,6 @@
                         <td>{{ !empty($row['is_using_wheelchair']) ? 'Yes' : 'No' }}</td>
                         <td style="text-align: left; padding-left: 8px;">{{ $row['contact_no'] ?? '-' }}</td>
 
-
                         @if ($memberIndex === 0)
                             <td rowspan="{{ $rowSpan }}">{{ $bedsCount }}</td>
                             <td rowspan="{{ $rowSpan }}">
@@ -364,7 +417,10 @@
                                     {{ !empty($first['number_of_beds_checked']) ? 'X' : '' }}
                                 </span>
                             </td>
-                            <td rowspan="{{ $rowSpan }}">{{ $first['meal'] ?? '-' }}</td>
+                        @endif
+
+                        @if ($mealRunStartAt[$memberIndex])
+                            <td rowspan="{{ $mealRunLen[$memberIndex] }}">{{ $row['meal'] ?? '-' }}</td>
                         @endif
 
                         <td class="member-remarks">{{ $memberRemarks }}</td>
@@ -382,13 +438,18 @@
                 @php
                     $roomIndex++;
                 @endphp
-            @empty
-                <tr>
-                    <td colspan="15">No room members found for this location.</td>
-                </tr>
-            @endforelse
+            @endforeach
         </tbody>
     </table>
+    @empty
+        <table class="room-check-table">
+            <tbody>
+                <tr>
+                    <td>No room members found for this location.</td>
+                </tr>
+            </tbody>
+        </table>
+    @endforelse
 
     <div class="footer-section">
         @if (!empty($manifest['notes']))

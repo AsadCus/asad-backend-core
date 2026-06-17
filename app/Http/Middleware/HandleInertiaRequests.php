@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Support\DataScope;
+use App\Support\FeatureFlag;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -62,15 +63,24 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $user?->getAllPermissions()->pluck('name'),
                 'is_ghost_user' => $user?->isGhostUser() ?? false,
                 'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),
-                'can_view_documentation' => (bool) config('documentation.visible_to_all_users') || ($user?->isGhostUser() ?? false),
+                'show_two_factor_auth' => config('master.show_two_factor_auth', true),
+                'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),
                 'notifications' => $user
-                    ? $this->notificationService->getUserNotifications($user->id)
+                    ? $this->notificationService->getRecentNotifications($user->id, 10)
                     : [],
+                'notifications_unread_count' => $user
+                    ? $this->notificationService->getUnreadCount($user->id)
+                    : 0,
                 'scope_mode' => DataScope::mode(),
                 'scope_labels' => $user ? $this->resolveScopeLabels($user) : [],
                 'scope_country_options' => $user ? $this->resolveScopeCountryOptions($user) : [],
                 'scope_selected_country_ids' => $user ? DataScope::scopedCountryIds($user) : [],
                 'scope_selected_branch_ids' => $user ? DataScope::scopedBranchIds($user) : [],
+            ],
+            'features' => [
+                'send_email' => FeatureFlag::enabled('email.send_enabled', $user),
+                'customer_history' => FeatureFlag::enabled('customer_history.enabled', $user),
+                'package_pnl' => FeatureFlag::enabled('package_proposal.enabled', $user),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

@@ -6,7 +6,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { cn, parseDisplayDate } from '@/lib/utils';
+import { cn, compareFormattedDate, parseDisplayDate } from '@/lib/utils';
 import {
     Cell,
     ColumnDef,
@@ -25,6 +25,7 @@ import {
     Row,
     RowData,
     RowSelectionState,
+    SortingFn,
     SortingState,
     Table as TanStackTable,
     useReactTable,
@@ -89,6 +90,7 @@ interface DataTableProps<TData extends RowData, TValue = unknown> {
     exportOptions?: ('csv' | 'excel' | 'pdf' | 'json')[];
     showImport?: boolean;
     onImport?: () => void;
+    onBulkSendEmail?: (rows: TData[]) => void;
 }
 
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -254,6 +256,7 @@ export function DataTable<TData extends RowData, TValue = unknown>({
     exportOptions,
     showImport = false,
     onImport,
+    onBulkSendEmail,
 }: DataTableProps<TData, TValue>) {
     const hasActionsColumn = columns.some(
         (col) => 'id' in col && col.id === 'actions',
@@ -422,6 +425,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         return true;
     };
 
+    const displayDate: SortingFn<TData> = (rowA, rowB, columnId) =>
+        compareFormattedDate(rowA.getValue(columnId), rowB.getValue(columnId));
+
     const expandColumn: ColumnDef<TData> = {
         id: 'expander',
         header: '',
@@ -514,6 +520,9 @@ export function DataTable<TData extends RowData, TValue = unknown>({
         filterFns: {
             includesValue,
             dateRangeFilter,
+        },
+        sortingFns: {
+            displayDate,
         },
         initialState: tableInitialState,
         state: {
@@ -691,6 +700,10 @@ export function DataTable<TData extends RowData, TValue = unknown>({
                         exportOptions={exportOptions}
                         showImport={showImport}
                         onImport={onImport}
+                        onBulkSendEmail={onBulkSendEmail}
+                        defaultColumnFilters={
+                            initialDefaultsRef.current.columnFilters
+                        }
                     />
                 </div>
             </div>

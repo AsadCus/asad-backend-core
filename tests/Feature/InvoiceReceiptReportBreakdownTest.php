@@ -3,16 +3,22 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\CustomerConfirmation;
+use App\Models\CustomerConfirmationMember;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Package;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
+use App\Models\QuotationItemTax;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Services\InvoiceService;
+use App\Services\OrderService;
 use App\Services\QuotationService;
 use App\Services\ReceiptService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
 class InvoiceReceiptReportBreakdownTest extends TestCase
@@ -478,6 +484,95 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(3000.0, (float) ($receiptPayload['balance_due_amount'] ?? 0));
     }
 
+    public function test_payment_progress_orders_by_invoice_creation_sequence_not_invoice_date(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $customerUser = User::factory()->create();
+        $customer = Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RPT-ORDER-001',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'installment',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'description' => 'Sequenced Member',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 1,
+            'sort_order' => 1,
+        ]);
+
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'installment',
+        ]);
+
+        // Created first (lowest id) but with the LATEST invoice_date — must still be "1st Payment".
+        $firstInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Deposit',
+            'amount' => 1000,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(5)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $firstInvoice->quotationItems()->sync([(int) $item->id]);
+
+        // Created second, with the EARLIEST invoice_date.
+        $secondInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => '50%',
+            'amount' => 2000,
+            'invoice_date' => now()->subDays(5)->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $secondInvoice->quotationItems()->sync([(int) $item->id]);
+
+        // Created third, with a middle invoice_date.
+        $thirdInvoice = Invoice::create([
+            'order_id' => $order->id,
+            'description' => 'Balance',
+            'amount' => 3000,
+            'invoice_date' => now()->subDays(2)->format('Y-m-d'),
+            'due_date' => now()->addDays(2)->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $thirdInvoice->quotationItems()->sync([(int) $item->id]);
+
+        $receipt = Receipt::create([
+            'invoice_id' => $firstInvoice->id,
+            'amount' => 1000,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $payloads = [
+            app(QuotationService::class)->getForEditShow((int) $quotation->id),
+            app(InvoiceService::class)->getForEditShow((int) $firstInvoice->id),
+            app(ReceiptService::class)->getForEditShow((int) $receipt->id),
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->assertSame('1st Payment', (string) data_get($payload, 'invoice_payment_progress.0.label'));
+            $this->assertSame(1000.0, (float) data_get($payload, 'invoice_payment_progress.0.total_amount'));
+            $this->assertSame('2nd Payment', (string) data_get($payload, 'invoice_payment_progress.1.label'));
+            $this->assertSame(2000.0, (float) data_get($payload, 'invoice_payment_progress.1.total_amount'));
+            $this->assertSame('3rd Payment', (string) data_get($payload, 'invoice_payment_progress.2.label'));
+            $this->assertSame(3000.0, (float) data_get($payload, 'invoice_payment_progress.2.total_amount'));
+        }
+    }
+
     public function test_refund_receipt_report_payload_uses_net_order_total_for_amount_not_refunded(): void
     {
         $graph = $this->createRefundReceiptGraph();
@@ -488,7 +583,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertSame(500.0, (float) ($payload['amount_not_refunded'] ?? 0));
     }
 
-    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[RunInSeparateProcess]
     public function test_quotation_report_view_normalizes_percentage_labels_from_extension_values(): void
     {
         $quotationPayload = $this->buildReportPayloadWithStalePercentageSuffix();
@@ -503,7 +598,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertStringContainsString('Discount Package 10%:', $quotationHtml);
     }
 
-    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[RunInSeparateProcess]
     public function test_invoice_report_view_normalizes_percentage_labels_from_extension_values(): void
     {
         $invoicePayload = $this->buildReportPayloadWithStalePercentageSuffix();
@@ -519,7 +614,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertStringContainsString('Balance Due:', $invoiceHtml);
     }
 
-    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[RunInSeparateProcess]
     public function test_receipt_report_view_normalizes_percentage_labels_from_extension_values(): void
     {
         $receiptPayload = $this->buildReportPayloadWithStalePercentageSuffix();
@@ -534,7 +629,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertStringContainsString('Discount Package 10%:', $receiptHtml);
     }
 
-    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[RunInSeparateProcess]
     public function test_receipt_report_view_shows_amount_not_refunded_only_for_refund_report(): void
     {
         $payload = $this->buildReportPayloadWithStalePercentageSuffix();
@@ -566,7 +661,7 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertStringContainsString('Amount Not Refunded:', $refundHtml);
     }
 
-    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[RunInSeparateProcess]
     public function test_converted_quotation_report_view_shows_invoice_extensions_in_subtotal_section(): void
     {
         $quotationPayload = $this->buildConvertedQuotationPayloadWithInvoiceExtensions();
@@ -582,5 +677,137 @@ class InvoiceReceiptReportBreakdownTest extends TestCase
         $this->assertStringContainsString('Discount Package 10%:', $quotationHtml);
         $this->assertStringContainsString('Discount Package:', $quotationHtml);
         $this->assertStringContainsString('GST 7%:', $quotationHtml);
+    }
+
+    #[RunInSeparateProcess]
+    public function test_item_level_extensions_append_traveler_name_on_reports(): void
+    {
+        $authUser = User::factory()->create();
+        $this->actingAs($authUser);
+
+        $package = Package::create([
+            'package_number' => 'PKG-TEST-SABIR',
+            'name' => 'Sabir Package',
+            'status' => 'open',
+            'price_single' => 5000,
+            'price_double' => 3500,
+            'total_seats' => 10,
+            'seats_left' => 10,
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $authUser->id,
+            'customer_number' => 'CUST-LEADER',
+        ]);
+
+        $confirmation = CustomerConfirmation::create([
+            'package_id' => $package->id,
+        ]);
+
+        // Traveler/Member with name Sabir
+        $travelerUser = User::factory()->create(['name' => 'Sabir']);
+        $travelerCustomer = Customer::create([
+            'user_id' => $travelerUser->id,
+            'customer_number' => 'CUST-SABIR',
+        ]);
+
+        $member = CustomerConfirmationMember::create([
+            'customer_confirmation_id' => $confirmation->id,
+            'customer_id' => $travelerCustomer->id,
+            'is_leader' => false,
+            'status' => 'pending_payment',
+            'sharing_plan' => 'single',
+        ]);
+
+        $quotation = Quotation::create([
+            'customer_id' => $customer->id,
+            'customer_confirmation_id' => $confirmation->id,
+            'quotation_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addDays(30)->format('Y-m-d'),
+            'payment_plan' => 'full',
+            'status' => 'converted',
+        ]);
+
+        $item = QuotationItem::create([
+            'quotation_id' => $quotation->id,
+            'customer_confirmation_member_id' => $member->id,
+            'description' => 'Single Sharing — Sabir',
+            'is_header' => false,
+            'quantity' => 1,
+            'rate' => 5000,
+            'sort_order' => 1,
+        ]);
+
+        QuotationItemTax::create([
+            'quotation_item_id' => $item->id,
+            'name' => 'Item Discount',
+            'calculation_mode' => 'fixed',
+            'calculation_value' => -300,
+            'sort_order' => 1,
+        ]);
+
+        // 1. Verify Quotation Service & View
+        $quotationPayload = app(QuotationService::class)->getForEditShow((int) $quotation->id);
+        $this->assertSame('Sabir', $quotationPayload['items'][0]['member_name']);
+
+        $quotationHtml = view('quotations.report-content', [
+            'data' => $quotationPayload,
+            'items' => $quotationPayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+        $this->assertStringContainsString('Item Discount (Sabir):', $quotationHtml);
+
+        // 2. Verify Invoice Service & View
+        $order = Order::create([
+            'quotation_id' => $quotation->id,
+            'payment_plan' => 'full',
+        ]);
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'type' => 'deposit',
+            'description' => 'Invoice For Deposit',
+            'amount' => 4700,
+            'invoice_date' => now()->format('Y-m-d'),
+            'due_date' => now()->format('Y-m-d'),
+            'status' => 'issued',
+        ]);
+        $invoice->quotationItems()->sync([$item->id]);
+
+        $invoicePayload = app(InvoiceService::class)->getForEditShow((int) $invoice->id);
+        $this->assertSame('Sabir', $invoicePayload['items'][0]['member_name'] ?? null);
+        $this->assertSame('Item Discount (Sabir)', $invoicePayload['extensions'][0]['name']);
+
+        $orderPayload = app(OrderService::class)->getForEditShow((int) $order->id);
+        $this->assertSame('Sabir', $orderPayload['invoices'][0]['items'][0]['member_name'] ?? null);
+
+        $invoiceHtml = view('invoices.report-content', [
+            'data' => $invoicePayload,
+            'items' => $invoicePayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+        $this->assertStringContainsString('Item Discount (Sabir):', $invoiceHtml);
+
+        // 3. Verify Receipt Service & View
+        $receipt = Receipt::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 4700,
+            'receipt_date' => now()->format('Y-m-d'),
+            'payment_method' => 'transfer',
+        ]);
+
+        $receiptPayload = app(ReceiptService::class)->getForEditShow((int) $receipt->id);
+        $this->assertSame('Sabir', $receiptPayload['items'][0]['member_name'] ?? null);
+        $this->assertSame('Item Discount (Sabir)', $receiptPayload['extensions'][0]['name']);
+
+        $receiptHtml = view('receipts.report-content', [
+            'data' => $receiptPayload,
+            'items' => $receiptPayload['items'] ?? [],
+            'branding' => [],
+            'is_pdf' => false,
+        ])->render();
+        $this->assertStringContainsString('Item Discount (Sabir):', $receiptHtml);
     }
 }

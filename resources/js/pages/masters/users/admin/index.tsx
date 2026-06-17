@@ -23,7 +23,8 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: userIndex().url,
     },
     {
-        title: 'Admin',
+        title: 'Salesperson',
+        // title: 'Admin',
         href: index().url,
     },
 ];
@@ -67,7 +68,9 @@ function getColumns(scopeMode: 'country' | 'branch'): ColumnDef<UserSchema>[] {
             header: 'Role',
             meta: { exportable: true },
             cell: ({ row }) => (
-                <span className="capitalize">{row.getValue('role')}</span>
+                <span className="capitalize">
+                    {row.getValue('role') === 'admin' ? 'Sales' : '-'}
+                </span>
             ),
         },
     ];
@@ -110,10 +113,12 @@ export default function Admin({
     return (
         <>
             <AppLayout breadcrumbs={breadcrumbs}>
-                <Head title="Admin" />
+                <Head title="Salesperson" />
+                {/* <Head title="Admin" /> */}
                 <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Admin</h2>
+                        {/* <h2 className="text-lg font-semibold">Admin</h2> */}
+                        <h2 className="text-lg font-semibold">Salesperson</h2>
                     </div>
                     <div className="relative overflow-hidden rounded-xl border border-sidebar-border/70 px-3 py-3 not-dark:bg-white md:min-h-min dark:border-sidebar-border">
                         <DataTable
@@ -138,8 +143,10 @@ export default function Admin({
                                         openDialog('edit', row?.original);
                                     } else if (action === 'delete') {
                                         confirm({
-                                            title: 'Delete Admin',
-                                            message: `Are you sure you want to delete admin "${row?.original.name}"?`,
+                                            title: 'Delete Salesperson',
+                                            message: `Are you sure you want to delete salesperson "${row?.original.name}"?`,
+                                            // title: 'Delete Admin',
+                                            // message: `Are you sure you want to delete admin "${row?.original.name}"?`,
                                             confirmText: 'Delete',
                                             cancelText: 'Cancel',
                                             onConfirm: () => {

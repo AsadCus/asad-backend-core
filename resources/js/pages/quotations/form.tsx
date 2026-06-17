@@ -51,7 +51,13 @@ interface QuotationFormProps {
     defaultExtensions?: QuotationSchema['extensions'];
     prefilledCustomerId?: string;
     prefilledCustomerData?: UserSchema;
-    salespersons?: Array<{ value: number | string; label: string }>;
+    salespersons?: Array<{
+        value: number | string;
+        label: string;
+        country_id?: number | null;
+        country_ids?: number[];
+        country_name?: string | null;
+    }>;
     onCancel?: () => void;
 }
 
@@ -281,17 +287,7 @@ export function QuotationForm({
     const isSuperadmin = authRoles.includes('superadmin');
     const isSalesOrAdmin =
         authRoles.includes('sales') || authRoles.includes('admin');
-    const authUserId =
-        auth?.user?.id != null ? Number(auth.user.id) : null;
-
-    const salespersonOptions = useMemo<OptionType[]>(
-        () =>
-            (salespersons ?? []).map((option) => ({
-                label: option.label,
-                value: String(option.value),
-            })),
-        [salespersons],
-    );
+    const authUserId = auth?.user?.id != null ? Number(auth.user.id) : null;
 
     const initialNotes: NoteSchema[] = (
         initialData?.notes?.length ? initialData.notes : quotationNotes
@@ -402,6 +398,62 @@ export function QuotationForm({
 
     const [packagePrices, setPackagePrices] =
         useState<PackagePrices>(EMPTY_PACKAGE_PRICES);
+
+    const [confirmationCountryId, setConfirmationCountryId] = useState<
+        number | null
+    >(null);
+
+    const salespersonOptions = useMemo<OptionType[]>(() => {
+        let filtered = salespersons ?? [];
+        if (confirmationCountryId) {
+            const targetCountryId = Number(confirmationCountryId);
+            filtered = filtered.filter((option) => {
+                const isSelected =
+                    String(option.value) === String(data.salesperson_id);
+                if (isSelected) return true;
+                if (
+                    option.country_id != null &&
+                    Number(option.country_id) === targetCountryId
+                )
+                    return true;
+                if (
+                    option.country_ids &&
+                    Array.isArray(option.country_ids) &&
+                    option.country_ids.map(Number).includes(targetCountryId)
+                )
+                    return true;
+                return false;
+            });
+        }
+        return filtered.map((option) => {
+            let suffix = '';
+            if (option.country_name) {
+                suffix = ` (${option.country_name})`;
+            }
+
+            const isSelected =
+                String(option.value) === String(data.salesperson_id);
+            let mismatchSuffix = '';
+            if (isSelected && confirmationCountryId) {
+                const targetCountryId = Number(confirmationCountryId);
+                const matches =
+                    (option.country_id != null &&
+                        Number(option.country_id) === targetCountryId) ||
+                    (Array.isArray(option.country_ids) &&
+                        option.country_ids
+                            .map(Number)
+                            .includes(targetCountryId));
+                if (!matches) {
+                    mismatchSuffix = ' (Country Mismatch)';
+                }
+            }
+
+            return {
+                label: `${option.label}${suffix}${mismatchSuffix}`,
+                value: String(option.value),
+            };
+        });
+    }, [salespersons, confirmationCountryId, data.salesperson_id]);
 
     const activeExtensionMasters = useMemo(
         () =>
@@ -935,6 +987,7 @@ export function QuotationForm({
                 : null;
 
             setPackagePrices(extractedPackagePrices);
+            setConfirmationCountryId(confirmation.package_country_id ?? null);
 
             setData((prev) => ({
                 ...prev,
@@ -1012,6 +1065,8 @@ export function QuotationForm({
         setSelectedMemberIds([]);
         setHandlerMemberId(null);
         setPackagePrices(EMPTY_PACKAGE_PRICES);
+        setConfirmationCountryId(null);
+        setSelectedCustomerData(null);
 
         setData((prev) => ({
             ...prev,
@@ -1045,6 +1100,11 @@ export function QuotationForm({
                 );
             })(),
             customer_confirmation_id: null,
+            customer_id: null,
+            customer_name: '',
+            customer_contact: '',
+            customer_address: '',
+            customer_email: '',
             package_name: '',
             package_price_single: 0,
             package_price_double: 0,
@@ -1494,6 +1554,14 @@ export function QuotationForm({
 
                 if (Number.isNaN(memberId) || memberId <= 0) {
                     setHandlerMemberId(null);
+                    setData((prev) => ({
+                        ...prev,
+                        customer_id: null,
+                        customer_name: '',
+                        customer_contact: '',
+                        customer_address: '',
+                        customer_email: '',
+                    }));
 
                     return;
                 }
@@ -1506,9 +1574,14 @@ export function QuotationForm({
             const customerId = Number(value);
 
             if (Number.isNaN(customerId) || customerId <= 0) {
+                setSelectedCustomerData(null);
                 setData((prev) => ({
                     ...prev,
                     customer_id: null,
+                    customer_name: '',
+                    customer_contact: '',
+                    customer_address: '',
+                    customer_email: '',
                 }));
 
                 return;

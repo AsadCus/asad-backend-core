@@ -36,7 +36,7 @@
         .lbl {
             font-weight: bold;
             white-space: nowrap;
-            width: 90px;
+            width: 105px;
         }
 
         .sep {
@@ -243,6 +243,16 @@
                             <td class="sep" style="vertical-align:top;">:</td>
                             <td style="white-space: pre-line;">{{ $data['customer_address'] ?? '-' }}</td>
                         </tr>
+                        <tr>
+                            <td class="lbl">Contact</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_contact'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Email</td>
+                            <td class="sep">:</td>
+                            <td>{{ $data['customer_email'] ?? '-' }}</td>
+                        </tr>
                     </table>
                 </td>
                 {{-- Right --}}
@@ -268,6 +278,13 @@
                             <td class="sep">:</td>
                             <td>{{ $data['payment_method_label'] ?? '-' }}</td>
                         </tr>
+                        @if (!empty($data['refund_to']))
+                            <tr>
+                                <td class="lbl-r">Refund To</td>
+                                <td class="sep">:</td>
+                                <td>{{ $data['refund_to'] }}</td>
+                            </tr>
+                        @endif
                     </table>
                 </td>
             </tr>
@@ -464,6 +481,13 @@
                         <td class="total-label payment-info-head">Balance Due:</td>
                         <td class="total-amount payment-info-head">
                             {{ formatCurrency($data['balance_due_amount'] ?? 0) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="total-label payment-info-head">Grand Total:</td>
+                        <td class="total-amount payment-info-head">
+                            {{ formatCurrency($data['invoice_paid_amount'] ?? 0) }} /
+                            {{ formatCurrency(($data['invoice_total_amount'] ?? 0) ?: ($data['total_amount'] ?? $subtotal)) }}
                         </td>
                     </tr>
                     @if (!empty($data['is_refund_receipt_report']))

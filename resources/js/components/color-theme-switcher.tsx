@@ -2,7 +2,10 @@ import { useColorTheme } from '@/hooks/use-color-theme';
 import { cn } from '@/lib/utils';
 
 const colorThemes = [
-    { name: 'default', color: 'bg-[oklch(57.678%_0.15043_41.264)] dark:bg-white' },
+    {
+        name: 'default',
+        color: 'bg-[oklch(57.678%_0.15043_41.264)] dark:bg-white',
+    },
     { name: 'red', color: 'bg-red-500' },
     { name: 'rose', color: 'bg-rose-500' },
     { name: 'orange', color: 'bg-orange-500' },

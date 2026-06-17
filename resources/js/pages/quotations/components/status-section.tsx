@@ -123,6 +123,18 @@ export default function StatusSection({
                             {renderError('reason')}
                         </FormField>
                     )}
+
+                    {/* voided by */}
+                    {data.status === 'cancelled' && data.voided_by_name && (
+                        <FormField label="Voided By">
+                            <p className="text-base text-muted-foreground">
+                                {data.voided_by_name}
+                                {data.voided_at_formatted
+                                    ? ` on ${data.voided_at_formatted}`
+                                    : ''}
+                            </p>
+                        </FormField>
+                    )}
                 </div>
             </div>
         </FormSection>

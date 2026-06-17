@@ -11,7 +11,7 @@ import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
 
-const sidebarNavItems: NavItem[] = [
+const baseSidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
         href: edit(),
@@ -22,12 +22,13 @@ const sidebarNavItems: NavItem[] = [
         href: editPassword(),
         icon: null,
     },
-    {
-        title: 'Two-Factor Auth',
-        href: show(),
-        icon: null,
-    },
 ];
+
+const twoFactorNavItem: NavItem = {
+    title: 'Two-Factor Auth',
+    href: show(),
+    icon: null,
+};
 
 const adminOnlySidebarNavItems: NavItem[] = [
     {
@@ -71,8 +72,10 @@ export default function SettingsLayout({
     const { auth } = usePage<SharedData>().props;
     const isSuperadmin = auth.roles.includes('superadmin');
     const isGhostSuperadmin = isSuperadmin && Boolean(auth.is_ghost_user);
+    const showTwoFactorAuth = auth.show_two_factor_auth !== false;
     const navItems = [
-        ...sidebarNavItems,
+        ...baseSidebarNavItems,
+        ...(showTwoFactorAuth ? [twoFactorNavItem] : []),
         ...(isSuperadmin ? adminOnlySidebarNavItems : []),
         ...(isGhostSuperadmin ? ghostAdminOnlySidebarNavItems : []),
     ];

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Country;
 use App\Models\Customer;
 use App\Models\CustomerConfirmation;
 use App\Models\CustomerConfirmationMember;
@@ -60,6 +61,45 @@ class DashboardTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk();
+    }
+
+    public function test_superadmin_dashboard_recent_customers_use_customer_data(): void
+    {
+        Role::findOrCreate('superadmin', 'web');
+        Role::findOrCreate('customer', 'web');
+
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $customerUser = User::factory()->create([
+            'name' => 'Recent Customer',
+            'contact' => '0123456789',
+            'email' => 'recent.customer@example.com',
+        ]);
+        $customerUser->assignRole('customer');
+
+        Customer::create([
+            'user_id' => $customerUser->id,
+            'customer_number' => 'CUST-RECENT-001',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-04-24 10:30:00'));
+
+        try {
+            $response = $this->actingAs($superadmin)->get(route('dashboard'));
+
+            $response->assertOk();
+            $response->assertInertia(
+                fn (Assert $page) => $page
+                    ->component('dashboard')
+                    ->has('data.customers', 1)
+                    ->where('data.customers.0.name', 'Recent Customer')
+                    ->where('data.customers.0.contact', '0123456789')
+                    ->where('data.customers.0.email', 'recent.customer@example.com')
+            );
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_dashboard_payment_summary_groups_receipts_by_item_header_category(): void
@@ -370,8 +410,15 @@ class DashboardTest extends TestCase
                 'customer_number' => 'CUST-DB-FYTD-001',
             ]);
 
+            $country = Country::create([
+                'name' => 'Singapore',
+                'adjective' => 'Singaporean',
+                'currency_symbol' => 'S$',
+            ]);
+
             $convertedQuotation = Quotation::create([
                 'customer_id' => $customer->id,
+                'country_id' => $country->id,
                 'quotation_date' => '2026-01-01',
                 'expiry_date' => '2026-01-08',
                 'payment_plan' => 'full',
@@ -507,6 +554,14 @@ class DashboardTest extends TestCase
             $response->assertOk();
             $response->assertJsonPath('count', 3);
             $this->assertSame(800.0, (float) $response->json('amount'));
+
+            $byCountry = $response->json('by_country');
+            $this->assertIsArray($byCountry);
+            $this->assertCount(1, $byCountry);
+            $this->assertSame('Singapore', $byCountry[0]['country_name'] ?? null);
+            $this->assertSame('S$', $byCountry[0]['currency_symbol'] ?? null);
+            $this->assertSame(3, $byCountry[0]['count'] ?? null);
+            $this->assertSame(800.0, (float) ($byCountry[0]['amount'] ?? 0));
         } finally {
             Carbon::setTestNow();
         }
@@ -586,6 +641,7 @@ class DashboardTest extends TestCase
             $response->assertOk();
             $response->assertJsonPath('count', 2);
             $this->assertSame(400.0, (float) $response->json('amount'));
+            $this->assertSame([], $response->json('by_country'));
         } finally {
             Carbon::setTestNow();
             config(['dashboard.use_financial_transactions_for_fytd_total_sales' => false]);
@@ -1194,7 +1250,7 @@ class DashboardTest extends TestCase
         );
     }
 
-    public function test_closing_report_export_returns_pdf_for_sales_admin_and_superadmin(): void
+    public function test_closing_report_export_returns_pdf_for_superadmin_and_sales_and_forbids_admin(): void
     {
         Role::findOrCreate('superadmin', 'web');
         Role::findOrCreate('admin', 'web');
@@ -1205,9 +1261,9 @@ class DashboardTest extends TestCase
 
         $this->requireRoute('dashboard.closing-report-export');
 
-        $rolesToCheck = ['superadmin', 'admin', 'sales'];
+        $allowedRoles = ['superadmin', 'sales'];
 
-        foreach ($rolesToCheck as $role) {
+        foreach ($allowedRoles as $role) {
             $user = User::factory()->create();
             $user->assignRole($role);
 
@@ -1221,6 +1277,18 @@ class DashboardTest extends TestCase
             $filteredResponse->assertOk();
             $filteredResponse->assertHeader('content-type', 'application/pdf');
         }
+
+        $adminUser = User::factory()->create();
+        $adminUser->assignRole('admin');
+
+        $adminResponse = $this->actingAs($adminUser)->get(route('dashboard.closing-report-export', [
+            'period' => 'daily',
+            'range_start_utc' => now()->startOfDay()->toIso8601String(),
+            'range_end_utc' => now()->endOfDay()->toIso8601String(),
+            'categories' => 'Category Alpha',
+        ]));
+
+        $adminResponse->assertForbidden();
     }
 
     private function createClosingReportReceipt(string $categoryLabel, int $amount): void

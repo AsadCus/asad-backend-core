@@ -51,7 +51,7 @@ class PackageRule
             'remarks' => ['nullable', 'string'],
 
             // Accommodations (dynamic)
-            'accommodations' => ['nullable', 'array'],
+            'accommodations' => ['required', 'array', 'min:1'],
             'accommodations.*.location' => ['required', 'string', 'max:255'],
             'accommodations.*.hotel_name' => ['required', 'string', 'max:255'],
             'accommodations.*.ic' => ['nullable', 'string', 'max:255'],
@@ -69,6 +69,7 @@ class PackageRule
             'flights.*.to' => ['nullable', 'string', 'max:255'],
             'flights.*.description' => ['nullable', 'string', 'max:255'],
             'flights.*.airline' => ['nullable', 'string', 'max:255'],
+            'flights.*.flight_number' => ['nullable', 'string', 'max:255'],
             'flights.*.pnr' => ['nullable', 'string', 'max:255'],
             'flights.*.departure_datetime' => ['nullable', 'date'],
             'flights.*.arrival_datetime' => ['nullable', 'date'],
@@ -101,8 +102,9 @@ class PackageRule
 
             // Officials (dynamic)
             'officials' => ['nullable', 'array'],
+            'officials.*.official_id' => ['nullable', 'integer', 'exists:officials,id'],
             'officials.*.type' => ['nullable', 'string', 'max:255'],
-            'officials.*.name' => ['nullable', 'string', 'max:255'],
+            'officials.*.name' => ['required', 'string', 'max:255'],
             'officials.*.hotel' => ['nullable', 'string', 'max:255'],
             'officials.*.hotel_map' => ['nullable', 'array'],
             'officials.*.hotel_map.*' => ['nullable', 'string', 'max:255'],

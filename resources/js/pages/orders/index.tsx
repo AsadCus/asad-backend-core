@@ -189,12 +189,14 @@ const columns: ColumnDef<OrderSchema>[] = [
     },
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'updated_at',
+        sortingFn: 'displayDate',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',

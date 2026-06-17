@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Auth\Traits\CanResetPassword;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -16,7 +17,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use CanResetPassword, HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
     /**
@@ -77,6 +78,11 @@ class User extends Authenticatable
         return $this->hasOne(Customer::class, 'user_id');
     }
 
+    public function official(): HasOne
+    {
+        return $this->hasOne(Official::class, 'user_id');
+    }
+
     public function ghostUser(): HasOne
     {
         return $this->hasOne(GhostUser::class, 'user_id');
@@ -89,6 +95,11 @@ class User extends Authenticatable
         }
 
         return $this->ghostUser()->exists();
+    }
+
+    public function isSuperadminGhost(): bool
+    {
+        return $this->isGhostUser() && $this->hasRole('superadmin');
     }
 
     public function userNotifications(): HasMany

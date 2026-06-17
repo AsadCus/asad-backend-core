@@ -4,7 +4,9 @@ import useConfirmDialog from '@/components/confirm-popup';
 import { DataTable } from '@/components/data-table';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { createSelectColumn } from '@/components/select-column';
+import SendEmailModal from '@/components/send-email-modal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -54,7 +56,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const defaultQuotationIndexStatusFilters = [...indexStatusValues];
 
-const getColumns = (): ColumnDef<QuotationSchema>[] => [
+const getColumns = (
+    openEmailModal: (id: number, number: string) => void,
+    sendEmailEnabled: boolean,
+): ColumnDef<QuotationSchema>[] => [
     createSelectColumn<QuotationSchema>(),
     {
         accessorKey: 'id',
@@ -122,6 +127,11 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
         meta: { exportable: true },
     },
     {
+        accessorKey: 'voided_by_name',
+        header: 'Voided By',
+        meta: { exportable: true },
+    },
+    {
         accessorKey: 'country_name',
         header: 'Country',
         meta: { exportable: true },
@@ -138,12 +148,14 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
     },
     {
         accessorKey: 'quotation_date',
+        sortingFn: 'displayDate',
         header: 'Quotation Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'expiry_date',
+        sortingFn: 'displayDate',
         header: 'Expiry Date',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -172,14 +184,58 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
             return label;
         },
     },
+    ...(sendEmailEnabled
+        ? ([
+              {
+                  id: 'email_sent_at_formatted',
+                  accessorKey: 'email_sent_at_formatted',
+                  sortingFn: 'displayDate',
+                  header: 'Email',
+                  meta: { exportable: true },
+                  filterFn: 'dateRangeFilter',
+                  cell: ({ row }) => {
+                      const quotation = row.original;
+                      const sentAt = quotation.email_sent_at_formatted;
+                      const isSent = !!quotation.email_sent_at;
+
+                      return (
+                          <div className="flex flex-col gap-1">
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isSent ? 'outline' : 'default'}
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!quotation.id) return;
+                                      openEmailModal(
+                                          quotation.id,
+                                          quotation.quotation_number ?? '',
+                                      );
+                                  }}
+                              >
+                                  {isSent ? 'Resend Email' : 'Send Email'}
+                              </Button>
+                              {sentAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                      {sentAt}
+                                  </span>
+                              )}
+                          </div>
+                      );
+                  },
+              },
+          ] as ColumnDef<QuotationSchema>[])
+        : []),
     {
         accessorKey: 'created_at',
+        sortingFn: 'displayDate',
         header: 'Created At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
     },
     {
         accessorKey: 'updated_at',
+        sortingFn: 'displayDate',
         header: 'Updated At',
         meta: { exportable: true },
         filterFn: 'dateRangeFilter',
@@ -188,7 +244,8 @@ const getColumns = (): ColumnDef<QuotationSchema>[] => [
 
 export default function QuotationsIndex({ data }: QuotationsProps) {
     const { quotationsForDatatable, customers, salespersons } = data;
-    const { auth } = usePage<SharedData>().props;
+    const { auth, features } = usePage<SharedData>().props;
+    const sendEmailEnabled = Boolean(features?.send_email);
     const isSuperadmin = auth.roles.includes('superadmin');
     const isSalesOrAdmin =
         auth.roles.includes('sales') || auth.roles.includes('admin');
@@ -198,7 +255,30 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
         | 'branch';
     const scopeCountryIds = auth.scope_selected_country_ids ?? [];
     const scopeBranchIds = auth.scope_selected_branch_ids ?? [];
-    const columns = useMemo(() => getColumns(), []);
+
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalData, setEmailModalData] = useState<{
+        ids: number[];
+        number: string | null;
+    }>({ ids: [], number: null });
+
+    const handleOpenEmailModal = (id: number, number: string) => {
+        setEmailModalData({ ids: [id], number });
+        setEmailModalOpen(true);
+    };
+
+    const handleBulkEmailModal = (selectedQuotations: QuotationSchema[]) => {
+        const ids = selectedQuotations
+            .map((q) => q.id)
+            .filter((id): id is number => id !== undefined);
+        setEmailModalData({ ids, number: null });
+        setEmailModalOpen(true);
+    };
+
+    const columns = useMemo(
+        () => getColumns(handleOpenEmailModal, sendEmailEnabled),
+        [sendEmailEnabled],
+    );
     const actions: ActionType[] = [];
 
     const salespersonsForFilter = useMemo(
@@ -252,6 +332,7 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
     const [handleDialogOpen, setHandleDialogOpen] = useState(false);
     const [selectedQuotationForHandle, setSelectedQuotationForHandle] =
         useState<QuotationSchema | null>(null);
+
     const handleQuotationStatusAction = (
         action: ActionType,
         quotation: QuotationSchema,
@@ -325,6 +406,11 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                             addButtonText="Create New Quotation"
                             searchFilterMode="outside"
                             columnFilterMode="outside"
+                            onBulkSendEmail={
+                                sendEmailEnabled
+                                    ? handleBulkEmailModal
+                                    : undefined
+                            }
                             getRowActions={(q) => {
                                 const rowActions: ActionType[] = [];
 
@@ -334,6 +420,15 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                         q.status === 'converted')
                                 ) {
                                     rowActions.push('edit');
+                                }
+
+                                if (
+                                    userPermissions.includes('quotation view')
+                                ) {
+                                    if (sendEmailEnabled) {
+                                        rowActions.push('send-email');
+                                        rowActions.push('copy-link');
+                                    }
                                 }
 
                                 if (hasEditPermission) {
@@ -350,7 +445,10 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                 action !==
                                                     'quotation-status-ready' &&
                                                 action !==
-                                                    'quotation-status-expire',
+                                                    'quotation-status-expire' &&
+                                                (isSuperadmin ||
+                                                    action !==
+                                                        'quotation-status-cancel'),
                                         ),
                                     );
                                 }
@@ -425,6 +523,18 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                                 );
                                             }
                                         })();
+                                    } else if (action === 'send-email') {
+                                        handleOpenEmailModal(
+                                            quotationId,
+                                            row?.original.quotation_number ??
+                                                '',
+                                        );
+                                    } else if (action === 'copy-link') {
+                                        handleOpenEmailModal(
+                                            quotationId,
+                                            row?.original.quotation_number ??
+                                                '',
+                                        );
                                     } else if (action === 'edit') {
                                         router.get(edit(quotationId).url);
                                     } else if (
@@ -499,12 +609,14 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                                     package_number: false,
                                     package_name: false,
                                     sales_id: false,
+                                    voided_by_name: false,
                                     country_name: false,
                                     branch_name: false,
                                     description: false,
                                     expiry_date: false,
                                     items_count: false,
                                     payment_plan: false,
+                                    email_sent_at_formatted: true,
                                     created_at: false,
                                     updated_at: false,
                                 },
@@ -574,9 +686,15 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
 
             <QuotationHandleDialog
                 quotationId={selectedQuotationForHandle?.id}
-                quotationNumber={selectedQuotationForHandle?.quotation_number ?? undefined}
-                quotationCountryId={selectedQuotationForHandle?.country_id ?? null}
-                quotationBranchId={selectedQuotationForHandle?.branch_id ?? null}
+                quotationNumber={
+                    selectedQuotationForHandle?.quotation_number ?? undefined
+                }
+                quotationCountryId={
+                    selectedQuotationForHandle?.country_id ?? null
+                }
+                quotationBranchId={
+                    selectedQuotationForHandle?.branch_id ?? null
+                }
                 scopeMode={scopeMode}
                 salespersons={salespersons}
                 isOpen={handleDialogOpen}
@@ -584,6 +702,14 @@ export default function QuotationsIndex({ data }: QuotationsProps) {
                     setHandleDialogOpen(false);
                     setSelectedQuotationForHandle(null);
                 }}
+            />
+
+            <SendEmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                documentType="quotation"
+                documentIds={emailModalData.ids}
+                documentNumber={emailModalData.number}
             />
         </>
     );

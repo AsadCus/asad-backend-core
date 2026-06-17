@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
+import { DateTime } from 'luxon';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
@@ -49,17 +50,74 @@ export function formatDateForDisplay(date?: Date | string | null) {
     });
 }
 
-export function parseDisplayDate(value?: string | null) {
+/**
+ * Luxon parse formats mirroring the localized strings the backend produces via
+ * Carbon `translatedFormat(...)`. KEEP IN SYNC: add a row here whenever a new
+ * month-name-bearing `translatedFormat('…')` pattern is introduced in app/.
+ * Full-month formats precede short-month so "April" never mis-parses as `LLL`.
+ */
+const LOCALIZED_DATE_FORMATS = [
+    'd LLLL yyyy', // d F Y / j F Y
+    'd LLLL yyyy H:mm', // d F Y H:i
+    'd LLLL yyyy, H:mm', // d F Y, H:i
+    'd LLL yyyy', // d M Y
+    'd LLL yyyy, H:mm', // d M Y, H:i
+    'd LLL yyyy, h:mm a', // d M Y, h:i A
+] as const;
+
+/** Active app locale, mirrored onto <html lang> server-side (app.blade.php). */
+function activeLocale(): string {
+    if (typeof document !== 'undefined' && document.documentElement.lang) {
+        return document.documentElement.lang;
+    }
+    return 'en';
+}
+
+export function parseDisplayDate(
+    value?: string | null,
+    locale: string = activeLocale(),
+): Date | undefined {
     if (!value) {
         return undefined;
     }
 
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return undefined;
+    for (const format of LOCALIZED_DATE_FORMATS) {
+        const parsed = DateTime.fromFormat(value, format, { locale });
+        if (parsed.isValid) {
+            return parsed.toJSDate();
+        }
     }
 
-    return parsed;
+    // ponytail: native fallback preserves all prior behavior — ISO date-input
+    // values ("2026-08-03"), datetimes, English month-first strings, etc.
+    const fallback = new Date(value);
+    return Number.isNaN(fallback.getTime()) ? undefined : fallback;
+}
+
+export function compareNaturalText(left: unknown, right: unknown): number {
+    return String(left ?? '').localeCompare(String(right ?? ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+    });
+}
+
+export function compareFormattedDate(left: unknown, right: unknown): number {
+    const leftDate = parseDisplayDate(String(left ?? ''));
+    const rightDate = parseDisplayDate(String(right ?? ''));
+
+    if (leftDate && rightDate) {
+        return leftDate.getTime() - rightDate.getTime();
+    }
+
+    if (leftDate) {
+        return 1;
+    }
+
+    if (rightDate) {
+        return -1;
+    }
+
+    return compareNaturalText(left, right);
 }
 
 // for input date

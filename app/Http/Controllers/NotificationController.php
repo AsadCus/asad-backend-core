@@ -17,7 +17,7 @@ class NotificationController extends Controller
 
     public function index(Request $request)
     {
-        $notifications = $this->notificationService->getUserNotifications($request->user()->id);
+        $notifications = $this->notificationService->getPaginatedNotifications($request->user()->id, 20);
 
         return Inertia::render('notifications/index', [
             'notifications' => $notifications,
@@ -58,15 +58,21 @@ class NotificationController extends Controller
     public function markAsRead(Request $request, $id)
     {
         $this->notificationService->markAsRead($request->user()->id, $id);
+
+        return back();
     }
 
     public function markAllAsRead(Request $request)
     {
         $this->notificationService->markAllAsRead($request->user()->id);
+
+        return back();
     }
 
     public function destroy(Request $request, $id)
     {
         $this->notificationService->deleteUserNotification($request->user()->id, $id);
+
+        return back();
     }
 }
