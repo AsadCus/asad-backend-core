@@ -1,202 +1,176 @@
-# Travel Management System
+# ERP System
 
-This is a Laravel + Inertia + React application for managing travel manifests, enquiries, quotations and customers.
+Enterprise Resource Planning system built on Laravel, with **HRIS (Human Resource Information System)** as its first-phase product. The backend serves two frontends from one codebase:
 
-## Key points
+- **HRIS SPA** (`frontend-hris/`) — standalone React 19 app consuming JSON API via Sanctum
+- **ERP Inertia UI** (`resources/js/`) — legacy Inertia + React UI for travel management modules
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A["HRIS SPA<br/>(React 19, port 5173)"] -->|axios + Sanctum cookies| C["backend-codebase<br/>(Laravel 13, port 8000)"]
+    B["ERP Inertia UI<br/>(port 8000)"] -->|Inertia.render()| C
+    C --> D[(Database)]
+```
+
+| Frontend           | Location                    | Stack                         | Scope                                                                |
+| ------------------ | --------------------------- | ----------------------------- | -------------------------------------------------------------------- |
+| **HRIS SPA**       | `frontend-hris/`            | React 19 + Vite + Tailwind v4 | HR modules: auth, master data, users, settings, attendance (planned) |
+| **ERP Inertia UI** | `resources/js/` (this repo) | Inertia + React               | Travel management & business modules                                 |
+
+## HRIS Modules (Phase 1 — Live)
+
+- **Auth** — login, forgot/reset password, two-factor challenge (Sanctum SPA)
+- **Dashboard** — KPI cards, charts, recent activity
+- **Notifications** — list with read/unread state, mark-read actions
+- **Master Data**
+    - **Country** — CRUD with DataTable
+    - **Branch** — CRUD with country filter
+    - **Fiscal Year** — CRUD with date ranges
+    - **Users** — role-based management (Superadmin, Admin, Sales, Ops, Customer)
+- **User Logs** — filterable activity log with export
+- **Settings** — profile, password, appearance (theme + color), 2FA setup
+
+## HRIS Roadmap — Attendance Module (Phase 2)
+
+The attendance (Presensi) module is the next major phase. Full specification in [`HRIS_PRESENSI_FLOWCHARTS.md`](../HRIS_PRESENSI_FLOWCHARTS.md).
+
+### Roles & Access
+
+| Role               | Access                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| **Employee**       | Check-in/out with face capture + geotagging, attendance corrections, leave requests, own history |
+| **Supervisor**     | Approve/reject team corrections and leave, monitor team attendance                               |
+| **HR / Personnel** | Final verification, operational data, reports                                                    |
+| **Administrator**  | Org tree, employee master, user accounts, approval matrix, work schedules, leave parameters      |
+| **Manager**        | Read-only summaries and reports                                                                  |
+
+### Approval Chain
+
+```
+Employee → Supervisor → Manager → HRD (final)
+```
+
+### Key Features Planned
+
+- Check-in / Check-out with face recognition and GPS geotagging
+- Attendance correction requests with attachments
+- Leave requests with balance validation
+- Multi-level approval workflow
+- Work schedule and shift management
+- Organization hierarchy (holding → BU → department → position)
+- Attendance and leave reports with export
+
+## Legacy Modules (Travel Management)
+
+These remain available through the Inertia UI at `:8000`. Not part of the HRIS product.
+
+- **Sales** — quotations, orders, invoices, receipts
+- **Customers** — records, confirmations, member management
+- **Enquiries** — general, private, customer confirmation workflows
+- **Packages** — travel package management
+- **Manifests** — booking, room manifests, dynamic room lists
+- **Ops Movement** — operational movement tracking
+
+```mermaid
+flowchart LR
+        Customer[Customer] -->|enquiry| Enquiry[Enquiry]
+        Enquiry -->|quote| Quotation[Quotation]
+        Quotation -->|accept| Confirmation[Customer Confirmation]
+        Quotation -->|revise| Followup[Follow-up / Revised Quote]
+        Confirmation --> Manifest[Manifest / Booking]
+        Manifest --> Payment[Payment / Invoice]
+        Payment --> Financials[Financials]
+        Manifest --> Documents[Documents]
+        Documents --> PreTravel[Pre-travel checks]
+        PreTravel --> Travel[Travel Occurs]
+        Travel --> Reports[Post-travel Reports]
+```
+
+## Tech Stack
 
 - **Framework**: Laravel 13 (PHP 8.2+)
-- **Frontend**: Inertia.js + React, built with Vite and Tailwind CSS v4
-- **Testing**: PHPUnit (use `php artisan test`)
+- **Frontend (Inertia)**: Inertia.js + React + Vite + Tailwind CSS v4
+- **API Layer**: Laravel Sanctum (SPA cookie auth)
+- **Permissions**: spatie/laravel-permission
+- **Activity Log**: spatie/laravel-activitylog
+- **Testing**: PHPUnit
 
-## System requirements
+## Quick Setup
 
-- PHP 8.2 or newer
-- Composer
-- Node 18+ and npm (or yarn)
-- A supported database (MySQL, MariaDB, Postgres)
-
-## Quick setup
-
-1. Clone the repo and enter the project directory.
+1. Clone and enter the project directory.
 2. Install PHP dependencies:
 
 ```bash
 composer install
 ```
 
-3. Install JS dependencies and build assets:
+3. Install JS dependencies and start Vite:
 
 ```bash
 npm ci
-# or
-npm install
-npm run dev    # for local dev (Vite)
-# npm run build # for production build
+npm run dev
 ```
 
-4. Copy environment file and set values:
+4. Copy environment file and generate key:
 
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-5. Create database and run migrations + seeders (if applicable):
+5. Create database, run migrations and seeders:
 
 ```bash
 php artisan migrate --seed
 ```
 
-6. Create storage symlink (if not present):
+6. Create storage symlink:
 
 ```bash
 php artisan storage:link
 ```
 
-7. Run the app:
+7. Start the server:
 
 ```bash
 php artisan serve --host=127.0.0.1 --port=8000
-# or use your preferred local environment (Valet, Sail, Docker, etc.)
 ```
 
-## Running tests
+## Running Tests
 
 ```bash
 php artisan test --filter=NameOfTest
 ```
 
-## Useful commands
+## Useful Commands
 
-- `vendor/bin/pint` — run PHP formatter (project uses Pint)
-- `npm run dev` — start Vite dev server
-- `npm run build` — build frontend for production
-- `php artisan route:list` — list application routes
-- `php artisan tinker` — interact with app
+| Command                          | Purpose                         |
+| -------------------------------- | ------------------------------- |
+| `vendor/bin/pint`                | PHP code formatting             |
+| `npm run dev`                    | Start Vite dev server           |
+| `npm run build`                  | Build frontend for production   |
+| `php artisan route:list`         | List all routes                 |
+| `php artisan tinker`             | Interactive REPL                |
+| `php artisan wayfinder:generate` | Sync Wayfinder routes (if used) |
 
-## Where to look in the code
+## Project Structure
 
-- **Routes**: [routes/web.php](routes/web.php)
-- **Controllers**: app/Http/Controllers
-- **Models**: app/Models
-- **JS Pages (Inertia)**: [resources/js/Pages](resources/js/Pages)
-- **Frontend entry / assets**: resources/js and resources/css
-- **Config**: config/\*.php
+| Path                       | Purpose                          |
+| -------------------------- | -------------------------------- |
+| `routes/web.php`           | Inertia page routes              |
+| `routes/api.php`           | HRIS SPA API routes              |
+| `routes/auth.php`          | Fortify auth routes              |
+| `app/Http/Controllers/`    | Controllers (Inertia + API)      |
+| `app/Models/`              | Eloquent models                  |
+| `resources/js/Pages/`      | Inertia React pages (legacy ERP) |
+| `resources/js/components/` | Shared React components          |
+| `resources/css/`           | Tailwind CSS                     |
+| `config/`                  | Application configuration        |
+| `database/migrations/`     | Database migrations              |
+| `database/seeders/`        | Database seeders                 |
 
-## Notes for future you
-
-- The app uses Inertia to render React pages from Laravel controllers — look in controllers that call `Inertia::render()`.
-- Tailwind v4 is used; frontend styles are in `resources/css` and built via Vite.
-- When changing routes/controllers, run `php artisan wayfinder:generate` if Wayfinder is used to sync routes (check `vite.config.ts`).
-
-## System overview & flow
-
-- **Modules**:
-    - `Auth`: Fortify-based auth, policies and user management.
-    - `Customers`: customer records, confirmations and member management.
-    - `Enquiries`: enquiry lifecycle, remarks and status workflow.
-    - `Quotations`: quote creation, status transitions and links to enquiries/customers.
-    - `Manifests`: core booking/room manifest logic and dynamic room lists.
-    - `Financials`: transactions, financial year rollover and reporting jobs.
-    - `Jobs/Queues`: background processing for mail, exports and long tasks.
-    - `Notifications/Mail`: notification channels and email templates.
-    - `Services/Helpers`: shared business logic, formatters and utilities.
-
-- **Typical request flow**:
-    1.  Browser requests a URL → route defined in `routes/*.php`.
-    2.  Route maps to a controller in `app/Http/Controllers`.
-    3.  Controller validates via `FormRequest`, then calls a Service or Model.
-    4.  Eloquent models run queries (use eager loading to avoid N+1).
-    5.  Controller returns `Inertia::render()` with props (or JSON for APIs).
-    6.  React/Inertia page in `resources/js/Pages` receives props and renders UI.
-    7.  Forms use Inertia `<Form>` or `useForm`; responses rehydrate props.
-
-- **Background & scheduled work**:
-    - Use `app/Jobs` for queued work; run queue workers to process them.
-    - Financial rollovers and scheduled tasks live in Jobs/Console commands.
-
-- **Frontend build**:
-    - Vite bundles `resources/js` and `resources/css`. Use `npm run dev` for development and `npm run build` for production.
-
-Keep migrations, factories and seeders up to date for tests and local dev data.
-
-If you'd like, I can also:
-
-- add a short Development checklist, or
-- include sample `.env` variables and recommended local Docker/Sail commands.
-
----
-
-_README generated by assistant — concise project overview and setup._
-
-## Development checklist
-
-- Prereqs installed: PHP, Composer, Node, DB.
-- Copy `.env.example` → `.env` and set DB credentials.
-- Install PHP deps: `composer install`.
-- Install JS deps and run Vite: `npm ci && npm run dev`.
-- Run migrations and seeders for local data: `php artisan migrate --seed`.
-- Create storage link: `php artisan storage:link`.
-- Start queue worker (if processing jobs locally): `php artisan queue:work`.
-- Run formatter: `vendor/bin/pint` before committing.
-- Run relevant tests: `php artisan test --filter=NameOfTest`.
-
-## Architecture / request flow (sequence)
-
-```mermaid
-sequenceDiagram
-    Browser->>Router: HTTP request
-    Router->>Controller: route -> controller
-    Controller->>FormRequest: validate request
-    FormRequest-->>Controller: validated data
-    Controller->>Service: call business logic
-    Service->>Model: query / update models
-    Model->>Database: SQL queries
-    Database-->>Model: results
-    Model-->>Service: data
-    Service-->>Controller: processed result
-    Controller->>Inertia: Inertia::render() (props)
-    Inertia-->>Browser: rendered page / JSON
-```
-
----
-
-_If you want a separate architecture diagram (component-level) or more checklist items (Docker/Sail, `.env` template), tell me which and I'll add them._
-
-## Business flow (customer → booking lifecycle)
-
-```mermaid
-flowchart LR
-        Customer[Customer] -->|submits enquiry| Enquiry[Enquiry]
-        Enquiry -->|agent prepares| Quotation[Quotation]
-        Quotation -->|accepts| Confirmation["Customer Confirmation"]
-        Quotation -->|revise / reject| Followup["Follow-up / Revised Quote"]
-        Confirmation --> Manifest["Manifest / Booking"]
-        Manifest --> Payment["Payment / Invoice"]
-        Payment --> Financials["Financials / Transactions"]
-        Manifest --> Documents["Documents (Tickets / Vouchers)"]
-        Documents --> PreTravel["Pre-travel checks"]
-        PreTravel --> Travel["Travel Occurs"]
-        Travel --> Reports["Post-travel reports & settlement"]
-
-        subgraph Admin
-            Agent["Agent/Admin"] --> Quotation
-            Agent --> Manifest
-            Agent --> Reports
-        end
-
-        subgraph System
-            Enquiry
-            Quotation
-            Confirmation
-            Manifest
-            Payment
-            Financials
-            Documents
-            PreTravel
-            Travel
-            Reports
-        end
 ```
 
 Steps explained:
@@ -212,3 +186,4 @@ Steps explained:
 - Post-travel reports & settlement — Financial rollover, reporting and job-based cleanup (see `app/Jobs` and `FinancialYearRolloverJob`).
 
 This flow maps to controllers, services and jobs across `app/Http/Controllers`, `app/Services` and `app/Jobs`.
+```
