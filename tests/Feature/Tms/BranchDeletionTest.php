@@ -1,21 +1,19 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Tms;
 
 use App\Models\Admin;
 use App\Models\Branch;
 use App\Models\Country;
+use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
 use App\Models\User;
 use App\Services\BranchService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
+use Tests\TmsTestCase as TestCase;
 
 class BranchDeletionTest extends TestCase
 {
-    use RefreshDatabase;
-
     public function test_delete_branch_nulls_related_branch_ids_and_deletes_branch(): void
     {
         $country = Country::factory()->create();
@@ -55,6 +53,18 @@ class BranchDeletionTest extends TestCase
             'country_ids' => [$country->id],
         ]);
 
+        $enquiry = Enquiry::query()->create([
+            'type' => 'general',
+            'enquiry_number' => 'ENQ-BRANCH-DELETE',
+            'status' => 'new_lead',
+            'name' => 'Branch Scope Enquiry',
+            'contact_number' => '0123456789',
+            'email' => 'branch-scope-enquiry@example.com',
+            'created_by' => $salesUser->id,
+            'branch_id' => $branchToDelete->id,
+            'country_id' => $country->id,
+        ]);
+
         $deleted = app(BranchService::class)->delete((string) $branchToDelete->id);
 
         $this->assertTrue($deleted);
@@ -72,6 +82,11 @@ class BranchDeletionTest extends TestCase
 
         $this->assertDatabaseHas('operations', [
             'id' => $operation->id,
+            'branch_id' => null,
+        ]);
+
+        $this->assertDatabaseHas('enquiries', [
+            'id' => $enquiry->id,
             'branch_id' => null,
         ]);
 

@@ -8,6 +8,7 @@ use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CountryService
@@ -161,9 +162,12 @@ class CountryService
                 return false;
             }
 
-            Enquiry::query()
-                ->where('country_id', $country->id)
-                ->update(['country_id' => null]);
+            // ponytail: enquiries is a TMS table — only touch it when the TMS reference set is migrated.
+            if (Schema::hasTable('enquiries')) {
+                Enquiry::query()
+                    ->where('country_id', $country->id)
+                    ->update(['country_id' => null]);
+            }
 
             Sales::query()
                 ->where('country_id', $country->id)

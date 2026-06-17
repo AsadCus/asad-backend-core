@@ -8,6 +8,7 @@ use App\Services\UserRoles\AdminUserService;
 use App\Services\UserRoles\CustomerUserService;
 use App\Services\UserRoles\OperationsUserService;
 use App\Services\UserRoles\SalesUserService;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
 class UserService
@@ -51,17 +52,26 @@ class UserService
             return $this->operationsUserService->getForDataTable();
         }
 
+        // ponytail: customers is a TMS table — skip customer-role users when the TMS reference set isn't migrated.
+        $customerTableExists = Schema::hasTable('customers');
+
         if ($role === 'customer') {
-            return $this->customerUserService->getForDataTable();
+            return $customerTableExists
+                ? $this->customerUserService->getForDataTable()
+                : collect();
         }
 
-        return collect()
+        $data = collect()
             ->concat($this->adminUserService->getForDataTable())
             ->concat($this->adminRoleService()->getForDataTable())
             ->concat($this->salesUserService->getForDataTable())
-            ->concat($this->operationsUserService->getForDataTable())
-            ->concat($this->customerUserService->getForDataTable())
-            ->values();
+            ->concat($this->operationsUserService->getForDataTable());
+
+        if ($customerTableExists) {
+            $data = $data->concat($this->customerUserService->getForDataTable());
+        }
+
+        return $data->values();
     }
 
     public function getRoleForFilter(bool $excludeCustomer = false)

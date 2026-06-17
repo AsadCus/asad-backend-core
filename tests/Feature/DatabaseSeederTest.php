@@ -4,17 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Admin;
 use App\Models\Country;
-use App\Models\CustomerConfirmation;
-use App\Models\Enquiry;
 use App\Models\FinancialYear;
 use App\Models\GhostUser;
-use App\Models\Invoice;
-use App\Models\Manifest;
 use App\Models\Operation;
-use App\Models\Order;
-use App\Models\Package;
-use App\Models\Quotation;
-use App\Models\Receipt;
 use App\Models\Sales;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -84,14 +76,7 @@ class DatabaseSeederTest extends TestCase
             array_map('intval', $operationsUser->operation?->country_ids ?? []),
         );
 
-        $this->assertSame(0, Quotation::count());
-        $this->assertSame(0, Order::count());
-        $this->assertSame(0, Invoice::count());
-        $this->assertSame(0, Receipt::count());
-
-        $this->assertSame(0, Enquiry::count());
-        $this->assertSame(0, CustomerConfirmation::count());
-        $this->assertSame(0, Package::count());
-        $this->assertSame(0, Manifest::count());
+        // TMS tables are not part of the ERP migrate:fresh --seed; their absence is
+        // asserted by the Tms suite, not here.
     }
 }

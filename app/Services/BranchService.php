@@ -8,6 +8,7 @@ use App\Models\Enquiry;
 use App\Models\Operation;
 use App\Models\Sales;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class BranchService
 {
@@ -105,9 +106,12 @@ class BranchService
                 ->where('branch_id', $branch->id)
                 ->update(['branch_id' => null]);
 
-            Enquiry::query()
-                ->where('branch_id', $branch->id)
-                ->update(['branch_id' => null]);
+            // ponytail: enquiries is a TMS table — only touch it when the TMS reference set is migrated.
+            if (Schema::hasTable('enquiries')) {
+                Enquiry::query()
+                    ->where('branch_id', $branch->id)
+                    ->update(['branch_id' => null]);
+            }
 
             Admin::query()
                 ->where('branch_id', $branch->id)

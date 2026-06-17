@@ -7,10 +7,15 @@
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+            <exclude>tests/Unit/Tms</exclude>
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <exclude>tests/Feature/Tms</exclude>
         </testsuite>
+        <!-- TMS-legacy tests live under tests/Unit/Tms and tests/Feature/Tms. They are excluded
+             from the default suites above. Run them on demand by path:
+             php artisan test tests/Unit/Tms tests/Feature/Tms -->
     </testsuites>
     <source>
         <include>

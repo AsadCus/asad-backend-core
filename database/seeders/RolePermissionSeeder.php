@@ -148,9 +148,15 @@ class RolePermissionSeeder extends Seeder
             'ops-movement view', 'ops-movement edit',
         ];
 
-        Role::findByName('superadmin')->syncPermissions($superadminPermissions);
+        // ponytail: superadmin/admin are legacy roles removed by the
+        // migrate_admin_superadmin_to_administrator migration — only sync them if they still exist.
+        if (Role::where('name', 'superadmin')->where('guard_name', 'web')->exists()) {
+            Role::findByName('superadmin')->syncPermissions($superadminPermissions);
+        }
         Role::findByName('sales')->syncPermissions($salesPermissions);
-        Role::findByName('admin')->syncPermissions($adminPermissions);
+        if (Role::where('name', 'admin')->where('guard_name', 'web')->exists()) {
+            Role::findByName('admin')->syncPermissions($adminPermissions);
+        }
         Role::findByName('operations')->syncPermissions($operationsPermissions);
         Role::findByName('customer')->givePermissionTo(['dashboard view']);
         Role::findByName('official')->givePermissionTo(['dashboard view']);
