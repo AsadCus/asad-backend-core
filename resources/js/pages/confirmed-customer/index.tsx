@@ -1759,13 +1759,20 @@ export default function ConfirmedCustomerIndex({
         return parsed;
     };
 
+    // Only payment methods flagged "For Refund" are selectable in refunds.
+    const refundPaymentMethods = paymentMethods.filter(
+        (method) => method.is_available_for_refund,
+    );
+
     const defaultRefundPaymentMethod =
         String(
-            paymentMethods.find(
+            refundPaymentMethods.find(
                 (method) =>
                     String(method.value).trim().toLowerCase() === 'paynow',
-            )?.value ?? 'paynow',
-        ).trim() || 'paynow';
+            )?.value ??
+                refundPaymentMethods[0]?.value ??
+                '',
+        ).trim();
 
     const resolveOverpaidAmount = (row: {
         paid_amount?: number | null;
@@ -3653,7 +3660,7 @@ export default function ConfirmedCustomerIndex({
                                                             >
                                                                 <ProperInputSelect
                                                                     options={
-                                                                        paymentMethods
+                                                                        refundPaymentMethods
                                                                     }
                                                                     value={
                                                                         row.payment_method

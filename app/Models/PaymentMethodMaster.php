@@ -10,6 +10,7 @@ class PaymentMethodMaster extends Model
         'name',
         'value',
         'is_active',
+        'is_available_for_refund',
         'is_default',
         'sort_order',
     ];
@@ -18,6 +19,7 @@ class PaymentMethodMaster extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_available_for_refund' => 'boolean',
             'is_default' => 'boolean',
             'sort_order' => 'integer',
         ];

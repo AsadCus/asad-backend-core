@@ -27,7 +27,6 @@ import { genderOptions } from '../customer/schema';
 import {
     infantAndChildPriceLabels,
     officialTypeOptions,
-    type OfficialSelectOption,
     packageMealPlanOptions,
     packageMealTimeOptions,
     packageTrainTicketTypeOptions,
@@ -36,6 +35,7 @@ import {
     type AccommodationSchema,
     type FlightSchema,
     type OfficialSchema,
+    type OfficialSelectOption,
     type PackageSchema,
     type RawdahTasreehSchema,
     type TrainTicketSchema,
@@ -49,6 +49,7 @@ const defaultFlights: FlightSchema[] = [
         to: '',
         description: 'Departure',
         airline: '',
+        flight_number: '',
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
@@ -59,6 +60,7 @@ const defaultFlights: FlightSchema[] = [
         to: '',
         description: 'Return',
         airline: '',
+        flight_number: '',
         pnr: '',
         departure_datetime: '',
         arrival_datetime: '',
@@ -882,6 +884,7 @@ export default function PackageForm({
                 to: '',
                 description: '',
                 airline: '',
+                flight_number: '',
                 pnr: '',
                 departure_datetime: defaultDate,
                 arrival_datetime: defaultDate,
@@ -1059,9 +1062,7 @@ export default function PackageForm({
                 );
                 const label =
                     master?.name || official.name || '(unknown official)';
-                const existing = options.find(
-                    (o) => o.value === selectedValue,
-                );
+                const existing = options.find((o) => o.value === selectedValue);
                 if (existing) {
                     if (!existing.label) {
                         existing.label = label;
@@ -1765,7 +1766,7 @@ export default function PackageForm({
                                                 />
                                             </FormField>
                                         </div>
-                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
                                             <FormField
                                                 label="Airline"
                                                 fieldRequirementsProps={{
@@ -1788,6 +1789,33 @@ export default function PackageForm({
                                                         )
                                                     }
                                                     placeholder="e.g., Saudi Airlines"
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Flight Number"
+                                                fieldRequirementsProps={{
+                                                    hint: 'Flight number, e.g. SV123',
+                                                }}
+                                                error={getError(
+                                                    `flights.${index}.flight_number`,
+                                                )}
+                                            >
+                                                <ProperInput
+                                                    value={
+                                                        flight.flight_number ??
+                                                        ''
+                                                    }
+                                                    disabled={
+                                                        isView || processing
+                                                    }
+                                                    onCommit={(v) =>
+                                                        updateFlight(
+                                                            index,
+                                                            'flight_number',
+                                                            v || null,
+                                                        )
+                                                    }
+                                                    placeholder="e.g., SV123"
                                                 />
                                             </FormField>
                                             <FormField
@@ -1814,6 +1842,8 @@ export default function PackageForm({
                                                     placeholder="Enter PNR"
                                                 />
                                             </FormField>
+                                        </div>
+                                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                                             <FormField
                                                 label="Departure"
                                                 fieldRequirementsProps={{

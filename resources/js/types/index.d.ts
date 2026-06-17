@@ -116,6 +116,7 @@ export interface Sales {
 export interface OptionType {
     value: string;
     label: string;
+    is_available_for_refund?: boolean;
 }
 
 export interface ValueNumberOptionType {

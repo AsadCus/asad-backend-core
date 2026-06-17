@@ -20,6 +20,7 @@ export const flightSchema = z.object({
     to: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     airline: z.string().nullable().optional(),
+    flight_number: z.string().nullable().optional(),
     pnr: z.string().nullable().optional(),
     departure_datetime: z.string().nullable().optional(),
     arrival_datetime: z.string().nullable().optional(),

@@ -69,6 +69,7 @@ class PackageRule
             'flights.*.to' => ['nullable', 'string', 'max:255'],
             'flights.*.description' => ['nullable', 'string', 'max:255'],
             'flights.*.airline' => ['nullable', 'string', 'max:255'],
+            'flights.*.flight_number' => ['nullable', 'string', 'max:255'],
             'flights.*.pnr' => ['nullable', 'string', 'max:255'],
             'flights.*.departure_datetime' => ['nullable', 'date'],
             'flights.*.arrival_datetime' => ['nullable', 'date'],

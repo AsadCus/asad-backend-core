@@ -936,10 +936,12 @@ class ManifestController extends Controller
                 : '';
 
             $locationKey = $location !== '' ? $location : 'unknown';
-            $roomId = isset($room['id']) ? (int) $room['id'] : null;
-            $groupKey = $roomId
-                ? 'room-'.$roomId
-                : 'room-canonical-'.($roomIndex + 1);
+            // Each canonical room entry is already its own room. Keying by room
+            // id alone would merge two entries that share an id — e.g. a member
+            // split out of a room that still carries the original manifest_room_id
+            // — collapsing the split back into one room. Use the entry index so
+            // every room entry stays a distinct group.
+            $groupKey = 'room-canonical-'.($roomIndex + 1);
 
             $members = isset($room['members']) && is_array($room['members'])
                 ? array_values($room['members'])

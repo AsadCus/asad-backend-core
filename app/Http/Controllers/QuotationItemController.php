@@ -200,6 +200,7 @@ class QuotationItemController extends Controller
             'payment_methods.*.name' => ['required', 'string', 'max:255'],
             'payment_methods.*.value' => ['nullable', 'string', 'max:100'],
             'payment_methods.*.is_active' => ['nullable', 'boolean'],
+            'payment_methods.*.is_available_for_refund' => ['nullable', 'boolean'],
             'payment_methods.*.is_default' => ['nullable', 'boolean'],
             'payment_methods.*.sort_order' => ['nullable', 'integer'],
         ]);

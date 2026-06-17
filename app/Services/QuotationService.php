@@ -209,6 +209,7 @@ class QuotationService
                     'name' => $master->name,
                     'value' => $master->value,
                     'is_active' => (bool) $master->is_active,
+                    'is_available_for_refund' => (bool) $master->is_available_for_refund,
                     'is_default' => (bool) $master->is_default,
                     'sort_order' => (int) ($master->sort_order ?? 0),
                 ];
@@ -231,6 +232,7 @@ class QuotationService
                         'name' => $name,
                         'value' => $value,
                         'is_active' => (bool) ($row['is_active'] ?? true),
+                        'is_available_for_refund' => (bool) ($row['is_available_for_refund'] ?? false),
                         'is_default' => (bool) ($row['is_default'] ?? false),
                         'sort_order' => (int) ($row['sort_order'] ?? ($index + 1)),
                     ];
@@ -281,6 +283,7 @@ class QuotationService
                             'name' => $row['name'],
                             'value' => $row['value'],
                             'is_active' => $row['is_active'],
+                            'is_available_for_refund' => $row['is_available_for_refund'],
                             'is_default' => $row['is_default'],
                             'sort_order' => $row['sort_order'],
                         ]);
@@ -292,6 +295,7 @@ class QuotationService
                     'name' => $row['name'],
                     'value' => $row['value'],
                     'is_active' => $row['is_active'],
+                    'is_available_for_refund' => $row['is_available_for_refund'],
                     'is_default' => $row['is_default'],
                     'sort_order' => $row['sort_order'],
                 ]);

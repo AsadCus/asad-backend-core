@@ -79,6 +79,11 @@ export default function ReceiptForm({
     const isRefund = Boolean(
         selectedInvoice?.is_refund || data.is_refund_receipt_report,
     );
+
+    // In refund mode only payment methods flagged for refund are selectable.
+    const visiblePaymentMethods = isRefund
+        ? paymentMethods.filter((method) => method.is_available_for_refund)
+        : paymentMethods;
     const modelNumberError =
         (errors as Record<string, string | undefined>).receipt_number ??
         (errors as Record<string, string | undefined>).number_format_id;
@@ -241,7 +246,7 @@ export default function ReceiptForm({
                         error={errors.payment_method}
                     >
                         <PaymentMethodMasterCombobox
-                            options={paymentMethods}
+                            options={visiblePaymentMethods}
                             triggerId="payment_method"
                             value={String(data.payment_method ?? '')}
                             placeholder="Select payment method"

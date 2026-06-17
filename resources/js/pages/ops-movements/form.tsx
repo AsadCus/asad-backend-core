@@ -2037,11 +2037,20 @@ export default function OpsMovementForm({
                                                       : `Flight ${index + 1}`)}
                                         </div>
                                         <div className="grid grid-cols-1 gap-4">
-                                            <FormField label="Flight No">
-                                                <CopyableText
-                                                    value={flight.pnr}
-                                                />
-                                            </FormField>
+                                            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                                                <FormField label="Flight No">
+                                                    <CopyableText
+                                                        value={
+                                                            flight.flight_number
+                                                        }
+                                                    />
+                                                </FormField>
+                                                <FormField label="PNR">
+                                                    <CopyableText
+                                                        value={flight.pnr}
+                                                    />
+                                                </FormField>
+                                            </div>
                                             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
                                                 <FormField label="From">
                                                     <CopyableText

@@ -1128,6 +1128,11 @@ export default function ManifestDatatable({
                 ...row,
                 sharing_group_key: nextGroupKey,
                 sort_order: 1,
+                // Split member leaves its old room; clear stale room ids so the
+                // new group resolves to a fresh room instead of colliding on the
+                // original room id.
+                manifest_room_id: null,
+                room_member_id: null,
             };
         });
 

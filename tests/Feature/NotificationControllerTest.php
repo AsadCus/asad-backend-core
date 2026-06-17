@@ -36,6 +36,7 @@ class NotificationControllerTest extends TestCase
         $this->makeUserNotification($user);
 
         $this->actingAs($user)
+            ->withoutVite()
             ->get(route('notifications.index'))
             ->assertOk();
     }
@@ -49,6 +50,7 @@ class NotificationControllerTest extends TestCase
 
         // Page 1: 20 items, more pages available.
         $this->actingAs($user)
+            ->withoutVite()
             ->get(route('notifications.index'))
             ->assertInertia(
                 fn (Assert $page) => $page
@@ -79,6 +81,7 @@ class NotificationControllerTest extends TestCase
         $this->makeUserNotification($user, [], ['is_read' => true]); // read
 
         $this->actingAs($user)
+            ->withoutVite()
             ->get(route('notifications.index'))
             ->assertInertia(
                 fn (Assert $page) => $page

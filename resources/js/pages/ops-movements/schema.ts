@@ -48,6 +48,7 @@ export const opsFlightSchema = z.object({
     from: z.string().nullable().optional(),
     departure_datetime: z.string().nullable().optional(),
     airline: z.string().nullable().optional(),
+    flight_number: z.string().nullable().optional(),
     pnr: z.string().nullable().optional(),
     ic: z.string().nullable().optional(),
     to: z.string().nullable().optional(),

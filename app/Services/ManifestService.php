@@ -1542,6 +1542,13 @@ class ManifestService
             if ($incomingRoomId > 0) {
                 /** @var ManifestRoom|null $savedRoom */
                 $savedRoom = $existingRoomsById->get($incomingRoomId);
+
+                // Two incoming groups must never resolve to the same physical
+                // room (e.g. a split member still carrying its old room id).
+                // If this room was already claimed this pass, force a new room.
+                if ($savedRoom && in_array((int) $savedRoom->id, $retainedRoomIds, true)) {
+                    $savedRoom = null;
+                }
             }
 
             if (! $savedRoom) {

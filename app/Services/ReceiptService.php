@@ -114,6 +114,7 @@ class ReceiptService
             ->map(fn (PaymentMethodMaster $master) => [
                 'label' => $master->name,
                 'value' => $master->value,
+                'is_available_for_refund' => (bool) $master->is_available_for_refund,
             ])
             ->values()
             ->all();
