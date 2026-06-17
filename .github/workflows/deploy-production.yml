@@ -1,0 +1,32 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      fresh:
+        description: "Run migrate:fresh --seed (WIPES the database)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: smgi-production-be
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          # On push: fresh is empty -> normal migrate. Manual run: check the box to wipe+seed.
+          script: |
+            FRESH_MIGRATE=${{ inputs.fresh }} /srv/apps/smgi/deploy-be.sh
