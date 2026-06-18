@@ -1,15 +1,9 @@
-name: Deploy Production
+name: Deploy Production BE
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      fresh:
-        description: 'Run migrate:fresh --seed (WIPES the database)'
-        type: boolean
-        default: false
 
 concurrency:
   group: smgi-production-be
@@ -17,7 +11,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to VPS
+    name: Deploy BE to VPS
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +20,6 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_SSH_KEY }}
-          # On push: fresh is empty -> normal migrate. Manual run: check the box to wipe+seed.
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            FRESH_MIGRATE=${{ inputs.fresh }} /srv/apps/smgi/deploy-be.sh
+            /srv/apps/smgi/deploy-be.sh
