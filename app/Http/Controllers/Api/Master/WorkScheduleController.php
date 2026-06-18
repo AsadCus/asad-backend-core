@@ -20,6 +20,11 @@ class WorkScheduleController extends Controller
         return response()->json($this->workScheduleService->getForDataTable());
     }
 
+    public function options(): JsonResponse
+    {
+        return response()->json($this->workScheduleService->getForFilter());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->workScheduleRule->rules());

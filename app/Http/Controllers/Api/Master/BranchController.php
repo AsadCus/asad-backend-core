@@ -25,6 +25,11 @@ class BranchController extends Controller
         ]);
     }
 
+    public function options(): JsonResponse
+    {
+        return response()->json($this->branchService->getForFilter());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->branchRule->rules());

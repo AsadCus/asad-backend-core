@@ -31,4 +31,11 @@ class NotificationController extends Controller
 
         return response()->json(['status' => 'ok']);
     }
+
+    public function action(Request $request, int $id): JsonResponse
+    {
+        $result = $this->notificationService->claimAction($request->user()->id, $id);
+
+        return response()->json($result, $result['status'] === 'already_handled' ? 409 : 200);
+    }
 }

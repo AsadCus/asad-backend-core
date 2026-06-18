@@ -58,6 +58,13 @@ class HrisRoleSeeder extends Seeder
 
             // Audit trail
             'hris.audit-trail view-all', 'hris.audit-trail view-related',
+
+            // Simple CRUD aliases consumed by the admin/HR master harness (view/create/edit/delete).
+            // The granular view-team/view-own strings above drive the Tier-2 self-service screens.
+            'hris.employee view',
+            'hris.employee-schedule create', 'hris.employee-schedule edit', 'hris.employee-schedule delete',
+            'hris.approval-matrix create', 'hris.approval-matrix delete',
+            'hris.leave-balance view', 'hris.leave-balance create', 'hris.leave-balance edit', 'hris.leave-balance delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -81,7 +88,10 @@ class HrisRoleSeeder extends Seeder
         Role::findByName('hr')->syncPermissions([
             'dashboard view', 'master view',
             'user view', 'user create', 'user edit', 'user delete',
-            'hris.employee view-all', 'hris.employee create', 'hris.employee edit',
+            'hris.employee view-all', 'hris.employee view', 'hris.employee create', 'hris.employee edit',
+            'hris.employee-schedule create', 'hris.employee-schedule edit',
+            'hris.approval-matrix create',
+            'hris.leave-balance view', 'hris.leave-balance create', 'hris.leave-balance edit',
             'hris.holding view', 'hris.holding create', 'hris.holding edit',
             'hris.business-unit view', 'hris.business-unit create', 'hris.business-unit edit',
             'hris.department view', 'hris.department create', 'hris.department edit',

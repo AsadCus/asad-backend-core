@@ -140,4 +140,40 @@ class NotificationControllerTest extends TestCase
             ->post(route('notifications.action', $userNotification->id))
             ->assertRedirect('/general-enquiries/42');
     }
+
+    public function test_api_action_returns_link_for_non_exclusive(): void
+    {
+        $user = User::factory()->create();
+        $userNotification = $this->makeUserNotification($user, ['link' => '/master/employees/7']);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/notifications/{$userNotification->id}/action")
+            ->assertOk()
+            ->assertJson(['status' => 'ok', 'link' => '/master/employees/7']);
+    }
+
+    public function test_api_action_claims_exclusive_then_blocks_second_user(): void
+    {
+        $first = User::factory()->create();
+        $second = User::factory()->create();
+
+        $notification = Notification::create([
+            'title' => 'Claimable', 'message' => 'Claim me', 'type' => 'warning',
+            'link' => '/leave/requests/3', 'exclusive' => true,
+        ]);
+        $firstNotif = UserNotification::create(['user_id' => $first->id, 'notification_id' => $notification->id, 'is_read' => false]);
+        $secondNotif = UserNotification::create(['user_id' => $second->id, 'notification_id' => $notification->id, 'is_read' => false]);
+
+        $this->actingAs($first, 'sanctum')
+            ->postJson("/api/notifications/{$firstNotif->id}/action")
+            ->assertOk()
+            ->assertJson(['status' => 'ok']);
+
+        $this->assertSame($first->id, $notification->fresh()->action_taken_by);
+
+        $this->actingAs($second, 'sanctum')
+            ->postJson("/api/notifications/{$secondNotif->id}/action")
+            ->assertStatus(409)
+            ->assertJson(['status' => 'already_handled']);
+    }
 }

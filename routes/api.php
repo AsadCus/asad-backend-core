@@ -2,13 +2,17 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DataScopeController;
+use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
 use App\Http\Controllers\Api\Master\BusinessUnitController as MasterBusinessUnitController;
 use App\Http\Controllers\Api\Master\CountryController as MasterCountryController;
 use App\Http\Controllers\Api\Master\DepartmentController as MasterDepartmentController;
+use App\Http\Controllers\Api\Master\EmployeeController as MasterEmployeeController;
+use App\Http\Controllers\Api\Master\EmployeeScheduleController as MasterEmployeeScheduleController;
 use App\Http\Controllers\Api\Master\FinancialYearController as MasterFinancialYearController;
 use App\Http\Controllers\Api\Master\HoldingController as MasterHoldingController;
 use App\Http\Controllers\Api\Master\HolidayController as MasterHolidayController;
+use App\Http\Controllers\Api\Master\LeaveBalanceController as MasterLeaveBalanceController;
 use App\Http\Controllers\Api\Master\LeaveTypeController as MasterLeaveTypeController;
 use App\Http\Controllers\Api\Master\MasterStatsController;
 use App\Http\Controllers\Api\Master\PositionController as MasterPositionController;
@@ -37,12 +41,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/action', [NotificationController::class, 'action']);
 
     Route::post('/data-scope/countries', [DataScopeController::class, 'updateCountries']);
 
     Route::get('/master/stats', MasterStatsController::class);
 
     Route::apiResource('/master/country', MasterCountryController::class);
+    Route::get('/master/branch/options', [MasterBranchController::class, 'options']);
     Route::apiResource('/master/branch', MasterBranchController::class);
     Route::apiResource('/master/financial-year', MasterFinancialYearController::class);
     Route::put('/master/financial-year/{id}/default', [MasterFinancialYearController::class, 'setDefault']);
@@ -66,9 +72,22 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HRIS schedule + leave masters
     Route::apiResource('/master/shifts', MasterShiftController::class);
+
+    Route::get('/master/work-schedules/options', [MasterWorkScheduleController::class, 'options']);
     Route::apiResource('/master/work-schedules', MasterWorkScheduleController::class);
+
     Route::apiResource('/master/holidays', MasterHolidayController::class);
+
+    Route::get('/master/leave-types/options', [MasterLeaveTypeController::class, 'options']);
     Route::apiResource('/master/leave-types', MasterLeaveTypeController::class);
+
+    // HRIS employee + attendance foundation
+    Route::get('/master/employees/options', [MasterEmployeeController::class, 'options']);
+    Route::apiResource('/master/employees', MasterEmployeeController::class);
+
+    Route::apiResource('/master/employee-schedules', MasterEmployeeScheduleController::class);
+    Route::apiResource('/master/approval-matrices', MasterApprovalMatrixController::class);
+    Route::apiResource('/master/leave-balances', MasterLeaveBalanceController::class);
 
     Route::get('/quotation-items', [QuotationItemController::class, 'index']);
     Route::post('/quotation-items/quick-create', [QuotationItemController::class, 'quickCreate']);

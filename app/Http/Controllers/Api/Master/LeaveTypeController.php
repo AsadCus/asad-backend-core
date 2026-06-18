@@ -20,6 +20,11 @@ class LeaveTypeController extends Controller
         return response()->json($this->leaveTypeService->getForDataTable());
     }
 
+    public function options(): JsonResponse
+    {
+        return response()->json($this->leaveTypeService->getForFilter());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->leaveTypeRule->rules());

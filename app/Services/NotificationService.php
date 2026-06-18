@@ -157,6 +157,47 @@ class NotificationService
         return redirect($notification->link);
     }
 
+    /**
+     * Claim/follow a notification's link from the SPA (JSON variant of handleAction).
+     *
+     * Scoped to the acting user's own notification. For "exclusive" notifications
+     * the first claimant is recorded; later arrivals get an "already_handled"
+     * result instead of claiming it.
+     *
+     * @return array<string, mixed>
+     */
+    public function claimAction($userId, $userNotificationId): array
+    {
+        $userNotification = UserNotification::where('user_id', $userId)
+            ->where('id', $userNotificationId)
+            ->firstOrFail();
+
+        $notification = $userNotification->notification;
+
+        if ($notification->exclusive && $notification->action_taken_by && $notification->action_taken_by !== $userId) {
+            return [
+                'status' => 'already_handled',
+                'link' => $notification->link,
+                'action_taken_by_name' => $notification->actionTakenBy?->name,
+                'action_taken_at' => $notification->action_taken_at,
+            ];
+        }
+
+        if ($notification->exclusive && ! $notification->action_taken_by) {
+            DB::transaction(fn () => $notification->update([
+                'action_taken_by' => $userId,
+                'action_taken_at' => now(),
+            ]));
+        }
+
+        return [
+            'status' => 'ok',
+            'link' => $notification->link,
+            'action_taken_by' => $notification->action_taken_by,
+            'action_taken_at' => $notification->action_taken_at,
+        ];
+    }
+
     public function markAsRead($userId, $userNotificationId)
     {
         return DB::transaction(function () use ($userId, $userNotificationId) {
