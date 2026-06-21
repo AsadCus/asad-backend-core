@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Account\PersonalController as AccountPersonalController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
@@ -124,7 +125,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings/profile', [SettingsProfileController::class, 'show']);
     Route::put('/settings/profile', [SettingsProfileController::class, 'update']);
     Route::delete('/settings/profile', [SettingsProfileController::class, 'destroy']);
+    Route::post('/settings/profile/avatar', [SettingsProfileController::class, 'updateAvatar']);
+    Route::delete('/settings/profile/avatar', [SettingsProfileController::class, 'destroyAvatar']);
     Route::put('/settings/password', [SettingsPasswordController::class, 'update']);
+
+    Route::get('/account/personal', [AccountPersonalController::class, 'show']);
+    Route::put('/account/personal', [AccountPersonalController::class, 'update']);
 
     Route::get('/user-logs', [ApiUserLogsController::class, 'index']);
 });

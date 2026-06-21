@@ -5,12 +5,14 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Auth\Traits\CanResetPassword;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
@@ -30,6 +32,7 @@ class User extends Authenticatable
         'email',
         'password',
         'contact',
+        'photo_profile',
         'created_at',
         'updated_at',
     ];
@@ -56,6 +59,18 @@ class User extends Authenticatable
             'password' => 'hashed',
             'selected_country_ids' => 'array',
         ];
+    }
+
+    /**
+     * Public URL for the profile photo, or null when none is set.
+     */
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => $this->photo_profile
+                ? Storage::disk('public')->url($this->photo_profile)
+                : null,
+        );
     }
 
     public function sales(): HasOne
