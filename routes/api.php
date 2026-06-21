@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
@@ -88,6 +90,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/master/employee-schedules', MasterEmployeeScheduleController::class);
     Route::apiResource('/master/approval-matrices', MasterApprovalMatrixController::class);
     Route::apiResource('/master/leave-balances', MasterLeaveBalanceController::class);
+
+    // HRIS attendance — online check-in/out, index/detail, bulk import, user-lock.
+    Route::get('/attendances', [AttendanceController::class, 'index']);
+    Route::get('/attendances/today', [AttendanceController::class, 'today']);
+    Route::post('/attendances/check-in', [AttendanceController::class, 'checkIn']);
+    Route::post('/attendances/check-out', [AttendanceController::class, 'checkOut']);
+    Route::post('/attendances/import', [AttendanceController::class, 'import']);
+    Route::get('/attendance-locks/candidates', [AttendanceController::class, 'lockCandidates']);
+    Route::get('/attendance-locks', [AttendanceController::class, 'lockedList']);
+    Route::post('/attendance-locks/{employee}', [AttendanceController::class, 'lock']);
+    Route::delete('/attendance-locks/{employee}', [AttendanceController::class, 'unlock']);
+    Route::get('/attendances/{id}', [AttendanceController::class, 'show'])->whereNumber('id');
+
+    // HRIS attendance correction — submit → supervisor → HR approval workflow.
+    Route::get('/attendance-corrections', [AttendanceCorrectionController::class, 'index']);
+    Route::post('/attendance-corrections', [AttendanceCorrectionController::class, 'store']);
+    Route::get('/attendance-corrections/{id}', [AttendanceCorrectionController::class, 'show'])->whereNumber('id');
+    Route::post('/attendance-corrections/{id}/approve', [AttendanceCorrectionController::class, 'approve']);
+    Route::post('/attendance-corrections/{id}/verify', [AttendanceCorrectionController::class, 'verify']);
+    Route::post('/attendance-corrections/{id}/reject', [AttendanceCorrectionController::class, 'reject']);
+    Route::post('/attendance-corrections/{id}/cancel', [AttendanceCorrectionController::class, 'cancel']);
 
     Route::get('/quotation-items', [QuotationItemController::class, 'index']);
     Route::post('/quotation-items/quick-create', [QuotationItemController::class, 'quickCreate']);

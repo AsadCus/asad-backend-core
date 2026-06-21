@@ -36,6 +36,9 @@ class Employee extends Model
         'emergency_contact_name',
         'emergency_contact_phone',
         'is_active',
+        'attendance_locked_at',
+        'attendance_lock_reason',
+        'attendance_lock_dates',
     ];
 
     protected $casts = [
@@ -45,7 +48,14 @@ class Employee extends Model
         'hire_date' => 'date',
         'termination_date' => 'date',
         'is_active' => 'boolean',
+        'attendance_locked_at' => 'datetime',
+        'attendance_lock_dates' => 'array',
     ];
+
+    public function isAttendanceLocked(): bool
+    {
+        return $this->attendance_locked_at !== null;
+    }
 
     public function user(): BelongsTo
     {
