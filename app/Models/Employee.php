@@ -36,6 +36,7 @@ class Employee extends Model
         'emergency_contact_name',
         'emergency_contact_phone',
         'is_active',
+        'can_check_in',
         'attendance_locked_at',
         'attendance_lock_reason',
         'attendance_lock_dates',
@@ -48,6 +49,7 @@ class Employee extends Model
         'hire_date' => 'date',
         'termination_date' => 'date',
         'is_active' => 'boolean',
+        'can_check_in' => 'boolean',
         'attendance_locked_at' => 'datetime',
         'attendance_lock_dates' => 'array',
     ];

@@ -38,6 +38,7 @@ class HrisRoleSeeder extends Seeder
             // Attendance
             'hris.attendance check-in', 'hris.attendance view-own',
             'hris.attendance view-team', 'hris.attendance view-all',
+            'hris.attendance-eligibility manage',
 
             // Correction
             'hris.attendance-correction create', 'hris.attendance-correction view-own',
@@ -101,7 +102,7 @@ class HrisRoleSeeder extends Seeder
             'hris.work-schedule view', 'hris.work-schedule create', 'hris.work-schedule edit',
             'hris.holiday view', 'hris.holiday create', 'hris.holiday edit',
             'hris.employee-schedule view', 'hris.employee-schedule assign',
-            'hris.attendance view-all',
+            'hris.attendance check-in', 'hris.attendance view-own', 'hris.attendance view-all',
             'hris.attendance-correction view-all', 'hris.attendance-correction verify-hr',
             'hris.leave-type view', 'hris.leave-type create', 'hris.leave-type edit',
             'hris.leave-balance manage',
@@ -116,7 +117,7 @@ class HrisRoleSeeder extends Seeder
         Role::findByName('supervisor')->syncPermissions([
             'dashboard view', 'master view',
             'hris.employee view-team',
-            'hris.attendance view-team',
+            'hris.attendance check-in', 'hris.attendance view-own', 'hris.attendance view-team',
             'hris.attendance-correction view-team', 'hris.attendance-correction approve-supervisor',
             'hris.leave-request view-team', 'hris.leave-request approve-supervisor',
             'hris.leave-balance view-team',
@@ -128,7 +129,7 @@ class HrisRoleSeeder extends Seeder
         Role::findByName('manager')->syncPermissions([
             'dashboard view', 'master view',
             'hris.employee view-team',
-            'hris.attendance view-team',
+            'hris.attendance check-in', 'hris.attendance view-own', 'hris.attendance view-team',
             'hris.attendance-correction view-team',
             'hris.leave-request view-team',
             'hris.leave-balance view-team',

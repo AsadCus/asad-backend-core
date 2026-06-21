@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
+use App\Http\Controllers\Api\Master\AttendanceEligibilityController as MasterAttendanceEligibilityController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
 use App\Http\Controllers\Api\Master\BusinessUnitController as MasterBusinessUnitController;
 use App\Http\Controllers\Api\Master\CountryController as MasterCountryController;
@@ -86,6 +87,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // HRIS employee + attendance foundation
     Route::get('/master/employees/options', [MasterEmployeeController::class, 'options']);
     Route::apiResource('/master/employees', MasterEmployeeController::class);
+
+    // HRIS attendance eligibility — admin governs who may check in/out (per-employee toggle).
+    Route::get('/master/attendance-eligibility', [MasterAttendanceEligibilityController::class, 'index']);
+    Route::post('/master/attendance-eligibility/bulk', [MasterAttendanceEligibilityController::class, 'bulk']);
+    Route::put('/master/attendance-eligibility/{employee}', [MasterAttendanceEligibilityController::class, 'update']);
 
     Route::apiResource('/master/employee-schedules', MasterEmployeeScheduleController::class);
     Route::apiResource('/master/approval-matrices', MasterApprovalMatrixController::class);

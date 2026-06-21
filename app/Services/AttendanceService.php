@@ -166,6 +166,10 @@ class AttendanceService
                 : 'Your attendance is locked. Please contact HR.');
         }
 
+        if (! $employee->can_check_in) {
+            abort(403, 'You are not eligible to check in.');
+        }
+
         $now = Carbon::now();
         $date = $now->toDateString();
 
@@ -211,6 +215,11 @@ class AttendanceService
     public function checkOut(User $user, array $data): array
     {
         $employee = $this->resolveEmployee($user);
+
+        if (! $employee->can_check_in) {
+            abort(403, 'You are not eligible to check out.');
+        }
+
         $now = Carbon::now();
         $date = $now->toDateString();
 

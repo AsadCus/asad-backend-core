@@ -89,6 +89,7 @@ class AuthController extends Controller
             'email' => $user->email,
             'permissions' => $user->getAllPermissions()->pluck('name'),
             'roles' => $user->getRoleNames(),
+            'can_check_in' => $user->employee ? (bool) $user->employee->can_check_in : false,
             'is_ghost_user' => $user->isGhostUser(),
             'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),
             'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),

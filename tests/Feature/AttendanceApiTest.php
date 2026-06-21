@@ -141,7 +141,35 @@ class AttendanceApiTest extends TestCase
 
     public function test_role_without_check_in_permission_is_forbidden(): void
     {
-        [$user] = $this->makeEmployeeUser('manager'); // manager has view-team, not check-in
+        // A user whose role lacks the HRIS check-in permission is stopped at the gate.
+        $user = User::factory()->create();
+        Employee::query()->create([
+            'employee_no' => 'EMP-'.fake()->unique()->numerify('####'),
+            'hire_date' => '2024-01-01',
+            'user_id' => $user->id,
+        ]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertStatus(403);
+    }
+
+    public function test_non_employee_role_can_check_in(): void
+    {
+        // All HRIS roles may punch now — supervisor/manager/hr were granted check-in.
+        [$user] = $this->makeEmployeeUser('supervisor');
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_ineligible_employee_cannot_check_in(): void
+    {
+        // Admin-disabled eligibility blocks the punch even when the role permits it.
+        [$user] = $this->makeEmployeeUser('employee', ['can_check_in' => false]);
         $this->actingAs($user, 'sanctum');
 
         $this->postJson('/api/attendances/check-in', [
