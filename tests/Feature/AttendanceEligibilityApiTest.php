@@ -7,6 +7,7 @@ use App\Models\User;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AttendanceEligibilityApiTest extends TestCase
@@ -36,6 +37,15 @@ class AttendanceEligibilityApiTest extends TestCase
             'hire_date' => '2024-01-01',
             'user_id' => $user->id,
         ], $attrs));
+    }
+
+    private function makeLegacyAdminAlias(string $role): User
+    {
+        $user = User::factory()->create();
+        Role::findOrCreate($role, 'web');
+        $user->assignRole($role);
+
+        return $user;
     }
 
     public function test_admin_can_list_eligibility_roster(): void
@@ -87,5 +97,19 @@ class AttendanceEligibilityApiTest extends TestCase
         $this->getJson('/api/master/attendance-eligibility')->assertStatus(403);
         $this->putJson("/api/master/attendance-eligibility/{$employee->id}", ['can_check_in' => false])
             ->assertStatus(403);
+    }
+
+    public function test_legacy_admin_aliases_can_manage_eligibility(): void
+    {
+        $employee = $this->makeEmployee();
+
+        foreach (['admin', 'superadmin'] as $role) {
+            $legacyAdmin = $this->makeLegacyAdminAlias($role);
+            $this->actingAs($legacyAdmin, 'sanctum');
+
+            $this->getJson('/api/master/attendance-eligibility')
+                ->assertOk()
+                ->assertJsonFragment(['id' => $employee->id]);
+        }
     }
 }

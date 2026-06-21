@@ -104,14 +104,62 @@ class AttendanceApiTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_double_check_in_is_rejected(): void
+    public function test_check_in_blocked_while_session_open(): void
     {
         [$user] = $this->makeEmployeeUser();
         $this->actingAs($user, 'sanctum');
 
         $payload = ['lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo()];
         $this->postJson('/api/attendances/check-in', $payload)->assertCreated();
+        // A second check-in is rejected while the first session is still open.
         $this->postJson('/api/attendances/check-in', $payload)->assertStatus(422);
+    }
+
+    public function test_can_check_in_again_after_check_out(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 0, 0));
+        [$user, $employee] = $this->makeEmployeeUser();
+        $this->actingAs($user, 'sanctum');
+        $payload = ['lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo()];
+
+        $this->postJson('/api/attendances/check-in', $payload)->assertCreated();
+
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 12, 0, 0));
+        $this->postJson('/api/attendances/check-out', $payload)->assertOk();
+
+        // After checking out, a fresh check-in opens a second session the same day.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 13, 0, 0));
+        $this->postJson('/api/attendances/check-in', $payload)->assertCreated();
+
+        $row = Attendance::where('employee_id', $employee->id)->firstOrFail();
+        $this->assertSame(1, Attendance::where('employee_id', $employee->id)->count());
+        $this->assertSame(2, $row->sessions()->count());
+        Carbon::setTestNow();
+    }
+
+    public function test_work_minutes_sums_sessions(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 0, 0));
+        [$user, $employee] = $this->makeEmployeeUser();
+        $this->actingAs($user, 'sanctum');
+        $payload = ['lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo()];
+
+        // Session 1: 08:00 → 12:00 (240 min)
+        $this->postJson('/api/attendances/check-in', $payload)->assertCreated();
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 12, 0, 0));
+        $this->postJson('/api/attendances/check-out', $payload)->assertOk();
+
+        // Session 2: 13:00 → 17:00 (240 min)
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 13, 0, 0));
+        $this->postJson('/api/attendances/check-in', $payload)->assertCreated();
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 17, 0, 0));
+        $this->postJson('/api/attendances/check-out', $payload)->assertOk();
+
+        $row = Attendance::where('employee_id', $employee->id)->firstOrFail();
+        $this->assertSame(480, $row->work_minutes); // 240 + 240
+        $this->assertSame('08:00', $row->check_in_at->format('H:i')); // first in
+        $this->assertSame('17:00', $row->check_out_at->format('H:i')); // last out
+        Carbon::setTestNow();
     }
 
     public function test_check_in_requires_selfie_and_geolocation(): void

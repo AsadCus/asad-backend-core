@@ -2,21 +2,17 @@
 
 namespace App\Models;
 
-use App\Enums\AttendanceStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Attendance extends Model
+class AttendanceSession extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'employee_id',
-        'date',
-        'shift_id',
+        'attendance_id',
         'check_in_at',
         'check_in_lat',
         'check_in_lng',
@@ -29,35 +25,20 @@ class Attendance extends Model
         'check_out_photo_path',
         'check_out_location',
         'check_out_branch_id',
-        'status',
-        'late_minutes',
-        'early_leave_minutes',
-        'work_minutes',
-        'notes',
     ];
 
     protected $casts = [
-        'date' => 'date',
         'check_in_at' => 'datetime',
         'check_out_at' => 'datetime',
         'check_in_lat' => 'decimal:8',
         'check_in_lng' => 'decimal:8',
         'check_out_lat' => 'decimal:8',
         'check_out_lng' => 'decimal:8',
-        'status' => AttendanceStatus::class,
-        'late_minutes' => 'integer',
-        'early_leave_minutes' => 'integer',
-        'work_minutes' => 'integer',
     ];
 
-    public function employee(): BelongsTo
+    public function attendance(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
-    }
-
-    public function shift(): BelongsTo
-    {
-        return $this->belongsTo(Shift::class);
+        return $this->belongsTo(Attendance::class);
     }
 
     public function checkInBranch(): BelongsTo
@@ -68,17 +49,5 @@ class Attendance extends Model
     public function checkOutBranch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'check_out_branch_id');
-    }
-
-    /** Individual check-in/out pairs that make up this day. */
-    public function sessions(): HasMany
-    {
-        return $this->hasMany(AttendanceSession::class)->orderBy('check_in_at');
-    }
-
-    /** The currently open session (checked in, not yet checked out), if any. */
-    public function openSession(): ?AttendanceSession
-    {
-        return $this->sessions()->whereNull('check_out_at')->latest('check_in_at')->first();
     }
 }

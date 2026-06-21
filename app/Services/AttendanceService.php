@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AttendanceStatus;
 use App\Models\Attendance;
+use App\Models\AttendanceSession;
 use App\Models\Employee;
 use App\Models\Shift;
 use App\Models\User;
@@ -94,6 +95,7 @@ class AttendanceService
         $today = Carbon::now()->toDateString();
 
         $row = Attendance::query()
+            ->with(['sessions', 'shift'])
             ->where('employee_id', $employee->id)
             ->whereDate('date', $today)
             ->first();
@@ -102,6 +104,9 @@ class AttendanceService
             'date' => $today,
             'locked' => $employee->isAttendanceLocked(),
             'lock_reason' => $employee->attendance_lock_reason,
+            // `open` = there is a session checked-in but not yet checked-out → show Check Out.
+            'open' => (bool) ($row && $row->sessions->whereNull('check_out_at')->isNotEmpty()),
+            'shift' => $row?->shift?->name,
             'attendance' => $row ? $this->mapRow($row) : null,
         ];
     }
@@ -112,7 +117,10 @@ class AttendanceService
     public function getDetail(User $user, int $id): array
     {
         $attendance = Attendance::query()
-            ->with(['employee.user', 'shift', 'checkInBranch', 'checkOutBranch'])
+            ->with([
+                'employee.user', 'shift', 'checkInBranch', 'checkOutBranch',
+                'sessions.checkInBranch', 'sessions.checkOutBranch',
+            ])
             ->findOrFail($id);
 
         $ids = $this->accessibleEmployeeIds($user);
@@ -147,6 +155,25 @@ class AttendanceService
                 'photo_url' => $attendance->check_out_photo_path ? Storage::disk('public')->url($attendance->check_out_photo_path) : null,
                 'branch' => $attendance->checkOutBranch?->name,
             ],
+            // Per-session breakdown (the top-level check_in/check_out above stay the daily summary).
+            'sessions' => $attendance->sessions->map(fn (AttendanceSession $s): array => [
+                'check_in' => [
+                    'at' => $s->check_in_at?->format('Y-m-d H:i:s'),
+                    'lat' => $s->check_in_lat,
+                    'lng' => $s->check_in_lng,
+                    'location' => $s->check_in_location,
+                    'photo_url' => $s->check_in_photo_path ? Storage::disk('public')->url($s->check_in_photo_path) : null,
+                    'branch' => $s->checkInBranch?->name,
+                ],
+                'check_out' => [
+                    'at' => $s->check_out_at?->format('Y-m-d H:i:s'),
+                    'lat' => $s->check_out_lat,
+                    'lng' => $s->check_out_lng,
+                    'location' => $s->check_out_location,
+                    'photo_url' => $s->check_out_photo_path ? Storage::disk('public')->url($s->check_out_photo_path) : null,
+                    'branch' => $s->checkOutBranch?->name,
+                ],
+            ])->all(),
             'notes' => $attendance->notes,
         ];
     }
@@ -173,38 +200,45 @@ class AttendanceService
         $now = Carbon::now();
         $date = $now->toDateString();
 
-        $existing = Attendance::query()
+        $attendance = Attendance::query()
             ->where('employee_id', $employee->id)
             ->whereDate('date', $date)
             ->first();
 
-        if ($existing && $existing->check_in_at) {
-            abort(422, 'You have already checked in today.');
+        if ($attendance && $attendance->openSession()) {
+            abort(422, 'You have an open session. Check out first.');
         }
 
         $shift = $this->resolveShift($employee, $now);
-        $computed = $this->computeCheckInStatus($shift, $now);
 
-        return DB::transaction(function () use ($employee, $existing, $date, $now, $shift, $computed, $data) {
-            $path = $this->storeSelfie($data['photo'], $employee->id, $date, 'in');
+        return DB::transaction(function () use ($employee, $attendance, $date, $now, $shift, $data) {
+            $path = $this->storeSelfie($data['photo'], $employee->id, $date, 'in-'.$now->format('His'));
 
-            $attendance = $existing ?? new Attendance(['employee_id' => $employee->id, 'date' => $date]);
-            $attendance->fill([
-                'shift_id' => $shift?->id,
+            $attendance = $attendance ?? new Attendance(['employee_id' => $employee->id, 'date' => $date]);
+            $attendance->shift_id ??= $shift?->id;
+
+            // First check-in of the day sets the headline status/lateness; later sessions don't.
+            if (! $attendance->check_in_at) {
+                $computed = $this->computeCheckInStatus($shift, $now);
+                $attendance->status = $computed['status'];
+                $attendance->late_minutes = $computed['late_minutes'];
+            }
+            $attendance->save();
+
+            $attendance->sessions()->create([
                 'check_in_at' => $now,
                 'check_in_lat' => $data['lat'],
                 'check_in_lng' => $data['lng'],
                 'check_in_photo_path' => $path,
                 'check_in_location' => $data['location'] ?? null,
                 'check_in_branch_id' => $data['branch_id'] ?? $employee->branch_id,
-                'status' => $computed['status'],
-                'late_minutes' => $computed['late_minutes'],
             ]);
-            $attendance->save();
+
+            $this->recomputeSummary($attendance);
 
             activity()->performedOn($attendance)->log('Attendance check-in #'.$attendance->id);
 
-            return $this->mapRow($attendance);
+            return $this->mapRow($attendance->fresh());
         });
     }
 
@@ -228,37 +262,38 @@ class AttendanceService
             ->whereDate('date', $date)
             ->first();
 
-        if (! $attendance || ! $attendance->check_in_at) {
+        $session = $attendance?->openSession();
+        if (! $session) {
             abort(422, 'You must check in before checking out.');
-        }
-        if ($attendance->check_out_at) {
-            abort(422, 'You have already checked out today.');
         }
 
         $shift = $attendance->shift ?? $this->resolveShift($employee, $now);
-        [$earlyLeave, $status] = $this->computeCheckOutStatus($shift, $attendance, $now);
 
-        return DB::transaction(function () use ($employee, $attendance, $date, $now, $earlyLeave, $status, $data) {
-            $path = $this->storeSelfie($data['photo'], $employee->id, $date, 'out');
+        return DB::transaction(function () use ($employee, $attendance, $session, $date, $now, $shift, $data) {
+            $path = $this->storeSelfie($data['photo'], $employee->id, $date, 'out-'.$now->format('His'));
 
-            $workMinutes = max(0, intdiv($now->getTimestamp() - $attendance->check_in_at->getTimestamp(), 60));
-
-            $attendance->fill([
+            $session->fill([
                 'check_out_at' => $now,
                 'check_out_lat' => $data['lat'],
                 'check_out_lng' => $data['lng'],
                 'check_out_photo_path' => $path,
                 'check_out_location' => $data['location'] ?? null,
                 'check_out_branch_id' => $data['branch_id'] ?? $employee->branch_id,
-                'early_leave_minutes' => $earlyLeave,
-                'work_minutes' => $workMinutes,
-                'status' => $status,
-            ]);
+            ])->save();
+
+            $this->recomputeSummary($attendance);
+
+            // ponytail: early-leave/status reflects the latest checkout, so between a lunch
+            // checkout and the next check-in the day can read "Early Leave" — it settles on the
+            // final checkout. Not worth detecting "is this the last checkout of the day".
+            [$earlyLeave, $status] = $this->computeCheckOutStatus($shift, $attendance, $now);
+            $attendance->early_leave_minutes = $earlyLeave;
+            $attendance->status = $status;
             $attendance->save();
 
             activity()->performedOn($attendance)->log('Attendance check-out #'.$attendance->id);
 
-            return $this->mapRow($attendance);
+            return $this->mapRow($attendance->fresh());
         });
     }
 
@@ -515,6 +550,42 @@ class AttendanceService
             : ($earlyLeave > 0 ? AttendanceStatus::EarlyLeave : AttendanceStatus::Present);
 
         return [$earlyLeave, $status];
+    }
+
+    /**
+     * Roll the day's sessions up into the parent summary: the parent mirrors the first
+     * check-in punch and the last check-out punch (null while a session is still open), plus
+     * total worked minutes across closed sessions. Keeps the summary row a faithful snapshot
+     * so the index/detail views work without joining sessions.
+     */
+    private function recomputeSummary(Attendance $attendance): void
+    {
+        $sessions = $attendance->sessions()->get();
+        $first = $sessions->sortBy('check_in_at')->first();
+        $closed = $sessions->whereNotNull('check_out_at');
+        $hasOpen = $sessions->whereNull('check_out_at')->isNotEmpty();
+        $last = $hasOpen ? null : $closed->sortBy('check_out_at')->last();
+
+        $attendance->fill([
+            'check_in_at' => $first?->check_in_at,
+            'check_in_lat' => $first?->check_in_lat,
+            'check_in_lng' => $first?->check_in_lng,
+            'check_in_photo_path' => $first?->check_in_photo_path,
+            'check_in_location' => $first?->check_in_location,
+            'check_in_branch_id' => $first?->check_in_branch_id,
+            'check_out_at' => $last?->check_out_at,
+            'check_out_lat' => $last?->check_out_lat,
+            'check_out_lng' => $last?->check_out_lng,
+            'check_out_photo_path' => $last?->check_out_photo_path,
+            'check_out_location' => $last?->check_out_location,
+            'check_out_branch_id' => $last?->check_out_branch_id,
+            'work_minutes' => (int) $closed->sum(
+                fn (AttendanceSession $s): int => max(0, intdiv(
+                    $s->check_out_at->getTimestamp() - $s->check_in_at->getTimestamp(), 60
+                ))
+            ),
+        ]);
+        $attendance->save();
     }
 
     private function storeSelfie(string $dataUrl, int $employeeId, string $date, string $which): string
