@@ -11,6 +11,7 @@ class WorkScheduleRule
         return [
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:100', Rule::unique('work_schedules', 'code')->ignore($id)],
+            'owner_org_unit_id' => ['nullable', 'integer', Rule::exists('org_units', 'id')],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['boolean'],
         ];

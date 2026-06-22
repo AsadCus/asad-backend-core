@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\Gender;
+use App\Enums\OrgUnitType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,11 +26,10 @@ class Employee extends Model
         'hire_date',
         'employment_status',
         'termination_date',
-        'holding_id',
-        'business_unit_id',
-        'department_id',
-        'position_id',
         'branch_id',
+        'org_unit_id',
+        'work_location_org_unit_id',
+        'scope_org_unit_id',
         'supervisor_id',
         'phone',
         'address',
@@ -64,29 +64,50 @@ class Employee extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function holding(): BelongsTo
-    {
-        return $this->belongsTo(Holding::class);
-    }
-
-    public function businessUnit(): BelongsTo
-    {
-        return $this->belongsTo(BusinessUnit::class);
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function position(): BelongsTo
-    {
-        return $this->belongsTo(Position::class);
-    }
-
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function orgUnit(): BelongsTo
+    {
+        return $this->belongsTo(OrgUnit::class);
+    }
+
+    public function workLocation(): BelongsTo
+    {
+        return $this->belongsTo(OrgUnit::class, 'work_location_org_unit_id');
+    }
+
+    public function scopeOrgUnit(): BelongsTo
+    {
+        return $this->belongsTo(OrgUnit::class, 'scope_org_unit_id');
+    }
+
+    /**
+     * Physical site for attendance/geofence: the explicit work location, else the
+     * nearest branch ancestor of the placement.
+     */
+    public function resolveWorkLocation(): ?OrgUnit
+    {
+        if ($this->work_location_org_unit_id) {
+            return $this->workLocation;
+        }
+
+        return $this->orgUnit?->nearestOfType(OrgUnitType::Branch);
+    }
+
+    /**
+     * Data-scope anchor: the explicit anchor, else the employee's own branch
+     * (least privilege).
+     */
+    public function resolveScopeOrgUnit(): ?OrgUnit
+    {
+        if ($this->scope_org_unit_id) {
+            return $this->scopeOrgUnit;
+        }
+
+        return $this->resolveWorkLocation();
     }
 
     public function religion(): BelongsTo

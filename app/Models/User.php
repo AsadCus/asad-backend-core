@@ -12,9 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -115,6 +117,30 @@ class User extends Authenticatable
     public function isSuperadminGhost(): bool
     {
         return $this->isGhostUser() && $this->hasRole('administrator');
+    }
+
+    /**
+     * Whether the user holds any full-access role (e.g. administrator).
+     * Full-access roles implicitly carry every permission, current and future.
+     */
+    public function hasFullAccessRole(): bool
+    {
+        return $this->roles()->where('is_full_access', true)->exists();
+    }
+
+    /**
+     * Effective permission names: all permissions for full-access users,
+     * otherwise the permissions granted via their roles.
+     *
+     * @return Collection<int, string>
+     */
+    public function effectivePermissionNames(): Collection
+    {
+        if ($this->isGhostUser() || $this->hasFullAccessRole()) {
+            return Permission::query()->orderBy('name')->pluck('name');
+        }
+
+        return $this->getAllPermissions()->pluck('name');
     }
 
     public function userNotifications(): HasMany

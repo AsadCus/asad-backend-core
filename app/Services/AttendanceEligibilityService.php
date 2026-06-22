@@ -8,14 +8,14 @@ class AttendanceEligibilityService
 {
     /**
      * Roster of employees with their check-in eligibility, for the admin governance screen.
-     * Role comes from the linked user (Spatie); position/branch from the employee masters.
+     * Role (jabatan) comes from the linked user (Spatie); org placement + work location from org_units.
      *
      * @return array<int, array<string, mixed>>
      */
     public function getForDataTable(): array
     {
         return Employee::query()
-            ->with(['user.roles', 'position', 'branch'])
+            ->with(['user.roles', 'orgUnit', 'workLocation'])
             ->orderBy('employee_no')
             ->get()
             ->map(fn (Employee $e) => [
@@ -23,8 +23,8 @@ class AttendanceEligibilityService
                 'employee_no' => $e->employee_no,
                 'name' => $e->user?->name ?? $e->employee_no,
                 'role' => $e->user?->getRoleNames()->first(),
-                'position' => $e->position?->name,
-                'branch' => $e->branch?->name,
+                'org_unit' => $e->orgUnit?->name,
+                'work_location' => $e->resolveWorkLocation()?->name,
                 'can_check_in' => (bool) $e->can_check_in,
             ])
             ->all();

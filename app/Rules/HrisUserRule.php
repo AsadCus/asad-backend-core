@@ -6,6 +6,7 @@ use Illuminate\Validation\Rule;
 
 class HrisUserRule
 {
+    /** Core system roles used for the role-specific user list pages + stats. */
     public const ROLES = ['employee', 'supervisor', 'hr', 'manager', 'administrator'];
 
     public function rules(?string $id = null): array
@@ -19,8 +20,9 @@ class HrisUserRule
             ],
             'contact' => ['nullable', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
-            'role' => ['required', Rule::in(self::ROLES)],
-            'position_id' => ['required', 'integer', 'exists:positions,id'],
+            // Jabatan = role; any existing role is assignable (roles are user-managed now).
+            'role' => ['required', 'string', Rule::exists('roles', 'name')],
+            'org_unit_id' => ['nullable', 'integer', Rule::exists('org_units', 'id')],
         ];
     }
 }

@@ -3,14 +3,14 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Support\HrisScope;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeService
 {
     public function getForDataTable()
     {
-        return Employee::query()
-            ->with(['user', 'position', 'department', 'businessUnit'])
+        return HrisScope::apply(Employee::query()->with(['user.roles', 'orgUnit']))
             ->orderBy('employee_no')
             ->get()
             ->map(fn ($q) => [
@@ -18,9 +18,8 @@ class EmployeeService
                 'employee_no' => $q->employee_no,
                 'name' => $q->user?->name,
                 'nik' => $q->nik,
-                'position_name' => $q->position?->name,
-                'department_name' => $q->department?->name,
-                'business_unit_name' => $q->businessUnit?->name,
+                'role_name' => $q->user?->roles->first()?->label ?? $q->user?->roles->first()?->name,
+                'org_unit_name' => $q->orgUnit?->name,
                 'employment_status' => $q->employment_status?->value,
                 'is_active' => (bool) $q->is_active,
             ]);
@@ -54,11 +53,9 @@ class EmployeeService
             'hire_date' => $employee->hire_date?->format('Y-m-d'),
             'employment_status' => $employee->employment_status?->value,
             'termination_date' => $employee->termination_date?->format('Y-m-d'),
-            'holding_id' => $employee->holding_id,
-            'business_unit_id' => $employee->business_unit_id,
-            'department_id' => $employee->department_id,
-            'position_id' => $employee->position_id,
-            'branch_id' => $employee->branch_id,
+            'org_unit_id' => $employee->org_unit_id,
+            'work_location_org_unit_id' => $employee->work_location_org_unit_id,
+            'scope_org_unit_id' => $employee->scope_org_unit_id,
             'supervisor_id' => $employee->supervisor_id,
             'phone' => $employee->phone,
             'address' => $employee->address,

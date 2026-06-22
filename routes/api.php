@@ -8,18 +8,19 @@ use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
 use App\Http\Controllers\Api\Master\AttendanceEligibilityController as MasterAttendanceEligibilityController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
-use App\Http\Controllers\Api\Master\BusinessUnitController as MasterBusinessUnitController;
 use App\Http\Controllers\Api\Master\CountryController as MasterCountryController;
-use App\Http\Controllers\Api\Master\DepartmentController as MasterDepartmentController;
 use App\Http\Controllers\Api\Master\EmployeeController as MasterEmployeeController;
 use App\Http\Controllers\Api\Master\EmployeeScheduleController as MasterEmployeeScheduleController;
 use App\Http\Controllers\Api\Master\FinancialYearController as MasterFinancialYearController;
-use App\Http\Controllers\Api\Master\HoldingController as MasterHoldingController;
 use App\Http\Controllers\Api\Master\HolidayController as MasterHolidayController;
 use App\Http\Controllers\Api\Master\LeaveBalanceController as MasterLeaveBalanceController;
 use App\Http\Controllers\Api\Master\LeaveTypeController as MasterLeaveTypeController;
+use App\Http\Controllers\Api\Master\ManagementLevelController as MasterManagementLevelController;
 use App\Http\Controllers\Api\Master\MasterStatsController;
-use App\Http\Controllers\Api\Master\PositionController as MasterPositionController;
+use App\Http\Controllers\Api\Master\OrgUnitController as MasterOrgUnitController;
+use App\Http\Controllers\Api\Master\RoleController as MasterRoleController;
+use App\Http\Controllers\Api\Master\RoleGroupController as MasterRoleGroupController;
+// Holding/BusinessUnit/Department controllers removed — collapsed into the org_units tree.
 use App\Http\Controllers\Api\Master\ShiftController as MasterShiftController;
 use App\Http\Controllers\Api\Master\UserController as MasterUserController;
 use App\Http\Controllers\Api\Master\WorkScheduleController as MasterWorkScheduleController;
@@ -63,22 +64,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/master/users', MasterUserController::class);
 
     // HRIS organisation masters
-    Route::get('/master/holdings/options', [MasterHoldingController::class, 'options']);
-    Route::apiResource('/master/holdings', MasterHoldingController::class);
+    // Recursive org tree (holding → BU → branch → department → division)
+    Route::get('/master/org-units/options', [MasterOrgUnitController::class, 'options']);
+    Route::get('/master/org-units/tree', [MasterOrgUnitController::class, 'tree']);
+    Route::apiResource('/master/org-units', MasterOrgUnitController::class);
 
-    Route::get('/master/business-units/options', [MasterBusinessUnitController::class, 'options']);
-    Route::apiResource('/master/business-units', MasterBusinessUnitController::class);
+    // Role = Jabatan management (editable roles + permission matrix + classification)
+    Route::get('/master/roles/options', [MasterRoleController::class, 'options']);
+    Route::get('/master/roles/permissions', [MasterRoleController::class, 'permissions']);
+    Route::apiResource('/master/roles', MasterRoleController::class);
 
-    Route::get('/master/departments/options', [MasterDepartmentController::class, 'options']);
-    Route::apiResource('/master/departments', MasterDepartmentController::class);
+    Route::get('/master/role-groups/options', [MasterRoleGroupController::class, 'options']);
+    Route::apiResource('/master/role-groups', MasterRoleGroupController::class);
 
-    Route::get('/master/positions/options', [MasterPositionController::class, 'options']);
-    Route::apiResource('/master/positions', MasterPositionController::class);
+    Route::get('/master/management-levels/options', [MasterManagementLevelController::class, 'options']);
+    Route::apiResource('/master/management-levels', MasterManagementLevelController::class);
 
     // HRIS schedule + leave masters
     Route::apiResource('/master/shifts', MasterShiftController::class);
 
     Route::get('/master/work-schedules/options', [MasterWorkScheduleController::class, 'options']);
+    Route::post('/master/work-schedules/{id}/generate-down', [MasterWorkScheduleController::class, 'generateDown']);
     Route::apiResource('/master/work-schedules', MasterWorkScheduleController::class);
 
     Route::apiResource('/master/holidays', MasterHolidayController::class);

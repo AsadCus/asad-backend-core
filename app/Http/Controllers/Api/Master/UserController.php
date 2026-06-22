@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Master;
 use App\Http\Controllers\Controller;
 use App\Rules\HrisUserRule;
 use App\Services\HrisUserService;
-use App\Services\PositionService;
+use App\Services\RoleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,7 +13,7 @@ class UserController extends Controller
 {
     public function __construct(
         private HrisUserService $userService,
-        private PositionService $positionService,
+        private RoleService $roleService,
         private HrisUserRule $userRule,
     ) {}
 
@@ -28,11 +28,7 @@ class UserController extends Controller
     public function options(): JsonResponse
     {
         return response()->json([
-            'roles' => array_map(
-                fn (string $role) => ['value' => $role, 'label' => ucwords(str_replace('-', ' ', $role))],
-                HrisUserRule::ROLES,
-            ),
-            'positions' => $this->positionService->getForFilter(),
+            'roles' => $this->roleService->getForFilter(),
         ]);
     }
 

@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\ManagementLevel;
+use App\Models\Role;
+use App\Models\RoleGroup;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class HrisRoleSeeder extends Seeder
@@ -62,6 +64,11 @@ class HrisRoleSeeder extends Seeder
 
             // Menu management — global sidebar config (administrator only).
             'hris.menu manage',
+
+            // Role = Jabatan management + classification masters.
+            'hris.role view', 'hris.role create', 'hris.role edit', 'hris.role delete',
+            'hris.role-group view', 'hris.role-group create', 'hris.role-group edit', 'hris.role-group delete',
+            'hris.management-level view', 'hris.management-level create', 'hris.management-level edit', 'hris.management-level delete',
 
             // Simple CRUD aliases consumed by the admin/HR master harness (view/create/edit/delete).
             // The granular view-team/view-own strings above drive the Tier-2 self-service screens.
@@ -149,5 +156,54 @@ class HrisRoleSeeder extends Seeder
             'hris.leave-balance view-own',
             'hris.leave-request create', 'hris.leave-request view-own',
         ]);
+
+        $this->applyRoleMetadata();
+    }
+
+    /**
+     * Role = Jabatan: stamp display + classification metadata on the core roles,
+     * and seed Director / Finance as editable starter roles. Machine names stay stable.
+     */
+    private function applyRoleMetadata(): void
+    {
+        $groups = RoleGroup::query()->pluck('id', 'code');
+        $levels = ManagementLevel::query()->pluck('id', 'code');
+
+        // name => [label, group code, level code, is_system, is_full_access]
+        $core = [
+            'administrator' => ['Administrator', 'LEAD', 'TOP', true, true],
+            'manager' => ['Manager', 'LEAD', 'MID', true, false],
+            'supervisor' => ['Supervisor', 'GEN', 'MID', true, false],
+            'hr' => ['HR', 'HRADM', 'MID', true, false],
+            'employee' => ['Staff', 'GEN', 'LOW', true, false],
+        ];
+
+        foreach ($core as $name => [$label, $group, $level, $isSystem, $isFull]) {
+            Role::findByName($name, 'web')->update([
+                'label' => $label,
+                'role_group_id' => $groups[$group] ?? null,
+                'management_level_id' => $levels[$level] ?? null,
+                'is_system' => $isSystem,
+                'is_full_access' => $isFull,
+            ]);
+        }
+
+        // Editable starter roles requested as defaults — admins assign permissions via the UI.
+        $starters = [
+            'director' => ['Director', 'LEAD', 'TOP'],
+            'finance' => ['Finance', 'HRADM', 'MID'],
+        ];
+
+        foreach ($starters as $name => [$label, $group, $level]) {
+            $role = Role::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+            $role->update([
+                'label' => $label,
+                'role_group_id' => $groups[$group] ?? null,
+                'management_level_id' => $levels[$level] ?? null,
+                'is_system' => false,
+                'is_full_access' => false,
+            ]);
+            $role->syncPermissions(['dashboard view', 'master view']);
+        }
     }
 }

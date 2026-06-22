@@ -10,6 +10,7 @@ use App\Services\CustomerService;
 use App\Services\NotificationService;
 use App\Support\DataScope;
 use App\Support\FeatureFlag;
+use App\Support\HrisScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -88,10 +89,14 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'avatar_url' => $user->avatar_url,
-            'permissions' => $user->getAllPermissions()->pluck('name'),
+            'permissions' => $user->effectivePermissionNames(),
             'roles' => $user->getRoleNames(),
             'can_check_in' => $user->employee ? (bool) $user->employee->can_check_in : false,
             'is_ghost_user' => $user->isGhostUser(),
+            'hris_scope' => [
+                'anchor_org_unit_id' => $user->employee?->scope_org_unit_id,
+                'unbounded' => HrisScope::isUnbounded($user),
+            ],
             'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),
             'can_view_documentation' => FeatureFlag::enabled('documentation.visible_to_all_users', $user, false),
             'notifications' => $this->notificationService->getUserNotifications($user->id),

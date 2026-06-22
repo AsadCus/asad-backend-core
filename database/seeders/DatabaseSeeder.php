@@ -25,13 +25,14 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             PaymentMethodMasterSeeder::class,
 
-            // HRIS organisation masters (order matters: holding → BU → department)
-            HoldingSeeder::class,
-            BusinessUnitSeeder::class,
-            DepartmentSeeder::class,
-            PositionSeeder::class,
+            // Recursive org tree (holding → BU → branch → department → division)
+            OrgUnitSeeder::class,
 
-            // Roles + users (roles + org/positions must exist first)
+            // Role classification masters (must exist before roles get their metadata)
+            ManagementLevelSeeder::class,
+            RoleGroupSeeder::class,
+
+            // Roles + users (roles + org must exist first)
             RolePermissionSeeder::class,
             HrisRoleSeeder::class,
             UserSeeder::class,

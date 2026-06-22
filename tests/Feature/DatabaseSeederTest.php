@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Employee;
 use App\Models\FinancialYear;
 use App\Models\GhostUser;
-use App\Models\Position;
+use App\Models\OrgUnit;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +23,7 @@ class DatabaseSeederTest extends TestCase
         // Master data exists.
         $this->assertGreaterThan(0, Country::count());
         $this->assertGreaterThan(0, FinancialYear::count());
-        $this->assertGreaterThan(0, Position::count());
+        $this->assertGreaterThan(0, OrgUnit::count());
 
         // Exactly the five HRIS roles, one user each (+ asad as a second administrator).
         foreach (['administrator', 'hr', 'supervisor', 'manager', 'employee'] as $role) {
@@ -36,12 +36,12 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame(1, GhostUser::count());
         $this->assertDatabaseHas('ghost_users', ['user_id' => (int) $asad->id]);
 
-        // Every seeded user has a linked Employee carrying a position.
+        // Every seeded user has a linked Employee placed in the org tree (jabatan = role).
         foreach (['employee@example.com', 'supervisor@example.com', 'hr@example.com', 'manager@example.com', 'administrator@example.com'] as $email) {
             $user = User::query()->where('email', $email)->firstOrFail();
             $employee = Employee::query()->where('user_id', $user->id)->first();
             $this->assertNotNull($employee, "missing employee for {$email}");
-            $this->assertNotNull($employee->position_id, "missing position for {$email}");
+            $this->assertNotNull($employee->org_unit_id, "missing org unit for {$email}");
         }
     }
 }

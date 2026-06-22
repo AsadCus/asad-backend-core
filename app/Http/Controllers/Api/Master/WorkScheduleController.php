@@ -37,6 +37,13 @@ class WorkScheduleController extends Controller
         return response()->json($this->workScheduleService->getForEditShow($id));
     }
 
+    public function generateDown(string $id): JsonResponse
+    {
+        $count = $this->workScheduleService->generateDown($id);
+
+        return response()->json(['status' => 'ok', 'generated' => $count]);
+    }
+
     public function update(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate($this->workScheduleRule->rules($id));

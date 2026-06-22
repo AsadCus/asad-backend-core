@@ -19,7 +19,7 @@ class HrisUserService
     {
         $query = User::query()
             ->whereDoesntHave('ghostUser')
-            ->with(['employee.position', 'roles'])
+            ->with(['roles'])
             ->orderBy('name');
 
         if ($role) {
@@ -31,15 +31,14 @@ class HrisUserService
             'name' => $user->name,
             'email' => $user->email,
             'contact' => $user->contact,
-            'role' => $user->getRoleNames()->first(),
-            'position_id' => $user->employee?->position_id,
-            'position_name' => $user->employee?->position?->name,
+            'role' => $user->roles->first()?->name,
+            'role_label' => $user->roles->first()?->label ?? $user->roles->first()?->name,
         ]);
     }
 
     public function getForEditShow($id): array
     {
-        $user = User::query()->with('employee')->findOrFail($id);
+        $user = User::query()->findOrFail($id);
 
         return [
             'id' => $user->id,
@@ -47,7 +46,6 @@ class HrisUserService
             'email' => $user->email,
             'contact' => $user->contact,
             'role' => $user->getRoleNames()->first(),
-            'position_id' => $user->employee?->position_id,
         ];
     }
 
@@ -148,8 +146,8 @@ class HrisUserService
         Employee::updateOrCreate(
             ['user_id' => $user->id],
             [
-                'position_id' => $data['position_id'] ?? null,
                 'employee_no' => $employee?->employee_no ?? sprintf('EMP-%04d', $user->id),
+                'org_unit_id' => $data['org_unit_id'] ?? $employee?->org_unit_id,
                 'hire_date' => $employee?->hire_date ?? now()->toDateString(),
                 'employment_status' => $employee?->employment_status?->value ?? EmploymentStatus::Permanent->value,
                 'is_active' => true,

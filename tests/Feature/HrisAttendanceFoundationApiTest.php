@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Employee;
 use App\Models\LeaveType;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class HrisAttendanceFoundationApiTest extends TestCase
@@ -16,7 +16,7 @@ class HrisAttendanceFoundationApiTest extends TestCase
 
     private function actingAdmin(): User
     {
-        Role::findOrCreate('administrator', 'web');
+        Role::findOrCreate('administrator', 'web')->update(['is_full_access' => true]);
         Role::findOrCreate('employee', 'web');
 
         $user = User::factory()->create();

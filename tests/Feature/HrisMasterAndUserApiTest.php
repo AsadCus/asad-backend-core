@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Holding;
-use App\Models\Position;
+use App\Models\OrgUnit;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,11 +25,12 @@ class HrisMasterAndUserApiTest extends TestCase
         return $user;
     }
 
-    public function test_holding_master_crud_with_soft_delete(): void
+    public function test_org_unit_master_crud_with_soft_delete(): void
     {
         $this->actingAdmin();
 
-        $create = $this->postJson('/api/master/holdings', [
+        $create = $this->postJson('/api/master/org-units', [
+            'type' => 'holding',
             'name' => 'Acme Group',
             'code' => 'ACME',
             'email' => 'group@acme.test',
@@ -39,45 +39,57 @@ class HrisMasterAndUserApiTest extends TestCase
         $create->assertCreated();
         $id = $create->json('id');
 
-        $this->assertDatabaseHas('holdings', ['code' => 'ACME', 'name' => 'Acme Group']);
+        $this->assertDatabaseHas('org_units', ['code' => 'ACME', 'name' => 'Acme Group', 'type' => 'holding']);
 
-        $this->getJson('/api/master/holdings')->assertOk()->assertJsonFragment(['code' => 'ACME']);
+        $this->getJson('/api/master/org-units')->assertOk()->assertJsonFragment(['code' => 'ACME']);
 
-        $this->putJson("/api/master/holdings/{$id}", [
+        $this->putJson("/api/master/org-units/{$id}", [
+            'type' => 'holding',
             'name' => 'Acme Holdings',
             'code' => 'ACME',
             'is_active' => true,
         ])->assertOk();
-        $this->assertDatabaseHas('holdings', ['id' => $id, 'name' => 'Acme Holdings']);
+        $this->assertDatabaseHas('org_units', ['id' => $id, 'name' => 'Acme Holdings']);
 
-        $this->deleteJson("/api/master/holdings/{$id}")->assertOk();
-        $this->assertSoftDeleted('holdings', ['id' => $id]);
+        $this->deleteJson("/api/master/org-units/{$id}")->assertOk();
+        $this->assertSoftDeleted('org_units', ['id' => $id]);
     }
 
-    public function test_duplicate_holding_code_is_rejected(): void
+    public function test_duplicate_org_unit_code_is_rejected(): void
     {
         $this->actingAdmin();
 
-        $this->postJson('/api/master/holdings', ['name' => 'One', 'code' => 'DUP'])->assertCreated();
-        $this->postJson('/api/master/holdings', ['name' => 'Two', 'code' => 'DUP'])
+        $this->postJson('/api/master/org-units', ['type' => 'holding', 'name' => 'One', 'code' => 'DUP'])->assertCreated();
+        $this->postJson('/api/master/org-units', ['type' => 'holding', 'name' => 'Two', 'code' => 'DUP'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('code');
     }
 
-    public function test_position_options_endpoint_returns_value_label(): void
+    public function test_org_unit_invalid_nesting_is_rejected(): void
     {
         $this->actingAdmin();
-        Position::query()->create(['name' => 'Staff', 'code' => 'STAFF', 'level' => 'staff', 'is_active' => true]);
 
-        $this->getJson('/api/master/positions/options')
+        $holding = $this->postJson('/api/master/org-units', ['type' => 'holding', 'name' => 'H', 'code' => 'H1'])
+            ->assertCreated()->json('id');
+
+        // A division cannot sit directly under a holding.
+        $this->postJson('/api/master/org-units', [
+            'type' => 'division', 'name' => 'Bad', 'code' => 'BAD', 'parent_id' => $holding,
+        ])->assertStatus(422)->assertJsonValidationErrors('parent_id');
+    }
+
+    public function test_roles_options_endpoint_returns_value_label(): void
+    {
+        $this->actingAdmin();
+
+        $this->getJson('/api/master/roles/options')
             ->assertOk()
             ->assertJsonStructure([['value', 'label']]);
     }
 
-    public function test_create_hris_user_links_employee_with_position_then_soft_deletes(): void
+    public function test_create_hris_user_links_employee_with_role_then_soft_deletes(): void
     {
         $this->actingAdmin();
-        $position = Position::query()->create(['name' => 'Staff', 'code' => 'STAFF', 'level' => 'staff', 'is_active' => true]);
 
         $create = $this->postJson('/api/master/users', [
             'name' => 'New Employee',
@@ -85,25 +97,23 @@ class HrisMasterAndUserApiTest extends TestCase
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => 'employee',
-            'position_id' => $position->id,
         ]);
         $create->assertCreated();
         $userId = $create->json('id');
 
         $this->assertDatabaseHas('users', ['id' => $userId, 'email' => 'new.employee@test.com']);
-        $this->assertDatabaseHas('employees', ['user_id' => $userId, 'position_id' => $position->id]);
+        $this->assertDatabaseHas('employees', ['user_id' => $userId]);
         $this->assertTrue(User::find($userId)->hasRole('employee'));
 
-        // Listing by role returns the new user with its position.
         $this->getJson('/api/master/users?role=employee')
             ->assertOk()
-            ->assertJsonFragment(['email' => 'new.employee@test.com', 'position_name' => 'Staff']);
+            ->assertJsonFragment(['email' => 'new.employee@test.com', 'role' => 'employee']);
 
         $this->deleteJson("/api/master/users/{$userId}")->assertOk();
         $this->assertSoftDeleted('users', ['id' => $userId]);
     }
 
-    public function test_user_create_requires_role_and_position(): void
+    public function test_user_create_requires_role(): void
     {
         $this->actingAdmin();
 
@@ -112,7 +122,7 @@ class HrisMasterAndUserApiTest extends TestCase
             'email' => 'norole@test.com',
             'password' => 'password',
             'password_confirmation' => 'password',
-        ])->assertStatus(422)->assertJsonValidationErrors(['role', 'position_id']);
+        ])->assertStatus(422)->assertJsonValidationErrors(['role']);
     }
 
     public function test_all_master_endpoints_respond_against_full_seed(): void
@@ -122,7 +132,7 @@ class HrisMasterAndUserApiTest extends TestCase
         $this->actingAs($admin, 'sanctum');
 
         foreach ([
-            'holdings', 'business-units', 'departments', 'positions',
+            'org-units', 'roles', 'role-groups', 'management-levels',
             'shifts', 'work-schedules', 'holidays', 'leave-types',
         ] as $master) {
             $this->getJson("/api/master/{$master}")->assertOk();
@@ -130,22 +140,22 @@ class HrisMasterAndUserApiTest extends TestCase
 
         $this->getJson('/api/master/stats')
             ->assertOk()
-            ->assertJsonStructure(['users', 'holdings', 'positions', 'leave_types']);
+            ->assertJsonStructure(['users', 'org_units', 'roles', 'leave_types']);
 
-        $this->getJson('/api/master/business-units/options')->assertOk()->assertJsonStructure([['value', 'label']]);
+        $this->getJson('/api/master/org-units/options')->assertOk()->assertJsonStructure([['value', 'label']]);
+        $this->getJson('/api/master/org-units/tree')->assertOk()->assertJsonStructure(['tree', 'types']);
+        $this->getJson('/api/master/roles/permissions')->assertOk();
 
-        // Parent-FK + enum + time creates.
-        $holdingId = Holding::query()->value('id');
-        $this->postJson('/api/master/business-units', [
-            'name' => 'New BU', 'code' => 'NEW-BU', 'holding_id' => $holdingId, 'is_active' => true,
+        // Parent-FK + nesting create.
+        $holdingUnitId = OrgUnit::query()->where('code', 'SMGI')->value('id');
+        $this->postJson('/api/master/org-units', [
+            'type' => 'business_unit', 'name' => 'New BU', 'code' => 'NEW-BU', 'parent_id' => $holdingUnitId, 'is_active' => true,
         ])->assertCreated();
 
-        $this->postJson('/api/master/positions', [
-            'name' => 'Analyst', 'code' => 'ANALYST', 'level' => 'staff', 'is_active' => true,
+        // Create a role with permissions.
+        $this->postJson('/api/master/roles', [
+            'label' => 'Auditor', 'permissions' => ['dashboard view', 'master view'],
         ])->assertCreated();
-        $this->postJson('/api/master/positions', [
-            'name' => 'Bad', 'code' => 'BAD', 'level' => 'not-a-level',
-        ])->assertStatus(422)->assertJsonValidationErrors('level');
 
         $this->postJson('/api/master/holidays', [
             'name' => 'Company Day', 'date' => '2026-12-31', 'type' => 'company', 'is_recurring' => false,
