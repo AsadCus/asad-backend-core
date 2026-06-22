@@ -42,6 +42,9 @@ class DatabaseSeeder extends Seeder
             ShiftSeeder::class,
             WorkScheduleSeeder::class,
             HolidaySeeder::class,
+
+            // Menu defaults
+            MenuOverrideSeeder::class,
         ]);
     }
 }

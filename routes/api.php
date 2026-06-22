@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Master\PositionController as MasterPositionControll
 use App\Http\Controllers\Api\Master\ShiftController as MasterShiftController;
 use App\Http\Controllers\Api\Master\UserController as MasterUserController;
 use App\Http\Controllers\Api\Master\WorkScheduleController as MasterWorkScheduleController;
+use App\Http\Controllers\Api\MenuConfigController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\QuotationItemController;
@@ -133,4 +134,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/account/personal', [AccountPersonalController::class, 'update']);
 
     Route::get('/user-logs', [ApiUserLogsController::class, 'index']);
+
+    // Menu management — sparse overrides on the frontend NAV_ZONES registry.
+    Route::get('/menu/config', [MenuConfigController::class, 'show']);
+    Route::put('/menu/overrides', [MenuConfigController::class, 'updateOverrides']);   // admin only
+    Route::put('/menu/preferences', [MenuConfigController::class, 'updatePreferences']); // self-service
 });

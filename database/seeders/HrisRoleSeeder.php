@@ -60,6 +60,9 @@ class HrisRoleSeeder extends Seeder
             // Audit trail
             'hris.audit-trail view-all', 'hris.audit-trail view-related',
 
+            // Menu management — global sidebar config (administrator only).
+            'hris.menu manage',
+
             // Simple CRUD aliases consumed by the admin/HR master harness (view/create/edit/delete).
             // The granular view-team/view-own strings above drive the Tier-2 self-service screens.
             'hris.employee view',
