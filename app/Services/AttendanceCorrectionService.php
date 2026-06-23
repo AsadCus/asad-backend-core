@@ -10,7 +10,9 @@ use App\Models\AttendanceCorrection;
 use App\Models\Employee;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AttendanceCorrectionService
@@ -87,12 +89,14 @@ class AttendanceCorrectionService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function store(User $user, array $data): array
+    public function store(User $user, array $data, ?UploadedFile $attachment = null): array
     {
         $employee = $user->employee;
         abort_if(! $employee, 422, 'No employee profile is linked to your account.');
 
-        return DB::transaction(function () use ($employee, $data) {
+        return DB::transaction(function () use ($employee, $data, $attachment) {
+            $attachmentPath = $attachment?->store("attendance-corrections/{$employee->id}", 'public');
+
             $correction = AttendanceCorrection::create([
                 'correction_no' => 'COR-'.Carbon::now()->format('YmdHis').'-'.Str::upper(Str::random(4)),
                 'employee_id' => $employee->id,
@@ -102,7 +106,7 @@ class AttendanceCorrectionService
                 'requested_check_in' => $data['requested_check_in'] ?? null,
                 'requested_check_out' => $data['requested_check_out'] ?? null,
                 'reason' => $data['reason'],
-                'attachment_path' => $data['attachment_path'] ?? null,
+                'attachment_path' => $attachmentPath,
                 'status' => ApprovalStatus::PendingSupervisor,
                 'supervisor_id' => $employee->supervisor_id,
             ]);
@@ -263,6 +267,7 @@ class AttendanceCorrectionService
             'correction_type' => $c->correction_type?->label(),
             'correction_type_value' => $c->correction_type?->value,
             'reason' => $c->reason,
+            'attachment_url' => $c->attachment_path ? Storage::disk('public')->url($c->attachment_path) : null,
             'status' => $c->status?->label(),
             'status_value' => $c->status?->value,
         ];
