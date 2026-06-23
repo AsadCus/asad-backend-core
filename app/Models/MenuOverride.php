@@ -17,7 +17,7 @@ class MenuOverride extends Model
         'zone',
         'sort_order',
         'is_hidden',
-        'roles',
+        'permission',
     ];
 
     protected function casts(): array
@@ -25,7 +25,6 @@ class MenuOverride extends Model
         return [
             'sort_order' => 'integer',
             'is_hidden' => 'boolean',
-            'roles' => 'array',
         ];
     }
 }

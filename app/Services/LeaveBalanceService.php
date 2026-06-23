@@ -3,14 +3,16 @@
 namespace App\Services;
 
 use App\Models\LeaveBalance;
+use App\Support\HrisScope;
 use Illuminate\Support\Facades\DB;
 
 class LeaveBalanceService
 {
     public function getForDataTable()
     {
-        return LeaveBalance::query()
-            ->with(['employee.user', 'leaveType'])
+        return HrisScope::applyViaEmployee(
+            LeaveBalance::query()->with(['employee.user', 'leaveType'])
+        )
             ->orderByDesc('year')
             ->get()
             ->map(fn ($q) => [

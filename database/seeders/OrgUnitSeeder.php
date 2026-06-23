@@ -21,11 +21,13 @@ class OrgUnitSeeder extends Seeder
                 'name' => 'SMGI Group',
                 'code' => 'SMGI',
                 'email' => 'info@smgi.example.com',
+                'logo_path' => '/Logo Icon SMGI.png',
                 'children' => [
                     [
                         'type' => OrgUnitType::BusinessUnit,
                         'name' => 'PT Samu Sinergi Mandiri',
                         'code' => 'SSM',
+                        'logo_path' => '/Logo Icon Samu Sinergi Mandiri.png',
                         'children' => [
                             [
                                 'type' => OrgUnitType::Branch,
@@ -50,6 +52,7 @@ class OrgUnitSeeder extends Seeder
                         'type' => OrgUnitType::BusinessUnit,
                         'name' => 'PT Global Sinergi Laboratorium',
                         'code' => 'GSL',
+                        'logo_path' => '/Logo Icon Global Sinergi Laboratorium.png',
                         'children' => [
                             ['type' => OrgUnitType::Branch, 'name' => 'GSL Head Office', 'code' => 'GSL-HO', 'geofence_radius_meters' => 100],
                         ],
@@ -58,6 +61,7 @@ class OrgUnitSeeder extends Seeder
                         'type' => OrgUnitType::BusinessUnit,
                         'name' => 'PT Sinergi Akbar Mandiri Utama',
                         'code' => 'SAMU',
+                        'logo_path' => '/Logo Icon Sinergi Akbar Mandiri Utama.png',
                         'children' => [
                             ['type' => OrgUnitType::Branch, 'name' => 'SAMU Head Office', 'code' => 'SAMU-HO', 'geofence_radius_meters' => 100],
                         ],

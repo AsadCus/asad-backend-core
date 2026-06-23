@@ -8,6 +8,7 @@ use App\Models\AttendanceSession;
 use App\Models\Employee;
 use App\Models\Shift;
 use App\Models\User;
+use App\Support\HrisScope;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +66,11 @@ class AttendanceService
 
         $ids = $this->accessibleEmployeeIds($user);
         if ($ids !== null) {
+            // view-own / view-team — already limited to the right employees; no org bound.
             $query->whereIn('employee_id', $ids);
+        } else {
+            // view-all — bound to the active org-unit subtree (the org switcher narrows it).
+            HrisScope::applyViaEmployee($query, 'employee', $user);
         }
 
         if (! empty($filters['from'])) {

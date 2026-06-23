@@ -18,13 +18,6 @@ class Role extends SpatieRole
         'description',
         'role_group_id',
         'management_level_id',
-        'is_system',
-        'is_full_access',
-    ];
-
-    protected $casts = [
-        'is_system' => 'boolean',
-        'is_full_access' => 'boolean',
     ];
 
     public function roleGroup(): BelongsTo

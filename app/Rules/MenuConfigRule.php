@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use Illuminate\Validation\Rule;
+
 class MenuConfigRule
 {
     /** Validation for a bulk admin override payload: { overrides: [ {menu_key, ...}, ... ] }. */
@@ -17,8 +19,8 @@ class MenuConfigRule
             'overrides.*.zone' => ['nullable', 'string', 'max:64'],
             'overrides.*.sort_order' => ['nullable', 'integer'],
             'overrides.*.is_hidden' => ['boolean'],
-            'overrides.*.roles' => ['nullable', 'array'],
-            'overrides.*.roles.*' => ['string', 'max:64'],
+            // Single permission string that gates this menu (null = use the registry permission).
+            'overrides.*.permission' => ['nullable', 'string', Rule::exists('permissions', 'name')],
         ];
     }
 

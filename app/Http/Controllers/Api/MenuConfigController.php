@@ -43,11 +43,6 @@ class MenuConfigController extends Controller
 
     private function authorizeManage(Request $request): void
     {
-        $user = $request->user();
-
-        $canManage = $user?->can('hris.menu manage')
-            || $user?->hasAnyRole(['administrator', 'admin', 'superadmin']);
-
-        abort_unless($canManage, 403);
+        abort_unless((bool) $request->user()?->can('hris.menu manage'), 403);
     }
 }

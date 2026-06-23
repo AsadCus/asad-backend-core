@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class OrgUnit extends Model
 {
@@ -18,6 +19,7 @@ class OrgUnit extends Model
         'type',
         'name',
         'code',
+        'logo_path',
         'sort_order',
         'address',
         'phone',
@@ -50,6 +52,11 @@ class OrgUnit extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class, 'org_unit_id');
+    }
+
+    public function orgInfos(): HasMany
+    {
+        return $this->hasMany(OrgInfo::class);
     }
 
     /**
@@ -102,5 +109,53 @@ class OrgUnit extends Model
     public function hasValidParent(?self $parent): bool
     {
         return $this->type->canHaveParent($parent?->type);
+    }
+
+    /**
+     * Logo URL for this unit only (no fallback). Null if it has no logo.
+     */
+    public function logoUrl(): ?string
+    {
+        return $this->logo_path ? self::assetUrl($this->logo_path) : null;
+    }
+
+    /**
+     * Logo URL resolved up the ancestor chain — a branch with no logo shows its BU/holding logo.
+     */
+    public function resolveLogoUrl(): ?string
+    {
+        $node = $this;
+        while ($node !== null) {
+            if ($node->logo_path) {
+                return self::assetUrl($node->logo_path);
+            }
+            $node = $node->parent;
+        }
+
+        return null;
+    }
+
+    private static function assetUrl(string $path): string
+    {
+        return str_starts_with($path, '/') || str_starts_with($path, 'http')
+            ? $path
+            : Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Compact summary for the org switcher / scope payloads.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSummary(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'type' => $this->type->value,
+            'code' => $this->code,
+            'parent_id' => $this->parent_id,
+            'logo_url' => $this->resolveLogoUrl(),
+        ];
     }
 }

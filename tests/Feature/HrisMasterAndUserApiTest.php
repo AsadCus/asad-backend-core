@@ -6,6 +6,7 @@ use App\Models\OrgUnit;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -85,6 +86,19 @@ class HrisMasterAndUserApiTest extends TestCase
         $this->getJson('/api/master/roles/options')
             ->assertOk()
             ->assertJsonStructure([['value', 'label']]);
+    }
+
+    public function test_roles_permission_sets_endpoint_returns_roles_with_permissions(): void
+    {
+        $this->actingAdmin();
+
+        $role = Role::findOrCreate('finance', 'web');
+        $role->givePermissionTo(Permission::findOrCreate('dashboard view', 'web'));
+
+        $this->getJson('/api/master/roles/permission-sets')
+            ->assertOk()
+            ->assertJsonStructure([['id', 'name', 'label', 'permissions']])
+            ->assertJsonFragment(['name' => 'finance', 'permissions' => ['dashboard view']]);
     }
 
     public function test_create_hris_user_links_employee_with_role_then_soft_deletes(): void

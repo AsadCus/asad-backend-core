@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('code')->unique();
-            $table->decimal('max_days_per_year', 5, 2)->nullable();
+            $table->integer('max_days_per_year')->nullable();
             $table->boolean('requires_balance')->default(true);
             $table->boolean('requires_attachment')->default(false);
             $table->boolean('is_paid')->default(true);

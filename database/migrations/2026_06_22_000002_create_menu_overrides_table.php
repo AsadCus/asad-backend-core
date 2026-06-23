@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('zone')->nullable();      // recategorise into another zone (null = registry zone)
             $table->integer('sort_order')->nullable();
             $table->boolean('is_hidden')->default(false);
-            $table->json('roles')->nullable();       // override role visibility (null = registry roles)
+            $table->string('permission')->nullable(); // override the gating permission (null = registry permission)
             $table->timestamps();
             $table->softDeletes();
         });

@@ -9,6 +9,8 @@ use Illuminate\Validation\ValidationException;
 
 class OrgUnitService
 {
+    public function __construct(private UserRoleFileUploadService $fileUploads) {}
+
     public function getForDataTable()
     {
         return OrgUnit::query()
@@ -65,6 +67,7 @@ class OrgUnitService
             $this->assertValidNesting($data);
 
             $unit = OrgUnit::create($data);
+            $this->fileUploads->processUploads($unit, $data, ['logo' => 'logo_path'], 'org-units', $unit->name);
 
             activity()->performedOn($unit)->log('Org unit created successfully #'.($unit->id ?? null));
 
@@ -80,6 +83,7 @@ class OrgUnitService
             $this->assertValidNesting($data, (int) $unit->id);
 
             $unit->update($data);
+            $this->fileUploads->processUploads($unit, $data, ['logo' => 'logo_path'], 'org-units', $unit->name);
 
             activity()->performedOn($unit)->log('Org unit updated successfully #'.($unit->id ?? null));
 
@@ -145,6 +149,7 @@ class OrgUnitService
             'type_label' => $u->type->label(),
             'name' => $u->name,
             'code' => $u->code,
+            'logo_url' => $u->logoUrl(),
             'sort_order' => $u->sort_order,
             'address' => $u->address,
             'phone' => $u->phone,

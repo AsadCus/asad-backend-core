@@ -44,13 +44,13 @@ class HrisScopeTest extends TestCase
         $this->assertNotContains($e2->id, $ids);
     }
 
-    public function test_full_access_user_sees_everything(): void
+    public function test_root_anchored_user_sees_the_whole_tree(): void
     {
-        ['e1' => $e1, 'e2' => $e2] = $this->seedTree();
+        ['holding' => $holding, 'e1' => $e1, 'e2' => $e2] = $this->seedTree();
 
-        $role = Role::create(['name' => 'super', 'guard_name' => 'web', 'is_full_access' => true]);
         $admin = User::factory()->create();
-        $admin->assignRole($role);
+        $admin->assignRole(Role::create(['name' => 'root-hr', 'guard_name' => 'web']));
+        Employee::factory()->create(['user_id' => $admin->id, 'org_unit_id' => $holding->id, 'scope_org_unit_id' => $holding->id]);
 
         $this->actingAs($admin);
         $ids = app(EmployeeService::class)->getForDataTable()->pluck('id')->all();

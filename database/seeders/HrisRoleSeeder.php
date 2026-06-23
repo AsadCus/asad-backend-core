@@ -70,6 +70,9 @@ class HrisRoleSeeder extends Seeder
             'hris.role-group view', 'hris.role-group create', 'hris.role-group edit', 'hris.role-group delete',
             'hris.management-level view', 'hris.management-level create', 'hris.management-level edit', 'hris.management-level delete',
 
+            // Company info (Informasi Perusahaan) per org unit.
+            'hris.company-info view', 'hris.company-info manage',
+
             // Simple CRUD aliases consumed by the admin/HR master harness (view/create/edit/delete).
             // The granular view-team/view-own strings above drive the Tier-2 self-service screens.
             'hris.employee view',
@@ -89,10 +92,12 @@ class HrisRoleSeeder extends Seeder
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        // Administrator already exists (from RolePermissionSeeder); give them full HRIS access too.
+        // Administrator already exists (from RolePermissionSeeder). Grant every permission that
+        // exists so it keeps full access without the removed full-access flag — additive, so it
+        // composes with the core grants regardless of seeder order.
         $administrator = Role::findByName('administrator');
         if ($administrator) {
-            $administrator->givePermissionTo($permissions);
+            $administrator->givePermissionTo(Permission::query()->pluck('name')->all());
         }
 
         // HR (Personalia) — verify HR, manage master + reports + audit + user accounts.
@@ -121,6 +126,7 @@ class HrisRoleSeeder extends Seeder
             'hris.attendance-report view', 'hris.attendance-report export',
             'hris.leave-report view', 'hris.leave-report export',
             'hris.audit-trail view-related',
+            'hris.company-info view', 'hris.company-info manage',
         ]);
 
         // Supervisor — approve team's correction & leave; view team.
@@ -169,22 +175,20 @@ class HrisRoleSeeder extends Seeder
         $groups = RoleGroup::query()->pluck('id', 'code');
         $levels = ManagementLevel::query()->pluck('id', 'code');
 
-        // name => [label, group code, level code, is_system, is_full_access]
+        // name => [label, group code, level code]
         $core = [
-            'administrator' => ['Administrator', 'LEAD', 'TOP', true, true],
-            'manager' => ['Manager', 'LEAD', 'MID', true, false],
-            'supervisor' => ['Supervisor', 'GEN', 'MID', true, false],
-            'hr' => ['HR', 'HRADM', 'MID', true, false],
-            'employee' => ['Staff', 'GEN', 'LOW', true, false],
+            'administrator' => ['Administrator', 'LEAD', 'TOP'],
+            'manager' => ['Manager', 'LEAD', 'MID'],
+            'supervisor' => ['Supervisor', 'GEN', 'MID'],
+            'hr' => ['HR', 'HRADM', 'MID'],
+            'employee' => ['Staff', 'GEN', 'LOW'],
         ];
 
-        foreach ($core as $name => [$label, $group, $level, $isSystem, $isFull]) {
+        foreach ($core as $name => [$label, $group, $level]) {
             Role::findByName($name, 'web')->update([
                 'label' => $label,
                 'role_group_id' => $groups[$group] ?? null,
                 'management_level_id' => $levels[$level] ?? null,
-                'is_system' => $isSystem,
-                'is_full_access' => $isFull,
             ]);
         }
 
@@ -200,8 +204,6 @@ class HrisRoleSeeder extends Seeder
                 'label' => $label,
                 'role_group_id' => $groups[$group] ?? null,
                 'management_level_id' => $levels[$level] ?? null,
-                'is_system' => false,
-                'is_full_access' => false,
             ]);
             $role->syncPermissions(['dashboard view', 'master view']);
         }

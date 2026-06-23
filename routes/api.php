@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Account\PersonalController as AccountPersonalContro
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Company\OrgInfoController;
 use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
 use App\Http\Controllers\Api\Master\AttendanceEligibilityController as MasterAttendanceEligibilityController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\MenuConfigController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\QuotationItemController;
+use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\Settings\PasswordController as SettingsPasswordController;
 use App\Http\Controllers\Api\Settings\ProfileController as SettingsProfileController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
@@ -51,6 +53,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/data-scope/countries', [DataScopeController::class, 'updateCountries']);
 
+    // HRIS org switcher — active scope selection (narrowing within the user's allowed subtree)
+    Route::get('/scope/org-units', [ScopeController::class, 'orgUnits']);
+    Route::put('/scope/org-unit', [ScopeController::class, 'setOrgUnit']);
+
+    // Informasi Perusahaan — per-org-unit company info (hierarchical read; admin/HR manage)
+    Route::get('/company/org-infos', [OrgInfoController::class, 'index']);
+    Route::post('/company/org-infos', [OrgInfoController::class, 'store']);
+    Route::put('/company/org-infos/{id}', [OrgInfoController::class, 'update']);
+    Route::delete('/company/org-infos/{id}', [OrgInfoController::class, 'destroy']);
+
     Route::get('/master/stats', MasterStatsController::class);
 
     Route::apiResource('/master/country', MasterCountryController::class);
@@ -72,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Role = Jabatan management (editable roles + permission matrix + classification)
     Route::get('/master/roles/options', [MasterRoleController::class, 'options']);
     Route::get('/master/roles/permissions', [MasterRoleController::class, 'permissions']);
+    Route::get('/master/roles/permission-sets', [MasterRoleController::class, 'permissionSets']);
     Route::apiResource('/master/roles', MasterRoleController::class);
 
     Route::get('/master/role-groups/options', [MasterRoleGroupController::class, 'options']);

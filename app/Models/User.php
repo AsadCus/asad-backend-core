@@ -114,29 +114,15 @@ class User extends Authenticatable
         return $this->ghostUser()->exists();
     }
 
-    public function isSuperadminGhost(): bool
-    {
-        return $this->isGhostUser() && $this->hasRole('administrator');
-    }
-
     /**
-     * Whether the user holds any full-access role (e.g. administrator).
-     * Full-access roles implicitly carry every permission, current and future.
-     */
-    public function hasFullAccessRole(): bool
-    {
-        return $this->roles()->where('is_full_access', true)->exists();
-    }
-
-    /**
-     * Effective permission names: all permissions for full-access users,
-     * otherwise the permissions granted via their roles.
+     * Effective permission names: every permission for a ghost (the lone bypass),
+     * otherwise the permissions granted via the user's roles.
      *
      * @return Collection<int, string>
      */
     public function effectivePermissionNames(): Collection
     {
-        if ($this->isGhostUser() || $this->hasFullAccessRole()) {
+        if ($this->isGhostUser()) {
             return Permission::query()->orderBy('name')->pluck('name');
         }
 

@@ -340,7 +340,7 @@ class ReportTemplateTest extends TestCase
     public function test_file_size_limit_is_enforced(): void
     {
         $user = $this->createGhostAdminUser();
-        $file = UploadedFile::fake()->image('logo.png')->size(3000); // 3MB
+        $file = UploadedFile::fake()->image('logo.png')->size(6000); // 6MB, over the 5MB limit
 
         $response = $this
             ->actingAs($user)

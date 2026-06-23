@@ -22,7 +22,7 @@ class MenuOverrideFactory extends Factory
             'zone' => null,
             'sort_order' => null,
             'is_hidden' => false,
-            'roles' => null,
+            'permission' => null,
         ];
     }
 }

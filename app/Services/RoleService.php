@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Role;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 
 class RoleService
@@ -48,6 +47,27 @@ class RoleService
             ->all();
     }
 
+    /**
+     * Every role with its explicit permission names — drives the frontend "preview as role"
+     * switcher (pick a role, see the nav its permission set produces).
+     *
+     * @return array<int, array{id: int, name: string, label: string, permissions: array<int, string>}>
+     */
+    public function permissionSets(): array
+    {
+        return Role::query()
+            ->with('permissions')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Role $role) => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'label' => $role->label ?: Str::headline($role->name),
+                'permissions' => $role->permissions->pluck('name')->all(),
+            ])
+            ->all();
+    }
+
     public function getForEditShow($id): array
     {
         $role = Role::with(['roleGroup', 'managementLevel'])->findOrFail($id);
@@ -69,8 +89,6 @@ class RoleService
                 'description' => $data['description'] ?? null,
                 'role_group_id' => $data['role_group_id'] ?? null,
                 'management_level_id' => $data['management_level_id'] ?? null,
-                'is_system' => false,
-                'is_full_access' => $this->resolveFullAccess($data),
             ]);
 
             $role->syncPermissions($data['permissions'] ?? []);
@@ -86,20 +104,12 @@ class RoleService
         return DB::transaction(function () use ($data, $id) {
             $role = Role::findOrFail($id);
 
-            // Only a ghost may edit a full-access role (so an admin can't tamper with the top tier).
-            if ($role->is_full_access && ! $this->actorIsGhost()) {
-                throw ValidationException::withMessages([
-                    'is_full_access' => ['Only a ghost user may edit a full-access role.'],
-                ]);
-            }
-
             // Machine name stays immutable; only label/metadata/permissions change.
             $role->update([
                 'label' => $data['label'],
                 'description' => $data['description'] ?? null,
                 'role_group_id' => $data['role_group_id'] ?? null,
                 'management_level_id' => $data['management_level_id'] ?? null,
-                'is_full_access' => $this->resolveFullAccess($data, $role),
             ]);
 
             $role->syncPermissions($data['permissions'] ?? []);
@@ -118,32 +128,11 @@ class RoleService
             return false;
         }
 
-        if ($role->is_system) {
-            throw ValidationException::withMessages([
-                'id' => ['System roles cannot be deleted.'],
-            ]);
-        }
-
         $role->delete();
 
         activity()->performedOn($role)->log('Role deleted successfully #'.($role->id ?? null));
 
         return true;
-    }
-
-    private function resolveFullAccess(array $data, ?Role $existing = null): bool
-    {
-        $requested = (bool) ($data['is_full_access'] ?? ($existing?->is_full_access ?? false));
-
-        // Full-access can only be granted/kept by a ghost; non-ghosts can't escalate.
-        return $requested && $this->actorIsGhost();
-    }
-
-    private function actorIsGhost(): bool
-    {
-        $user = auth()->user();
-
-        return $user !== null && method_exists($user, 'isGhostUser') && $user->isGhostUser();
     }
 
     private function uniqueName(string $label): string
@@ -180,8 +169,6 @@ class RoleService
                 'name' => $role->managementLevel->name,
                 'color' => $role->managementLevel->color,
             ] : null,
-            'is_system' => (bool) $role->is_system,
-            'is_full_access' => (bool) $role->is_full_access,
             'permissions_count' => $role->permissions_count ?? $role->permissions()->count(),
             'users_count' => $role->users()->count(),
         ];

@@ -17,8 +17,10 @@ class EnsureGhostAdmin
     {
         $user = $request->user();
 
+        // Ghost is the lone bypass and stands purely on the ghost_users relation —
+        // it must not depend on any role name (admin is just an editable role).
         abort_unless(
-            $user !== null && $user->hasRole('administrator') && $user->isGhostUser(),
+            $user !== null && $user->isGhostUser(),
             403,
             'You do not have the required role or permission to access this resource.'
         );

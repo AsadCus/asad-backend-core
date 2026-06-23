@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\GhostUser;
 use App\Models\Shift;
 use App\Models\User;
 use App\Models\WorkSchedule;
@@ -182,7 +183,10 @@ class AttendanceApiTest extends TestCase
         $this->actingAs($me, 'sanctum');
         $this->getJson('/api/attendances')->assertOk()->assertJsonCount(1);
 
+        // A ghost is unbounded, so it sees every employee's rows. (A plain administrator is now
+        // scoped like anyone else — it sees everything only when anchored at the org root.)
         $admin = $this->makeUser('administrator');
+        GhostUser::create(['user_id' => (int) $admin->id]);
         $this->actingAs($admin, 'sanctum');
         $this->getJson('/api/attendances')->assertOk()->assertJsonCount(2);
     }

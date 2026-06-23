@@ -32,7 +32,7 @@ class SuperadminGhostFeatureBypassTest extends TmsTestCase
     private function createSuperadminGhost(): User
     {
         $user = User::factory()->create();
-        // Elevation keys on the administrator role; superadmin keeps the TMS route role-gate access.
+        // Ghost is the bypass; the superadmin role just keeps the TMS route role-gate access.
         $user->assignRole(['superadmin', 'administrator']);
 
         GhostUser::create([
@@ -43,8 +43,8 @@ class SuperadminGhostFeatureBypassTest extends TmsTestCase
     }
 
     /**
-     * A ghost user without the administrator role is not elevated, so it does
-     * not receive the superadmin-ghost feature bypass.
+     * A ghost user without the administrator role. It is still a full ghost — the bypass now
+     * stands on the ghost relation alone, regardless of role.
      */
     private function createNonSuperadminGhost(): User
     {
@@ -75,13 +75,14 @@ class SuperadminGhostFeatureBypassTest extends TmsTestCase
             ->assertOk();
     }
 
-    public function test_disabled_flag_blocks_non_superadmin_ghost(): void
+    public function test_disabled_flag_allows_any_ghost_regardless_of_role(): void
     {
         config(['customer_history.enabled' => false]);
 
+        // Ghost bypass is role-independent — it stands on the ghost relation alone.
         $this->actingAs($this->createNonSuperadminGhost())
             ->get(route('customer-history.index'))
-            ->assertNotFound();
+            ->assertOk();
     }
 
     public function test_shared_feature_props_reflect_superadmin_ghost_bypass(): void
@@ -114,17 +115,21 @@ class SuperadminGhostFeatureBypassTest extends TmsTestCase
             );
     }
 
-    public function test_documentation_visibility_requires_superadmin_ghost_when_flag_disabled(): void
+    public function test_documentation_visibility_requires_a_ghost_when_flag_disabled(): void
     {
         config(['documentation.visible_to_all_users' => false]);
 
-        $this->actingAs($this->createNonSuperadminGhost())
+        // A non-ghost (even superadmin) cannot see documentation when the flag is off.
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+        $this->actingAs($superadmin)
             ->get(route('quotation.index'))
             ->assertInertia(
                 fn (Assert $page) => $page->where('auth.can_view_documentation', false)
             );
 
-        $this->actingAs($this->createSuperadminGhost())
+        // Any ghost sees it — the bypass is role-independent.
+        $this->actingAs($this->createNonSuperadminGhost())
             ->get(route('quotation.index'))
             ->assertInertia(
                 fn (Assert $page) => $page->where('auth.can_view_documentation', true)

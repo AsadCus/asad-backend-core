@@ -109,7 +109,7 @@ class GhostUserVisibilityTest extends TestCase
         $this->assertTrue($rows->contains(fn ($row): bool => (int) $row->id === (int) $normalAdmin->id));
     }
 
-    public function test_non_admin_ghost_is_not_elevated_to_superadmin_ghost(): void
+    public function test_ghost_status_is_independent_of_role(): void
     {
         Role::findOrCreate('sales', 'web');
 
@@ -122,10 +122,8 @@ class GhostUserVisibilityTest extends TestCase
 
         $salesUser->load('ghostUser');
 
-        // Elevation is gated at check-time on the administrator role: a ghost
-        // record on a non-administrator never grants superadmin-ghost powers.
+        // Ghost stands purely on the ghost_users relation — no role name required or implied.
         $this->assertTrue($salesUser->isGhostUser());
-        $this->assertFalse($salesUser->isSuperadminGhost());
     }
 
     public function test_documentation_visibility_follows_config_and_ghost_status(): void
@@ -136,7 +134,7 @@ class GhostUserVisibilityTest extends TestCase
         Config::set('documentation.visible_to_all_users', false);
 
         $ghostAdmin = User::factory()->create();
-        // Documentation visibility for ghosts keys on isSuperadminGhost() -> administrator role.
+        // Documentation visibility for ghosts now keys purely on the ghost relation (isGhostUser).
         $ghostAdmin->assignRole(['superadmin', 'administrator']);
 
         GhostUser::create([

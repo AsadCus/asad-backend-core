@@ -19,6 +19,7 @@ return new class extends Migration
             $table->decimal('check_in_lat', 10, 8)->nullable();
             $table->decimal('check_in_lng', 11, 8)->nullable();
             $table->string('check_in_photo_path')->nullable();
+            $table->string('check_in_location')->nullable(); // reverse-geocoded address
             $table->foreignId('check_in_branch_id')->nullable()->constrained('branches')->nullOnDelete();
 
             // Check-out
@@ -26,6 +27,7 @@ return new class extends Migration
             $table->decimal('check_out_lat', 10, 8)->nullable();
             $table->decimal('check_out_lng', 11, 8)->nullable();
             $table->string('check_out_photo_path')->nullable();
+            $table->string('check_out_location')->nullable(); // reverse-geocoded address
             $table->foreignId('check_out_branch_id')->nullable()->constrained('branches')->nullOnDelete();
 
             $table->string('status')->default('absent');

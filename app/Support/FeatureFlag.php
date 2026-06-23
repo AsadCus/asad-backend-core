@@ -9,7 +9,7 @@ class FeatureFlag
     /**
      * Determine whether a feature flag is enabled for the given user.
      *
-     * Disabled flags remain accessible to superadmin ghost users so they
+     * Disabled flags remain accessible to ghost users so they
      * can verify gated features in any environment.
      */
     public static function enabled(string $configKey, ?User $user = null, bool $default = true): bool
@@ -20,6 +20,6 @@ class FeatureFlag
 
         $user ??= auth()->user();
 
-        return $user instanceof User && $user->isSuperadminGhost();
+        return $user instanceof User && $user->isGhostUser();
     }
 }

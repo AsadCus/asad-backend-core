@@ -98,8 +98,8 @@ class Employee extends Model
     }
 
     /**
-     * Data-scope anchor: the explicit anchor, else the employee's own branch
-     * (least privilege).
+     * Data-scope anchor: the explicit anchor, else the employee's own placement
+     * (they see their own org-unit's subtree by default).
      */
     public function resolveScopeOrgUnit(): ?OrgUnit
     {
@@ -107,7 +107,7 @@ class Employee extends Model
             return $this->scopeOrgUnit;
         }
 
-        return $this->resolveWorkLocation();
+        return $this->orgUnit;
     }
 
     public function religion(): BelongsTo

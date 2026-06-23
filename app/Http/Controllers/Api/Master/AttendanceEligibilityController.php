@@ -51,8 +51,7 @@ class AttendanceEligibilityController extends Controller
     {
         $user = $request->user();
 
-        $canManage = $user?->can('hris.attendance-eligibility manage')
-            || $user?->hasAnyRole(['administrator', 'admin', 'superadmin']);
+        $canManage = (bool) $user?->can('hris.attendance-eligibility manage');
 
         if (! $canManage) {
             Log::warning('Attendance eligibility access denied', [

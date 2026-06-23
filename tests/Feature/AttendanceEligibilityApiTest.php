@@ -99,17 +99,12 @@ class AttendanceEligibilityApiTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_legacy_admin_aliases_can_manage_eligibility(): void
+    public function test_legacy_admin_aliases_without_permission_are_forbidden(): void
     {
-        $employee = $this->makeEmployee();
-
+        // Role-name fallbacks are gone — access requires the explicit permission, not a role name.
         foreach (['admin', 'superadmin'] as $role) {
-            $legacyAdmin = $this->makeLegacyAdminAlias($role);
-            $this->actingAs($legacyAdmin, 'sanctum');
-
-            $this->getJson('/api/master/attendance-eligibility')
-                ->assertOk()
-                ->assertJsonFragment(['id' => $employee->id]);
+            $this->actingAs($this->makeLegacyAdminAlias($role), 'sanctum');
+            $this->getJson('/api/master/attendance-eligibility')->assertStatus(403);
         }
     }
 }

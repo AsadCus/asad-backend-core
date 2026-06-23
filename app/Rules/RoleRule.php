@@ -13,7 +13,6 @@ class RoleRule
             'description' => ['nullable', 'string', 'max:500'],
             'role_group_id' => ['nullable', 'integer', Rule::exists('role_groups', 'id')],
             'management_level_id' => ['nullable', 'integer', Rule::exists('management_levels', 'id')],
-            'is_full_access' => ['boolean'],
             'permissions' => ['array'],
             'permissions.*' => ['string', Rule::exists('permissions', 'name')],
         ];

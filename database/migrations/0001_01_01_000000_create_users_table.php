@@ -18,6 +18,10 @@ return new class extends Migration
             $table->string('contact')->nullable();
             $table->string('photo_profile')->nullable();
             $table->json('selected_country_ids')->nullable();
+            // Org switcher's active selection (narrowing within allowed scope). ponytail: no FK
+            // here — org_units is created later in the run; integrity is app-enforced (HrisScope
+            // validates canAccess) and org_units are soft-deleted, so no dangling hard-deletes.
+            $table->unsignedBigInteger('selected_org_unit_id')->nullable()->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
             $table->rememberToken();

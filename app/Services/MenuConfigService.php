@@ -22,7 +22,7 @@ class MenuConfigService
     {
         return [
             'overrides' => MenuOverride::query()->get([
-                'menu_key', 'label', 'icon', 'zone', 'sort_order', 'is_hidden', 'roles',
+                'menu_key', 'label', 'icon', 'zone', 'sort_order', 'is_hidden', 'permission',
             ])->map(fn (MenuOverride $o) => [
                 'menu_key' => $o->menu_key,
                 'label' => $o->label,
@@ -30,7 +30,7 @@ class MenuConfigService
                 'zone' => $o->zone,
                 'sort_order' => $o->sort_order,
                 'is_hidden' => $o->is_hidden,
-                'roles' => $o->roles,
+                'permission' => $o->permission,
             ])->all(),
 
             'myPrefs' => MenuUserPreference::query()
@@ -69,7 +69,7 @@ class MenuConfigService
                         'zone' => $row['zone'] ?? null,
                         'sort_order' => $row['sort_order'] ?? null,
                         'is_hidden' => $row['is_hidden'] ?? false,
-                        'roles' => $row['roles'] ?? null,
+                        'permission' => $row['permission'] ?? null,
                     ],
                 );
             }

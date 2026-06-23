@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
 
             // Recursive org tree (holding → BU → branch → department → division)
             OrgUnitSeeder::class,
+            OrgInfoSeeder::class,
 
             // Role classification masters (must exist before roles get their metadata)
             ManagementLevelSeeder::class,

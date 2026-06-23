@@ -3,14 +3,16 @@
 namespace App\Services;
 
 use App\Models\EmployeeSchedule;
+use App\Support\HrisScope;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeScheduleService
 {
     public function getForDataTable()
     {
-        return EmployeeSchedule::query()
-            ->with(['employee.user', 'workSchedule'])
+        return HrisScope::applyViaEmployee(
+            EmployeeSchedule::query()->with(['employee.user', 'workSchedule'])
+        )
             ->orderByDesc('effective_from')
             ->get()
             ->map(fn ($q) => [

@@ -30,6 +30,12 @@ class RoleController extends Controller
         return response()->json($this->roleService->permissionGroups());
     }
 
+    /** Every role + its permission names — for the frontend "preview as role" switcher. */
+    public function permissionSets(): JsonResponse
+    {
+        return response()->json($this->roleService->permissionSets());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->roleRule->rules());

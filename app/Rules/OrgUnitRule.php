@@ -14,6 +14,7 @@ class OrgUnitRule
             'type' => ['required', Rule::in(OrgUnitType::values())],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:100', Rule::unique('org_units', 'code')->ignore($id)],
+            'logo' => ['nullable', 'image', 'max:5120'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'address' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32'],

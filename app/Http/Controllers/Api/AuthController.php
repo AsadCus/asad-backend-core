@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Country;
+use App\Models\OrgUnit;
 use App\Models\User;
 use App\Services\CustomerService;
 use App\Services\NotificationService;
@@ -84,6 +85,12 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $assigned = $user->employee?->resolveScopeOrgUnit();
+        $activeId = $user->selected_org_unit_id;
+        $active = ($activeId !== null && HrisScope::canAccess((int) $activeId, $user))
+            ? OrgUnit::find($activeId)
+            : $assigned;
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -95,6 +102,8 @@ class AuthController extends Controller
             'is_ghost_user' => $user->isGhostUser(),
             'hris_scope' => [
                 'anchor_org_unit_id' => $user->employee?->scope_org_unit_id,
+                'assigned_org_unit' => $assigned?->toSummary(),
+                'active_org_unit' => $active?->toSummary(),
                 'unbounded' => HrisScope::isUnbounded($user),
             ],
             'hide_customer_from_user_management' => config('master.hide_customer_from_user_management', false),

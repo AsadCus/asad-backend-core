@@ -21,11 +21,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Ghosts and full-access roles implicitly pass every permission check, current and
-        // future. Ghost power comes from the flag (a Gate::before bypass), never from a role —
-        // so no amount of role editing can weaken a ghost.
+        // The ghost relation is the lone bypass: a ghost implicitly passes every permission
+        // check, current and future. It comes purely from the ghost_users relation, never from
+        // a role — so no amount of role editing can grant or weaken it.
         Gate::before(function (User $user, string $ability): ?bool {
-            return ($user->isGhostUser() || $user->hasFullAccessRole()) ? true : null;
+            return $user->isGhostUser() ? true : null;
         });
     }
 }

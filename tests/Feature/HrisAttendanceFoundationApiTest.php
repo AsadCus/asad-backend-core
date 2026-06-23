@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Employee;
+use App\Models\GhostUser;
 use App\Models\LeaveType;
-use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,11 +16,10 @@ class HrisAttendanceFoundationApiTest extends TestCase
 
     private function actingAdmin(): User
     {
-        Role::findOrCreate('administrator', 'web')->update(['is_full_access' => true]);
-        Role::findOrCreate('employee', 'web');
-
+        // Master CRUD is permission-gated; a ghost bypasses every gate, so it's the simplest
+        // "can do anything" actor now that the full-access flag is gone.
         $user = User::factory()->create();
-        $user->assignRole('administrator');
+        GhostUser::create(['user_id' => (int) $user->id]);
         $this->actingAs($user, 'sanctum');
 
         return $user;

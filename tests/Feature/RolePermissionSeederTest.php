@@ -6,6 +6,7 @@ use App\Models\Role;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class RolePermissionSeederTest extends TestCase
@@ -19,15 +20,15 @@ class RolePermissionSeederTest extends TestCase
 
         $roles = Role::query()->pluck('name')->sort()->values()->all();
 
-        // 5 immutable system roles + Director/Finance editable starters.
+        // 5 core roles + Director/Finance editable starters.
         $this->assertSame(
             ['administrator', 'director', 'employee', 'finance', 'hr', 'manager', 'supervisor'],
             $roles,
         );
 
-        $this->assertTrue(Role::findByName('administrator', 'web')->is_full_access);
-        $this->assertTrue(Role::findByName('administrator', 'web')->is_system);
-        $this->assertFalse(Role::findByName('director', 'web')->is_system);
+        // Administrator holds every permission explicitly (no full-access flag).
+        $admin = Role::findByName('administrator', 'web');
+        $this->assertSame(Permission::query()->count(), $admin->permissions()->count());
     }
 
     public function test_administrator_has_core_and_hris_permissions(): void
