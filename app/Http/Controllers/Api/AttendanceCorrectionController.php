@@ -34,7 +34,10 @@ class AttendanceCorrectionController extends Controller
 
         $validated = $request->validate($this->rule->storeRules());
 
-        return response()->json($this->service->store($user, $validated), 201);
+        return response()->json(
+            $this->service->store($user, $validated, $request->file('attachment')),
+            201,
+        );
     }
 
     public function show(Request $request, int $id): JsonResponse
