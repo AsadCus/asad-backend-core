@@ -19,7 +19,7 @@ class AttendanceCorrectionRule
             'requested_check_in' => ['nullable', 'date'],
             'requested_check_out' => ['nullable', 'date'],
             'attendance_id' => ['nullable', 'integer', 'exists:attendances,id'],
-            'attachment_path' => ['nullable', 'string', 'max:500'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ];
     }
 
