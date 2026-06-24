@@ -91,7 +91,10 @@ class AttendanceCorrectionService
             'requested_check_out' => $correction->requested_check_out?->toIso8601String(),
             'supervisor' => $correction->supervisor?->user?->name,
             'supervisor_note' => $correction->supervisor_note,
+            'supervisor_decided_at' => $correction->supervisor_decided_at?->toIso8601String(),
+            'hr' => $correction->hrUser?->name,
             'hr_note' => $correction->hr_note,
+            'hr_decided_at' => $correction->hr_decided_at?->toIso8601String(),
         ];
     }
 
@@ -284,6 +287,7 @@ class AttendanceCorrectionService
             'correction_no' => $c->correction_no,
             'employee_id' => $c->employee_id,
             'employee' => $c->employee?->user?->name ?? $c->employee?->employee_no,
+            'employee_email' => $c->employee?->user?->email,
             'date' => $c->date?->toDateString(),
             'correction_type' => $c->correction_type?->label(),
             'correction_type_value' => $c->correction_type?->value,

@@ -3,12 +3,62 @@
 namespace App\Services;
 
 use App\Models\EmployeeSchedule;
+use App\Models\User;
 use App\Support\HrisScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeScheduleService
 {
+    /**
+     * The authenticated employee's currently-active work schedule, broken down by weekday
+     * (Sun=0..Sat=6) with each workday's shift hours. Used by the employee-facing "My Schedule"
+     * screen and the Attendance page's today-shift card.
+     */
+    public function mySchedule(User $user): array
+    {
+        $employee = $user->employee;
+
+        if (! $employee) {
+            abort(422, 'No employee profile is linked to your account.');
+        }
+
+        $today = Carbon::today()->toDateString();
+
+        $schedule = $employee->employeeSchedules()
+            ->where('effective_from', '<=', $today)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $today);
+            })
+            ->with('workSchedule.workScheduleDays.shift')
+            ->orderByDesc('effective_from')
+            ->first();
+
+        if (! $schedule || ! $schedule->workSchedule) {
+            return [
+                'work_schedule_name' => null,
+                'effective_from' => null,
+                'days' => [],
+            ];
+        }
+
+        $days = $schedule->workSchedule->workScheduleDays
+            ->sortBy('day_of_week')
+            ->map(fn ($d) => [
+                'day_of_week' => $d->day_of_week,
+                'is_workday' => $d->is_workday,
+                'shift' => $d->is_workday && $d->shift ? $d->shift->toCardArray() : null,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'work_schedule_name' => $schedule->workSchedule->name,
+            'effective_from' => $schedule->effective_from?->format('Y-m-d'),
+            'days' => $days,
+        ];
+    }
+
     public function getForDataTable()
     {
         return HrisScope::applyViaEmployee(

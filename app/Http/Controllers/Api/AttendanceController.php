@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Rules\AttendanceRule;
 use App\Services\AttendanceService;
+use App\Services\EmployeeScheduleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,7 @@ class AttendanceController extends Controller
     public function __construct(
         private AttendanceService $service,
         private AttendanceRule $rule,
+        private EmployeeScheduleService $scheduleService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -34,6 +36,14 @@ class AttendanceController extends Controller
         abort_unless($user->canany(['hris.attendance check-in', 'hris.attendance view-own']), 403);
 
         return response()->json($this->service->todayForUser($user));
+    }
+
+    public function mySchedule(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->canany(['hris.attendance check-in', 'hris.attendance view-own']), 403);
+
+        return response()->json($this->scheduleService->mySchedule($user));
     }
 
     public function show(Request $request, int $id): JsonResponse

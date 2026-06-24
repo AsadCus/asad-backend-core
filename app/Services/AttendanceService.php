@@ -117,11 +117,7 @@ class AttendanceService
             'lock_reason' => $employee->attendance_lock_reason,
             // `open` = there is a session checked-in but not yet checked-out → show Check Out.
             'open' => (bool) ($row && $row->sessions->whereNull('check_out_at')->isNotEmpty()),
-            'shift' => $shift ? [
-                'name' => $shift->name,
-                'start_time' => $shift->start_time,
-                'end_time' => $shift->end_time,
-            ] : null,
+            'shift' => $shift?->toCardArray(),
             'attendance' => $row ? $this->mapRow($row) : null,
         ];
     }

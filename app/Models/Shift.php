@@ -33,4 +33,18 @@ class Shift extends Model
     {
         return $this->hasMany(WorkScheduleDay::class);
     }
+
+    /**
+     * Compact shift payload for attendance/schedule cards — times trimmed to HH:MM.
+     *
+     * @return array{name: string, start_time: string, end_time: string}
+     */
+    public function toCardArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'start_time' => substr($this->start_time, 0, 5),
+            'end_time' => substr($this->end_time, 0, 5),
+        ];
+    }
 }
