@@ -38,7 +38,7 @@ use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\UserLogsController as ApiUserLogsController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/quote/random', [QuoteController::class, 'random']);
+Route::get('/quote', [QuoteController::class]);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [PasswordController::class, 'resetPassword']);
