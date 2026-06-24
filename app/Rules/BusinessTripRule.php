@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use App\Enums\BusinessTripReportItemCategory;
+use App\Enums\WorkType;
 use Illuminate\Validation\Rule;
 
 class BusinessTripRule
@@ -12,7 +14,7 @@ class BusinessTripRule
     public function storeRules(): array
     {
         return [
-            'work_type' => ['required', 'in:so,operational'],
+            'work_type' => ['required', Rule::in(WorkType::values())],
             'so_reference' => ['required_if:work_type,so', 'nullable', 'string', 'max:100'],
             'project_name' => ['required', 'string', 'max:255'],
             'division' => ['nullable', 'string', 'max:255'],
@@ -60,7 +62,7 @@ class BusinessTripRule
     {
         return [
             'items' => ['required', 'array', 'min:1'],
-            'items.*.category' => ['required', Rule::in(['income', 'expense', 'settlement', 'ticket'])],
+            'items.*.category' => ['required', Rule::in(BusinessTripReportItemCategory::values())],
             'items.*.date' => ['required', 'date'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.kategori' => ['nullable', 'string', 'max:255'],

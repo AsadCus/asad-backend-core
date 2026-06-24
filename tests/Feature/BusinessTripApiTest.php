@@ -272,4 +272,46 @@ class BusinessTripApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('so_reference');
     }
+
+    public function test_only_the_assigned_leader_or_admin_can_approve_the_leader_stage(): void
+    {
+        [, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser] = $this->makeEmployeeUser('employee', ['supervisor_id' => $supervisor->id]);
+        [$otherSupUser] = $this->makeEmployeeUser('supervisor'); // has approve-leader, but not this trip's leader
+
+        $this->actingAs($empUser, 'sanctum');
+        $id = $this->postJson('/api/business-trips', $this->payload())->json('id');
+
+        // A different supervisor cannot approve a trip that isn't theirs.
+        $this->actingAs($otherSupUser, 'sanctum');
+        $this->postJson("/api/business-trips/{$id}/approve-leader")->assertStatus(403);
+
+        // The administrator escape hatch can act on any stage.
+        $admin = User::factory()->create();
+        $admin->assignRole('administrator');
+        $this->actingAs($admin, 'sanctum');
+        $this->postJson("/api/business-trips/{$id}/approve-leader")
+            ->assertOk()->assertJsonFragment(['status' => 'Pending HC']);
+    }
+
+    public function test_trip_without_a_supervisor_skips_the_leader_stage(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee'); // no supervisor_id
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/business-trips', $this->payload())
+            ->assertCreated()
+            ->assertJsonFragment(['status' => 'Pending HC']);
+    }
+
+    public function test_submitting_notifies_the_assigned_leader(): void
+    {
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser] = $this->makeEmployeeUser('employee', ['supervisor_id' => $supervisor->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/business-trips', $this->payload())->assertCreated();
+
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $supUser->id]);
+    }
 }

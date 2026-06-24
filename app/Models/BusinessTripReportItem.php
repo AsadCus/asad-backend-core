@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BusinessTripReportItemCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ class BusinessTripReportItem extends Model
     ];
 
     protected $casts = [
+        'category' => BusinessTripReportItemCategory::class,
         'date' => 'date',
         'amount' => 'integer',
     ];

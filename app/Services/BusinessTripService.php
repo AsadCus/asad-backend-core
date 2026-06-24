@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\BusinessTripReportStatus;
 use App\Enums\BusinessTripStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\WorkType;
 use App\Models\BusinessTrip;
 use App\Models\BusinessTripReportItem;
 use App\Models\Employee;
@@ -16,6 +18,27 @@ use Illuminate\Support\Str;
 
 class BusinessTripService
 {
+    /** Where approvers act on a trip / its report. */
+    private const APPROVER_LINK = '/business-trip/admin';
+
+    /** Where the requester tracks their own requests. */
+    private const REQUESTER_LINK = '/requests';
+
+    public function __construct(private HrisNotifier $notifier) {}
+
+    /** Notify the trip's requester (their own user). */
+    private function notifyRequester(BusinessTrip $trip, string $title, string $message): void
+    {
+        $this->notifier->notify($title, $message, self::REQUESTER_LINK, [$trip->employee?->user_id]);
+    }
+
+    /** Notify a specific employee's user (e.g. the assigned leader), if there is one. */
+    private function notifyEmployee(?int $employeeId, string $title, string $message): void
+    {
+        $userId = $employeeId ? Employee::query()->whereKey($employeeId)->value('user_id') : null;
+        $this->notifier->notify($title, $message, self::APPROVER_LINK, [$userId]);
+    }
+
     /**
      * Trip ids the user may read. Null = all (view-all).
      *
@@ -38,6 +61,27 @@ class BusinessTripService
         }
 
         return [$user->employee?->id ?? 0];
+    }
+
+    /**
+     * The leader stage is per-employee: only the trip's assigned leader may act on it. An
+     * administrator overrides every stage so a trip never gets stuck if the leader is unavailable.
+     */
+    private function assertLeader(User $user, ?int $leaderId): void
+    {
+        if ($user->hasRole('administrator')) {
+            return;
+        }
+
+        abort_unless($leaderId !== null && $user->employee?->id === $leaderId, 403, 'Only the assigned leader may act on this stage.');
+    }
+
+    /**
+     * Stage authority for the central (HC / finance) stages — administrator always passes.
+     */
+    private function assertCan(User $user, string $permission): void
+    {
+        abort_unless($user->hasRole('administrator') || $user->can($permission), 403, 'You may not act on this stage.');
     }
 
     /**
@@ -121,6 +165,9 @@ class BusinessTripService
         return DB::transaction(function () use ($employee, $data) {
             $grandTotal = $this->sumCostBreakdown($data['cost_breakdown']);
 
+            // No supervisor → skip the (empty) leader stage and start at HC.
+            $leaderId = $employee->supervisor_id;
+
             $trip = BusinessTrip::create([
                 'btr_no' => 'BTF/HCD/'.Carbon::now()->format('YmdHis').'-'.Str::upper(Str::random(4)),
                 'employee_id' => $employee->id,
@@ -143,11 +190,17 @@ class BusinessTripService
                 'cost_breakdown' => $data['cost_breakdown'],
                 'grand_total' => $grandTotal,
                 'members' => $data['members'] ?? [],
-                'status' => BusinessTripStatus::PendingLeader,
-                'leader_id' => $employee->supervisor_id,
+                'status' => $leaderId ? BusinessTripStatus::PendingLeader : BusinessTripStatus::PendingHc,
+                'leader_id' => $leaderId,
             ]);
 
             activity()->performedOn($trip)->log('Business trip submitted '.$trip->btr_no);
+
+            if ($leaderId) {
+                $this->notifyEmployee($leaderId, 'Business trip awaiting your approval', $trip->btr_no.' needs your leader approval.');
+            } else {
+                $this->notifier->notify('Business trip awaiting HC approval', $trip->btr_no.' needs HC approval.', self::APPROVER_LINK, [], 'hr');
+            }
 
             return $this->mapRow($trip->fresh('employee.user'));
         });
@@ -173,17 +226,22 @@ class BusinessTripService
      */
     public function approveLeader(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->status === BusinessTripStatus::PendingLeader, 422, 'This trip is not awaiting leader approval.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->status === BusinessTripStatus::PendingLeader, 422, 'This trip is not awaiting leader approval.');
+            $this->assertLeader($user, $trip->leader_id);
 
-        $trip->update([
-            'status' => BusinessTripStatus::PendingHc,
-            'leader_decided_at' => Carbon::now(),
-            'leader_note' => $note,
-        ]);
-        activity()->performedOn($trip)->log('Business trip approved by leader '.$trip->btr_no);
+            $trip->update([
+                'status' => BusinessTripStatus::PendingHc,
+                'leader_decided_at' => Carbon::now(),
+                'leader_note' => $note,
+            ]);
+            activity()->performedOn($trip)->log('Business trip approved by leader '.$trip->btr_no);
+            $this->notifier->notify('Business trip awaiting HC approval', $trip->btr_no.' was approved by the leader.', self::APPROVER_LINK, [], 'hr');
+            $this->notifyRequester($trip, 'Business trip approved by leader', $trip->btr_no.' moved to HC review.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -191,18 +249,22 @@ class BusinessTripService
      */
     public function approveHc(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->status === BusinessTripStatus::PendingHc, 422, 'This trip is not awaiting HC approval.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->status === BusinessTripStatus::PendingHc, 422, 'This trip is not awaiting HC approval.');
 
-        $trip->update([
-            'status' => BusinessTripStatus::PendingFinance,
-            'hc_user_id' => $user->id,
-            'hc_decided_at' => Carbon::now(),
-            'hc_note' => $note,
-        ]);
-        activity()->performedOn($trip)->log('Business trip approved by HC '.$trip->btr_no);
+            $trip->update([
+                'status' => BusinessTripStatus::PendingFinance,
+                'hc_user_id' => $user->id,
+                'hc_decided_at' => Carbon::now(),
+                'hc_note' => $note,
+            ]);
+            activity()->performedOn($trip)->log('Business trip approved by HC '.$trip->btr_no);
+            $this->notifier->notify('Business trip awaiting finance approval', $trip->btr_no.' was approved by HC.', self::APPROVER_LINK, [], 'administrator');
+            $this->notifyRequester($trip, 'Business trip approved by HC', $trip->btr_no.' moved to finance review.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -210,18 +272,21 @@ class BusinessTripService
      */
     public function approveFinance(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->status === BusinessTripStatus::PendingFinance, 422, 'This trip is not awaiting finance approval.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->status === BusinessTripStatus::PendingFinance, 422, 'This trip is not awaiting finance approval.');
 
-        $trip->update([
-            'status' => BusinessTripStatus::Approved,
-            'finance_user_id' => $user->id,
-            'finance_decided_at' => Carbon::now(),
-            'finance_note' => $note,
-        ]);
-        activity()->performedOn($trip)->log('Business trip approved by finance '.$trip->btr_no);
+            $trip->update([
+                'status' => BusinessTripStatus::Approved,
+                'finance_user_id' => $user->id,
+                'finance_decided_at' => Carbon::now(),
+                'finance_note' => $note,
+            ]);
+            activity()->performedOn($trip)->log('Business trip approved by finance '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Business trip approved', $trip->btr_no.' is fully approved and pending disbursement.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -229,26 +294,37 @@ class BusinessTripService
      */
     public function reject(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        $pending = [BusinessTripStatus::PendingLeader, BusinessTripStatus::PendingHc, BusinessTripStatus::PendingFinance];
-        abort_unless(in_array($trip->status, $pending, true), 422, 'This trip can no longer be rejected.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            $pending = [BusinessTripStatus::PendingLeader, BusinessTripStatus::PendingHc, BusinessTripStatus::PendingFinance];
+            abort_unless(in_array($trip->status, $pending, true), 422, 'This trip can no longer be rejected.');
 
-        $stageField = match ($trip->status) {
-            BusinessTripStatus::PendingLeader => 'leader_note',
-            BusinessTripStatus::PendingHc => 'hc_note',
-            BusinessTripStatus::PendingFinance => 'finance_note',
-            default => 'leader_note',
-        };
+            // Strict per-stage: only the current stage's approver may reject.
+            match ($trip->status) {
+                BusinessTripStatus::PendingLeader => $this->assertLeader($user, $trip->leader_id),
+                BusinessTripStatus::PendingHc => $this->assertCan($user, 'hris.business-trip approve-hc'),
+                BusinessTripStatus::PendingFinance => $this->assertCan($user, 'hris.business-trip approve-finance'),
+                default => null,
+            };
 
-        $trip->update([
-            'status' => BusinessTripStatus::Rejected,
-            $stageField => $note,
-            ...($trip->status === BusinessTripStatus::PendingHc ? ['hc_user_id' => $user->id] : []),
-            ...($trip->status === BusinessTripStatus::PendingFinance ? ['finance_user_id' => $user->id] : []),
-        ]);
-        activity()->performedOn($trip)->log('Business trip rejected '.$trip->btr_no);
+            $stageField = match ($trip->status) {
+                BusinessTripStatus::PendingLeader => 'leader_note',
+                BusinessTripStatus::PendingHc => 'hc_note',
+                BusinessTripStatus::PendingFinance => 'finance_note',
+                default => 'leader_note',
+            };
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            $trip->update([
+                'status' => BusinessTripStatus::Rejected,
+                $stageField => $note,
+                ...($trip->status === BusinessTripStatus::PendingHc ? ['hc_user_id' => $user->id] : []),
+                ...($trip->status === BusinessTripStatus::PendingFinance ? ['finance_user_id' => $user->id] : []),
+            ]);
+            activity()->performedOn($trip)->log('Business trip rejected '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Business trip rejected', $trip->btr_no.' was rejected.');
+
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -258,15 +334,17 @@ class BusinessTripService
      */
     public function cancel(User $user, int $id): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->employee_id === $user->employee?->id, 403, 'You may only cancel your own business trip.');
-        $pending = [BusinessTripStatus::PendingLeader, BusinessTripStatus::PendingHc, BusinessTripStatus::PendingFinance];
-        abort_unless(in_array($trip->status, $pending, true), 422, 'This trip can no longer be cancelled.');
+        return DB::transaction(function () use ($user, $id) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->employee_id === $user->employee?->id, 403, 'You may only cancel your own business trip.');
+            $pending = [BusinessTripStatus::PendingLeader, BusinessTripStatus::PendingHc, BusinessTripStatus::PendingFinance];
+            abort_unless(in_array($trip->status, $pending, true), 422, 'This trip can no longer be cancelled.');
 
-        $trip->update(['status' => BusinessTripStatus::Cancelled]);
-        activity()->performedOn($trip)->log('Business trip cancelled '.$trip->btr_no);
+            $trip->update(['status' => BusinessTripStatus::Cancelled]);
+            activity()->performedOn($trip)->log('Business trip cancelled '.$trip->btr_no);
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -276,14 +354,17 @@ class BusinessTripService
      */
     public function markPaid(User $user, int $id): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->status === BusinessTripStatus::Approved, 422, 'This trip is not approved yet.');
-        abort_unless($trip->payment_status === 'unpaid', 422, 'This trip has already been paid.');
+        return DB::transaction(function () use ($id) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->status === BusinessTripStatus::Approved, 422, 'This trip is not approved yet.');
+            abort_unless($trip->payment_status === PaymentStatus::Unpaid, 422, 'This trip has already been paid.');
 
-        $trip->update(['payment_status' => 'paid', 'paid_at' => Carbon::now()]);
-        activity()->performedOn($trip)->log('Business trip disbursed '.$trip->btr_no);
+            $trip->update(['payment_status' => PaymentStatus::Paid, 'paid_at' => Carbon::now()]);
+            activity()->performedOn($trip)->log('Business trip disbursed '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Business trip disbursed', $trip->btr_no.' has been paid out — submit your report after the trip.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -299,14 +380,18 @@ class BusinessTripService
     {
         $trip = BusinessTrip::findOrFail($id);
         abort_unless($trip->employee_id === $user->employee?->id, 403, 'You may only report your own business trip.');
-        abort_unless($trip->payment_status === 'paid', 422, 'This trip has not been disbursed yet.');
+        abort_unless($trip->payment_status === PaymentStatus::Paid, 422, 'This trip has not been disbursed yet.');
 
         return DB::transaction(function () use ($trip, $items) {
+            // Items are replaced wholesale; remember the old receipt files so we can prune the
+            // ones no longer referenced after the rebuild (avoids orphaned uploads in storage).
+            $oldPaths = $trip->reportItems()->pluck('attachment_path')->filter()->values()->all();
             $trip->reportItems()->delete();
 
             $totals = ['income' => 0, 'expense' => 0, 'settlement' => 0, 'ticket' => 0];
             $receiptBacked = 0;
             $receiptable = 0; // expense + ticket — the categories a receipt actually proves.
+            $keptPaths = [];
 
             foreach ($items as $item) {
                 $amount = (int) round((float) $item['amount']);
@@ -317,6 +402,9 @@ class BusinessTripService
                 $attachmentPath = $attachment
                     ? $attachment->store("business-trips/{$trip->employee_id}", 'public')
                     : ($item['attachment_path'] ?? null);
+                if ($attachmentPath) {
+                    $keptPaths[] = $attachmentPath;
+                }
 
                 if (in_array($item['category'], ['expense', 'ticket'], true)) {
                     $receiptable += $amount;
@@ -336,6 +424,12 @@ class BusinessTripService
                 ]);
             }
 
+            // Prune receipt files no longer referenced after the wholesale replace.
+            $orphans = array_diff($oldPaths, $keptPaths);
+            if ($orphans !== []) {
+                Storage::disk('public')->delete($orphans);
+            }
+
             $actualCost = $totals['expense'] + $totals['ticket'];
             $variance = $totals['income'] - $actualCost - $totals['settlement'];
             $percentage = $receiptable > 0 ? (int) round($receiptBacked / $receiptable * 100) : 100;
@@ -347,7 +441,7 @@ class BusinessTripService
                 'variance' => $variance,
                 'report_percentage' => $percentage,
                 'report_submitted_at' => Carbon::now(),
-                'report_status' => BusinessTripReportStatus::PendingLeader,
+                'report_status' => $trip->leader_id ? BusinessTripReportStatus::PendingLeader : BusinessTripReportStatus::PendingFinance,
                 'report_leader_id' => $trip->leader_id,
                 'report_leader_decided_at' => null,
                 'report_leader_note' => null,
@@ -357,6 +451,12 @@ class BusinessTripService
                 'balance_settled' => false,
             ]);
             activity()->performedOn($trip)->log('Business trip report submitted '.$trip->btr_no);
+
+            if ($trip->leader_id) {
+                $this->notifyEmployee($trip->leader_id, 'Trip report awaiting your approval', $trip->btr_no.' report needs your approval.');
+            } else {
+                $this->notifier->notify('Trip report awaiting finance approval', $trip->btr_no.' report needs finance approval.', self::APPROVER_LINK, [], 'administrator');
+            }
 
             return $this->mapRow($trip->fresh('employee.user'));
         });
@@ -399,17 +499,22 @@ class BusinessTripService
      */
     public function approveReportLeader(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->report_status === BusinessTripReportStatus::PendingLeader, 422, 'This report is not awaiting leader approval.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->report_status === BusinessTripReportStatus::PendingLeader, 422, 'This report is not awaiting leader approval.');
+            $this->assertLeader($user, $trip->report_leader_id);
 
-        $trip->update([
-            'report_status' => BusinessTripReportStatus::PendingFinance,
-            'report_leader_decided_at' => Carbon::now(),
-            'report_leader_note' => $note,
-        ]);
-        activity()->performedOn($trip)->log('Business trip report approved by leader '.$trip->btr_no);
+            $trip->update([
+                'report_status' => BusinessTripReportStatus::PendingFinance,
+                'report_leader_decided_at' => Carbon::now(),
+                'report_leader_note' => $note,
+            ]);
+            activity()->performedOn($trip)->log('Business trip report approved by leader '.$trip->btr_no);
+            $this->notifier->notify('Trip report awaiting finance approval', $trip->btr_no.' report approved by leader.', self::APPROVER_LINK, [], 'administrator');
+            $this->notifyRequester($trip, 'Trip report approved by leader', $trip->btr_no.' report moved to finance.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -417,18 +522,21 @@ class BusinessTripService
      */
     public function approveReportFinance(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->report_status === BusinessTripReportStatus::PendingFinance, 422, 'This report is not awaiting finance approval.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->report_status === BusinessTripReportStatus::PendingFinance, 422, 'This report is not awaiting finance approval.');
 
-        $trip->update([
-            'report_status' => BusinessTripReportStatus::Approved,
-            'report_finance_user_id' => $user->id,
-            'report_finance_decided_at' => Carbon::now(),
-            'report_finance_note' => $note,
-        ]);
-        activity()->performedOn($trip)->log('Business trip report approved by finance '.$trip->btr_no);
+            $trip->update([
+                'report_status' => BusinessTripReportStatus::Approved,
+                'report_finance_user_id' => $user->id,
+                'report_finance_decided_at' => Carbon::now(),
+                'report_finance_note' => $note,
+            ]);
+            activity()->performedOn($trip)->log('Business trip report approved by finance '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Trip report approved', $trip->btr_no.' report is approved.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -436,21 +544,31 @@ class BusinessTripService
      */
     public function rejectReport(User $user, int $id, ?string $note): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        $pending = [BusinessTripReportStatus::PendingLeader, BusinessTripReportStatus::PendingFinance];
-        abort_unless(in_array($trip->report_status, $pending, true), 422, 'This report can no longer be rejected.');
+        return DB::transaction(function () use ($user, $id, $note) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            $pending = [BusinessTripReportStatus::PendingLeader, BusinessTripReportStatus::PendingFinance];
+            abort_unless(in_array($trip->report_status, $pending, true), 422, 'This report can no longer be rejected.');
 
-        $stageField = $trip->report_status === BusinessTripReportStatus::PendingFinance
-            ? 'report_finance_note' : 'report_leader_note';
+            // Strict per-stage: only the current stage's approver may reject.
+            match ($trip->report_status) {
+                BusinessTripReportStatus::PendingLeader => $this->assertLeader($user, $trip->report_leader_id),
+                BusinessTripReportStatus::PendingFinance => $this->assertCan($user, 'hris.business-trip approve-finance'),
+                default => null,
+            };
 
-        $trip->update([
-            'report_status' => BusinessTripReportStatus::Rejected,
-            $stageField => $note,
-            ...($trip->report_status === BusinessTripReportStatus::PendingFinance ? ['report_finance_user_id' => $user->id] : []),
-        ]);
-        activity()->performedOn($trip)->log('Business trip report rejected '.$trip->btr_no);
+            $stageField = $trip->report_status === BusinessTripReportStatus::PendingFinance
+                ? 'report_finance_note' : 'report_leader_note';
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            $trip->update([
+                'report_status' => BusinessTripReportStatus::Rejected,
+                $stageField => $note,
+                ...($trip->report_status === BusinessTripReportStatus::PendingFinance ? ['report_finance_user_id' => $user->id] : []),
+            ]);
+            activity()->performedOn($trip)->log('Business trip report rejected '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Trip report rejected', $trip->btr_no.' report was rejected — please revise and resubmit.');
+
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -461,13 +579,16 @@ class BusinessTripService
      */
     public function settleBalance(User $user, int $id): array
     {
-        $trip = BusinessTrip::findOrFail($id);
-        abort_unless($trip->report_status === BusinessTripReportStatus::Approved, 422, 'This trip report has not been approved yet.');
+        return DB::transaction(function () use ($id) {
+            $trip = BusinessTrip::lockForUpdate()->findOrFail($id);
+            abort_unless($trip->report_status === BusinessTripReportStatus::Approved, 422, 'This trip report has not been approved yet.');
 
-        $trip->update(['balance_settled' => true]);
-        activity()->performedOn($trip)->log('Business trip balance settled '.$trip->btr_no);
+            $trip->update(['balance_settled' => true]);
+            activity()->performedOn($trip)->log('Business trip balance settled '.$trip->btr_no);
+            $this->notifyRequester($trip, 'Trip balance settled', $trip->btr_no.' balance has been settled — this trip is complete.');
 
-        return $this->mapRow($trip->fresh('employee.user'));
+            return $this->mapRow($trip->fresh('employee.user'));
+        });
     }
 
     /**
@@ -481,7 +602,7 @@ class BusinessTripService
             'employee_id' => $t->employee_id,
             'employee' => $t->employee?->user?->name ?? $t->employee?->employee_no,
             'employee_email' => $t->employee?->user?->email,
-            'so_or_operational' => $t->so_reference ?: ($t->work_type === 'operational' ? 'Operational' : null),
+            'so_or_operational' => $t->so_reference ?: ($t->work_type === WorkType::Operational ? 'Operational' : null),
             'city' => $t->city,
             'depart_at' => $t->depart_at?->format('Y-m-d'),
             'return_at' => $t->return_at?->format('Y-m-d'),
@@ -503,7 +624,7 @@ class BusinessTripService
             'report_leader_approved' => $t->report_leader_decided_at !== null,
             'report_finance_approved' => $t->report_finance_decided_at !== null,
             'balance_settled' => $t->balance_settled,
-            'created_at' => $t->created_at?->format('Y-m-d'),
+            'created_at' => $t->created_at?->toIso8601String(),
         ];
     }
 }

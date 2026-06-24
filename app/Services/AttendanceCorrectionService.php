@@ -17,6 +17,18 @@ use Illuminate\Support\Str;
 
 class AttendanceCorrectionService
 {
+    private const APPROVER_LINK = '/approvals';
+
+    private const REQUESTER_LINK = '/requests';
+
+    public function __construct(private HrisNotifier $notifier) {}
+
+    /** Notify the correction's requester (their own user). */
+    private function notifyRequester(AttendanceCorrection $correction, string $title, string $message): void
+    {
+        $this->notifier->notify($title, $message, self::REQUESTER_LINK, [$correction->employee?->user_id]);
+    }
+
     /**
      * Correction ids the user may read. Null = all (view-all).
      *
@@ -75,8 +87,8 @@ class AttendanceCorrectionService
         }
 
         return $this->mapRow($correction) + [
-            'requested_check_in' => $correction->requested_check_in?->format('Y-m-d H:i'),
-            'requested_check_out' => $correction->requested_check_out?->format('Y-m-d H:i'),
+            'requested_check_in' => $correction->requested_check_in?->toIso8601String(),
+            'requested_check_out' => $correction->requested_check_out?->toIso8601String(),
             'supervisor' => $correction->supervisor?->user?->name,
             'supervisor_note' => $correction->supervisor_note,
             'hr_note' => $correction->hr_note,
@@ -113,6 +125,11 @@ class AttendanceCorrectionService
 
             activity()->performedOn($correction)->log('Attendance correction submitted '.$correction->correction_no);
 
+            $supervisorUserId = $employee->supervisor_id
+                ? Employee::query()->whereKey($employee->supervisor_id)->value('user_id')
+                : null;
+            $this->notifier->notify('Attendance correction awaiting your approval', $correction->correction_no.' needs your approval.', self::APPROVER_LINK, [$supervisorUserId]);
+
             return $this->mapRow($correction->fresh('employee.user'));
         });
     }
@@ -133,6 +150,8 @@ class AttendanceCorrectionService
             'supervisor_note' => $note,
         ]);
         activity()->performedOn($correction)->log('Attendance correction approved by supervisor '.$correction->correction_no);
+        $this->notifier->notify('Attendance correction awaiting HR verification', $correction->correction_no.' was approved by the supervisor.', self::APPROVER_LINK, [], 'hr');
+        $this->notifyRequester($correction, 'Correction approved by supervisor', $correction->correction_no.' moved to HR verification.');
 
         return $this->mapRow($correction->fresh('employee.user'));
     }
@@ -158,6 +177,7 @@ class AttendanceCorrectionService
             $this->applyToAttendance($correction);
 
             activity()->performedOn($correction)->log('Attendance correction verified by HR '.$correction->correction_no);
+            $this->notifyRequester($correction, 'Correction approved', $correction->correction_no.' was verified and applied to your attendance.');
 
             return $this->mapRow($correction->fresh('employee.user'));
         });
@@ -183,6 +203,7 @@ class AttendanceCorrectionService
             ...($isHrStage ? ['hr_user_id' => $user->id] : []),
         ]);
         activity()->performedOn($correction)->log('Attendance correction rejected '.$correction->correction_no);
+        $this->notifyRequester($correction, 'Correction rejected', $correction->correction_no.' was rejected.');
 
         return $this->mapRow($correction->fresh('employee.user'));
     }

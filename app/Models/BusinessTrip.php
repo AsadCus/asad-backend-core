@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\BusinessTripReportStatus;
 use App\Enums\BusinessTripStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\WorkType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -65,10 +67,12 @@ class BusinessTrip extends Model
     ];
 
     protected $casts = [
-        'depart_at' => 'datetime',
-        'return_at' => 'datetime',
+        'depart_at' => 'date',
+        'return_at' => 'date',
         'cost_breakdown' => 'array',
         'members' => 'array',
+        'work_type' => WorkType::class,
+        'payment_status' => PaymentStatus::class,
         'status' => BusinessTripStatus::class,
         'leader_decided_at' => 'datetime',
         'hc_decided_at' => 'datetime',

@@ -13,10 +13,17 @@ class MenuOverrideSeeder extends Seeder
      */
     public function run(): void
     {
-        // Announcements menu is hidden by default until the feature is rolled out.
-        MenuOverride::firstOrCreate(
-            ['menu_key' => 'nav.announcements'],
-            ['is_hidden' => true],
-        );
+        // Menus kept in the registry (so they stay re-enablable from /system/menu) but hidden by
+        // default until their feature is rolled out. firstOrCreate = an admin re-enable wins.
+        $hiddenByDefault = [
+            'nav.announcements',   // company announcements — not rolled out yet
+            'nav.applyOvertime',   // overtime self-service — de-emphasised
+            'nav.overtimeReport',  // overtime report — de-emphasised
+            'nav.overtimeAdmin',   // overtime back-office — de-emphasised
+        ];
+
+        foreach ($hiddenByDefault as $menuKey) {
+            MenuOverride::firstOrCreate(['menu_key' => $menuKey], ['is_hidden' => true]);
+        }
     }
 }

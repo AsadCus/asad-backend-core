@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<LeaveRequest>
+ * @extends Factory<LeaveRequest>
  */
 class LeaveRequestFactory extends Factory
 {

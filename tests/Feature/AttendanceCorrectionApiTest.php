@@ -151,4 +151,24 @@ class AttendanceCorrectionApiTest extends TestCase
 
         $this->postJson("/api/attendance-corrections/{$id}/approve")->assertStatus(403);
     }
+
+    public function test_submit_notifies_supervisor_and_approval_notifies_requester(): void
+    {
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser] = $this->makeEmployeeUser('employee', ['supervisor_id' => $supervisor->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $id = $this->postJson('/api/attendance-corrections', [
+            'date' => '2026-06-10', 'correction_type' => 'other', 'reason' => 'Mine.',
+        ])->json('id');
+
+        // Submitting notifies the supervisor.
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $supUser->id]);
+
+        // Supervisor approval notifies the requester.
+        $this->actingAs($supUser, 'sanctum');
+        $this->postJson("/api/attendance-corrections/{$id}/approve", ['note' => 'ok'])->assertOk();
+
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $empUser->id]);
+    }
 }

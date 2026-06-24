@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\WorkScheduleDay;
 use App\Support\HrisScope;
 use Carbon\Carbon;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -142,7 +143,7 @@ class AttendanceService
             abort(403, 'You may not view this attendance record.');
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        /** @var FilesystemAdapter $disk */
         $disk = Storage::disk('public');
 
         return [
@@ -157,7 +158,7 @@ class AttendanceService
             'work_minutes' => $attendance->work_minutes,
             'shift' => $attendance->shift?->name,
             'check_in' => [
-                'at' => $attendance->check_in_at?->format('Y-m-d H:i:s'),
+                'at' => $attendance->check_in_at?->toIso8601String(),
                 'lat' => $attendance->check_in_lat,
                 'lng' => $attendance->check_in_lng,
                 'location' => $attendance->check_in_location,
@@ -165,7 +166,7 @@ class AttendanceService
                 'branch' => $attendance->checkInBranch?->name,
             ],
             'check_out' => [
-                'at' => $attendance->check_out_at?->format('Y-m-d H:i:s'),
+                'at' => $attendance->check_out_at?->toIso8601String(),
                 'lat' => $attendance->check_out_lat,
                 'lng' => $attendance->check_out_lng,
                 'location' => $attendance->check_out_location,
@@ -175,7 +176,7 @@ class AttendanceService
             // Per-session breakdown (the top-level check_in/check_out above stay the daily summary).
             'sessions' => $attendance->sessions->map(fn (AttendanceSession $s): array => [
                 'check_in' => [
-                    'at' => $s->check_in_at?->format('Y-m-d H:i:s'),
+                    'at' => $s->check_in_at?->toIso8601String(),
                     'lat' => $s->check_in_lat,
                     'lng' => $s->check_in_lng,
                     'location' => $s->check_in_location,
@@ -183,7 +184,7 @@ class AttendanceService
                     'branch' => $s->checkInBranch?->name,
                 ],
                 'check_out' => [
-                    'at' => $s->check_out_at?->format('Y-m-d H:i:s'),
+                    'at' => $s->check_out_at?->toIso8601String(),
                     'lat' => $s->check_out_lat,
                     'lng' => $s->check_out_lng,
                     'location' => $s->check_out_location,
@@ -375,7 +376,7 @@ class AttendanceService
                 'employee' => $e->user?->name ?? $e->employee_no,
                 'reason' => $e->attendance_lock_reason,
                 'dates' => $e->attendance_lock_dates ?? [],
-                'locked_at' => $e->attendance_locked_at?->format('Y-m-d H:i'),
+                'locked_at' => $e->attendance_locked_at?->toIso8601String(),
             ])
             ->all();
     }
@@ -494,8 +495,8 @@ class AttendanceService
             'employee_no' => $a->employee?->employee_no,
             'date' => $a->date?->toDateString(),
             'shift' => $a->shift?->name,
-            'time_in' => $a->check_in_at?->format('H:i'),
-            'time_out' => $a->check_out_at?->format('H:i'),
+            'time_in' => $a->check_in_at?->toIso8601String(),
+            'time_out' => $a->check_out_at?->toIso8601String(),
             'late_minutes' => (int) $a->late_minutes,
             'early_leave_minutes' => (int) $a->early_leave_minutes,
             'work_minutes' => (int) $a->work_minutes,
