@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\HrisScope;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeService
 {
+    public function __construct(private HrisUserService $accounts) {}
+
     public function getForDataTable()
     {
         return HrisScope::apply(Employee::query()->with(['user.roles', 'orgUnit']))
@@ -28,23 +31,28 @@ class EmployeeService
     public function getForFilter()
     {
         return Employee::query()
-            ->with('user')
-            ->orderBy('employee_no')
+            ->with('user.roles')
             ->get()
             ->map(fn ($q) => [
                 'value' => $q->id,
-                'label' => $q->employee_no.($q->user ? ' - '.$q->user->name : ''),
-            ]);
+                'label' => ($q->user?->name ?? $q->employee_no)
+                    .($q->user?->roles->first() ? ' ('.($q->user->roles->first()->label ?? $q->user->roles->first()->name).')' : ''),
+            ])
+            ->sortBy('label')
+            ->values();
     }
 
     public function getForEditShow($id)
     {
-        $employee = Employee::findOrFail($id);
+        $employee = Employee::with('user.roles')->findOrFail($id);
 
         return [
             'id' => $employee->id,
             'user_id' => $employee->user_id,
             'employee_no' => $employee->employee_no,
+            'name' => $employee->user?->name,
+            'email' => $employee->user?->email,
+            'role' => $employee->user?->roles->first()?->name,
             'nik' => $employee->nik,
             'gender' => $employee->gender?->value,
             'birth_date' => $employee->birth_date?->format('Y-m-d'),
@@ -68,7 +76,9 @@ class EmployeeService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $employee = Employee::create($data);
+            // One "person" = a login account (name/email/password/role) + an Employee profile.
+            $user = $this->accounts->provisionAccount($data);
+            $employee = Employee::create($this->employeeAttributes($data, $user, null));
 
             activity()->performedOn($employee)->log('Employee created successfully #'.($employee->id ?? null));
 
@@ -80,12 +90,42 @@ class EmployeeService
     {
         return DB::transaction(function () use ($data, $id) {
             $employee = Employee::findOrFail($id);
-            $employee->update($data);
+            $user = $this->accounts->provisionAccount($data, $employee->user_id);
+            $employee->update($this->employeeAttributes($data, $user, $employee));
 
             activity()->performedOn($employee)->log('Employee updated successfully #'.($employee->id ?? null));
 
             return $employee;
         });
+    }
+
+    /**
+     * Map the form payload to Employee columns. `employee_no` is auto-generated from the linked
+     * user id on first create and never regenerated; `user_id` links the login account.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function employeeAttributes(array $data, User $user, ?Employee $existing): array
+    {
+        return [
+            'user_id' => $user->id,
+            'employee_no' => $existing?->employee_no ?? sprintf('EMP-%04d', $user->id),
+            'nik' => $data['nik'] ?? null,
+            'gender' => $data['gender'] ?? null,
+            'birth_date' => $data['birth_date'] ?? null,
+            'hire_date' => $data['hire_date'],
+            'employment_status' => $data['employment_status'],
+            'termination_date' => $data['termination_date'] ?? null,
+            'org_unit_id' => $data['org_unit_id'] ?? null,
+            'work_location_org_unit_id' => $data['work_location_org_unit_id'] ?? null,
+            'supervisor_id' => $data['supervisor_id'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'address' => $data['address'] ?? null,
+            'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
+            'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
+            'is_active' => $data['is_active'] ?? true,
+        ];
     }
 
     public function delete($id)

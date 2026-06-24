@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ApprovalStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +39,21 @@ class LeaveRequest extends Model
         'supervisor_decided_at' => 'datetime',
         'hr_decided_at' => 'datetime',
     ];
+
+    /**
+     * Whether the employee has an approved leave covering the given date.
+     */
+    public static function approvedOnDate(int $employeeId, Carbon|string $date): bool
+    {
+        $date = ($date instanceof Carbon ? $date : Carbon::parse($date))->toDateString();
+
+        return static::query()
+            ->where('employee_id', $employeeId)
+            ->where('status', ApprovalStatus::Approved)
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->exists();
+    }
 
     public function employee(): BelongsTo
     {

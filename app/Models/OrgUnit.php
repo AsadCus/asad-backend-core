@@ -20,6 +20,7 @@ class OrgUnit extends Model
         'name',
         'code',
         'logo_path',
+        'default_work_schedule_id',
         'sort_order',
         'address',
         'phone',
@@ -27,6 +28,7 @@ class OrgUnit extends Model
         'latitude',
         'longitude',
         'geofence_radius_meters',
+        'has_location',
         'is_active',
     ];
 
@@ -36,6 +38,7 @@ class OrgUnit extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'geofence_radius_meters' => 'integer',
+        'has_location' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -57,6 +60,29 @@ class OrgUnit extends Model
     public function orgInfos(): HasMany
     {
         return $this->hasMany(OrgInfo::class);
+    }
+
+    public function defaultWorkSchedule(): BelongsTo
+    {
+        return $this->belongsTo(WorkSchedule::class, 'default_work_schedule_id');
+    }
+
+    /**
+     * The default work schedule id for this unit, inherited up the ancestor chain
+     * (a Department with none falls back to its Branch/BU/Holding default).
+     * Mirrors the logo fallback walk in {@see resolveLogoUrl()}.
+     */
+    public function resolveDefaultWorkScheduleId(): ?int
+    {
+        $node = $this;
+        while ($node !== null) {
+            if ($node->default_work_schedule_id) {
+                return (int) $node->default_work_schedule_id;
+            }
+            $node = $node->parent;
+        }
+
+        return null;
     }
 
     /**

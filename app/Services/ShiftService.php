@@ -26,7 +26,7 @@ class ShiftService
     {
         return Shift::query()->orderBy('name')->get()->map(fn ($q) => [
             'value' => $q->id,
-            'label' => $q->name,
+            'label' => $q->name.' ('.substr((string) $q->start_time, 0, 5).'–'.substr((string) $q->end_time, 0, 5).')',
         ]);
     }
 

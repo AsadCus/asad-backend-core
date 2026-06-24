@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EmployeeSchedule;
 use App\Support\HrisScope;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeScheduleService
@@ -43,6 +44,22 @@ class EmployeeScheduleService
 
     public function store(array $data)
     {
+        $from = (string) $data['effective_from'];
+
+        // If a schedule already covers the new start date, this is a *switch* — preserve history
+        // by closing that period and opening a new one instead of stacking overlapping rows.
+        $coversDate = EmployeeSchedule::query()
+            ->where('employee_id', $data['employee_id'])
+            ->where('effective_from', '<=', $from)
+            ->where(function ($q) use ($from) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $from);
+            })
+            ->exists();
+
+        if ($coversDate) {
+            return $this->changeSchedule((int) $data['employee_id'], (int) $data['work_schedule_id'], $from);
+        }
+
         return DB::transaction(function () use ($data) {
             $schedule = EmployeeSchedule::create($data);
 
@@ -59,6 +76,37 @@ class EmployeeScheduleService
             $schedule->update($data);
 
             activity()->performedOn($schedule)->log('Employee schedule updated successfully #'.($schedule->id ?? null));
+
+            return $schedule;
+        });
+    }
+
+    /**
+     * Move an employee to a new schedule while preserving history: close the period active
+     * at $effectiveFrom (effective_to = the day before) and INSERT a new open period.
+     * Use this for real schedule changes; {@see update()} is for correcting an existing row.
+     */
+    public function changeSchedule(int $employeeId, int $workScheduleId, string $effectiveFrom): EmployeeSchedule
+    {
+        return DB::transaction(function () use ($employeeId, $workScheduleId, $effectiveFrom) {
+            $from = Carbon::parse($effectiveFrom)->toDateString();
+
+            EmployeeSchedule::query()
+                ->where('employee_id', $employeeId)
+                ->where('effective_from', '<=', $from)
+                ->where(function ($q) use ($from) {
+                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', $from);
+                })
+                ->update(['effective_to' => Carbon::parse($from)->subDay()->toDateString()]);
+
+            $schedule = EmployeeSchedule::create([
+                'employee_id' => $employeeId,
+                'work_schedule_id' => $workScheduleId,
+                'effective_from' => $from,
+                'effective_to' => null,
+            ]);
+
+            activity()->performedOn($schedule)->log('Employee schedule changed #'.$schedule->id);
 
             return $schedule;
         });

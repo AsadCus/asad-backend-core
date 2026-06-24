@@ -5,12 +5,15 @@ namespace App\Models;
 use App\Enums\EmploymentStatus;
 use App\Enums\Gender;
 use App\Enums\OrgUnitType;
+use App\Observers\EmployeeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+#[ObservedBy(EmployeeObserver::class)]
 class Employee extends Model
 {
     use HasFactory, SoftDeletes;

@@ -20,6 +20,11 @@ class ShiftController extends Controller
         return response()->json($this->shiftService->getForDataTable());
     }
 
+    public function options(): JsonResponse
+    {
+        return response()->json($this->shiftService->getForFilter());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->shiftRule->rules());
