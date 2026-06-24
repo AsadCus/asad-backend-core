@@ -34,6 +34,13 @@ class WorkScheduleService
     {
         $workSchedule = WorkSchedule::findOrFail($id);
 
+        $days = $workSchedule->workScheduleDays()->orderBy('day_of_week')->get()
+            ->map(fn ($d) => [
+                'day_of_week' => (int) $d->day_of_week,
+                'shift_id' => $d->shift_id,
+                'is_workday' => (bool) $d->is_workday,
+            ]);
+
         return [
             'id' => $workSchedule->id,
             'name' => $workSchedule->name,
@@ -41,6 +48,7 @@ class WorkScheduleService
             'owner_org_unit_id' => $workSchedule->owner_org_unit_id,
             'description' => $workSchedule->description,
             'is_active' => (bool) $workSchedule->is_active,
+            'days' => $days,
         ];
     }
 
@@ -100,7 +108,11 @@ class WorkScheduleService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            $days = $data['days'] ?? null;
+            unset($data['days']);
+
             $workSchedule = WorkSchedule::create($data);
+            $this->syncDays($workSchedule, $days);
 
             activity()->performedOn($workSchedule)->log('Work schedule created successfully #'.($workSchedule->id ?? null));
 
@@ -111,13 +123,40 @@ class WorkScheduleService
     public function update(array $data, $id)
     {
         return DB::transaction(function () use ($data, $id) {
+            $days = $data['days'] ?? null;
+            unset($data['days']);
+
             $workSchedule = WorkSchedule::findOrFail($id);
             $workSchedule->update($data);
+            $this->syncDays($workSchedule, $days);
 
             activity()->performedOn($workSchedule)->log('Work schedule updated successfully #'.($workSchedule->id ?? null));
 
             return $workSchedule;
         });
+    }
+
+    /**
+     * Upsert the weekly day rows (idempotent per weekday). Null = leave existing days untouched
+     * (e.g. header-only updates); pass an array to set the pattern.
+     *
+     * @param  array<int, array{day_of_week:int, shift_id?:int|null, is_workday?:bool}>|null  $days
+     */
+    private function syncDays(WorkSchedule $workSchedule, ?array $days): void
+    {
+        if ($days === null) {
+            return;
+        }
+
+        foreach ($days as $day) {
+            $workSchedule->workScheduleDays()->updateOrCreate(
+                ['day_of_week' => (int) $day['day_of_week']],
+                [
+                    'shift_id' => $day['shift_id'] ?? null,
+                    'is_workday' => (bool) ($day['is_workday'] ?? false),
+                ],
+            );
+        }
     }
 
     public function delete($id)

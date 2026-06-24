@@ -8,6 +8,7 @@ use App\Models\LeaveType;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class HrisAttendanceFoundationApiTest extends TestCase
@@ -28,23 +29,23 @@ class HrisAttendanceFoundationApiTest extends TestCase
     public function test_employee_crud_with_soft_delete(): void
     {
         $this->actingAdmin();
+        Role::findOrCreate('employee', 'web');
 
+        // One form now creates the login account + the profile together; employee_no is auto.
         $create = $this->postJson('/api/master/employees', [
-            'employee_no' => 'EMP-001',
-            'hire_date' => '2024-01-15',
-            'employment_status' => 'permanent',
-            'is_active' => true,
+            'name' => 'Alice', 'email' => 'alice@example.com',
+            'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
+            'hire_date' => '2024-01-15', 'employment_status' => 'permanent', 'is_active' => true,
         ]);
         $create->assertCreated();
         $id = $create->json('id');
 
-        $this->assertDatabaseHas('employees', ['employee_no' => 'EMP-001']);
-        $this->getJson('/api/master/employees')->assertOk()->assertJsonFragment(['employee_no' => 'EMP-001']);
+        $this->assertDatabaseHas('users', ['email' => 'alice@example.com']);
+        $this->getJson('/api/master/employees')->assertOk()->assertJsonFragment(['name' => 'Alice']);
 
         $this->putJson("/api/master/employees/{$id}", [
-            'employee_no' => 'EMP-001',
-            'hire_date' => '2024-01-15',
-            'employment_status' => 'contract',
+            'name' => 'Alice', 'email' => 'alice@example.com', 'role' => 'employee',
+            'hire_date' => '2024-01-15', 'employment_status' => 'contract',
         ])->assertOk();
         $this->assertDatabaseHas('employees', ['id' => $id, 'employment_status' => 'contract']);
 
@@ -52,17 +53,19 @@ class HrisAttendanceFoundationApiTest extends TestCase
         $this->assertSoftDeleted('employees', ['id' => $id]);
     }
 
-    public function test_duplicate_employee_no_is_rejected(): void
+    public function test_duplicate_email_is_rejected(): void
     {
         $this->actingAdmin();
+        Role::findOrCreate('employee', 'web');
 
-        $this->postJson('/api/master/employees', [
-            'employee_no' => 'DUP', 'hire_date' => '2024-01-01', 'employment_status' => 'permanent',
-        ])->assertCreated();
+        $payload = [
+            'name' => 'Dup', 'email' => 'dup@example.com',
+            'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
+            'hire_date' => '2024-01-01', 'employment_status' => 'permanent',
+        ];
 
-        $this->postJson('/api/master/employees', [
-            'employee_no' => 'DUP', 'hire_date' => '2024-01-01', 'employment_status' => 'permanent',
-        ])->assertStatus(422)->assertJsonValidationErrors('employee_no');
+        $this->postJson('/api/master/employees', $payload)->assertCreated();
+        $this->postJson('/api/master/employees', $payload)->assertStatus(422)->assertJsonValidationErrors('email');
     }
 
     public function test_invalid_employment_status_is_rejected(): void

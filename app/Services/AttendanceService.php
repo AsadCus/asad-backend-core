@@ -6,8 +6,11 @@ use App\Enums\AttendanceStatus;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
 use App\Models\Employee;
+use App\Models\Holiday;
+use App\Models\LeaveRequest;
 use App\Models\Shift;
 use App\Models\User;
+use App\Models\WorkScheduleDay;
 use App\Support\HrisScope;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -62,7 +65,7 @@ class AttendanceService
      */
     public function getForDataTable(User $user, array $filters = []): array
     {
-        $query = Attendance::query()->with(['employee.user'])->latest('date');
+        $query = Attendance::query()->with(['employee.user', 'shift'])->latest('date');
 
         $ids = $this->accessibleEmployeeIds($user);
         if ($ids !== null) {
@@ -454,7 +457,7 @@ class AttendanceService
             $shift = $checkIn ? $this->resolveShift($employee, $checkIn) : null;
             $computed = $checkIn
                 ? $this->computeCheckInStatus($shift, $checkIn)
-                : ['status' => AttendanceStatus::Absent, 'late_minutes' => 0];
+                : ['status' => $this->resolveDayStatus($employee, Carbon::parse($date)), 'late_minutes' => 0];
 
             Attendance::query()->updateOrCreate(
                 ['employee_id' => $employee->id, 'date' => $date],
@@ -490,6 +493,7 @@ class AttendanceService
             'name' => $a->employee?->user?->name ?? $a->employee?->employee_no,
             'employee_no' => $a->employee?->employee_no,
             'date' => $a->date?->toDateString(),
+            'shift' => $a->shift?->name,
             'time_in' => $a->check_in_at?->format('H:i'),
             'time_out' => $a->check_out_at?->format('H:i'),
             'late_minutes' => (int) $a->late_minutes,
@@ -502,9 +506,21 @@ class AttendanceService
 
     /**
      * Resolve the employee's shift for a date via their active schedule → that weekday's workday.
-     * Returns null when no schedule data is seeded (check-in still succeeds; status = present).
+     * Returns null when there is no schedule or the day is a rest day (check-in still succeeds).
      */
     private function resolveShift(Employee $employee, Carbon $date): ?Shift
+    {
+        $day = $this->resolveScheduleDay($employee, $date);
+
+        return $day && $day->is_workday ? $day->shift : null;
+    }
+
+    /**
+     * The work_schedule_days row for the employee's active schedule on $date, or null when they
+     * have no active schedule. Lets callers tell a rest day (row with is_workday=false) apart
+     * from having no schedule at all (null).
+     */
+    private function resolveScheduleDay(Employee $employee, Carbon $date): ?WorkScheduleDay
     {
         $schedule = $employee->employeeSchedules()
             ->where('effective_from', '<=', $date->toDateString())
@@ -520,14 +536,29 @@ class AttendanceService
         }
 
         // Carbon dayOfWeek: 0=Sunday..6=Saturday — matches the work_schedule_days convention.
-        $day = $schedule->workSchedule->workScheduleDays
-            ->firstWhere('day_of_week', $date->dayOfWeek);
+        return $schedule->workSchedule->workScheduleDays->firstWhere('day_of_week', $date->dayOfWeek);
+    }
 
-        if (! $day || ! $day->is_workday) {
-            return null;
+    /**
+     * Classify a date for an employee with no check-in that day.
+     * Precedence: Holiday > approved leave > scheduled rest day (Weekend) > Absent.
+     */
+    private function resolveDayStatus(Employee $employee, Carbon $date): AttendanceStatus
+    {
+        if (Holiday::isHoliday($date)) {
+            return AttendanceStatus::Holiday;
         }
 
-        return $day->shift;
+        if (LeaveRequest::approvedOnDate($employee->id, $date)) {
+            return AttendanceStatus::OnLeave;
+        }
+
+        $day = $this->resolveScheduleDay($employee, $date);
+        if ($day && ! $day->is_workday) {
+            return AttendanceStatus::Weekend;
+        }
+
+        return AttendanceStatus::Absent;
     }
 
     /**

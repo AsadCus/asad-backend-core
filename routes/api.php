@@ -94,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/master/management-levels', MasterManagementLevelController::class);
 
     // HRIS schedule + leave masters
+    Route::get('/master/shifts/options', [MasterShiftController::class, 'options']);
     Route::apiResource('/master/shifts', MasterShiftController::class);
 
     Route::get('/master/work-schedules/options', [MasterWorkScheduleController::class, 'options']);

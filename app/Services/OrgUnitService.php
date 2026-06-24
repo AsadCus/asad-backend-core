@@ -9,7 +9,10 @@ use Illuminate\Validation\ValidationException;
 
 class OrgUnitService
 {
-    public function __construct(private UserRoleFileUploadService $fileUploads) {}
+    public function __construct(
+        private UserRoleFileUploadService $fileUploads,
+        private WorkScheduleAssignmentService $scheduleAssignments,
+    ) {}
 
     public function getForDataTable()
     {
@@ -69,6 +72,10 @@ class OrgUnitService
             $unit = OrgUnit::create($data);
             $this->fileUploads->processUploads($unit, $data, ['logo' => 'logo_path'], 'org-units', $unit->name);
 
+            if ($unit->default_work_schedule_id) {
+                $this->scheduleAssignments->seedUnitMembers($unit);
+            }
+
             activity()->performedOn($unit)->log('Org unit created successfully #'.($unit->id ?? null));
 
             return $unit;
@@ -82,8 +89,15 @@ class OrgUnitService
 
             $this->assertValidNesting($data, (int) $unit->id);
 
+            $originalDefault = $unit->default_work_schedule_id;
+
             $unit->update($data);
             $this->fileUploads->processUploads($unit, $data, ['logo' => 'logo_path'], 'org-units', $unit->name);
+
+            // Newly set/changed default → seed members who have no active schedule yet.
+            if ($unit->default_work_schedule_id && $unit->default_work_schedule_id !== $originalDefault) {
+                $this->scheduleAssignments->seedUnitMembers($unit);
+            }
 
             activity()->performedOn($unit)->log('Org unit updated successfully #'.($unit->id ?? null));
 
@@ -150,6 +164,7 @@ class OrgUnitService
             'name' => $u->name,
             'code' => $u->code,
             'logo_url' => $u->logoUrl(),
+            'default_work_schedule_id' => $u->default_work_schedule_id,
             'sort_order' => $u->sort_order,
             'address' => $u->address,
             'phone' => $u->phone,
@@ -157,6 +172,7 @@ class OrgUnitService
             'latitude' => $u->latitude,
             'longitude' => $u->longitude,
             'geofence_radius_meters' => $u->geofence_radius_meters,
+            'has_location' => (bool) $u->has_location,
             'is_active' => (bool) $u->is_active,
         ];
     }

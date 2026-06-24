@@ -106,6 +106,43 @@ class HrisUserService
         return true;
     }
 
+    /**
+     * Create/restore (when $userId is null) or update the login account behind an employee and
+     * sync its role. Account-only — the Employee profile is owned by EmployeeService. Accepts the
+     * employee form's `phone` as the user `contact`.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function provisionAccount(array $data, ?int $userId = null): User
+    {
+        return DB::transaction(function () use ($data, $userId) {
+            if ($userId) {
+                $user = User::findOrFail($userId);
+                $user->update([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'contact' => $data['phone'] ?? $data['contact'] ?? $user->contact,
+                ]);
+                if (! empty($data['password'])) {
+                    $user->update(['password' => Hash::make((string) $data['password'])]);
+                }
+            } else {
+                $user = $this->createOrRestoreUser([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'contact' => $data['phone'] ?? $data['contact'] ?? null,
+                    'password' => $data['password'] ?? null,
+                ]);
+            }
+
+            if (! empty($data['role'])) {
+                $user->syncRoles([Role::findByName($data['role'], 'web')]);
+            }
+
+            return $user;
+        });
+    }
+
     private function createOrRestoreUser(array $data): User
     {
         $password = ! empty($data['password'])

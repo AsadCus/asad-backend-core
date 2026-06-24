@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\OrgUnitType;
 use App\Models\OrgUnit;
+use App\Rules\OrgUnitRule;
 use App\Services\OrgUnitService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -123,5 +125,42 @@ class OrgUnitTest extends TestCase
         $this->assertCount(1, $tree);                 // one holding root
         $this->assertSame('holding', $tree[0]['type']);
         $this->assertCount(2, $tree[0]['children']);  // two business units
+    }
+
+    public function test_any_unit_type_can_be_a_location(): void
+    {
+        // A holding (not a branch) can carry its own coordinates.
+        $unit = app(OrgUnitService::class)->store([
+            'type' => OrgUnitType::Holding->value,
+            'parent_id' => null,
+            'name' => 'HQ Tower',
+            'code' => 'HQ',
+            'has_location' => true,
+            'latitude' => -6.2,
+            'longitude' => 106.816666,
+            'geofence_radius_meters' => 100,
+            'is_active' => true,
+        ]);
+
+        $this->assertTrue((bool) $unit->fresh()->has_location);
+        $this->assertSame('-6.20000000', (string) $unit->fresh()->latitude);
+    }
+
+    public function test_location_requires_coordinates_when_enabled(): void
+    {
+        $rules = (new OrgUnitRule)->rules();
+
+        $missing = Validator::make(
+            ['type' => 'branch', 'name' => 'X', 'code' => 'XLOC1', 'has_location' => true],
+            $rules,
+        );
+        $this->assertTrue($missing->fails());
+        $this->assertArrayHasKey('latitude', $missing->errors()->toArray());
+
+        $ok = Validator::make(
+            ['type' => 'branch', 'name' => 'X', 'code' => 'XLOC2', 'has_location' => false],
+            $rules,
+        );
+        $this->assertFalse($ok->fails());
     }
 }
