@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Attendance;
+use App\Models\AttendanceCorrection;
 use App\Models\Employee;
 use App\Models\User;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AttendanceCorrectionApiTest extends TestCase
@@ -116,6 +119,26 @@ class AttendanceCorrectionApiTest extends TestCase
         ])->assertCreated();
 
         $this->getJson('/api/attendance-corrections')->assertOk()->assertJsonCount(1);
+    }
+
+    public function test_wfh_correction_stores_attachment_and_exposes_its_url(): void
+    {
+        Storage::fake('public');
+        [$empUser] = $this->makeEmployeeUser('employee');
+
+        $this->actingAs($empUser, 'sanctum');
+        $response = $this->post('/api/attendance-corrections', [
+            'date' => '2026-06-10',
+            'correction_type' => 'wfh',
+            'reason' => 'Worked from home, see attached log.',
+            'attachment' => UploadedFile::fake()->create('proof.pdf', 200, 'application/pdf'),
+        ])->assertCreated();
+
+        $this->assertNotNull($response->json('attachment_url'));
+
+        $correction = AttendanceCorrection::query()->findOrFail($response->json('id'));
+        $this->assertNotNull($correction->attachment_path);
+        Storage::disk('public')->assertExists($correction->attachment_path);
     }
 
     public function test_employee_cannot_approve(): void

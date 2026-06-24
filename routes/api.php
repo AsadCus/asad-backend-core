@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Account\PersonalController as AccountPersonalContro
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BusinessTripController;
 use App\Http\Controllers\Api\Company\OrgInfoController;
 use App\Http\Controllers\Api\DataScopeController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\Api\MenuConfigController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\QuotationItemController;
+use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\Settings\PasswordController as SettingsPasswordController;
 use App\Http\Controllers\Api\Settings\ProfileController as SettingsProfileController;
@@ -36,6 +38,7 @@ use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\UserLogsController as ApiUserLogsController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/quote/random', [QuoteController::class, 'random']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [PasswordController::class, 'resetPassword']);
@@ -139,6 +142,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance-corrections/{id}/verify', [AttendanceCorrectionController::class, 'verify']);
     Route::post('/attendance-corrections/{id}/reject', [AttendanceCorrectionController::class, 'reject']);
     Route::post('/attendance-corrections/{id}/cancel', [AttendanceCorrectionController::class, 'cancel']);
+
+    // HRIS business trip — submit → leader → HC → finance approval, then disbursement + report.
+    Route::get('/business-trips', [BusinessTripController::class, 'index']);
+    Route::post('/business-trips', [BusinessTripController::class, 'store']);
+    Route::get('/business-trips/{id}', [BusinessTripController::class, 'show'])->whereNumber('id');
+    Route::post('/business-trips/{id}/approve-leader', [BusinessTripController::class, 'approveLeader']);
+    Route::post('/business-trips/{id}/approve-hc', [BusinessTripController::class, 'approveHc']);
+    Route::post('/business-trips/{id}/approve-finance', [BusinessTripController::class, 'approveFinance']);
+    Route::post('/business-trips/{id}/reject', [BusinessTripController::class, 'reject']);
+    Route::post('/business-trips/{id}/cancel', [BusinessTripController::class, 'cancel']);
+    Route::post('/business-trips/{id}/pay', [BusinessTripController::class, 'pay']);
+    Route::get('/business-trips/{id}/report', [BusinessTripController::class, 'showReport'])->whereNumber('id');
+    Route::post('/business-trips/{id}/report', [BusinessTripController::class, 'report']);
+    Route::post('/business-trips/{id}/report/approve-leader', [BusinessTripController::class, 'reportApproveLeader']);
+    Route::post('/business-trips/{id}/report/approve-finance', [BusinessTripController::class, 'reportApproveFinance']);
+    Route::post('/business-trips/{id}/report/reject', [BusinessTripController::class, 'reportReject']);
+    Route::post('/business-trips/{id}/settle', [BusinessTripController::class, 'settle']);
 
     Route::get('/quotation-items', [QuotationItemController::class, 'index']);
     Route::post('/quotation-items/quick-create', [QuotationItemController::class, 'quickCreate']);

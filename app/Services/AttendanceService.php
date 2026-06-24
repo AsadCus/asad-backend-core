@@ -100,21 +100,27 @@ class AttendanceService
     public function todayForUser(User $user): array
     {
         $employee = $this->resolveEmployee($user);
-        $today = Carbon::now()->toDateString();
+        $today = Carbon::now();
 
         $row = Attendance::query()
             ->with(['sessions', 'shift'])
             ->where('employee_id', $employee->id)
-            ->whereDate('date', $today)
+            ->whereDate('date', $today->toDateString())
             ->first();
 
+        $shift = $row?->shift ?? $this->resolveShift($employee, $today);
+
         return [
-            'date' => $today,
+            'date' => $today->toDateString(),
             'locked' => $employee->isAttendanceLocked(),
             'lock_reason' => $employee->attendance_lock_reason,
             // `open` = there is a session checked-in but not yet checked-out → show Check Out.
             'open' => (bool) ($row && $row->sessions->whereNull('check_out_at')->isNotEmpty()),
-            'shift' => $row?->shift?->name,
+            'shift' => $shift ? [
+                'name' => $shift->name,
+                'start_time' => $shift->start_time,
+                'end_time' => $shift->end_time,
+            ] : null,
             'attendance' => $row ? $this->mapRow($row) : null,
         ];
     }
@@ -136,6 +142,9 @@ class AttendanceService
             abort(403, 'You may not view this attendance record.');
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
         return [
             'id' => $attendance->id,
             'employee_id' => $attendance->employee_id,
@@ -152,7 +161,7 @@ class AttendanceService
                 'lat' => $attendance->check_in_lat,
                 'lng' => $attendance->check_in_lng,
                 'location' => $attendance->check_in_location,
-                'photo_url' => $attendance->check_in_photo_path ? Storage::disk('public')->url($attendance->check_in_photo_path) : null,
+                'photo_url' => $attendance->check_in_photo_path ? $disk->url($attendance->check_in_photo_path) : null,
                 'branch' => $attendance->checkInBranch?->name,
             ],
             'check_out' => [
@@ -160,7 +169,7 @@ class AttendanceService
                 'lat' => $attendance->check_out_lat,
                 'lng' => $attendance->check_out_lng,
                 'location' => $attendance->check_out_location,
-                'photo_url' => $attendance->check_out_photo_path ? Storage::disk('public')->url($attendance->check_out_photo_path) : null,
+                'photo_url' => $attendance->check_out_photo_path ? $disk->url($attendance->check_out_photo_path) : null,
                 'branch' => $attendance->checkOutBranch?->name,
             ],
             // Per-session breakdown (the top-level check_in/check_out above stay the daily summary).
@@ -170,7 +179,7 @@ class AttendanceService
                     'lat' => $s->check_in_lat,
                     'lng' => $s->check_in_lng,
                     'location' => $s->check_in_location,
-                    'photo_url' => $s->check_in_photo_path ? Storage::disk('public')->url($s->check_in_photo_path) : null,
+                    'photo_url' => $s->check_in_photo_path ? $disk->url($s->check_in_photo_path) : null,
                     'branch' => $s->checkInBranch?->name,
                 ],
                 'check_out' => [
@@ -178,7 +187,7 @@ class AttendanceService
                     'lat' => $s->check_out_lat,
                     'lng' => $s->check_out_lng,
                     'location' => $s->check_out_location,
-                    'photo_url' => $s->check_out_photo_path ? Storage::disk('public')->url($s->check_out_photo_path) : null,
+                    'photo_url' => $s->check_out_photo_path ? $disk->url($s->check_out_photo_path) : null,
                     'branch' => $s->checkOutBranch?->name,
                 ],
             ])->all(),

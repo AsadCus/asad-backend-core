@@ -47,6 +47,12 @@ class HrisRoleSeeder extends Seeder
             'hris.attendance-correction view-team', 'hris.attendance-correction view-all',
             'hris.attendance-correction approve-supervisor', 'hris.attendance-correction verify-hr',
 
+            // Business trip — submit → leader → HC → finance approval, then disbursement + report.
+            'hris.business-trip create', 'hris.business-trip view-own',
+            'hris.business-trip view-team', 'hris.business-trip view-all',
+            'hris.business-trip approve-leader', 'hris.business-trip approve-hc',
+            'hris.business-trip approve-finance', 'hris.business-trip pay',
+
             // Leave
             'hris.leave-type view', 'hris.leave-type create', 'hris.leave-type edit', 'hris.leave-type delete',
             'hris.leave-balance view-own', 'hris.leave-balance view-team', 'hris.leave-balance manage',
@@ -127,6 +133,7 @@ class HrisRoleSeeder extends Seeder
             'hris.leave-report view', 'hris.leave-report export',
             'hris.audit-trail view-related',
             'hris.company-info view', 'hris.company-info manage',
+            'hris.business-trip view-all', 'hris.business-trip approve-hc',
         ]);
 
         // Supervisor — approve team's correction & leave; view team.
@@ -139,6 +146,7 @@ class HrisRoleSeeder extends Seeder
             'hris.leave-balance view-team',
             'hris.attendance-report view',
             'hris.leave-report view',
+            'hris.business-trip view-team', 'hris.business-trip approve-leader',
         ]);
 
         // Manager — read-only summary.
@@ -151,6 +159,7 @@ class HrisRoleSeeder extends Seeder
             'hris.leave-balance view-team',
             'hris.attendance-report view', 'hris.attendance-report export',
             'hris.leave-report view', 'hris.leave-report export',
+            'hris.business-trip view-team',
         ]);
 
         // Employee — own data + create attendance/correction/leave.
@@ -161,6 +170,7 @@ class HrisRoleSeeder extends Seeder
             'hris.attendance-correction create', 'hris.attendance-correction view-own',
             'hris.leave-balance view-own',
             'hris.leave-request create', 'hris.leave-request view-own',
+            'hris.business-trip create', 'hris.business-trip view-own',
         ]);
 
         $this->applyRoleMetadata();
