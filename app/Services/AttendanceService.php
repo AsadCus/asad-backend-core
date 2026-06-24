@@ -115,8 +115,8 @@ class AttendanceService
             'open' => (bool) ($row && $row->sessions->whereNull('check_out_at')->isNotEmpty()),
             'shift' => $shift ? [
                 'name' => $shift->name,
-                'start_time' => $shift->start_time,
-                'end_time' => $shift->end_time,
+                'start_time' => substr($shift->start_time, 0, 5),
+                'end_time' => substr($shift->end_time, 0, 5),
             ] : null,
             'attendance' => $row ? $this->mapRow($row) : null,
         ];
