@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\Account\PersonalController as AccountPersonalController;
+use App\Http\Controllers\Api\Account\SignatureController as AccountSignatureController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AttendanceCorrectionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BusinessTripController;
 use App\Http\Controllers\Api\Company\OrgInfoController;
 use App\Http\Controllers\Api\DataScopeController;
+use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\Master\ApprovalMatrixController as MasterApprovalMatrixController;
 use App\Http\Controllers\Api\Master\AttendanceEligibilityController as MasterAttendanceEligibilityController;
 use App\Http\Controllers\Api\Master\BranchController as MasterBranchController;
@@ -22,9 +24,10 @@ use App\Http\Controllers\Api\Master\MasterStatsController;
 use App\Http\Controllers\Api\Master\OrgUnitController as MasterOrgUnitController;
 use App\Http\Controllers\Api\Master\RoleController as MasterRoleController;
 use App\Http\Controllers\Api\Master\RoleGroupController as MasterRoleGroupController;
-// Holding/BusinessUnit/Department controllers removed — collapsed into the org_units tree.
 use App\Http\Controllers\Api\Master\ShiftController as MasterShiftController;
 use App\Http\Controllers\Api\Master\UserController as MasterUserController;
+// Holding/BusinessUnit/Department controllers removed — collapsed into the org_units tree.
+use App\Http\Controllers\Api\Master\WorkLocationController as MasterWorkLocationController;
 use App\Http\Controllers\Api\Master\WorkScheduleController as MasterWorkScheduleController;
 use App\Http\Controllers\Api\MenuConfigController;
 use App\Http\Controllers\Api\NotificationController;
@@ -34,8 +37,10 @@ use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\Settings\PasswordController as SettingsPasswordController;
 use App\Http\Controllers\Api\Settings\ProfileController as SettingsProfileController;
+use App\Http\Controllers\Api\TeamOverviewController;
 use App\Http\Controllers\Api\TwoFactorChallengeController;
 use App\Http\Controllers\Api\UserLogsController as ApiUserLogsController;
+use App\Http\Controllers\Api\WfhVisitRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/quote', [QuoteController::class, 'random']);
@@ -118,9 +123,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/master/attendance-eligibility/bulk', [MasterAttendanceEligibilityController::class, 'bulk']);
     Route::put('/master/attendance-eligibility/{employee}', [MasterAttendanceEligibilityController::class, 'update']);
 
+    // HRIS work-location governance — admin assigns per-employee geofence anchor.
+    Route::get('/master/work-locations', [MasterWorkLocationController::class, 'index']);
+    Route::get('/master/work-locations/options', [MasterWorkLocationController::class, 'locationOptions']);
+    Route::post('/master/work-locations/bulk', [MasterWorkLocationController::class, 'bulk']);
+    Route::put('/master/work-locations/{employee}', [MasterWorkLocationController::class, 'update']);
+
+    Route::post('/master/employee-schedules/import', [MasterEmployeeScheduleController::class, 'import']);
     Route::apiResource('/master/employee-schedules', MasterEmployeeScheduleController::class);
     Route::apiResource('/master/approval-matrices', MasterApprovalMatrixController::class);
     Route::apiResource('/master/leave-balances', MasterLeaveBalanceController::class);
+
+    // HRIS team — supervisor's subordinate overview with today's attendance status.
+    Route::get('/team/overview', TeamOverviewController::class);
 
     // HRIS attendance — online check-in/out, index/detail, bulk import, user-lock.
     Route::get('/attendances', [AttendanceController::class, 'index']);
@@ -143,6 +158,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance-corrections/{id}/verify', [AttendanceCorrectionController::class, 'verify']);
     Route::post('/attendance-corrections/{id}/reject', [AttendanceCorrectionController::class, 'reject']);
     Route::post('/attendance-corrections/{id}/cancel', [AttendanceCorrectionController::class, 'cancel']);
+
+    // HRIS leave request — submit → supervisor → HR approval workflow.
+    Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
+    Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    Route::get('/leave-requests/{id}', [LeaveRequestController::class, 'show'])->whereNumber('id');
+    Route::post('/leave-requests/{id}/approve', [LeaveRequestController::class, 'approve']);
+    Route::post('/leave-requests/{id}/verify', [LeaveRequestController::class, 'verify']);
+    Route::post('/leave-requests/{id}/reject', [LeaveRequestController::class, 'reject']);
+    Route::post('/leave-requests/{id}/cancel', [LeaveRequestController::class, 'cancel']);
+
+    // HRIS WFH / Visit request — submit → supervisor → HR approval workflow.
+    Route::get('/wfh-visit-requests', [WfhVisitRequestController::class, 'index']);
+    Route::get('/wfh-visit-requests/my', [WfhVisitRequestController::class, 'my']);
+    Route::post('/wfh-visit-requests', [WfhVisitRequestController::class, 'store']);
+    Route::get('/wfh-visit-requests/{id}', [WfhVisitRequestController::class, 'show'])->whereNumber('id');
+    Route::post('/wfh-visit-requests/{id}/approve', [WfhVisitRequestController::class, 'approve']);
+    Route::post('/wfh-visit-requests/{id}/verify', [WfhVisitRequestController::class, 'verify']);
+    Route::post('/wfh-visit-requests/{id}/reject', [WfhVisitRequestController::class, 'reject']);
+    Route::post('/wfh-visit-requests/{id}/cancel', [WfhVisitRequestController::class, 'cancel']);
 
     // HRIS business trip — submit → leader → HC → finance approval, then disbursement + report.
     Route::get('/business-trips', [BusinessTripController::class, 'index']);
@@ -173,6 +207,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/account/personal', [AccountPersonalController::class, 'show']);
     Route::put('/account/personal', [AccountPersonalController::class, 'update']);
+    Route::put('/account/signature', [AccountSignatureController::class, 'store']);
+    Route::delete('/account/signature', [AccountSignatureController::class, 'destroy']);
 
     Route::get('/user-logs', [ApiUserLogsController::class, 'index']);
 

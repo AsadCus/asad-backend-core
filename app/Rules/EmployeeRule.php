@@ -23,7 +23,8 @@ class EmployeeRule
             'email' => ['required', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($userId)],
             // Required on create, optional on edit (blank = keep current password).
             'password' => [$id ? 'nullable' : 'required', 'string', 'min:6', 'confirmed'],
-            'role' => ['required', 'string', Rule::exists('roles', 'name')],
+            // The administrator role is granted out-of-band, never through this form.
+            'role' => ['required', 'string', 'not_in:administrator', Rule::exists('roles', 'name')],
 
             // Profile fields
             'nik' => ['nullable', 'string', 'max:100'],
@@ -32,7 +33,7 @@ class EmployeeRule
             'hire_date' => ['required', 'date'],
             'employment_status' => ['required', Rule::in(EmploymentStatus::values())],
             'termination_date' => ['nullable', 'date'],
-            'org_unit_id' => ['nullable', 'integer', Rule::exists('org_units', 'id')],
+            'org_unit_id' => ['required', 'integer', Rule::exists('org_units', 'id')],
             'work_location_org_unit_id' => ['nullable', 'integer', Rule::exists('org_units', 'id')],
             'supervisor_id' => ['nullable', 'integer', Rule::exists('employees', 'id')],
             'phone' => ['nullable', 'string', 'max:32'],

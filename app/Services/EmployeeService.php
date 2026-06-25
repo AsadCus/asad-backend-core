@@ -20,6 +20,7 @@ class EmployeeService
                 'id' => $q->id,
                 'employee_no' => $q->employee_no,
                 'name' => $q->user?->name,
+                'email' => $q->user?->email,
                 'nik' => $q->nik,
                 'role_name' => $q->user?->roles->first()?->label ?? $q->user?->roles->first()?->name,
                 'org_unit_name' => $q->orgUnit?->name,

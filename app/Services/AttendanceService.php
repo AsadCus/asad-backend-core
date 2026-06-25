@@ -8,9 +8,12 @@ use App\Models\AttendanceSession;
 use App\Models\Employee;
 use App\Models\Holiday;
 use App\Models\LeaveRequest;
+use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
+use App\Models\WfhVisitRequest;
 use App\Models\WorkScheduleDay;
+use App\Support\Geo;
 use App\Support\HrisScope;
 use Carbon\Carbon;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -119,7 +122,8 @@ class AttendanceService
             'open' => (bool) ($row && $row->sessions->whereNull('check_out_at')->isNotEmpty()),
             'shift' => $shift?->toCardArray(),
             'attendance' => $row ? $this->mapRow($row) : null,
-        ];
+            'work_location' => $this->mapWorkLocation($employee->resolveWorkLocation()),
+        ] + $this->wfhVisitStatus($employee);
     }
 
     /**
@@ -211,6 +215,8 @@ class AttendanceService
             abort(403, 'You are not eligible to check in.');
         }
 
+        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng']);
+
         $now = Carbon::now();
         $date = $now->toDateString();
 
@@ -267,6 +273,8 @@ class AttendanceService
         if (! $employee->can_check_in) {
             abort(403, 'You are not eligible to check out.');
         }
+
+        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng']);
 
         $now = Carbon::now();
         $date = $now->toDateString();
@@ -449,7 +457,14 @@ class AttendanceService
             }
 
             $checkIn = ! empty($rowData['check_in']) ? Carbon::parse($date.' '.$rowData['check_in']) : null;
-            $checkOut = ! empty($rowData['check_out']) ? Carbon::parse($date.' '.$rowData['check_out']) : null;
+            $checkOut = null;
+            if (! empty($rowData['check_out'])) {
+                $checkOut = Carbon::parse($date.' '.$rowData['check_out']);
+                // Overnight shift: checkout time earlier than check-in means it's the next day.
+                if ($checkIn && $checkOut->lt($checkIn)) {
+                    $checkOut->addDay();
+                }
+            }
 
             $shift = $checkIn ? $this->resolveShift($employee, $checkIn) : null;
             $computed = $checkIn
@@ -478,6 +493,88 @@ class AttendanceService
     }
 
     // ---- Helpers -------------------------------------------------------------------------------
+
+    /**
+     * Reject a punch made outside the employee's resolved work-location geofence.
+     * {@see OrgUnit::resolveLocation()} walks the org tree up from the employee's
+     * placement (branch, then business unit, etc.) to the nearest unit that has its own
+     * lat/lng/radius configured. A no-op when no ancestor has one — geofencing is opt-in.
+     */
+    private function assertWithinGeofence(Employee $employee, float $lat, float $lng): void
+    {
+        $location = $employee->resolveWorkLocation();
+        $radius = $location?->geofence_radius_meters;
+
+        if (! $location || ! $location->has_location || $location->latitude === null
+            || $location->longitude === null || ! $radius) {
+            return;
+        }
+
+        $distance = Geo::distanceMeters((float) $location->latitude, (float) $location->longitude, $lat, $lng);
+
+        if ($distance > $radius) {
+            abort(422, sprintf(
+                'You are %dm away from %s, outside the allowed %dm radius. Move closer and try again.',
+                round($distance),
+                $location->name,
+                $radius,
+            ));
+        }
+    }
+
+    /**
+     * Returns active_wfh_visit (fully approved today) and pending_wfh_visit (still pending today).
+     *
+     * @return array{active_wfh_visit: array<string,mixed>|null, pending_wfh_visit: array<string,mixed>|null}
+     */
+    private function wfhVisitStatus(Employee $employee): array
+    {
+        $today = Carbon::today()->toDateString();
+
+        $reqs = WfhVisitRequest::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->whereIn('status', ['approved', 'pending_supervisor', 'pending_hr'])
+            ->orderByRaw("CASE status WHEN 'approved' THEN 0 ELSE 1 END")
+            ->get();
+
+        $approved = $reqs->first(fn ($r) => $r->status?->value === 'approved');
+        $pending = $reqs->first(fn ($r) => $r->status?->value !== 'approved');
+
+        return [
+            'active_wfh_visit' => $approved ? [
+                'type' => $approved->type,
+                'geotag_mode' => $approved->geotag_mode ?? ($approved->type === 'wfh' ? null : 'open'),
+                'location_address' => $approved->location_address,
+                'location_lat' => $approved->location_lat,
+                'location_lng' => $approved->location_lng,
+                'location_radius' => $approved->location_radius,
+            ] : null,
+            'pending_wfh_visit' => $pending ? [
+                'type' => $pending->type,
+                'location_address' => $pending->location_address,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array{id:int, name:string, latitude:float, longitude:float, radius_meters:int}|null
+     */
+    private function mapWorkLocation(?OrgUnit $location): ?array
+    {
+        if (! $location || ! $location->has_location || $location->latitude === null || $location->longitude === null) {
+            return null;
+        }
+
+        return [
+            'id' => $location->id,
+            'name' => $location->name,
+            'latitude' => (float) $location->latitude,
+            'longitude' => (float) $location->longitude,
+            'radius_meters' => (int) ($location->geofence_radius_meters ?? 0),
+        ];
+    }
 
     /**
      * @return array<string, mixed>

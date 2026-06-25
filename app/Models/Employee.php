@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\Gender;
-use App\Enums\OrgUnitType;
 use App\Observers\EmployeeObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -62,6 +61,19 @@ class Employee extends Model
         return $this->attendance_locked_at !== null;
     }
 
+    /**
+     * Whether this employee's login account should be allowed to authenticate —
+     * false once marked inactive or past their termination date.
+     */
+    public function canLogin(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        return ! $this->termination_date || ! $this->termination_date->isPast();
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -88,16 +100,17 @@ class Employee extends Model
     }
 
     /**
-     * Physical site for attendance/geofence: the explicit work location, else the
-     * nearest branch ancestor of the placement.
+     * Physical site for attendance/geofence: the explicit work location (or its
+     * nearest located ancestor), else the nearest located ancestor of the placement —
+     * e.g. a branch with no geofence of its own inherits its business unit's location.
      */
     public function resolveWorkLocation(): ?OrgUnit
     {
         if ($this->work_location_org_unit_id) {
-            return $this->workLocation;
+            return $this->workLocation?->resolveLocation();
         }
 
-        return $this->orgUnit?->nearestOfType(OrgUnitType::Branch);
+        return $this->orgUnit?->resolveLocation();
     }
 
     /**

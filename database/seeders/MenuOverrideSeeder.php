@@ -16,10 +16,13 @@ class MenuOverrideSeeder extends Seeder
         // Menus kept in the registry (so they stay re-enablable from /system/menu) but hidden by
         // default until their feature is rolled out. firstOrCreate = an admin re-enable wins.
         $hiddenByDefault = [
-            'nav.announcements',   // company announcements — not rolled out yet
-            'nav.applyOvertime',   // overtime self-service — de-emphasised
-            'nav.overtimeReport',  // overtime report — de-emphasised
-            'nav.overtimeAdmin',   // overtime back-office — de-emphasised
+            'nav.announcements',      // company announcements — not rolled out yet
+            'nav.applyOvertime',      // overtime self-service — de-emphasised
+            'nav.overtimeReport',     // overtime report — de-emphasised
+            'nav.overtimeAdmin',      // overtime back-office — de-emphasised
+            'nav.attendanceReport',   // reports section — hidden until rolled out
+            'nav.leaveReport',
+            'nav.businessTripReport',
         ];
 
         foreach ($hiddenByDefault as $menuKey) {

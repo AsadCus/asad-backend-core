@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\Employee;
 use App\Models\EmployeeSchedule;
 use App\Models\User;
+use App\Models\WorkSchedule;
 use App\Support\HrisScope;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeScheduleService
@@ -39,6 +42,7 @@ class EmployeeScheduleService
                 'work_schedule_name' => null,
                 'effective_from' => null,
                 'days' => [],
+                'work_location' => null,
             ];
         }
 
@@ -52,10 +56,19 @@ class EmployeeScheduleService
             ->values()
             ->all();
 
+        $workLocation = $employee->resolveWorkLocation();
+
         return [
             'work_schedule_name' => $schedule->workSchedule->name,
             'effective_from' => $schedule->effective_from?->format('Y-m-d'),
             'days' => $days,
+            'work_location' => $workLocation ? [
+                'name' => $workLocation->name,
+                'latitude' => $workLocation->latitude,
+                'longitude' => $workLocation->longitude,
+                'geofence_radius_meters' => $workLocation->geofence_radius_meters,
+                'address' => $workLocation->address,
+            ] : null,
         ];
     }
 
@@ -160,6 +173,80 @@ class EmployeeScheduleService
 
             return $schedule;
         });
+    }
+
+    /**
+     * Bulk-assign work schedules from a CSV file.
+     * Columns: employee_no, work_schedule (code or name), effective_from, effective_to (optional), note (optional).
+     * Uses changeSchedule() so history is preserved when an active schedule already exists.
+     *
+     * @return array{imported:int, skipped:int, errors:array<int,string>}
+     */
+    public function import(UploadedFile $file): array
+    {
+        $handle = fopen($file->getRealPath(), 'r');
+        if ($handle === false) {
+            abort(422, 'Could not read the uploaded file.');
+        }
+
+        $header = fgetcsv($handle);
+        if ($header === false) {
+            fclose($handle);
+            abort(422, 'The file is empty.');
+        }
+        $header = array_map(fn ($h) => strtolower(trim((string) $h)), $header);
+
+        $imported = 0;
+        $skipped = 0;
+        $errors = [];
+        $line = 1;
+
+        while (($cols = fgetcsv($handle)) !== false) {
+            $line++;
+            $rowData = array_combine($header, array_pad($cols, count($header), null));
+            $empNo = trim((string) ($rowData['employee_no'] ?? ''));
+            $scheduleKey = trim((string) ($rowData['work_schedule'] ?? $rowData['work_schedule_code'] ?? $rowData['work_schedule_name'] ?? ''));
+            $effectiveFrom = trim((string) ($rowData['effective_from'] ?? ''));
+
+            if ($empNo === '' || $scheduleKey === '' || $effectiveFrom === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $employee = Employee::query()->where('employee_no', $empNo)->first();
+            if (! $employee) {
+                $errors[] = "Line {$line}: unknown employee_no '{$empNo}'";
+
+                continue;
+            }
+
+            $schedule = WorkSchedule::query()
+                ->where('code', $scheduleKey)
+                ->orWhere('name', $scheduleKey)
+                ->first();
+            if (! $schedule) {
+                $errors[] = "Line {$line}: unknown work_schedule '{$scheduleKey}'";
+
+                continue;
+            }
+
+            $effectiveTo = ! empty($rowData['effective_to']) ? trim((string) $rowData['effective_to']) : null;
+            $note = ! empty($rowData['note']) ? trim((string) $rowData['note']) : 'Bulk import';
+
+            $this->store([
+                'employee_id' => $employee->id,
+                'work_schedule_id' => $schedule->id,
+                'effective_from' => $effectiveFrom,
+                'effective_to' => $effectiveTo,
+                'note' => $note,
+            ]);
+            $imported++;
+        }
+
+        fclose($handle);
+
+        return ['imported' => $imported, 'skipped' => $skipped, 'errors' => $errors];
     }
 
     public function delete($id)

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Employee;
 use App\Models\GhostUser;
 use App\Models\LeaveType;
+use App\Models\OrgUnit;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,12 +31,14 @@ class HrisAttendanceFoundationApiTest extends TestCase
     {
         $this->actingAdmin();
         Role::findOrCreate('employee', 'web');
+        $orgUnit = OrgUnit::factory()->create();
 
         // One form now creates the login account + the profile together; employee_no is auto.
         $create = $this->postJson('/api/master/employees', [
             'name' => 'Alice', 'email' => 'alice@example.com',
             'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
             'hire_date' => '2024-01-15', 'employment_status' => 'permanent', 'is_active' => true,
+            'org_unit_id' => $orgUnit->id,
         ]);
         $create->assertCreated();
         $id = $create->json('id');
@@ -45,7 +48,7 @@ class HrisAttendanceFoundationApiTest extends TestCase
 
         $this->putJson("/api/master/employees/{$id}", [
             'name' => 'Alice', 'email' => 'alice@example.com', 'role' => 'employee',
-            'hire_date' => '2024-01-15', 'employment_status' => 'contract',
+            'hire_date' => '2024-01-15', 'employment_status' => 'contract', 'org_unit_id' => $orgUnit->id,
         ])->assertOk();
         $this->assertDatabaseHas('employees', ['id' => $id, 'employment_status' => 'contract']);
 
@@ -57,15 +60,41 @@ class HrisAttendanceFoundationApiTest extends TestCase
     {
         $this->actingAdmin();
         Role::findOrCreate('employee', 'web');
+        $orgUnit = OrgUnit::factory()->create();
 
         $payload = [
             'name' => 'Dup', 'email' => 'dup@example.com',
             'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
-            'hire_date' => '2024-01-01', 'employment_status' => 'permanent',
+            'hire_date' => '2024-01-01', 'employment_status' => 'permanent', 'org_unit_id' => $orgUnit->id,
         ];
 
         $this->postJson('/api/master/employees', $payload)->assertCreated();
         $this->postJson('/api/master/employees', $payload)->assertStatus(422)->assertJsonValidationErrors('email');
+    }
+
+    public function test_administrator_role_is_rejected_via_employee_form(): void
+    {
+        $this->actingAdmin();
+        Role::findOrCreate('administrator', 'web');
+        $orgUnit = OrgUnit::factory()->create();
+
+        $this->postJson('/api/master/employees', [
+            'name' => 'Wannabe Admin', 'email' => 'wannabe@example.com',
+            'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'administrator',
+            'hire_date' => '2024-01-01', 'employment_status' => 'permanent', 'org_unit_id' => $orgUnit->id,
+        ])->assertStatus(422)->assertJsonValidationErrors('role');
+    }
+
+    public function test_org_unit_is_required_for_employee_creation(): void
+    {
+        $this->actingAdmin();
+        Role::findOrCreate('employee', 'web');
+
+        $this->postJson('/api/master/employees', [
+            'name' => 'No Org', 'email' => 'noorg@example.com',
+            'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
+            'hire_date' => '2024-01-01', 'employment_status' => 'permanent',
+        ])->assertStatus(422)->assertJsonValidationErrors('org_unit_id');
     }
 
     public function test_invalid_employment_status_is_rejected(): void

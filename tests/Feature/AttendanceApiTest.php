@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrgUnitType;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\GhostUser;
+use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
 use App\Models\WorkSchedule;
@@ -250,6 +252,175 @@ class AttendanceApiTest extends TestCase
         $this->postJson('/api/attendances/check-in', [
             'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
         ])->assertCreated();
+    }
+
+    public function test_check_in_blocked_outside_branch_geofence(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true,
+            'latitude' => -6.200000,
+            'longitude' => 106.800000,
+            'geofence_radius_meters' => 100,
+        ]);
+        [$user] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        // Roughly 11km from the branch — well outside the 100m radius.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.300000, 'lng' => 106.900000, 'photo' => $this->photo(),
+        ])->assertStatus(422);
+    }
+
+    public function test_check_in_allowed_inside_branch_geofence(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true,
+            'latitude' => -6.200000,
+            'longitude' => 106.800000,
+            'geofence_radius_meters' => 100,
+        ]);
+        [$user] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        // A few meters from the branch centroid — inside the 100m radius.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.200050, 'lng' => 106.800050, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_branch_without_location_skips_geofence_check(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create(['has_location' => false]);
+        [$user] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.300000, 'lng' => 106.900000, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_branch_without_own_location_falls_back_to_business_unit_geofence(): void
+    {
+        // The branch has no geofence of its own — it inherits the business unit's default location.
+        $businessUnit = OrgUnit::factory()->type(OrgUnitType::BusinessUnit)->create([
+            'has_location' => true,
+            'latitude' => -6.200000,
+            'longitude' => 106.800000,
+            'geofence_radius_meters' => 100,
+        ]);
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch, $businessUnit)->create(['has_location' => false]);
+        [$user] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        // Outside the business unit's radius.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.300000, 'lng' => 106.900000, 'photo' => $this->photo(),
+        ])->assertStatus(422);
+
+        // Inside the business unit's radius.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.200050, 'lng' => 106.800050, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_today_exposes_resolved_work_location_for_the_map(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true,
+            'latitude' => -6.200000,
+            'longitude' => 106.800000,
+            'geofence_radius_meters' => 150,
+        ]);
+        [$user] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->getJson('/api/attendances/today')->assertOk()->assertJsonFragment([
+            'work_location' => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+                'latitude' => -6.2,
+                'longitude' => 106.8,
+                'radius_meters' => 150,
+            ],
+        ]);
+    }
+
+    /** Helper: set up employee + schedule with a given shift. */
+    private function makeShiftedEmployee(array $shiftAttrs, string $role = 'employee'): array
+    {
+        $shift = Shift::query()->create(array_merge([
+            'name' => 'Test', 'code' => 'TST', 'is_active' => true,
+            'late_tolerance_minutes' => 15,
+        ], $shiftAttrs));
+
+        [$user, $employee] = $this->makeEmployeeUser($role);
+
+        $schedule = WorkSchedule::query()->create(['name' => 'S', 'code' => 'S', 'is_active' => true]);
+        // Cover all weekdays so the test date always resolves a shift.
+        foreach (range(0, 6) as $dow) {
+            WorkScheduleDay::query()->create([
+                'work_schedule_id' => $schedule->id,
+                'day_of_week' => $dow,
+                'shift_id' => $shift->id,
+                'is_workday' => true,
+            ]);
+        }
+        $employee->employeeSchedules()->create([
+            'work_schedule_id' => $schedule->id,
+            'effective_from' => '2020-01-01',
+        ]);
+
+        return [$user, $employee, $shift];
+    }
+
+    public function test_check_in_within_tolerance_is_present(): void
+    {
+        // Shift starts 08:00, tolerance 15 min → check-in at 08:14 must be Present.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 14, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Present', 'late_minutes' => 14]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_check_in_one_minute_over_tolerance_is_late(): void
+    {
+        // Shift starts 08:00, tolerance 15 min → check-in at 08:16 must be Late.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 16, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Late', 'late_minutes' => 16]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_overnight_shift_csv_import_correct_work_minutes(): void
+    {
+        // Night shift 22:00 → 06:00 next day (8 hours = 480 minutes).
+        $admin = $this->makeUser('administrator');
+        Employee::query()->create(['employee_no' => 'EMP-NIGHT', 'hire_date' => '2024-01-01']);
+
+        $csv = "employee_no,date,check_in,check_out\nEMP-NIGHT,2026-06-15,22:00,06:00\n";
+        $file = UploadedFile::fake()->createWithContent('night.csv', $csv);
+
+        $this->actingAs($admin, 'sanctum');
+        $this->postJson('/api/attendances/import', ['file' => $file])
+            ->assertOk()
+            ->assertJsonFragment(['imported' => 1]);
+
+        $row = Attendance::whereDate('date', '2026-06-15')->firstOrFail();
+        $this->assertSame(480, $row->work_minutes);
+        $this->assertSame('22:00', $row->check_in_at->format('H:i'));
+        $this->assertSame('06:00', $row->check_out_at->format('H:i'));
+        // check_out must be on the NEXT day.
+        $this->assertSame('2026-06-16', $row->check_out_at->toDateString());
     }
 
     public function test_csv_import_upserts_attendance(): void

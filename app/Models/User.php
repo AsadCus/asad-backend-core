@@ -35,6 +35,7 @@ class User extends Authenticatable
         'password',
         'contact',
         'photo_profile',
+        'signature_path',
         'created_at',
         'updated_at',
     ];
@@ -71,6 +72,18 @@ class User extends Authenticatable
         return Attribute::make(
             get: fn (): ?string => $this->photo_profile
                 ? Storage::disk('public')->url($this->photo_profile)
+                : null,
+        );
+    }
+
+    /**
+     * Public URL for the saved signature image, or null when none is set.
+     */
+    protected function signatureUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => $this->signature_path
+                ? Storage::disk('public')->url($this->signature_path)
                 : null,
         );
     }

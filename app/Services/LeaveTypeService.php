@@ -28,6 +28,7 @@ class LeaveTypeService
         return LeaveType::query()->orderBy('name')->get()->map(fn ($q) => [
             'value' => $q->id,
             'label' => $q->name,
+            'code' => $q->code,
         ]);
     }
 
