@@ -93,15 +93,29 @@ class AuthController extends Controller
 
     public function user(Request $request): JsonResponse
     {
+        return response()->json($this->userPayload($request->user()));
+    }
+
+    /** Public session probe: the current user, or null for a guest — always 200. */
+    public function me(Request $request): JsonResponse
+    {
         $user = $request->user();
 
+        return response()->json(['user' => $user ? $this->userPayload($user) : null]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userPayload(User $user): array
+    {
         $assigned = $user->employee?->resolveScopeOrgUnit();
         $activeId = $user->selected_org_unit_id;
         $active = ($activeId !== null && HrisScope::canAccess((int) $activeId, $user))
             ? OrgUnit::find($activeId)
             : $assigned;
 
-        return response()->json([
+        return [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
@@ -124,7 +138,7 @@ class AuthController extends Controller
             'scope_labels' => $this->resolveScopeLabels($user),
             'scope_country_options' => $this->resolveScopeCountryOptions($user),
             'scope_selected_country_ids' => DataScope::scopedCountryIds($user),
-        ]);
+        ];
     }
 
     private function canShowScopeIndicator(User $user): bool

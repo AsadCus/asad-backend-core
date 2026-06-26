@@ -172,6 +172,29 @@ class AttendanceCorrectionApiTest extends TestCase
         $this->assertDatabaseHas('user_notifications', ['user_id' => $empUser->id]);
     }
 
+    public function test_employee_without_a_supervisor_can_submit_and_see_it_in_my(): void
+    {
+        // The notifier no-ops when there's no supervisor to notify; the submit must still persist.
+        [$empUser, $employee] = $this->makeEmployeeUser('employee');
+        $this->assertNull($employee->supervisor_id);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/attendance-corrections', [
+            'date' => '2026-06-10',
+            'correction_type' => 'missed_check_out',
+            'reason' => 'Forgot to clock out.',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('attendance_corrections', [
+            'employee_id' => $employee->id,
+            'status' => 'pending_supervisor',
+        ]);
+
+        $this->getJson('/api/attendance-corrections/my')
+            ->assertOk()
+            ->assertJsonCount(1);
+    }
+
     public function test_my_returns_only_own_corrections(): void
     {
         [$empUser, $employee] = $this->makeEmployeeUser('employee');

@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\WfhVisitRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/quote', [QuoteController::class, 'random']);
+Route::get('/auth/me', [AuthController::class, 'me']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [PasswordController::class, 'resetPassword']);

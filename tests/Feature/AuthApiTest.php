@@ -37,6 +37,39 @@ class AuthApiTest extends TestCase
         return $user;
     }
 
+    public function test_user_endpoint_is_unauthorized_for_a_guest(): void
+    {
+        $this->getJson('/api/user')
+            ->assertUnauthorized();
+    }
+
+    public function test_user_endpoint_returns_the_authenticated_user(): void
+    {
+        $user = $this->makeEmployeeUser();
+
+        $this->actingAs($user, 'sanctum');
+        $this->getJson('/api/user')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $user->id, 'email' => $user->email]);
+    }
+
+    public function test_auth_me_returns_null_user_for_a_guest(): void
+    {
+        $this->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertExactJson(['user' => null]);
+    }
+
+    public function test_auth_me_returns_the_user_when_authenticated(): void
+    {
+        $user = $this->makeEmployeeUser();
+
+        $this->actingAs($user, 'sanctum');
+        $this->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('user.id', $user->id);
+    }
+
     public function test_user_without_employee_profile_can_login(): void
     {
         $user = User::factory()->create(['password' => bcrypt('password')]);
