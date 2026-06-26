@@ -29,6 +29,13 @@ class BusinessTripController extends Controller
         );
     }
 
+    public function my(Request $request): JsonResponse
+    {
+        return response()->json(
+            $this->service->getMyList($request->user(), $request->only('status')),
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();

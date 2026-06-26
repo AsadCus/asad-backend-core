@@ -171,4 +171,18 @@ class AttendanceCorrectionApiTest extends TestCase
 
         $this->assertDatabaseHas('user_notifications', ['user_id' => $empUser->id]);
     }
+
+    public function test_my_returns_only_own_corrections(): void
+    {
+        [$empUser, $employee] = $this->makeEmployeeUser('employee');
+        [, $otherEmployee] = $this->makeEmployeeUser('employee');
+
+        AttendanceCorrection::factory()->count(2)->create(['employee_id' => $employee->id]);
+        AttendanceCorrection::factory()->create(['employee_id' => $otherEmployee->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->getJson('/api/attendance-corrections/my')
+            ->assertOk()
+            ->assertJsonCount(2);
+    }
 }

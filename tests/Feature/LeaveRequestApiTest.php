@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Employee;
 use App\Models\LeaveBalance;
+use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use Database\Seeders\HrisRoleSeeder;
@@ -183,5 +184,19 @@ class LeaveRequestApiTest extends TestCase
         $this->postJson("/api/leave-requests/{$id}/approve", ['note' => 'ok'])->assertOk();
 
         $this->assertDatabaseHas('user_notifications', ['user_id' => $empUser->id]);
+    }
+
+    public function test_my_returns_only_own_leave_requests(): void
+    {
+        [$empUser, $employee] = $this->makeEmployeeUser('employee');
+        [, $otherEmployee] = $this->makeEmployeeUser('employee');
+
+        LeaveRequest::factory()->count(2)->create(['employee_id' => $employee->id]);
+        LeaveRequest::factory()->create(['employee_id' => $otherEmployee->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->getJson('/api/leave-requests/my')
+            ->assertOk()
+            ->assertJsonCount(2);
     }
 }

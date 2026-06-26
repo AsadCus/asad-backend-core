@@ -114,6 +114,26 @@ class BusinessTripService
     }
 
     /**
+     * The authenticated user's own business trips, regardless of role.
+     *
+     * @param  array{status?:string}  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function getMyList(User $user, array $filters = []): array
+    {
+        $query = BusinessTrip::query()
+            ->with('employee.user')
+            ->where('employee_id', $user->employee?->id ?? 0)
+            ->latest('depart_at');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query->get()->map(fn (BusinessTrip $t) => $this->mapRow($t))->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getDetail(User $user, int $id): array

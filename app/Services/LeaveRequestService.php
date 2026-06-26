@@ -72,6 +72,26 @@ class LeaveRequestService
     }
 
     /**
+     * The authenticated user's own leave requests, regardless of role.
+     *
+     * @param  array{status?:string}  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function getMyList(User $user, array $filters = []): array
+    {
+        $query = LeaveRequest::query()
+            ->with(['employee.user', 'leaveType'])
+            ->where('employee_id', $user->employee?->id ?? 0)
+            ->latest('start_date');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query->get()->map(fn (LeaveRequest $r) => $this->mapRow($r))->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getDetail(User $user, int $id): array

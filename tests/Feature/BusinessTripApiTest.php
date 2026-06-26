@@ -314,4 +314,18 @@ class BusinessTripApiTest extends TestCase
 
         $this->assertDatabaseHas('user_notifications', ['user_id' => $supUser->id]);
     }
+
+    public function test_my_returns_only_own_business_trips(): void
+    {
+        [$empUser, $employee] = $this->makeEmployeeUser('employee');
+        [, $otherEmployee] = $this->makeEmployeeUser('employee');
+
+        BusinessTrip::factory()->count(2)->create(['employee_id' => $employee->id]);
+        BusinessTrip::factory()->create(['employee_id' => $otherEmployee->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->getJson('/api/business-trips/my')
+            ->assertOk()
+            ->assertJsonCount(2);
+    }
 }

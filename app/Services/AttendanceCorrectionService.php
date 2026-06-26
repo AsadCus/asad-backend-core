@@ -73,6 +73,26 @@ class AttendanceCorrectionService
     }
 
     /**
+     * The authenticated user's own corrections, regardless of role.
+     *
+     * @param  array{status?:string}  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function getMyList(User $user, array $filters = []): array
+    {
+        $query = AttendanceCorrection::query()
+            ->with('employee.user')
+            ->where('employee_id', $user->employee?->id ?? 0)
+            ->latest('date');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query->get()->map(fn (AttendanceCorrection $c) => $this->mapRow($c))->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getDetail(User $user, int $id): array

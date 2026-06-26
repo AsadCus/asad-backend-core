@@ -152,6 +152,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HRIS attendance correction — submit → supervisor → HR approval workflow.
     Route::get('/attendance-corrections', [AttendanceCorrectionController::class, 'index']);
+    Route::get('/attendance-corrections/my', [AttendanceCorrectionController::class, 'my']);
     Route::post('/attendance-corrections', [AttendanceCorrectionController::class, 'store']);
     Route::get('/attendance-corrections/{id}', [AttendanceCorrectionController::class, 'show'])->whereNumber('id');
     Route::post('/attendance-corrections/{id}/approve', [AttendanceCorrectionController::class, 'approve']);
@@ -161,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HRIS leave request — submit → supervisor → HR approval workflow.
     Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
+    Route::get('/leave-requests/my', [LeaveRequestController::class, 'my']);
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
     Route::get('/leave-requests/{id}', [LeaveRequestController::class, 'show'])->whereNumber('id');
     Route::post('/leave-requests/{id}/approve', [LeaveRequestController::class, 'approve']);
@@ -180,6 +182,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HRIS business trip — submit → leader → HC → finance approval, then disbursement + report.
     Route::get('/business-trips', [BusinessTripController::class, 'index']);
+    Route::get('/business-trips/my', [BusinessTripController::class, 'my']);
     Route::post('/business-trips', [BusinessTripController::class, 'store']);
     Route::get('/business-trips/{id}', [BusinessTripController::class, 'show'])->whereNumber('id');
     Route::post('/business-trips/{id}/approve-leader', [BusinessTripController::class, 'approveLeader']);
