@@ -12,6 +12,18 @@ class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The SPA login route is session-based (stateful Sanctum). A request is only treated
+        // as stateful — and thus given a session — when its Origin matches a configured
+        // frontend domain, so simulate that for every request in this test.
+        $stateful = config('sanctum.stateful');
+        $origin = is_array($stateful) && ! empty($stateful) ? $stateful[0] : 'localhost';
+        $this->withHeader('Origin', 'http://'.$origin);
+    }
+
     private function makeEmployeeUser(array $employeeAttrs = []): User
     {
         $user = User::factory()->create(['password' => bcrypt('password')]);
