@@ -156,11 +156,31 @@ class OrgUnitTest extends TestCase
         );
         $this->assertTrue($missing->fails());
         $this->assertArrayHasKey('latitude', $missing->errors()->toArray());
+        $this->assertArrayHasKey('geofence_radius_meters', $missing->errors()->toArray());
 
         $ok = Validator::make(
             ['type' => 'branch', 'name' => 'X', 'code' => 'XLOC2', 'has_location' => false],
             $rules,
         );
         $this->assertFalse($ok->fails());
+    }
+
+    public function test_geofence_radius_required_when_located(): void
+    {
+        $rules = (new OrgUnitRule)->rules();
+
+        // Coordinates without a radius would leave the geofence unbounded — must fail.
+        $noRadius = Validator::make([
+            'type' => 'branch', 'name' => 'X', 'code' => 'XLOC3', 'has_location' => true,
+            'latitude' => -6.2, 'longitude' => 106.816666,
+        ], $rules);
+        $this->assertTrue($noRadius->fails());
+        $this->assertArrayHasKey('geofence_radius_meters', $noRadius->errors()->toArray());
+
+        $withRadius = Validator::make([
+            'type' => 'branch', 'name' => 'X', 'code' => 'XLOC4', 'has_location' => true,
+            'latitude' => -6.2, 'longitude' => 106.816666, 'geofence_radius_meters' => 100,
+        ], $rules);
+        $this->assertFalse($withRadius->fails());
     }
 }

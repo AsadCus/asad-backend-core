@@ -39,6 +39,16 @@ class EmployeeScheduleController extends Controller
         return response()->json($this->employeeScheduleService->update($validated, $id));
     }
 
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => 'required|file|mimes:csv,txt|max:2048']);
+
+        /** @var UploadedFile $file */
+        $file = $request->file('file');
+
+        return response()->json($this->employeeScheduleService->import($file));
+    }
+
     public function destroy(Request $request, string $id): JsonResponse
     {
         $ids = $request->input('ids');

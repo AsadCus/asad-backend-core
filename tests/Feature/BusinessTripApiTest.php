@@ -48,7 +48,7 @@ class BusinessTripApiTest extends TestCase
             'return_at' => '2026-06-22 18:00:00',
             'bank' => 'BANK MANDIRI',
             'account_no' => '1640005660255',
-            'account_holder' => 'Farhan Aditya Hidayatulloh',
+            'account_holder' => 'John Doe',
             'cost_breakdown' => [
                 ['title' => 'General', 'items' => [
                     ['description' => 'Uang Makan', 'cost' => 75000, 'qty' => 2, 'unit' => 'Makan'],

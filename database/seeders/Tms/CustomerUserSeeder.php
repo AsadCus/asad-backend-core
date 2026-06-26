@@ -24,7 +24,7 @@ class CustomerUserSeeder extends Seeder
             'Ahmad Faiz',
             'Muhammad Iqbal',
             'Syafiq Rizal',
-            'Farhan Hakim',
+            'John Doe',
             'Hafiz Rahman',
             'Aiman Firdaus',
             'Rizky Pratama',

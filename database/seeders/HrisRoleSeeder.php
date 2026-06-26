@@ -60,6 +60,10 @@ class HrisRoleSeeder extends Seeder
             'hris.leave-request view-team', 'hris.leave-request view-all',
             'hris.leave-request approve-supervisor', 'hris.leave-request verify-hr',
 
+            // WFH / Visit requests
+            'hris.wfh-visit-request view-all', 'hris.wfh-visit-request view-team', 'hris.wfh-visit-request view-own',
+            'hris.wfh-visit-request approve-supervisor', 'hris.wfh-visit-request verify-hr',
+
             // Approval matrix + reports
             'hris.approval-matrix view', 'hris.approval-matrix edit',
             'hris.attendance-report view', 'hris.attendance-report export',
@@ -125,6 +129,7 @@ class HrisRoleSeeder extends Seeder
             'hris.employee-schedule view', 'hris.employee-schedule assign',
             'hris.attendance check-in', 'hris.attendance view-own', 'hris.attendance view-all',
             'hris.attendance-correction view-all', 'hris.attendance-correction verify-hr',
+            'hris.wfh-visit-request view-all', 'hris.wfh-visit-request verify-hr',
             'hris.leave-type view', 'hris.leave-type create', 'hris.leave-type edit',
             'hris.leave-balance manage',
             'hris.leave-request view-all', 'hris.leave-request verify-hr',
@@ -142,6 +147,7 @@ class HrisRoleSeeder extends Seeder
             'hris.employee view-team',
             'hris.attendance check-in', 'hris.attendance view-own', 'hris.attendance view-team',
             'hris.attendance-correction view-team', 'hris.attendance-correction approve-supervisor',
+            'hris.wfh-visit-request view-team', 'hris.wfh-visit-request approve-supervisor',
             'hris.leave-request view-team', 'hris.leave-request approve-supervisor',
             'hris.leave-balance view-team',
             'hris.attendance-report view',
@@ -168,6 +174,7 @@ class HrisRoleSeeder extends Seeder
             'hris.employee view-own',
             'hris.attendance check-in', 'hris.attendance view-own',
             'hris.attendance-correction create', 'hris.attendance-correction view-own',
+            'hris.wfh-visit-request view-own',
             'hris.leave-balance view-own',
             'hris.leave-request create', 'hris.leave-request view-own',
             'hris.business-trip create', 'hris.business-trip view-own',

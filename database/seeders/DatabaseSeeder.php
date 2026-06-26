@@ -47,6 +47,9 @@ class DatabaseSeeder extends Seeder
 
             // Menu defaults
             MenuOverrideSeeder::class,
+
+            // Multi-BU demo accounts + WFH/Visit permissions (run after roles + work schedules)
+            DemoSeeder::class,
         ]);
     }
 }

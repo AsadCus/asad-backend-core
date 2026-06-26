@@ -24,7 +24,8 @@ class OrgUnitRule
             'has_location' => ['boolean'],
             'latitude' => ['nullable', 'required_if:has_location,1,true', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'required_if:has_location,1,true', 'numeric', 'between:-180,180'],
-            'geofence_radius_meters' => ['nullable', 'integer', 'min:0'],
+            // Required once located — an unbounded geofence would let check-in succeed from anywhere.
+            'geofence_radius_meters' => ['nullable', 'required_if:has_location,1,true', 'integer', 'min:1'],
             'is_active' => ['boolean'],
         ];
     }

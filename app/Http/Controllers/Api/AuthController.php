@@ -44,6 +44,16 @@ class AuthController extends Controller
 
         $user = $request->user();
 
+        if ($user->employee && ! $user->employee->canLogin()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'email' => 'Your account is inactive. Please contact HR.',
+            ]);
+        }
+
         if (Features::enabled(Features::twoFactorAuthentication()) && $user->hasEnabledTwoFactorAuthentication()) {
             Auth::logout();
             $request->session()->put([
@@ -96,6 +106,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'avatar_url' => $user->avatar_url,
+            'signature_url' => $user->signature_url,
             'permissions' => $user->effectivePermissionNames(),
             'roles' => $user->getRoleNames(),
             'can_check_in' => $user->employee ? (bool) $user->employee->can_check_in : false,

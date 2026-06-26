@@ -113,8 +113,26 @@ class OrgUnit extends Model
     }
 
     /**
+     * Nearest ancestor (or self) that carries its own geofence (has_location = true),
+     * walking up parent_id. A branch with no location configured falls back to its
+     * business unit's default location, and so on up the tree — mirrors the
+     * default-work-schedule fallback walk in {@see resolveDefaultWorkScheduleId()}.
+     */
+    public function resolveLocation(): ?self
+    {
+        $node = $this;
+        while ($node !== null) {
+            if ($node->has_location) {
+                return $node;
+            }
+            $node = $node->parent;
+        }
+
+        return null;
+    }
+
+    /**
      * Nearest ancestor (or self) of the given type, walking up parent_id.
-     * Used e.g. to resolve an employee's branch (geofence) from their placement.
      */
     public function nearestOfType(OrgUnitType $type): ?self
     {
