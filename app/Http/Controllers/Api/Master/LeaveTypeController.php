@@ -46,18 +46,6 @@ class LeaveTypeController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $ids = $request->input('ids');
-
-        if ($ids && is_array($ids)) {
-            foreach ($ids as $leaveTypeId) {
-                $this->leaveTypeService->delete($leaveTypeId);
-            }
-
-            return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
-        }
-
-        $this->leaveTypeService->delete($id);
-
-        return response()->json(['status' => 'ok', 'deleted' => 1]);
+        return $this->deleteOneOrMany($request, $id, fn (string $itemId) => $this->leaveTypeService->delete($itemId));
     }
 }

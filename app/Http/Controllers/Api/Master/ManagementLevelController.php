@@ -46,18 +46,6 @@ class ManagementLevelController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $ids = $request->input('ids');
-
-        if ($ids && is_array($ids)) {
-            foreach ($ids as $levelId) {
-                $this->managementLevelService->delete($levelId);
-            }
-
-            return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
-        }
-
-        $this->managementLevelService->delete($id);
-
-        return response()->json(['status' => 'ok', 'deleted' => 1]);
+        return $this->deleteOneOrMany($request, $id, fn (string $itemId) => $this->managementLevelService->delete($itemId));
     }
 }

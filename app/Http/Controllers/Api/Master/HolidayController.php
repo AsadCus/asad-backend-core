@@ -41,18 +41,6 @@ class HolidayController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $ids = $request->input('ids');
-
-        if ($ids && is_array($ids)) {
-            foreach ($ids as $holidayId) {
-                $this->holidayService->delete($holidayId);
-            }
-
-            return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
-        }
-
-        $this->holidayService->delete($id);
-
-        return response()->json(['status' => 'ok', 'deleted' => 1]);
+        return $this->deleteOneOrMany($request, $id, fn (string $itemId) => $this->holidayService->delete($itemId));
     }
 }
