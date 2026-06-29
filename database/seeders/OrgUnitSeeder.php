@@ -8,22 +8,6 @@ use Illuminate\Database\Seeder;
 
 class OrgUnitSeeder extends Seeder
 {
-    /**
-     * Margo City Mall, Jl. Margonda Raya No. 358, Depok — shared demo geofence for every
-     * HQ branch so check-in/visit geofencing has real, reachable coordinates out of the box.
-     */
-    private const DEFAULT_LOCATION = [
-        'address' => 'Margo City, Jl. Margonda Raya No. 358, Depok, Jawa Barat',
-        'latitude' => -6.3878,
-        'longitude' => 106.8237,
-        'has_location' => true,
-    ];
-
-    /**
-     * Real SMGI structure: holding + 3 business units, each with an HQ branch.
-     * The first BU carries an illustrative department/division so the full
-     * 5-level tree exists for nesting/scope tests.
-     */
     public function run(): void
     {
         $tree = [
@@ -34,30 +18,26 @@ class OrgUnitSeeder extends Seeder
                 'email' => 'info@smgi.example.com',
                 'logo_path' => '/Logo Icon SMGI.png',
                 'children' => [
+                    ['type' => OrgUnitType::Department, 'name' => 'Human Resources', 'code' => 'SMGI-HR'],
+                    ['type' => OrgUnitType::Department, 'name' => 'Finance & Accounting', 'code' => 'SMGI-FIN'],
+                    ['type' => OrgUnitType::Department, 'name' => 'Marketing & Sales', 'code' => 'SMGI-MKT'],
+                    ['type' => OrgUnitType::Department, 'name' => 'Operasional', 'code' => 'SMGI-OPS'],
+                    ['type' => OrgUnitType::Department, 'name' => 'IT & Technology', 'code' => 'SMGI-IT'],
+                    ['type' => OrgUnitType::Department, 'name' => 'Legal & Compliance', 'code' => 'SMGI-LEGAL'],
+                    ['type' => OrgUnitType::Department, 'name' => 'General Affairs', 'code' => 'SMGI-GA'],
                     [
                         'type' => OrgUnitType::BusinessUnit,
                         'name' => 'PT Samu Sinergi Mandiri',
                         'code' => 'SSM',
                         'logo_path' => '/Logo Icon Samu Sinergi Mandiri.png',
                         'children' => [
-                            [
-                                'type' => OrgUnitType::Branch,
-                                'name' => 'SSM Head Office',
-                                'code' => 'SSM-HO',
-                                'geofence_radius_meters' => 100,
-                                ...self::DEFAULT_LOCATION,
-                                'children' => [
-                                    [
-                                        'type' => OrgUnitType::Department,
-                                        'name' => 'Human Resources',
-                                        'code' => 'SSM-HR',
-                                        'children' => [
-                                            ['type' => OrgUnitType::Division, 'name' => 'People Operations', 'code' => 'SSM-HR-POPS'],
-                                        ],
-                                    ],
-                                    ['type' => OrgUnitType::Department, 'name' => 'Finance', 'code' => 'SSM-FIN'],
-                                ],
-                            ],
+                            ['type' => OrgUnitType::Department, 'name' => 'Human Resources', 'code' => 'SSM-HR'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Finance & Accounting', 'code' => 'SSM-FIN'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Marketing & Sales', 'code' => 'SSM-MKT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Operasional', 'code' => 'SSM-OPS'],
+                            ['type' => OrgUnitType::Department, 'name' => 'IT & Technology', 'code' => 'SSM-IT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Legal & Compliance', 'code' => 'SSM-LEGAL'],
+                            ['type' => OrgUnitType::Department, 'name' => 'General Affairs', 'code' => 'SSM-GA'],
                         ],
                     ],
                     [
@@ -66,13 +46,13 @@ class OrgUnitSeeder extends Seeder
                         'code' => 'GSL',
                         'logo_path' => '/Logo Icon Global Sinergi Laboratorium.png',
                         'children' => [
-                            [
-                                'type' => OrgUnitType::Branch,
-                                'name' => 'GSL Head Office',
-                                'code' => 'GSL-HO',
-                                'geofence_radius_meters' => 100,
-                                ...self::DEFAULT_LOCATION,
-                            ],
+                            ['type' => OrgUnitType::Department, 'name' => 'Human Resources', 'code' => 'GSL-HR'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Finance & Accounting', 'code' => 'GSL-FIN'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Marketing & Sales', 'code' => 'GSL-MKT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Operasional', 'code' => 'GSL-OPS'],
+                            ['type' => OrgUnitType::Department, 'name' => 'IT & Technology', 'code' => 'GSL-IT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Legal & Compliance', 'code' => 'GSL-LEGAL'],
+                            ['type' => OrgUnitType::Department, 'name' => 'General Affairs', 'code' => 'GSL-GA'],
                         ],
                     ],
                     [
@@ -81,13 +61,13 @@ class OrgUnitSeeder extends Seeder
                         'code' => 'SAMU',
                         'logo_path' => '/Logo Icon Sinergi Akbar Mandiri Utama.png',
                         'children' => [
-                            [
-                                'type' => OrgUnitType::Branch,
-                                'name' => 'SAMU Head Office',
-                                'code' => 'SAMU-HO',
-                                'geofence_radius_meters' => 100,
-                                ...self::DEFAULT_LOCATION,
-                            ],
+                            ['type' => OrgUnitType::Department, 'name' => 'Human Resources', 'code' => 'SAMU-HR'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Finance & Accounting', 'code' => 'SAMU-FIN'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Marketing & Sales', 'code' => 'SAMU-MKT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Operasional', 'code' => 'SAMU-OPS'],
+                            ['type' => OrgUnitType::Department, 'name' => 'IT & Technology', 'code' => 'SAMU-IT'],
+                            ['type' => OrgUnitType::Department, 'name' => 'Legal & Compliance', 'code' => 'SAMU-LEGAL'],
+                            ['type' => OrgUnitType::Department, 'name' => 'General Affairs', 'code' => 'SAMU-GA'],
                         ],
                     ],
                 ],
