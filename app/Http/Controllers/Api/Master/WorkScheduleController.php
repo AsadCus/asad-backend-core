@@ -53,18 +53,6 @@ class WorkScheduleController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $ids = $request->input('ids');
-
-        if ($ids && is_array($ids)) {
-            foreach ($ids as $workScheduleId) {
-                $this->workScheduleService->delete($workScheduleId);
-            }
-
-            return response()->json(['status' => 'ok', 'deleted' => count($ids)]);
-        }
-
-        $this->workScheduleService->delete($id);
-
-        return response()->json(['status' => 'ok', 'deleted' => 1]);
+        return $this->deleteOneOrMany($request, $id, fn (string $itemId) => $this->workScheduleService->delete($itemId));
     }
 }

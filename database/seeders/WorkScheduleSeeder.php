@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\OrgUnitType;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
+use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\WorkSchedule;
 use Illuminate\Database\Seeder;
@@ -23,6 +25,7 @@ class WorkScheduleSeeder extends Seeder
 
         $this->seedStandardWeekDays();
         $this->assignDefaultScheduleToUnscheduledEmployees();
+        $this->assignDefaultScheduleToBusinessUnits();
     }
 
     /**
@@ -69,5 +72,25 @@ class WorkScheduleSeeder extends Seeder
                 'effective_to' => null,
             ]);
         });
+    }
+
+    /**
+     * Business units fall back to the Standard 5-Day Week unless an admin has already
+     * picked something else. `OrgUnit::resolveDefaultWorkScheduleId()` walks up the tree,
+     * so this single assignment covers every branch/department/division beneath each BU.
+     * Runs after the org tree exists (OrgUnitSeeder) and after WorkSchedule rows exist
+     * (created above) — only WorkScheduleSeeder satisfies both, so it owns this step.
+     */
+    private function assignDefaultScheduleToBusinessUnits(): void
+    {
+        $standard = WorkSchedule::where('code', 'WS-STD')->first();
+
+        if (! $standard) {
+            return;
+        }
+
+        OrgUnit::where('type', OrgUnitType::BusinessUnit)
+            ->whereNull('default_work_schedule_id')
+            ->update(['default_work_schedule_id' => $standard->id]);
     }
 }
