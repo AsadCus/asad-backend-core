@@ -39,12 +39,12 @@ class DemoSeeder extends Seeder
 
         $orgUnits = OrgUnit::query()->pluck('id', 'code');
 
-        // [buPrefix, managerOrgCode, supervisorOrgCode, employeeOrgCode]
+        // [buPrefix, managerOrgCode, supervisorOrgCode, employeeOrgCode] — codes must exist in OrgUnitSeeder.
         $businessUnits = [
             ['smgi', 'SMGI', 'SMGI', 'SMGI'],
-            ['ssm',  'SSM-HR', 'SSM-HR-POPS', 'SSM-HR-POPS'],
-            ['gsl',  'GSL-HO', 'GSL-HO', 'GSL-HO'],
-            ['samu', 'SAMU-HO', 'SAMU-HO', 'SAMU-HO'],
+            ['ssm',  'SSM-HR', 'SSM-HR', 'SSM-HR'],
+            ['gsl',  'GSL-HR', 'GSL-HR', 'GSL-HR'],
+            ['samu', 'SAMU-HR', 'SAMU-HR', 'SAMU-HR'],
         ];
 
         $standardSchedule = WorkSchedule::where('code', 'WS-STD')->first();

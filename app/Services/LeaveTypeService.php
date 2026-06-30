@@ -25,11 +25,18 @@ class LeaveTypeService
 
     public function getForFilter()
     {
-        return LeaveType::query()->orderBy('name')->get()->map(fn ($q) => [
-            'value' => $q->id,
-            'label' => $q->name,
-            'code' => $q->code,
-        ]);
+        return LeaveType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($q) => [
+                'value' => $q->id,
+                'label' => $q->name,
+                'code' => $q->code,
+                'requires_attachment' => (bool) $q->requires_attachment,
+                'requires_balance' => (bool) $q->requires_balance,
+                'description' => $q->description,
+            ]);
     }
 
     public function getForEditShow($id)

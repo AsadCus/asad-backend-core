@@ -43,5 +43,9 @@ class DatabaseSeederTest extends TestCase
             $this->assertNotNull($employee, "missing employee for {$email}");
             $this->assertNotNull($employee->org_unit_id, "missing org unit for {$email}");
         }
+
+        // The reporting line is wired so team-scoped screens have data: employee → supervisor.
+        $employee = Employee::query()->whereRelation('user', 'email', 'employee@example.com')->firstOrFail();
+        $this->assertNotNull($employee->supervisor_id, 'employee@ has no supervisor wired');
     }
 }
