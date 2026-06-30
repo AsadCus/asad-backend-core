@@ -173,6 +173,9 @@ class OrgUnitService
             'longitude' => $u->longitude,
             'geofence_radius_meters' => $u->geofence_radius_meters,
             'has_location' => (bool) $u->has_location,
+            // This unit's own value (possibly blank) — not resolveAttendanceCutoffDay()'s
+            // inherited result, so the edit form shows exactly what's set here vs inherited.
+            'attendance_cutoff_day' => $u->attendance_cutoff_day,
             'is_active' => (bool) $u->is_active,
         ];
     }
