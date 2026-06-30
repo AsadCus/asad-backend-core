@@ -18,7 +18,10 @@ class WfhVisitRequestService
 
     private const REQUESTER_LINK = '/requests';
 
-    public function __construct(private HrisNotifier $notifier) {}
+    public function __construct(
+        private HrisNotifier $notifier,
+        private WorkingDaysCalculator $workingDays,
+    ) {}
 
     /**
      * @return array<int>|null null = view-all access
@@ -135,7 +138,11 @@ class WfhVisitRequestService
         return DB::transaction(function () use ($employee, $data, $attachments) {
             $startDate = Carbon::parse($data['start_date']);
             $endDate = Carbon::parse($data['end_date']);
-            $totalDays = max(1, $startDate->diffInDays($endDate) + 1);
+
+            $this->assertNoOverlap($employee->id, $startDate, $endDate);
+
+            $totalDays = $this->workingDays->countWorkingDays($employee, $startDate, $endDate);
+            abort_if($totalDays < 1, 422, 'The selected date range has no working days — pick a range that includes at least one.');
 
             // Resolve geotag_mode for visit type
             $geotagMode = null;
@@ -181,6 +188,36 @@ class WfhVisitRequestService
 
             return $this->mapRow($req->fresh(['employee.user', 'attachments']));
         });
+    }
+
+    /**
+     * Block a submission whose date range overlaps one of the employee's own requests that's
+     * still "active" (pending or approved) — rejected/cancelled ones are free to resubmit over.
+     * Runs inside store()'s transaction so a duplicate can't slip in via a race.
+     */
+    private function assertNoOverlap(int $employeeId, Carbon $startDate, Carbon $endDate): void
+    {
+        $conflict = WfhVisitRequest::query()
+            ->where('employee_id', $employeeId)
+            ->whereIn('status', [
+                ApprovalStatus::PendingSupervisor,
+                ApprovalStatus::PendingHr,
+                ApprovalStatus::Approved,
+            ])
+            ->where('start_date', '<=', $endDate->toDateString())
+            ->where('end_date', '>=', $startDate->toDateString())
+            ->first();
+
+        if (! $conflict) {
+            return;
+        }
+
+        $typeLabel = $conflict->type === 'wfh' ? 'WFH' : 'Visit';
+        $range = $conflict->start_date->isSameDay($conflict->end_date)
+            ? $conflict->start_date->format('d M Y')
+            : $conflict->start_date->format('d M Y').' – '.$conflict->end_date->format('d M Y');
+
+        abort(422, "You already have a {$conflict->status->label()} {$typeLabel} request ({$conflict->request_no}) covering {$range}. Cancel it first or pick different dates.");
     }
 
     /**

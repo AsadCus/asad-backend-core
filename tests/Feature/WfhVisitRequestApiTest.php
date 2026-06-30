@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Enums\ApprovalStatus;
 use App\Models\Employee;
+use App\Models\Holiday;
+use App\Models\Shift;
 use App\Models\User;
 use App\Models\WfhVisitRequest;
+use App\Models\WorkSchedule;
+use App\Models\WorkScheduleDay;
 use Carbon\Carbon;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -69,6 +73,33 @@ class WfhVisitRequestApiTest extends TestCase
     private function photo(): string
     {
         return 'data:image/png;base64,'.base64_encode('fake-image-bytes');
+    }
+
+    /** Employee on a Mon–Fri schedule (Sat/Sun are scheduled rest days). */
+    private function makeEmployeeWithWeekdaySchedule(string $role = 'employee', array $attrs = []): array
+    {
+        [$user, $employee] = $this->makeEmployeeUser($role, $attrs);
+
+        $shift = Shift::query()->create([
+            'name' => 'Office', 'code' => 'OFF-'.fake()->unique()->numerify('####'), 'is_active' => true,
+            'start_time' => '08:00', 'end_time' => '17:00',
+        ]);
+        $schedule = WorkSchedule::query()->create(['name' => 'S', 'code' => 'S-'.fake()->unique()->numerify('####'), 'is_active' => true]);
+        foreach (range(0, 6) as $dow) {
+            $isWorkday = $dow >= 1 && $dow <= 5; // Mon(1)..Fri(5)
+            WorkScheduleDay::query()->create([
+                'work_schedule_id' => $schedule->id,
+                'day_of_week' => $dow,
+                'shift_id' => $isWorkday ? $shift->id : null,
+                'is_workday' => $isWorkday,
+            ]);
+        }
+        $employee->employeeSchedules()->create([
+            'work_schedule_id' => $schedule->id,
+            'effective_from' => '2020-01-01',
+        ]);
+
+        return [$user, $employee];
     }
 
     // ===========================================================================
@@ -189,6 +220,129 @@ class WfhVisitRequestApiTest extends TestCase
         $this->postJson("/api/wfh-visit-requests/{$id}/cancel")
             ->assertOk()
             ->assertJsonFragment(['status_value' => 'cancelled']);
+    }
+
+    public function test_cannot_submit_overlapping_request(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-06', 'end_date' => '2026-07-10',
+            'reason' => 'First request this week.',
+        ])->assertCreated();
+
+        // Fully inside the first range.
+        $response = $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'visit', 'start_date' => '2026-07-08', 'end_date' => '2026-07-08',
+            'reason' => 'Client visit, same week.',
+        ])->assertStatus(422);
+
+        $this->assertStringContainsString(
+            'You already have a Pending Supervisor WFH request',
+            $response->json('message'),
+        );
+        $this->assertDatabaseCount('wfh_visit_requests', 1);
+    }
+
+    public function test_cannot_submit_request_that_partially_overlaps_existing_one(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-06', 'end_date' => '2026-07-10',
+            'reason' => 'First request.',
+        ])->assertCreated();
+
+        // Starts before, ends inside — still overlaps.
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-04', 'end_date' => '2026-07-07',
+            'reason' => 'Overlapping request.',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseCount('wfh_visit_requests', 1);
+    }
+
+    public function test_can_submit_adjacent_non_overlapping_request(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-06', 'end_date' => '2026-07-10',
+            'reason' => 'First request.',
+        ])->assertCreated();
+
+        // Starts the very next day — back-to-back, no overlap.
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-11', 'end_date' => '2026-07-12',
+            'reason' => 'Back-to-back request.',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('wfh_visit_requests', 2);
+    }
+
+    public function test_can_resubmit_same_dates_after_rejection_or_cancellation(): void
+    {
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser] = $this->makeEmployeeUser('employee', ['supervisor_id' => $supervisor->id]);
+        $this->actingAs($empUser, 'sanctum');
+
+        $rejectedId = $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-06', 'end_date' => '2026-07-06',
+            'reason' => 'First attempt.',
+        ])->json('id');
+
+        $this->actingAs($supUser, 'sanctum');
+        $this->postJson("/api/wfh-visit-requests/{$rejectedId}/reject", ['note' => 'Denied.'])
+            ->assertOk();
+
+        // Same date, after rejection — should be allowed again.
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-07-06', 'end_date' => '2026-07-06',
+            'reason' => 'Second attempt after rejection.',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('wfh_visit_requests', 2);
+    }
+
+    public function test_wfh_spanning_a_weekend_only_counts_working_days(): void
+    {
+        // Friday 12 Jun 2026 → Monday 15 Jun 2026 is 4 calendar days, but only Fri + Mon
+        // (2 days) are actually scheduled working days for this employee.
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-06-12', 'end_date' => '2026-06-15',
+            'reason' => 'WFH around the weekend.',
+        ])->assertCreated()->assertJsonFragment(['total_days' => 2]);
+    }
+
+    public function test_wfh_entirely_on_rest_days_is_rejected(): void
+    {
+        // Saturday 13 Jun – Sunday 14 Jun 2026: zero working days for this employee.
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'wfh', 'start_date' => '2026-06-13', 'end_date' => '2026-06-14',
+            'reason' => 'Makes no sense.',
+        ])->assertStatus(422);
+    }
+
+    public function test_visit_on_a_company_holiday_is_rejected(): void
+    {
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        Holiday::query()->create(['name' => 'Independence Day', 'date' => '2026-06-10', 'is_recurring' => false]);
+        $this->actingAs($empUser, 'sanctum');
+
+        $this->postJson('/api/wfh-visit-requests', [
+            'type' => 'visit', 'start_date' => '2026-06-10', 'end_date' => '2026-06-10',
+            'reason' => 'Already a holiday.',
+        ])->assertStatus(422);
     }
 
     public function test_employee_only_sees_own_requests_via_my(): void
