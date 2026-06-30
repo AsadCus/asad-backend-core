@@ -4,20 +4,21 @@ namespace App\Services;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\AttendanceStatus;
-use App\Enums\OrgUnitType;
 use App\Models\Attendance;
 use App\Models\Employee;
-use App\Models\EmployeeSchedule;
 use App\Models\Holiday;
 use App\Models\LeaveRequest;
 use App\Models\OrgUnit;
 use App\Models\User;
-use App\Models\WorkScheduleDay;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
 
 class TeamOverviewService
 {
+    public function __construct(
+        private WfhVisitLookupService $wfhVisitLookup,
+        private EmployeeScheduleResolver $scheduleResolver,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -40,19 +41,17 @@ class TeamOverviewService
 
         $attendancesByEmployee = Attendance::query()
             ->whereIn('employee_id', $employeeIds)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            // whereDate(), not whereBetween() — a date-cast column can carry a 00:00:00 time
+            // component depending on the DB driver, so a plain string range comparison is
+            // unreliable for a single-day (start == end) period. whereDate() normalizes both
+            // sides to just the calendar date.
+            ->whereDate('date', '>=', $start->toDateString())
+            ->whereDate('date', '<=', $end->toDateString())
             ->with('shift')
             ->get()
             ->groupBy('employee_id');
 
-        $schedulesByEmployee = EmployeeSchedule::query()
-            ->whereIn('employee_id', $employeeIds)
-            ->where('effective_from', '<=', $end->toDateString())
-            ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', $start->toDateString()))
-            ->with('workSchedule.workScheduleDays.shift')
-            ->orderBy('effective_from')
-            ->get()
-            ->groupBy('employee_id');
+        $schedulesByEmployee = $this->scheduleResolver->preloadForRange($employeeIds->all(), $start, $end);
 
         $leavesByEmployee = LeaveRequest::query()
             ->whereIn('employee_id', $employeeIds)
@@ -63,38 +62,51 @@ class TeamOverviewService
             ->get()
             ->groupBy('employee_id');
 
+        $wfhVisitByDayKey = $this->wfhVisitLookup->approvedTypeByDayKey($employeeIds->all(), $start, $end);
+
         $holidayDates = $this->holidayDatesInRange($start, $end);
 
-        $summary = ['total' => $subordinates->count(), 'present' => 0, 'late' => 0, 'on_leave' => 0, 'absent' => 0];
-        $details = ['present' => [], 'late' => [], 'on_leave' => [], 'absent' => []];
+        $summary = ['total' => $subordinates->count(), 'present' => 0, 'late' => 0, 'on_leave' => 0, 'wfh' => 0, 'visit' => 0, 'absent' => 0];
+        $details = ['present' => [], 'late' => [], 'on_leave' => [], 'wfh' => [], 'visit' => [], 'absent' => []];
         $seenLeaveRequestIds = [];
         $members = [];
 
         foreach ($subordinates as $emp) {
-            $businessUnit = $emp->orgUnit?->nearestOfType(OrgUnitType::BusinessUnit);
-            $branch = $emp->orgUnit?->nearestOfType(OrgUnitType::Branch);
-            $department = $emp->orgUnit?->nearestOfType(OrgUnitType::Department);
-            $division = $emp->orgUnit?->nearestOfType(OrgUnitType::Division);
+            ['business_unit' => $businessUnit, 'branch' => $branch, 'department' => $department, 'division' => $division] = $emp->orgUnitBreakdown();
 
             $attendancesByDate = ($attendancesByEmployee->get($emp->id) ?? collect())
                 ->keyBy(fn (Attendance $a) => $a->date->toDateString());
-            $empSchedules = $schedulesByEmployee->get($emp->id) ?? collect();
             $empLeaves = $leavesByEmployee->get($emp->id) ?? collect();
 
-            $counts = ['present' => 0, 'late' => 0, 'on_leave' => 0, 'absent' => 0];
+            $counts = ['present' => 0, 'late' => 0, 'on_leave' => 0, 'wfh' => 0, 'visit' => 0, 'absent' => 0];
             $todayRow = null;
 
             for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
                 $dateStr = $date->toDateString();
-                $day = $this->scheduleDayFor($empSchedules, $date);
+                $day = $this->scheduleResolver->resolveDayFromBatch($schedulesByEmployee, $emp->id, $date);
                 $att = $attendancesByDate->get($dateStr);
                 $isHoliday = isset($holidayDates[$dateStr]);
                 $isWorkday = $day && $day->is_workday;
+                $leave = $empLeaves->first(fn (LeaveRequest $l) => $l->start_date->lte($date) && $l->end_date->gte($date));
+                $wfhVisitType = $wfhVisitByDayKey->get(WfhVisitLookupService::dayKey($emp->id, $date));
 
                 if (! $isHoliday && $isWorkday) {
-                    if ($att) {
+                    if ($leave) {
+                        $counts['on_leave']++;
+                        if (! isset($seenLeaveRequestIds[$leave->id])) {
+                            $seenLeaveRequestIds[$leave->id] = true;
+                            $details['on_leave'][] = $this->mapLeaveRow($emp, $businessUnit, $branch, $department, $division, $leave);
+                        }
+                    } elseif ($wfhVisitType) {
+                        $counts[$wfhVisitType]++;
+                        $details[$wfhVisitType][] = $this->mapInstanceRow(
+                            $emp, $businessUnit, $branch, $department, $division,
+                            $date, $att?->shift?->name ?? $day->shift?->name, $att?->check_in_at?->format('H:i'),
+                        );
+                    } elseif ($att) {
                         $isPresentLike = in_array($att->status, [
-                            AttendanceStatus::Present, AttendanceStatus::Late, AttendanceStatus::EarlyLeave,
+                            AttendanceStatus::EarlyCheckIn, AttendanceStatus::Present,
+                            AttendanceStatus::Late, AttendanceStatus::EarlyLeave,
                         ], true);
                         $isLate = $att->status === AttendanceStatus::Late;
 
@@ -113,25 +125,22 @@ class TeamOverviewService
                             );
                         }
                     } else {
-                        $leave = $empLeaves->first(fn (LeaveRequest $l) => $l->start_date->lte($date) && $l->end_date->gte($date));
-                        if ($leave) {
-                            $counts['on_leave']++;
-                            if (! isset($seenLeaveRequestIds[$leave->id])) {
-                                $seenLeaveRequestIds[$leave->id] = true;
-                                $details['on_leave'][] = $this->mapLeaveRow($emp, $businessUnit, $branch, $department, $division, $leave);
-                            }
-                        } else {
-                            $counts['absent']++;
-                            $details['absent'][] = $this->mapInstanceRow(
-                                $emp, $businessUnit, $branch, $department, $division, $date, null, null,
-                            );
-                        }
+                        $counts['absent']++;
+                        $details['absent'][] = $this->mapInstanceRow(
+                            $emp, $businessUnit, $branch, $department, $division, $date, null, null,
+                        );
                     }
                 }
 
                 $isSingleDayPeriod = in_array($period, ['today', 'yesterday'], true);
                 if ($isSingleDayPeriod && $date->isSameDay($start)) {
-                    $statusLabel = $att?->status?->label() ?? 'Absent';
+                    $statusLabel = AttendanceStatus::classify(
+                        isHoliday: $isHoliday,
+                        isOnLeave: (bool) $leave,
+                        wfhVisitType: $wfhVisitType,
+                        attendanceStatus: $att?->status,
+                        isRestDay: (bool) ($day && ! $day->is_workday),
+                    )->label();
                     $scheduledShiftName = $isWorkday ? $day->shift?->name : null;
                     $todayRow = [
                         'id' => $emp->id,
@@ -161,6 +170,8 @@ class TeamOverviewService
             $summary['present'] += $counts['present'];
             $summary['late'] += $counts['late'];
             $summary['on_leave'] += $counts['on_leave'];
+            $summary['wfh'] += $counts['wfh'];
+            $summary['visit'] += $counts['visit'];
             $summary['absent'] += $counts['absent'];
 
             $isSingleDayPeriod = in_array($period, ['today', 'yesterday'], true);
@@ -181,6 +192,8 @@ class TeamOverviewService
                     'present_count' => $counts['present'],
                     'late_count' => $counts['late'],
                     'on_leave_count' => $counts['on_leave'],
+                    'wfh_count' => $counts['wfh'],
+                    'visit_count' => $counts['visit'],
                     'absent_count' => $counts['absent'],
                 ];
             }
@@ -219,29 +232,6 @@ class TeamOverviewService
     }
 
     /**
-     * The matching work_schedule_days row for $date among the employee's (small) set of
-     * schedule rows overlapping the queried range — picks the one with the latest
-     * effective_from that's still active on $date, mirroring the single-day lookup in
-     * AttendanceService::resolveScheduleDay() but reusable across every date in the range.
-     *
-     * @param  Collection<int, EmployeeSchedule>  $schedules
-     */
-    private function scheduleDayFor(Collection $schedules, Carbon $date): ?WorkScheduleDay
-    {
-        $active = $schedules
-            ->filter(fn (EmployeeSchedule $s) => $s->effective_from->lte($date)
-                && ($s->effective_to === null || $s->effective_to->gte($date)))
-            ->sortByDesc('effective_from')
-            ->first();
-
-        if (! $active || ! $active->workSchedule) {
-            return null;
-        }
-
-        return $active->workSchedule->workScheduleDays->firstWhere('day_of_week', $date->dayOfWeek);
-    }
-
-    /**
      * Every holiday date within the range as a `['Y-m-d' => true]` set — prefetched once so the
      * per-employee/per-day walk below never re-queries (unlike calling Holiday::isHoliday() in a loop).
      *
@@ -252,7 +242,8 @@ class TeamOverviewService
         $set = [];
 
         Holiday::query()
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('date', '>=', $start->toDateString())
+            ->whereDate('date', '<=', $end->toDateString())
             ->pluck('date')
             ->each(function ($date) use (&$set) {
                 $set[$date->toDateString()] = true;
