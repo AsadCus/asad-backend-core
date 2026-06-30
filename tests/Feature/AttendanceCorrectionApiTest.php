@@ -5,7 +5,11 @@ namespace Tests\Feature;
 use App\Models\Attendance;
 use App\Models\AttendanceCorrection;
 use App\Models\Employee;
+use App\Models\Shift;
 use App\Models\User;
+use App\Models\WorkSchedule;
+use App\Models\WorkScheduleDay;
+use Carbon\Carbon;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,12 +71,115 @@ class AttendanceCorrectionApiTest extends TestCase
 
         // 3. HR verifies → approved, and the attendance row gets the corrected check-out.
         $this->actingAs($hrUser, 'sanctum');
-        $this->postJson("/api/attendance-corrections/{$id}/verify", ['note' => 'verified'])
+        $verify = $this->postJson("/api/attendance-corrections/{$id}/verify", ['note' => 'verified'])
             ->assertOk()->assertJsonFragment(['status' => 'Approved']);
 
         $attendance->refresh();
         $this->assertNotNull($attendance->check_out_at);
         $this->assertSame('2026-06-10 17:05:00', $attendance->check_out_at->format('Y-m-d H:i:s'));
+
+        // The response exposes which attendance row it touched, so the UI can link to it.
+        $this->assertSame($attendance->id, $verify->json('attendance_id'));
+    }
+
+    /** Employee on a real shift (08:00-17:00, 15min tolerance) every weekday. */
+    private function makeShiftedEmployee(string $role, array $attrs = []): array
+    {
+        $shift = Shift::query()->create([
+            'name' => 'Office', 'code' => 'OFF', 'start_time' => '08:00', 'end_time' => '17:00',
+            'late_tolerance_minutes' => 15, 'is_active' => true,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser($role, $attrs);
+
+        $schedule = WorkSchedule::query()->create(['name' => 'Std', 'code' => 'STD', 'is_active' => true]);
+        foreach (range(0, 6) as $dow) {
+            WorkScheduleDay::query()->create([
+                'work_schedule_id' => $schedule->id,
+                'day_of_week' => $dow,
+                'shift_id' => $shift->id,
+                'is_workday' => true,
+            ]);
+        }
+        $employee->employeeSchedules()->create([
+            'work_schedule_id' => $schedule->id,
+            'effective_from' => '2020-01-01',
+        ]);
+
+        return [$user, $employee, $shift];
+    }
+
+    public function test_approved_missed_check_in_correction_still_flags_lateness_against_the_real_shift(): void
+    {
+        // The corrected punch (09:00) is genuinely late against an 08:00 shift with 15min
+        // tolerance — approving the correction must not wave that away as a clean Present,
+        // or the export would show a late employee as on-time.
+        Carbon::setTestNow(Carbon::create(2026, 6, 10, 12, 0, 0));
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser, $employee] = $this->makeShiftedEmployee('employee', ['supervisor_id' => $supervisor->id]);
+        $hrUser = User::factory()->create();
+        $hrUser->assignRole('hr');
+
+        $this->actingAs($empUser, 'sanctum');
+        $id = $this->postJson('/api/attendance-corrections', [
+            'date' => '2026-06-10',
+            'correction_type' => 'missed_check_in',
+            'requested_check_in' => '2026-06-10 09:00:00',
+            'reason' => 'Forgot to clock in.',
+        ])->assertCreated()->json('id');
+
+        $this->actingAs($supUser, 'sanctum');
+        $this->postJson("/api/attendance-corrections/{$id}/approve", ['note' => 'ok'])->assertOk();
+
+        $this->actingAs($hrUser, 'sanctum');
+        $this->postJson("/api/attendance-corrections/{$id}/verify", ['note' => 'verified'])->assertOk();
+
+        $attendance = Attendance::where('employee_id', $employee->id)->whereDate('date', '2026-06-10')->firstOrFail();
+        $this->assertSame('Late', $attendance->status->label());
+        $this->assertSame(60, $attendance->late_minutes);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_approved_missed_check_out_correction_flags_an_early_leave_against_the_real_shift(): void
+    {
+        // Leaving at 15:00 against a 17:00 shift end is a genuine early leave — approving the
+        // correction must recompute early_leave_minutes/status, not just patch check_out_at.
+        Carbon::setTestNow(Carbon::create(2026, 6, 10, 18, 0, 0));
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser, $employee, $shift] = $this->makeShiftedEmployee('employee', ['supervisor_id' => $supervisor->id]);
+        $hrUser = User::factory()->create();
+        $hrUser->assignRole('hr');
+
+        $attendance = Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'date' => '2026-06-10',
+            'shift_id' => $shift->id,
+            'check_in_at' => '2026-06-10 08:00:00',
+            'check_out_at' => null,
+            'status' => 'present',
+        ]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $id = $this->postJson('/api/attendance-corrections', [
+            'attendance_id' => $attendance->id,
+            'date' => '2026-06-10',
+            'correction_type' => 'missed_check_out',
+            'requested_check_out' => '2026-06-10 15:00:00',
+            'reason' => 'Forgot to clock out before leaving early (approved).',
+        ])->assertCreated()->json('id');
+
+        $this->actingAs($supUser, 'sanctum');
+        $this->postJson("/api/attendance-corrections/{$id}/approve", ['note' => 'ok'])->assertOk();
+
+        $this->actingAs($hrUser, 'sanctum');
+        $this->postJson("/api/attendance-corrections/{$id}/verify", ['note' => 'verified'])->assertOk();
+
+        $attendance->refresh();
+        $this->assertSame(420, $attendance->work_minutes); // 08:00 -> 15:00
+        $this->assertSame(120, $attendance->early_leave_minutes); // 15:00 -> 17:00
+        $this->assertSame('Early Leave', $attendance->status->label());
+
+        Carbon::setTestNow();
     }
 
     public function test_supervisor_can_reject(): void

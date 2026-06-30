@@ -9,6 +9,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceCorrection;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\AttendancePunch;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,10 @@ class AttendanceCorrectionService
 
     private const REQUESTER_LINK = '/requests';
 
-    public function __construct(private HrisNotifier $notifier) {}
+    public function __construct(
+        private HrisNotifier $notifier,
+        private EmployeeScheduleResolver $scheduleResolver,
+    ) {}
 
     /** Notify the correction's requester (their own user). */
     private function notifyRequester(AttendanceCorrection $correction, string $title, string $message): void
@@ -253,9 +257,13 @@ class AttendanceCorrectionService
     }
 
     /**
-     * Apply an approved correction to the underlying attendance row.
-     * ponytail: punch corrections write the requested time; soft types (wfh/visit/sick/…) just
-     * ensure a present row exists for the day. Status recompute beyond late-clearing is deferred.
+     * Apply an approved correction to the underlying attendance row — the only way a
+     * correction ever reaches the daily report or an export, since both read straight from
+     * `Attendance` with no join back to corrections. Punch corrections are judged against the
+     * employee's real shift via {@see AttendancePunch}, the exact same rules a live check-in/
+     * check-out uses, so a corrected punch that's still late or leaves early is reported as
+     * such rather than waved through as a clean Present. Soft types (wfh/visit/sick/…) just
+     * ensure a present row exists for the day — they don't carry a punch time to judge.
      */
     private function applyToAttendance(AttendanceCorrection $correction): void
     {
@@ -265,12 +273,17 @@ class AttendanceCorrectionService
                 'date' => $correction->date->toDateString(),
             ]);
 
+        $day = $this->scheduleResolver->resolveDay($correction->employee, $correction->date);
+        $shift = $day && $day->is_workday ? $day->shift : null;
+        $attendance->shift_id ??= $shift?->id;
+
         switch ($correction->correction_type) {
             case AttendanceCorrectionType::MissedCheckIn:
                 if ($correction->requested_check_in) {
                     $attendance->check_in_at = $correction->requested_check_in;
-                    $attendance->late_minutes = 0; // corrected punch clears the unexcused lateness
-                    $attendance->status = AttendanceStatus::Present;
+                    $computed = AttendancePunch::checkInStatus($shift, $correction->requested_check_in);
+                    $attendance->status = $computed['status'];
+                    $attendance->late_minutes = $computed['late_minutes'];
                 }
                 break;
             case AttendanceCorrectionType::MissedCheckOut:
@@ -282,6 +295,9 @@ class AttendanceCorrectionService
                             60,
                         ));
                     }
+                    [$earlyLeave, $status] = AttendancePunch::checkOutStatus($shift, $attendance, $correction->requested_check_out);
+                    $attendance->early_leave_minutes = $earlyLeave;
+                    $attendance->status = $status;
                 }
                 break;
             default:
@@ -315,6 +331,9 @@ class AttendanceCorrectionService
             'attachment_url' => $c->attachment_path ? Storage::disk('public')->url($c->attachment_path) : null,
             'status' => $c->status?->label(),
             'status_value' => $c->status?->value,
+            // Set by applyToAttendance() once approved — lets the UI link straight to the
+            // attendance record the correction actually changed.
+            'attendance_id' => $c->attendance_id,
         ];
     }
 }
