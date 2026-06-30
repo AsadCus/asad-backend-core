@@ -13,6 +13,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LeaveRequestService
 {
@@ -116,6 +117,33 @@ class LeaveRequestService
     }
 
     /**
+     * Requester identity + current-year remaining balances for the apply form.
+     *
+     * @return array{name:string, employee_no:?string, org_unit:?string, supervisor:?string, balances:array<int,float>}
+     */
+    public function requesterInfo(User $user): array
+    {
+        $employee = $user->employee?->loadMissing(['orgUnit', 'supervisor.user']);
+
+        $balances = $employee
+            ? LeaveBalance::query()
+                ->where('employee_id', $employee->id)
+                ->where('year', Carbon::now()->year)
+                ->get()
+                ->mapWithKeys(fn (LeaveBalance $b) => [$b->leave_type_id => (float) $b->remaining])
+                ->all()
+            : [];
+
+        return [
+            'name' => $user->name,
+            'employee_no' => $employee?->employee_no,
+            'org_unit' => $employee?->orgUnit?->name,
+            'supervisor' => $employee?->supervisor?->user?->name,
+            'balances' => $balances,
+        ];
+    }
+
+    /**
      * Best-effort lookup of the employee's balance row for this leave type + year.
      * Returns null when no balance has been allocated — callers must treat that as "unbounded".
      */
@@ -139,6 +167,18 @@ class LeaveRequestService
         $employee = $user->employee;
         abort_if(! $employee, 422, 'No employee profile is linked to your account.');
 
+        // One active request at a time: block while a previous request is still in-flight.
+        // Terminal states (approved/rejected/cancelled) free the employee to submit again.
+        $hasInFlight = LeaveRequest::query()
+            ->where('employee_id', $employee->id)
+            ->whereIn('status', [ApprovalStatus::PendingSupervisor, ApprovalStatus::PendingHr])
+            ->exists();
+        if ($hasInFlight) {
+            throw ValidationException::withMessages([
+                'leave_type_id' => 'You already have a leave request awaiting approval.',
+            ]);
+        }
+
         $start = Carbon::parse($data['start_date']);
         $end = Carbon::parse($data['end_date']);
         $days = $start->diffInDays($end) + 1;
@@ -146,10 +186,19 @@ class LeaveRequestService
         return DB::transaction(function () use ($employee, $data, $attachment, $start, $end, $days) {
             $leaveType = LeaveType::findOrFail($data['leave_type_id']);
 
+            if ($leaveType->requires_attachment && ! $attachment) {
+                throw ValidationException::withMessages([
+                    'attachment' => 'An attachment is required for this leave type.',
+                ]);
+            }
+
             if ($leaveType->requires_balance) {
-                $balance = $this->findBalance($employee->id, $leaveType->id, $start->year);
-                if ($balance && $balance->remaining < $days) {
-                    abort(422, 'Insufficient leave balance.');
+                // No allocation row means a remaining balance of 0 → block (HR must allocate first).
+                $remaining = $this->findBalance($employee->id, $leaveType->id, $start->year)?->remaining ?? 0;
+                if ($remaining < $days) {
+                    throw ValidationException::withMessages([
+                        'leave_type_id' => 'Insufficient leave balance.',
+                    ]);
                 }
             }
 

@@ -10,6 +10,8 @@ use App\Models\User;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class LeaveRequestApiTest extends TestCase
@@ -198,5 +200,76 @@ class LeaveRequestApiTest extends TestCase
         $this->getJson('/api/leave-requests/my')
             ->assertOk()
             ->assertJsonCount(2);
+    }
+
+    public function test_only_one_in_flight_request_at_a_time(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $id = $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'First.',
+        ])->assertCreated()->json('id');
+
+        // A second submission while the first is still pending is rejected.
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-20', 'end_date' => '2026-06-20', 'reason' => 'Second.',
+        ])->assertStatus(422)->assertJsonValidationErrors('leave_type_id');
+
+        // After the first reaches a terminal state, the employee may submit again.
+        $this->postJson("/api/leave-requests/{$id}/cancel")->assertOk();
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-20', 'end_date' => '2026-06-20', 'reason' => 'Third.',
+        ])->assertCreated();
+    }
+
+    public function test_attachment_required_when_leave_type_demands_it(): void
+    {
+        Storage::fake('public');
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false, 'requires_attachment' => true]);
+
+        $this->actingAs($empUser, 'sanctum');
+
+        // Missing attachment → rejected with a field error.
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'Need doc.',
+        ])->assertStatus(422)->assertJsonValidationErrors('attachment');
+
+        // With an attachment → accepted.
+        $this->post('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'With doc.',
+            'attachment' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated();
+    }
+
+    public function test_balance_reducing_type_blocked_without_allocation(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee');
+        $leaveType = LeaveType::factory()->create(['requires_balance' => true]); // no balance row allocated
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'No balance.',
+        ])->assertStatus(422)->assertJsonValidationErrors('leave_type_id');
+    }
+
+    public function test_requester_info_returns_identity_and_remaining_balances(): void
+    {
+        [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');
+        [$empUser, $employee] = $this->makeEmployeeUser('employee', ['supervisor_id' => $supervisor->id]);
+        $leaveType = LeaveType::factory()->create(['requires_balance' => true]);
+        LeaveBalance::create([
+            'employee_id' => $employee->id, 'leave_type_id' => $leaveType->id,
+            'year' => (int) date('Y'), 'allocated' => 12, 'used' => 2,
+        ]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->getJson('/api/leave-requests/requester-info')
+            ->assertOk()
+            ->assertJsonPath('employee_no', $employee->employee_no)
+            ->assertJsonPath('supervisor', $supUser->name)
+            ->assertJsonPath("balances.{$leaveType->id}", 10);
     }
 }

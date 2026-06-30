@@ -29,9 +29,9 @@ class UserSeeder extends Seeder
             ['asad@example.com', 'Asad', 'administrator', 'SMGI', true, null],
             ['administrator@example.com', 'Administrator', 'administrator', 'SMGI', false, null],
             ['manager@example.com', 'Manager', 'manager', 'SSM-HR', false, null],
-            ['supervisor@example.com', 'Supervisor', 'supervisor', 'SSM-HR-POPS', false, 'manager@example.com'],
+            ['supervisor@example.com', 'Supervisor', 'supervisor', 'SSM-HR', false, 'manager@example.com'],
             ['hr@example.com', 'HR Personnel', 'hr', 'SSM-HR', false, null],
-            ['employee@example.com', 'Employee', 'employee', 'SSM-HR-POPS', false, 'supervisor@example.com'],
+            ['employee@example.com', 'Employee', 'employee', 'SSM-HR', false, 'supervisor@example.com'],
         ];
 
         $sequence = 1;

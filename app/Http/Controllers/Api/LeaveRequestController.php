@@ -34,6 +34,14 @@ class LeaveRequestController extends Controller
         );
     }
 
+    public function requesterInfo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->can('hris.leave-request create'), 403);
+
+        return response()->json($this->service->requesterInfo($user));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
