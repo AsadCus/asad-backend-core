@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\Gender;
+use App\Enums\OrgUnitType;
 use App\Observers\EmployeeObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -124,6 +125,24 @@ class Employee extends Model
         }
 
         return $this->orgUnit;
+    }
+
+    /**
+     * The employee's nearest ancestor of each standard org-unit type — the single place this
+     * walk happens so the team overview, the attendance report, and any other screen that
+     * shows "which business unit / branch / department / division" agree on the answer.
+     * Callers should eager-load `orgUnit.parent.parent.parent.parent` first to avoid N+1.
+     *
+     * @return array{business_unit: ?OrgUnit, branch: ?OrgUnit, department: ?OrgUnit, division: ?OrgUnit}
+     */
+    public function orgUnitBreakdown(): array
+    {
+        return [
+            'business_unit' => $this->orgUnit?->nearestOfType(OrgUnitType::BusinessUnit),
+            'branch' => $this->orgUnit?->nearestOfType(OrgUnitType::Branch),
+            'department' => $this->orgUnit?->nearestOfType(OrgUnitType::Department),
+            'division' => $this->orgUnit?->nearestOfType(OrgUnitType::Division),
+        ];
     }
 
     public function religion(): BelongsTo

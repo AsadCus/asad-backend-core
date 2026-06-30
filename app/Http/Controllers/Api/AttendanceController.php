@@ -30,6 +30,27 @@ class AttendanceController extends Controller
         return response()->json($this->service->getForDataTable($user, $filters));
     }
 
+    /** Daily report: Hadir/Telat/Alpha/Pulang Cepat/WFH/Visit/Cuti per employee per day. */
+    public function report(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->canany(['hris.attendance view-all', 'hris.attendance view-team', 'hris.attendance view-own']),
+            403,
+        );
+
+        $validated = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
+            'employee_id' => ['nullable', 'integer'],
+            'status' => ['nullable', 'string'],
+        ]);
+
+        return response()->json($this->service->getDailyReport(
+            $user, $validated['from'] ?? null, $validated['to'] ?? null, $validated,
+        ));
+    }
+
     public function today(Request $request): JsonResponse
     {
         $user = $request->user();

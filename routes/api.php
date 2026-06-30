@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HRIS attendance — online check-in/out, index/detail, bulk import, user-lock.
     Route::get('/attendances', [AttendanceController::class, 'index']);
+    Route::get('/attendances/report', [AttendanceController::class, 'report']);
     Route::get('/attendances/today', [AttendanceController::class, 'today']);
     Route::get('/my-schedule', [AttendanceController::class, 'mySchedule']);
     Route::post('/attendances/check-in', [AttendanceController::class, 'checkIn']);

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ApprovalStatus;
 use App\Enums\AttendanceStatus;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
@@ -12,10 +13,11 @@ use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
 use App\Models\WfhVisitRequest;
-use App\Models\WorkScheduleDay;
+use App\Support\AttendancePunch;
 use App\Support\Geo;
 use App\Support\HrisScope;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +26,11 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class AttendanceService
 {
+    public function __construct(
+        private EmployeeScheduleResolver $scheduleResolver,
+        private WfhVisitLookupService $wfhVisitLookup,
+    ) {}
+
     /**
      * Resolve the Employee record behind an authenticated user (own check-in / own scope).
      */
@@ -97,6 +104,164 @@ class AttendanceService
     }
 
     /**
+     * One row per employee per calendar day in [from, to] — the report's "headline" status
+     * is resolved with the same precedence as {@see resolveDayStatus()}: Holiday > Cuti
+     * (approved leave) > WFH/Visit (approved request) > the day's actual check-in status >
+     * Weekend (scheduled rest day) > Alpha (a working day with none of the above). Unlike
+     * {@see getForDataTable()}, this also surfaces days with no Attendance row at all, so
+     * leave/rest/absence are visible rather than silently missing from the report.
+     *
+     * @param  array{employee_id?:int|string, status?:string}  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function getDailyReport(User $user, ?string $from, ?string $to, array $filters = []): array
+    {
+        $from = $from ? Carbon::parse($from)->startOfDay() : Carbon::now()->startOfMonth();
+        $to = $to ? Carbon::parse($to)->startOfDay() : Carbon::now()->endOfMonth();
+        abort_if($from->gt($to), 422, 'The "from" date must not be after "to".');
+
+        $employees = $this->reportableEmployees($user, $filters);
+        if ($employees->isEmpty()) {
+            return [];
+        }
+        $employeeIds = $employees->pluck('id')->all();
+
+        $attendanceByKey = Attendance::query()
+            ->with('shift')
+            ->whereIn('employee_id', $employeeIds)
+            ->whereDate('date', '>=', $from->toDateString())
+            ->whereDate('date', '<=', $to->toDateString())
+            ->get()
+            ->keyBy(fn (Attendance $a) => $this->dayKey($a->employee_id, $a->date));
+
+        // whereDate(), not where() — date-cast columns can carry a 00:00:00 time component
+        // depending on the DB driver, so a plain string comparison against a date-only value
+        // is unreliable. whereDate() normalizes both sides to just the calendar date.
+        $leaveDateKeys = $this->expandRangesToDayKeys(
+            LeaveRequest::query()->whereIn('employee_id', $employeeIds)->where('status', ApprovalStatus::Approved)
+                ->whereDate('start_date', '<=', $to->toDateString())->whereDate('end_date', '>=', $from->toDateString())
+                ->get(['employee_id', 'start_date', 'end_date']),
+            $from, $to,
+        );
+
+        $wfhVisitByKey = $this->wfhVisitLookup->approvedTypeByDayKey($employeeIds, $from, $to);
+
+        $holidayKeys = Holiday::query()
+            ->whereDate('date', '>=', $from->toDateString())
+            ->whereDate('date', '<=', $to->toDateString())
+            ->pluck('date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip();
+
+        // Preloaded once — classifying every employee over the whole range would otherwise cost
+        // one schedule query per employee per day.
+        $schedulesByEmployee = $this->scheduleResolver->preloadForRange($employeeIds, $from, $to);
+
+        $rows = [];
+        foreach ($employees as $employee) {
+            $orgBreakdown = $employee->orgUnitBreakdown();
+
+            foreach (CarbonPeriod::create($from, $to) as $date) {
+                $key = $this->dayKey($employee->id, $date);
+                $attendance = $attendanceByKey->get($key);
+
+                $day = $this->scheduleResolver->resolveDayFromBatch($schedulesByEmployee, $employee->id, $date);
+                $status = AttendanceStatus::classify(
+                    isHoliday: $holidayKeys->has($date->toDateString()),
+                    isOnLeave: $leaveDateKeys->has($key),
+                    wfhVisitType: $wfhVisitByKey->get($key),
+                    attendanceStatus: $attendance?->status,
+                    isRestDay: (bool) ($day && ! $day->is_workday),
+                );
+
+                if (! empty($filters['status']) && $status->value !== $filters['status']) {
+                    continue;
+                }
+
+                // The day's shift, whether or not they actually checked in — falls back to the
+                // scheduled shift so a Cuti/Alpha/WFH day still shows what hours applied.
+                $shift = $attendance?->shift ?? $day?->shift;
+
+                $rows[] = [
+                    // Null when the day has no underlying Attendance row (Cuti/WFH-without-a-punch/
+                    // Alpha/Weekend) — callers use this to tell a viewable record from a synthesized one.
+                    'id' => $attendance?->id,
+                    'employee_id' => $employee->id,
+                    'name' => $employee->user?->name ?? $employee->employee_no,
+                    'employee_no' => $employee->employee_no,
+                    'nik' => $employee->nik,
+                    'business_unit' => $orgBreakdown['business_unit']?->name,
+                    'branch' => $orgBreakdown['branch']?->name,
+                    'department' => $orgBreakdown['department']?->name,
+                    'division' => $orgBreakdown['division']?->name,
+                    'date' => $date->toDateString(),
+                    'shift' => $shift?->name,
+                    'shift_start_time' => $shift?->start_time,
+                    'shift_end_time' => $shift?->end_time,
+                    'time_in' => $attendance?->check_in_at?->toIso8601String(),
+                    'time_out' => $attendance?->check_out_at?->toIso8601String(),
+                    'check_in_location' => $attendance?->check_in_location,
+                    'check_out_location' => $attendance?->check_out_location,
+                    'late_minutes' => (int) ($attendance?->late_minutes ?? 0),
+                    'early_leave_minutes' => (int) ($attendance?->early_leave_minutes ?? 0),
+                    'work_minutes' => (int) ($attendance?->work_minutes ?? 0),
+                    'status' => $status->label(),
+                    'status_value' => $status->value,
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    /** Employees the user may see in the report, narrowed to a single one when filtered. */
+    private function reportableEmployees(User $user, array $filters)
+    {
+        $ids = $this->accessibleEmployeeIds($user);
+
+        return Employee::query()
+            // The org tree is shallow — eager-load the whole ancestor chain once so
+            // Employee::orgUnitBreakdown() below never triggers a query per employee.
+            ->with(['user', 'orgUnit.parent.parent.parent.parent'])
+            ->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))
+            ->when($ids === null, fn ($q) => HrisScope::apply($q, 'org_unit_id', $user))
+            ->when(! empty($filters['employee_id']), fn ($q) => $q->where('id', $filters['employee_id']))
+            ->get();
+    }
+
+    private function dayKey(int $employeeId, Carbon|string $date): string
+    {
+        $date = $date instanceof Carbon ? $date->toDateString() : $date;
+
+        return "{$employeeId}:{$date}";
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, LeaveRequest>  $requests
+     * @return \Illuminate\Support\Collection<string, true>
+     */
+    private function expandRangesToDayKeys($requests, Carbon $from, Carbon $to)
+    {
+        $keys = collect();
+        foreach ($requests as $request) {
+            $this->eachDayInOverlap($request->employee_id, $request->start_date, $request->end_date, $from, $to,
+                fn (string $key) => $keys->put($key, true));
+        }
+
+        return $keys;
+    }
+
+    private function eachDayInOverlap(int $employeeId, Carbon $start, Carbon $end, Carbon $from, Carbon $to, callable $onDay): void
+    {
+        $rangeStart = $start->greaterThan($from) ? $start->copy() : $from->copy();
+        $rangeEnd = $end->lessThan($to) ? $end->copy() : $to->copy();
+
+        foreach (CarbonPeriod::create($rangeStart, $rangeEnd) as $date) {
+            $onDay($this->dayKey($employeeId, $date));
+        }
+    }
+
+    /**
      * The caller's row for today, plus their lock state — drives the online check-in page.
      *
      * @return array<string, mixed>
@@ -157,6 +322,11 @@ class AttendanceService
             'early_leave_minutes' => $attendance->early_leave_minutes,
             'work_minutes' => $attendance->work_minutes,
             'shift' => $attendance->shift?->name,
+            // The employee's current resolved geofence, so the detail map can draw the same
+            // office anchor + in/out radius circle as the live check-in screen (see
+            // mapWorkLocation()/getToday()). This reflects today's org-unit placement, not
+            // necessarily what was configured on the punch date.
+            'work_location' => $this->mapWorkLocation($attendance->employee?->resolveWorkLocation()),
             'check_in' => [
                 'at' => $attendance->check_in_at?->toIso8601String(),
                 'lat' => $attendance->check_in_lat,
@@ -215,9 +385,10 @@ class AttendanceService
             abort(403, 'You are not eligible to check in.');
         }
 
-        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng']);
-
         $now = Carbon::now();
+        $activeWfhVisit = $this->wfhVisitLookup->approvedForDate($employee, $now);
+        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng'], $activeWfhVisit);
+
         $date = $now->toDateString();
 
         $attendance = Attendance::query()
@@ -239,7 +410,7 @@ class AttendanceService
 
             // First check-in of the day sets the headline status/lateness; later sessions don't.
             if (! $attendance->check_in_at) {
-                $computed = $this->computeCheckInStatus($shift, $now);
+                $computed = AttendancePunch::checkInStatus($shift, $now);
                 $attendance->status = $computed['status'];
                 $attendance->late_minutes = $computed['late_minutes'];
             }
@@ -274,9 +445,10 @@ class AttendanceService
             abort(403, 'You are not eligible to check out.');
         }
 
-        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng']);
-
         $now = Carbon::now();
+        $activeWfhVisit = $this->wfhVisitLookup->approvedForDate($employee, $now);
+        $this->assertWithinGeofence($employee, (float) $data['lat'], (float) $data['lng'], $activeWfhVisit);
+
         $date = $now->toDateString();
 
         $attendance = Attendance::query()
@@ -308,7 +480,7 @@ class AttendanceService
             // ponytail: early-leave/status reflects the latest checkout, so between a lunch
             // checkout and the next check-in the day can read "Early Leave" — it settles on the
             // final checkout. Not worth detecting "is this the last checkout of the day".
-            [$earlyLeave, $status] = $this->computeCheckOutStatus($shift, $attendance, $now);
+            [$earlyLeave, $status] = AttendancePunch::checkOutStatus($shift, $attendance, $now);
             $attendance->early_leave_minutes = $earlyLeave;
             $attendance->status = $status;
             $attendance->save();
@@ -468,7 +640,7 @@ class AttendanceService
 
             $shift = $checkIn ? $this->resolveShift($employee, $checkIn) : null;
             $computed = $checkIn
-                ? $this->computeCheckInStatus($shift, $checkIn)
+                ? AttendancePunch::checkInStatus($shift, $checkIn)
                 : ['status' => $this->resolveDayStatus($employee, Carbon::parse($date)), 'late_minutes' => 0];
 
             Attendance::query()->updateOrCreate(
@@ -495,13 +667,27 @@ class AttendanceService
     // ---- Helpers -------------------------------------------------------------------------------
 
     /**
-     * Reject a punch made outside the employee's resolved work-location geofence.
-     * {@see OrgUnit::resolveLocation()} walks the org tree up from the employee's
-     * placement (branch, then business unit, etc.) to the nearest unit that has its own
-     * lat/lng/radius configured. A no-op when no ancestor has one — geofencing is opt-in.
+     * Reject a punch made outside the employee's allowed location for the day.
+     *
+     * Normally that's the resolved office geofence ({@see OrgUnit::resolveLocation()} walks
+     * the org tree up from the employee's placement to the nearest ancestor with its own
+     * lat/lng/radius configured). An approved WFH day — or a Field Visit left "open" —
+     * waives the office radius entirely: the whole point of WFH/open-visit is that the
+     * employee isn't expected to be anywhere near the office. A "locked" visit instead
+     * checks against that visit's own declared pin/radius.
      */
-    private function assertWithinGeofence(Employee $employee, float $lat, float $lng): void
-    {
+    private function assertWithinGeofence(
+        Employee $employee,
+        float $lat,
+        float $lng,
+        ?WfhVisitRequest $activeWfhVisit,
+    ): void {
+        if ($activeWfhVisit) {
+            $this->assertWithinWfhVisitGeofence($activeWfhVisit, $lat, $lng);
+
+            return;
+        }
+
         $location = $employee->resolveWorkLocation();
         $radius = $location?->geofence_radius_meters;
 
@@ -510,13 +696,33 @@ class AttendanceService
             return;
         }
 
-        $distance = Geo::distanceMeters((float) $location->latitude, (float) $location->longitude, $lat, $lng);
+        $this->assertWithinRadius($lat, $lng, (float) $location->latitude, (float) $location->longitude, (int) $radius, $location->name);
+    }
+
+    /** WFH and "open" visits have no location restriction; "locked" visits use their own pin. */
+    private function assertWithinWfhVisitGeofence(WfhVisitRequest $visit, float $lat, float $lng): void
+    {
+        $isLocked = $visit->type === 'visit' && $visit->geotag_mode === 'locked';
+
+        if (! $isLocked || $visit->location_lat === null || $visit->location_lng === null) {
+            return;
+        }
+
+        $this->assertWithinRadius(
+            $lat, $lng, (float) $visit->location_lat, (float) $visit->location_lng,
+            (int) ($visit->location_radius ?? 100), $visit->location_address ?? 'the visit location',
+        );
+    }
+
+    private function assertWithinRadius(float $lat, float $lng, float $targetLat, float $targetLng, int $radius, string $label): void
+    {
+        $distance = Geo::distanceMeters($targetLat, $targetLng, $lat, $lng);
 
         if ($distance > $radius) {
             abort(422, sprintf(
                 'You are %dm away from %s, outside the allowed %dm radius. Move closer and try again.',
                 round($distance),
-                $location->name,
+                $label,
                 $radius,
             ));
         }
@@ -529,18 +735,15 @@ class AttendanceService
      */
     private function wfhVisitStatus(Employee $employee): array
     {
-        $today = Carbon::today()->toDateString();
+        $today = Carbon::today();
+        $approved = $this->wfhVisitLookup->approvedForDate($employee, $today);
 
-        $reqs = WfhVisitRequest::query()
+        $pending = WfhVisitRequest::query()
             ->where('employee_id', $employee->id)
-            ->whereDate('start_date', '<=', $today)
-            ->whereDate('end_date', '>=', $today)
-            ->whereIn('status', ['approved', 'pending_supervisor', 'pending_hr'])
-            ->orderByRaw("CASE status WHEN 'approved' THEN 0 ELSE 1 END")
-            ->get();
-
-        $approved = $reqs->first(fn ($r) => $r->status?->value === 'approved');
-        $pending = $reqs->first(fn ($r) => $r->status?->value !== 'approved');
+            ->whereDate('start_date', '<=', $today->toDateString())
+            ->whereDate('end_date', '>=', $today->toDateString())
+            ->whereIn('status', [ApprovalStatus::PendingSupervisor, ApprovalStatus::PendingHr])
+            ->first();
 
         return [
             'active_wfh_visit' => $approved ? [
@@ -604,91 +807,26 @@ class AttendanceService
      */
     private function resolveShift(Employee $employee, Carbon $date): ?Shift
     {
-        $day = $this->resolveScheduleDay($employee, $date);
+        $day = $this->scheduleResolver->resolveDay($employee, $date);
 
         return $day && $day->is_workday ? $day->shift : null;
     }
 
     /**
-     * The work_schedule_days row for the employee's active schedule on $date, or null when they
-     * have no active schedule. Lets callers tell a rest day (row with is_workday=false) apart
-     * from having no schedule at all (null).
-     */
-    private function resolveScheduleDay(Employee $employee, Carbon $date): ?WorkScheduleDay
-    {
-        $schedule = $employee->employeeSchedules()
-            ->where('effective_from', '<=', $date->toDateString())
-            ->where(function ($q) use ($date) {
-                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $date->toDateString());
-            })
-            ->latest('effective_from')
-            ->with('workSchedule.workScheduleDays.shift')
-            ->first();
-
-        if (! $schedule || ! $schedule->workSchedule) {
-            return null;
-        }
-
-        // Carbon dayOfWeek: 0=Sunday..6=Saturday — matches the work_schedule_days convention.
-        return $schedule->workSchedule->workScheduleDays->firstWhere('day_of_week', $date->dayOfWeek);
-    }
-
-    /**
-     * Classify a date for an employee with no check-in that day.
-     * Precedence: Holiday > approved leave > scheduled rest day (Weekend) > Absent.
+     * Classify a date for an employee with no check-in that day, via
+     * {@see AttendanceStatus::classify()} — the same precedence the report uses.
      */
     private function resolveDayStatus(Employee $employee, Carbon $date): AttendanceStatus
     {
-        if (Holiday::isHoliday($date)) {
-            return AttendanceStatus::Holiday;
-        }
+        $day = $this->scheduleResolver->resolveDay($employee, $date);
 
-        if (LeaveRequest::approvedOnDate($employee->id, $date)) {
-            return AttendanceStatus::OnLeave;
-        }
-
-        $day = $this->resolveScheduleDay($employee, $date);
-        if ($day && ! $day->is_workday) {
-            return AttendanceStatus::Weekend;
-        }
-
-        return AttendanceStatus::Absent;
-    }
-
-    /**
-     * @return array{status: AttendanceStatus, late_minutes: int}
-     */
-    private function computeCheckInStatus(?Shift $shift, Carbon $checkIn): array
-    {
-        if (! $shift || ! $shift->start_time) {
-            return ['status' => AttendanceStatus::Present, 'late_minutes' => 0];
-        }
-
-        $start = Carbon::parse($checkIn->toDateString().' '.$shift->start_time);
-        $lateMinutes = max(0, intdiv($checkIn->getTimestamp() - $start->getTimestamp(), 60));
-        $tolerance = (int) ($shift->late_tolerance_minutes ?? 0);
-        $status = $lateMinutes > $tolerance ? AttendanceStatus::Late : AttendanceStatus::Present;
-
-        return ['status' => $status, 'late_minutes' => $lateMinutes];
-    }
-
-    /**
-     * @return array{0:int, 1:AttendanceStatus}
-     */
-    private function computeCheckOutStatus(?Shift $shift, Attendance $attendance, Carbon $checkOut): array
-    {
-        $earlyLeave = 0;
-        if ($shift && $shift->end_time) {
-            $end = Carbon::parse($checkOut->toDateString().' '.$shift->end_time);
-            $earlyLeave = max(0, intdiv($end->getTimestamp() - $checkOut->getTimestamp(), 60));
-        }
-
-        // Late stays the headline; otherwise flag an early leave.
-        $status = $attendance->status === AttendanceStatus::Late
-            ? AttendanceStatus::Late
-            : ($earlyLeave > 0 ? AttendanceStatus::EarlyLeave : AttendanceStatus::Present);
-
-        return [$earlyLeave, $status];
+        return AttendanceStatus::classify(
+            isHoliday: Holiday::isHoliday($date),
+            isOnLeave: LeaveRequest::approvedOnDate($employee->id, $date),
+            wfhVisitType: $this->wfhVisitLookup->approvedForDate($employee, $date)?->type,
+            attendanceStatus: null,
+            isRestDay: (bool) ($day && ! $day->is_workday),
+        );
     }
 
     /**
