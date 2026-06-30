@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -137,10 +138,12 @@ class AttendanceService
         // whereDate(), not where() — date-cast columns can carry a 00:00:00 time component
         // depending on the DB driver, so a plain string comparison against a date-only value
         // is unreliable. whereDate() normalizes both sides to just the calendar date.
+        // Keyed by day -> the covering LeaveRequest's id (not just a boolean), so a Cuti row in
+        // the report can link straight back to that request — see leave_request_id below.
         $leaveDateKeys = $this->expandRangesToDayKeys(
             LeaveRequest::query()->whereIn('employee_id', $employeeIds)->where('status', ApprovalStatus::Approved)
                 ->whereDate('start_date', '<=', $to->toDateString())->whereDate('end_date', '>=', $from->toDateString())
-                ->get(['employee_id', 'start_date', 'end_date']),
+                ->get(['id', 'employee_id', 'start_date', 'end_date']),
             $from, $to,
         );
 
@@ -207,6 +210,9 @@ class AttendanceService
                     'work_minutes' => (int) ($attendance?->work_minutes ?? 0),
                     'status' => $status->label(),
                     'status_value' => $status->value,
+                    // Only meaningful on a Cuti day — lets the report link straight to the
+                    // approved LeaveRequest behind it (see /leave/:id on the frontend).
+                    'leave_request_id' => $status === AttendanceStatus::OnLeave ? $leaveDateKeys->get($key) : null,
                 ];
             }
         }
@@ -237,15 +243,18 @@ class AttendanceService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, LeaveRequest>  $requests
-     * @return \Illuminate\Support\Collection<string, true>
+     * Keyed by "employeeId:date" -> the covering request's id, so a caller can both check
+     * "is this day covered" (->has($key)) and look up which request covers it (->get($key)).
+     *
+     * @param  Collection<int, LeaveRequest>  $requests
+     * @return Collection<string, int>
      */
     private function expandRangesToDayKeys($requests, Carbon $from, Carbon $to)
     {
         $keys = collect();
         foreach ($requests as $request) {
             $this->eachDayInOverlap($request->employee_id, $request->start_date, $request->end_date, $from, $to,
-                fn (string $key) => $keys->put($key, true));
+                fn (string $key) => $keys->put($key, $request->id));
         }
 
         return $keys;

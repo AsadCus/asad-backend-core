@@ -7,6 +7,8 @@ use App\Enums\OrgUnitType;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\GhostUser;
+use App\Models\LeaveRequest;
+use App\Models\LeaveType;
 use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
@@ -713,8 +715,8 @@ class AttendanceApiTest extends TestCase
         ]);
         // Wed 10 Jun: a working day with no record at all -> Alpha (Absent).
         // Thu 11 Jun: approved leave -> Cuti.
-        $leaveType = \App\Models\LeaveType::factory()->create(['requires_balance' => false]);
-        \App\Models\LeaveRequest::create([
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+        LeaveRequest::create([
             'request_no' => 'LR-TEST-1', 'employee_id' => $employee->id, 'leave_type_id' => $leaveType->id,
             'start_date' => '2026-06-11', 'end_date' => '2026-06-11', 'days' => 1,
             'reason' => 'Test leave.', 'status' => 'approved',
@@ -834,6 +836,29 @@ class AttendanceApiTest extends TestCase
 
         $this->assertSame($attendance->id, $byDate['2026-06-08']['id']);
         $this->assertNull($byDate['2026-06-10']['id']);
+    }
+
+    public function test_report_row_exposes_the_leave_request_id_on_a_cuti_day_and_null_otherwise(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+        $leave = LeaveRequest::create([
+            'request_no' => 'LR-TEST-2', 'employee_id' => $employee->id, 'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-08', 'end_date' => '2026-06-08', 'days' => 1,
+            'reason' => 'Test leave.', 'status' => 'approved',
+        ]);
+        // Tue 9 Jun: present, no leave covering it.
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-09', 'status' => 'present',
+        ]);
+
+        $this->actingAs($user, 'sanctum');
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-09')->assertOk();
+        $byDate = collect($response->json())->keyBy('date');
+
+        $this->assertSame('On Leave', $byDate['2026-06-08']['status']);
+        $this->assertSame($leave->id, $byDate['2026-06-08']['leave_request_id']);
+        $this->assertNull($byDate['2026-06-09']['leave_request_id']);
     }
 
     public function test_report_row_exposes_the_employee_org_unit_breakdown(): void
