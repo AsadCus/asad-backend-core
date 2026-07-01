@@ -255,6 +255,59 @@ class LeaveRequestApiTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('leave_type_id');
     }
 
+    public function test_ineligible_employee_cannot_apply(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee', ['can_take_leave' => false]);
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'x',
+        ])->assertStatus(422);
+    }
+
+    public function test_gender_restricted_type_blocked_for_mismatch(): void
+    {
+        [$empUser] = $this->makeEmployeeUser('employee', ['gender' => 'male']);
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false, 'gender_restriction' => 'female']);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-10', 'reason' => 'x',
+        ])->assertStatus(422)->assertJsonValidationErrors('leave_type_id');
+    }
+
+    public function test_apply_types_filter_by_balance_and_gender(): void
+    {
+        [$empUser, $employee] = $this->makeEmployeeUser('employee', ['gender' => 'male']);
+        $nonBalance = LeaveType::factory()->create(['requires_balance' => false]);
+        $femaleOnly = LeaveType::factory()->create(['requires_balance' => false, 'gender_restriction' => 'female']);
+        $balanceWith = LeaveType::factory()->create(['requires_balance' => true]);
+        $balanceWithout = LeaveType::factory()->create(['requires_balance' => true]);
+        LeaveBalance::create([
+            'employee_id' => $employee->id, 'leave_type_id' => $balanceWith->id,
+            'year' => (int) date('Y'), 'allocated' => 10, 'used' => 0,
+        ]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $ids = collect($this->getJson('/api/leave-requests/leave-types')->assertOk()->json())->pluck('value');
+        $this->assertTrue($ids->contains($nonBalance->id));
+        $this->assertFalse($ids->contains($femaleOnly->id));
+        $this->assertTrue($ids->contains($balanceWith->id));
+        $this->assertFalse($ids->contains($balanceWithout->id));
+    }
+
+    public function test_history_shows_only_own_for_a_plain_employee(): void
+    {
+        [$empUser, $employee] = $this->makeEmployeeUser('employee');
+        [, $other] = $this->makeEmployeeUser('employee');
+        LeaveRequest::factory()->create(['employee_id' => $employee->id]);
+        LeaveRequest::factory()->create(['employee_id' => $other->id]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->getJson('/api/leave-requests/history')->assertOk()->assertJsonCount(1);
+    }
+
     public function test_requester_info_returns_identity_and_remaining_balances(): void
     {
         [$supUser, $supervisor] = $this->makeEmployeeUser('supervisor');

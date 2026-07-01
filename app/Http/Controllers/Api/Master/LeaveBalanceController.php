@@ -23,6 +23,31 @@ class LeaveBalanceController extends Controller
         return response()->json($this->leaveBalanceService->getForDataTable());
     }
 
+    public function my(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('hris.leave-balance view-own'), 403);
+
+        return response()->json($this->leaveBalanceService->myBalances($request->user()));
+    }
+
+    public function forEmployee(Request $request, int $employee): JsonResponse
+    {
+        abort_unless($request->user()->can('hris.leave-balance view'), 403);
+
+        return response()->json($this->leaveBalanceService->forEmployee($employee));
+    }
+
+    public function assignableTypes(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('hris.leave-balance view'), 403);
+
+        return response()->json($this->leaveBalanceService->assignableTypes(
+            $request->integer('employee_id') ?: null,
+            $request->integer('year') ?: null,
+            $request->string('gender')->value() ?: null,
+        ));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate($this->leaveBalanceRule->rules());

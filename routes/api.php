@@ -133,8 +133,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/master/employee-schedules/import', [MasterEmployeeScheduleController::class, 'import']);
     Route::apiResource('/master/employee-schedules', MasterEmployeeScheduleController::class);
     Route::apiResource('/master/approval-matrices', MasterApprovalMatrixController::class);
+    Route::get('/master/leave-balances/my', [MasterLeaveBalanceController::class, 'my']);
+    Route::get('/master/leave-balances/assignable-types', [MasterLeaveBalanceController::class, 'assignableTypes']);
     Route::get('/master/leave-balances/template', [MasterLeaveBalanceController::class, 'template']);
     Route::post('/master/leave-balances/import', [MasterLeaveBalanceController::class, 'import']);
+    Route::get('/master/employees/{employee}/leave-balances', [MasterLeaveBalanceController::class, 'forEmployee'])->whereNumber('employee');
     Route::apiResource('/master/leave-balances', MasterLeaveBalanceController::class);
 
     // HRIS team — supervisor's subordinate overview with today's attendance status.
@@ -166,6 +169,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // HRIS leave request — submit → supervisor → HR approval workflow.
     Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
     Route::get('/leave-requests/my', [LeaveRequestController::class, 'my']);
+    Route::get('/leave-requests/history', [LeaveRequestController::class, 'history']);
+    Route::get('/leave-requests/leave-types', [LeaveRequestController::class, 'assignableTypes']);
     Route::get('/leave-requests/requester-info', [LeaveRequestController::class, 'requesterInfo']);
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
     Route::get('/leave-requests/{id}', [LeaveRequestController::class, 'show'])->whereNumber('id');

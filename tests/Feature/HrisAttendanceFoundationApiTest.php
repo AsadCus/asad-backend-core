@@ -35,7 +35,7 @@ class HrisAttendanceFoundationApiTest extends TestCase
 
         // One form now creates the login account + the profile together; employee_no is auto.
         $create = $this->postJson('/api/master/employees', [
-            'name' => 'Alice', 'email' => 'alice@example.com',
+            'name' => 'Alice', 'email' => 'alice@example.com', 'gender' => 'female',
             'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
             'hire_date' => '2024-01-15', 'employment_status' => 'permanent', 'is_active' => true,
             'org_unit_id' => $orgUnit->id,
@@ -47,7 +47,7 @@ class HrisAttendanceFoundationApiTest extends TestCase
         $this->getJson('/api/master/employees')->assertOk()->assertJsonFragment(['name' => 'Alice']);
 
         $this->putJson("/api/master/employees/{$id}", [
-            'name' => 'Alice', 'email' => 'alice@example.com', 'role' => 'employee',
+            'name' => 'Alice', 'email' => 'alice@example.com', 'role' => 'employee', 'gender' => 'female',
             'hire_date' => '2024-01-15', 'employment_status' => 'contract', 'org_unit_id' => $orgUnit->id,
         ])->assertOk();
         $this->assertDatabaseHas('employees', ['id' => $id, 'employment_status' => 'contract']);
@@ -63,7 +63,7 @@ class HrisAttendanceFoundationApiTest extends TestCase
         $orgUnit = OrgUnit::factory()->create();
 
         $payload = [
-            'name' => 'Dup', 'email' => 'dup@example.com',
+            'name' => 'Dup', 'email' => 'dup@example.com', 'gender' => 'male',
             'password' => 'secret123', 'password_confirmation' => 'secret123', 'role' => 'employee',
             'hire_date' => '2024-01-01', 'employment_status' => 'permanent', 'org_unit_id' => $orgUnit->id,
         ];

@@ -34,12 +34,27 @@ class LeaveRequestController extends Controller
         );
     }
 
+    public function history(Request $request): JsonResponse
+    {
+        return response()->json(
+            $this->service->getHistory($request->user(), $request->only(['status', 'leave_type_id', 'employee_id'])),
+        );
+    }
+
     public function requesterInfo(Request $request): JsonResponse
     {
         $user = $request->user();
         abort_unless($user->can('hris.leave-request create'), 403);
 
         return response()->json($this->service->requesterInfo($user));
+    }
+
+    public function assignableTypes(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->can('hris.leave-request create'), 403);
+
+        return response()->json($this->service->assignableTypes($user));
     }
 
     public function store(Request $request): JsonResponse

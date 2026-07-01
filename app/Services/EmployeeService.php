@@ -71,6 +71,7 @@ class EmployeeService
             'emergency_contact_name' => $employee->emergency_contact_name,
             'emergency_contact_phone' => $employee->emergency_contact_phone,
             'is_active' => (bool) $employee->is_active,
+            'can_take_leave' => (bool) $employee->can_take_leave,
         ];
     }
 
@@ -126,6 +127,7 @@ class EmployeeService
             'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
             'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
             'is_active' => $data['is_active'] ?? true,
+            'can_take_leave' => $data['can_take_leave'] ?? true,
         ];
     }
 

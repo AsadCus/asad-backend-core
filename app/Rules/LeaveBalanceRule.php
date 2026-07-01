@@ -12,7 +12,7 @@ class LeaveBalanceRule
             'employee_id' => ['required', 'integer', Rule::exists('employees', 'id')],
             // Compound uniqueness (employee + leave type + year) mirrors the DB constraint.
             'leave_type_id' => [
-                'required', 'integer', Rule::exists('leave_types', 'id'),
+                'required', 'integer', Rule::exists('leave_types', 'id')->where('requires_balance', true),
                 Rule::unique('leave_balances', 'leave_type_id')
                     ->where(fn ($q) => $q->where('employee_id', request('employee_id'))->where('year', request('year')))
                     ->ignore($id),

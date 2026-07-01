@@ -8,6 +8,7 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\HrisScope;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +74,37 @@ class LeaveRequestService
     }
 
     /**
+     * Leave history scoped to the viewer: view-all users see their org-unit subtree,
+     * view-team their reports, everyone else their own.
+     *
+     * @param  array{status?:string, leave_type_id?:int|string, employee_id?:int|string}  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function getHistory(User $user, array $filters = []): array
+    {
+        $query = LeaveRequest::query()->with(['employee.user', 'leaveType'])->latest('start_date');
+
+        $ids = $this->accessibleEmployeeIds($user);
+        if ($ids !== null) {
+            $query->whereIn('employee_id', $ids);
+        } else {
+            HrisScope::applyViaEmployee($query, 'employee', $user);
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (! empty($filters['leave_type_id'])) {
+            $query->where('leave_type_id', $filters['leave_type_id']);
+        }
+        if (! empty($filters['employee_id'])) {
+            $query->where('employee_id', $filters['employee_id']);
+        }
+
+        return $query->get()->map(fn (LeaveRequest $r) => $this->mapRow($r))->all();
+    }
+
+    /**
      * The authenticated user's own leave requests, regardless of role.
      *
      * @param  array{status?:string}  $filters
@@ -114,6 +146,42 @@ class LeaveRequestService
             'hr_note' => $leaveRequest->hr_note,
             'hr_decided_at' => $leaveRequest->hr_decided_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Leave types the employee may apply for: gender-matched, and — for balance-tracked types —
+     * only those they hold a current-year balance for. Empty when they can't take leave.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function assignableTypes(User $user): array
+    {
+        $employee = $user->employee;
+        if (! $employee || ! $employee->can_take_leave) {
+            return [];
+        }
+
+        $gender = $employee->gender?->value;
+        $balanceTypeIds = LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('year', (int) Carbon::now()->year)
+            ->pluck('leave_type_id');
+
+        return LeaveType::query()
+            ->where('is_active', true)
+            ->when($gender, fn ($q) => $q->where(fn ($w) => $w->whereNull('gender_restriction')->orWhere('gender_restriction', $gender)))
+            ->where(fn ($q) => $q->where('requires_balance', false)->orWhereIn('id', $balanceTypeIds))
+            ->orderBy('name')
+            ->get()
+            ->map(fn (LeaveType $t) => [
+                'value' => $t->id,
+                'label' => $t->name,
+                'code' => $t->code,
+                'requires_attachment' => (bool) $t->requires_attachment,
+                'requires_balance' => (bool) $t->requires_balance,
+                'description' => $t->description,
+            ])
+            ->all();
     }
 
     /**
@@ -166,6 +234,7 @@ class LeaveRequestService
     {
         $employee = $user->employee;
         abort_if(! $employee, 422, 'No employee profile is linked to your account.');
+        abort_unless($employee->can_take_leave, 422, 'You are not eligible to take leave.');
 
         // One active request at a time: block while a previous request is still in-flight.
         // Terminal states (approved/rejected/cancelled) free the employee to submit again.
@@ -185,6 +254,12 @@ class LeaveRequestService
 
         return DB::transaction(function () use ($employee, $data, $attachment, $start, $end, $days) {
             $leaveType = LeaveType::findOrFail($data['leave_type_id']);
+
+            if ($leaveType->gender_restriction && $leaveType->gender_restriction !== $employee->gender) {
+                throw ValidationException::withMessages([
+                    'leave_type_id' => 'This leave type is not available for your profile.',
+                ]);
+            }
 
             if ($leaveType->requires_attachment && ! $attachment) {
                 throw ValidationException::withMessages([

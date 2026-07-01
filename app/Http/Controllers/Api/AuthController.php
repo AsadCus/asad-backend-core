@@ -124,6 +124,7 @@ class AuthController extends Controller
             'permissions' => $user->effectivePermissionNames(),
             'roles' => $user->getRoleNames(),
             'can_check_in' => $user->employee ? (bool) $user->employee->can_check_in : false,
+            'can_take_leave' => $user->employee ? (bool) $user->employee->can_take_leave : false,
             'is_ghost_user' => $user->isGhostUser(),
             'hris_scope' => [
                 'anchor_org_unit_id' => $user->employee?->scope_org_unit_id,

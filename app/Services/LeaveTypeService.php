@@ -57,10 +57,25 @@ class LeaveTypeService
         ];
     }
 
+    /**
+     * Max days/year only applies to balance-tracked types.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalize(array $data): array
+    {
+        if (empty($data['requires_balance'])) {
+            $data['max_days_per_year'] = null;
+        }
+
+        return $data;
+    }
+
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $leaveType = LeaveType::create($data);
+            $leaveType = LeaveType::create($this->normalize($data));
 
             activity()->performedOn($leaveType)->log('Leave type created successfully #'.($leaveType->id ?? null));
 
@@ -72,7 +87,7 @@ class LeaveTypeService
     {
         return DB::transaction(function () use ($data, $id) {
             $leaveType = LeaveType::findOrFail($id);
-            $leaveType->update($data);
+            $leaveType->update($this->normalize($data));
 
             activity()->performedOn($leaveType)->log('Leave type updated successfully #'.($leaveType->id ?? null));
 

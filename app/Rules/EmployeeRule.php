@@ -28,7 +28,7 @@ class EmployeeRule
 
             // Profile fields
             'nik' => ['nullable', 'string', 'max:100'],
-            'gender' => ['nullable', Rule::in(Gender::values())],
+            'gender' => ['required', Rule::in(Gender::values())],
             'birth_date' => ['nullable', 'date'],
             'hire_date' => ['required', 'date'],
             'employment_status' => ['required', Rule::in(EmploymentStatus::values())],
@@ -41,6 +41,7 @@ class EmployeeRule
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:32'],
             'is_active' => ['boolean'],
+            'can_take_leave' => ['boolean'],
         ];
     }
 }
