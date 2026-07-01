@@ -29,6 +29,7 @@ class OrgUnit extends Model
         'longitude',
         'geofence_radius_meters',
         'has_location',
+        'attendance_cutoff_day',
         'is_active',
     ];
 
@@ -39,8 +40,12 @@ class OrgUnit extends Model
         'longitude' => 'decimal:8',
         'geofence_radius_meters' => 'integer',
         'has_location' => 'boolean',
+        'attendance_cutoff_day' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    /** A plain calendar month — the default when no ancestor configures a cutoff day. */
+    public const DEFAULT_ATTENDANCE_CUTOFF_DAY = 1;
 
     public function parent(): BelongsTo
     {
@@ -148,6 +153,26 @@ class OrgUnit extends Model
     }
 
     /**
+     * The day-of-month this unit's attendance/payroll period starts on, inherited up the
+     * ancestor chain — mirrors the default-work-schedule fallback walk in
+     * {@see resolveDefaultWorkScheduleId()}. 1 (a plain calendar month) when nothing in the
+     * chain configures one. See {@see \App\Support\AttendancePeriod} for turning this into
+     * an actual {from, to} range for a given month.
+     */
+    public function resolveAttendanceCutoffDay(): int
+    {
+        $node = $this;
+        while ($node !== null) {
+            if ($node->attendance_cutoff_day) {
+                return (int) $node->attendance_cutoff_day;
+            }
+            $node = $node->parent;
+        }
+
+        return self::DEFAULT_ATTENDANCE_CUTOFF_DAY;
+    }
+
+    /**
      * Whether $parent is a valid parent for this node's type (nesting rules).
      */
     public function hasValidParent(?self $parent): bool
@@ -200,6 +225,7 @@ class OrgUnit extends Model
             'code' => $this->code,
             'parent_id' => $this->parent_id,
             'logo_url' => $this->resolveLogoUrl(),
+            'attendance_cutoff_day' => $this->resolveAttendanceCutoffDay(),
         ];
     }
 }

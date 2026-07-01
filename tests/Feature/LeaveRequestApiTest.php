@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Employee;
+use App\Models\Holiday;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use App\Models\Shift;
 use App\Models\User;
+use App\Models\WorkSchedule;
+use App\Models\WorkScheduleDay;
 use Database\Seeders\HrisRoleSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,6 +39,81 @@ class LeaveRequestApiTest extends TestCase
         ], $attrs));
 
         return [$user, $employee];
+    }
+
+    /** Employee on a Mon–Fri schedule (Sat/Sun are scheduled rest days). */
+    private function makeEmployeeWithWeekdaySchedule(string $role = 'employee', array $attrs = []): array
+    {
+        [$user, $employee] = $this->makeEmployeeUser($role, $attrs);
+
+        $shift = Shift::query()->create([
+            'name' => 'Office', 'code' => 'OFF-'.fake()->unique()->numerify('####'), 'is_active' => true,
+            'start_time' => '08:00', 'end_time' => '17:00',
+        ]);
+        $schedule = WorkSchedule::query()->create(['name' => 'S', 'code' => 'S-'.fake()->unique()->numerify('####'), 'is_active' => true]);
+        foreach (range(0, 6) as $dow) {
+            $isWorkday = $dow >= 1 && $dow <= 5; // Mon(1)..Fri(5)
+            WorkScheduleDay::query()->create([
+                'work_schedule_id' => $schedule->id,
+                'day_of_week' => $dow,
+                'shift_id' => $isWorkday ? $shift->id : null,
+                'is_workday' => $isWorkday,
+            ]);
+        }
+        $employee->employeeSchedules()->create([
+            'work_schedule_id' => $schedule->id,
+            'effective_from' => '2020-01-01',
+        ]);
+
+        return [$user, $employee];
+    }
+
+    public function test_leave_spanning_a_weekend_only_counts_working_days(): void
+    {
+        // Friday 12 Jun 2026 → Monday 15 Jun 2026 is 4 calendar days, but only Fri + Mon
+        // (2 days) are actually scheduled working days for this employee.
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-12',
+            'end_date' => '2026-06-15',
+            'reason' => 'Long weekend trip.',
+        ])->assertCreated()->assertJsonFragment(['days' => 2]);
+    }
+
+    public function test_leave_entirely_on_rest_days_is_rejected(): void
+    {
+        // Saturday 13 Jun – Sunday 14 Jun 2026: zero working days for this employee.
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-13',
+            'end_date' => '2026-06-14',
+            'reason' => 'Makes no sense.',
+        ])->assertStatus(422);
+    }
+
+    public function test_leave_on_a_company_holiday_is_rejected(): void
+    {
+        // A single-day request that lands exactly on a company holiday has no working days
+        // to spend leave on, regardless of the employee's own schedule.
+        [$empUser] = $this->makeEmployeeWithWeekdaySchedule();
+        Holiday::query()->create(['name' => 'Independence Day', 'date' => '2026-06-10', 'is_recurring' => false]);
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+
+        $this->actingAs($empUser, 'sanctum');
+        $this->postJson('/api/leave-requests', [
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-10',
+            'reason' => 'Already a holiday.',
+        ])->assertStatus(422);
     }
 
     public function test_full_leave_workflow_consumes_balance(): void

@@ -53,6 +53,35 @@ class OrgUnitTest extends TestCase
         $this->assertNull($holding->nearestOfType(OrgUnitType::Division));
     }
 
+    public function test_resolve_attendance_cutoff_day_walks_up_to_the_configured_ancestor(): void
+    {
+        ['bu1' => $bu1, 'branch' => $branch, 'division' => $division] = $this->buildTree();
+        $bu1->update(['attendance_cutoff_day' => 16]);
+
+        // Nothing on branch/division themselves — inherited from the business unit.
+        $this->assertSame(16, $branch->fresh()->resolveAttendanceCutoffDay());
+        $this->assertSame(16, $division->fresh()->resolveAttendanceCutoffDay());
+
+        // A closer ancestor's value wins over a farther one.
+        $branch->update(['attendance_cutoff_day' => 21]);
+        $this->assertSame(21, $division->fresh()->resolveAttendanceCutoffDay());
+    }
+
+    public function test_resolve_attendance_cutoff_day_defaults_to_a_plain_calendar_month(): void
+    {
+        ['division' => $division] = $this->buildTree();
+
+        $this->assertSame(1, $division->resolveAttendanceCutoffDay());
+    }
+
+    public function test_summary_exposes_the_resolved_attendance_cutoff_day(): void
+    {
+        ['bu1' => $bu1, 'division' => $division] = $this->buildTree();
+        $bu1->update(['attendance_cutoff_day' => 16]);
+
+        $this->assertSame(16, $division->fresh()->toSummary()['attendance_cutoff_day']);
+    }
+
     public function test_nesting_rules_are_enforced(): void
     {
         // Holding is root-only.
@@ -125,6 +154,32 @@ class OrgUnitTest extends TestCase
         $this->assertCount(1, $tree);                 // one holding root
         $this->assertSame('holding', $tree[0]['type']);
         $this->assertCount(2, $tree[0]['children']);  // two business units
+    }
+
+    public function test_attendance_cutoff_day_is_persisted_and_editable(): void
+    {
+        $unit = app(OrgUnitService::class)->store([
+            'type' => OrgUnitType::Holding->value,
+            'parent_id' => null,
+            'name' => 'HQ Tower',
+            'code' => 'CUTOFF-HQ',
+            'attendance_cutoff_day' => 16,
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(16, $unit->fresh()->attendance_cutoff_day);
+        $this->assertSame(16, app(OrgUnitService::class)->getForEditShow($unit->id)['attendance_cutoff_day']);
+
+        app(OrgUnitService::class)->update([
+            'type' => OrgUnitType::Holding->value,
+            'parent_id' => null,
+            'name' => 'HQ Tower',
+            'code' => 'CUTOFF-HQ',
+            'attendance_cutoff_day' => null,
+            'is_active' => true,
+        ], $unit->id);
+
+        $this->assertNull($unit->fresh()->attendance_cutoff_day);
     }
 
     public function test_any_unit_type_can_be_a_location(): void

@@ -8,11 +8,13 @@ use App\Enums\OrgUnitType;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
+use App\Models\Holiday;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
+use App\Models\WfhVisitRequest;
 use App\Models\WorkSchedule;
 use App\Models\WorkScheduleDay;
 use Carbon\Carbon;
@@ -191,5 +193,114 @@ class TeamOverviewApiTest extends TestCase
         $this->assertSame(1, $member['late_count']);
         $this->assertSame(1, $member['absent_count']);
         $this->assertSame(1, $member['on_leave_count']);
+    }
+
+    /** A supervisor + one direct report on a Mon–Fri schedule. */
+    private function makeSupervisorWithSubordinate(): array
+    {
+        $supUser = User::factory()->create();
+        $supUser->assignRole('supervisor');
+        $supervisor = Employee::query()->create([
+            'employee_no' => 'EMP-SUP-'.fake()->unique()->numerify('####'),
+            'hire_date' => '2024-01-01',
+            'user_id' => $supUser->id,
+        ]);
+
+        $empUser = User::factory()->create();
+        $empUser->assignRole('employee');
+        $employee = Employee::query()->create([
+            'employee_no' => 'EMP-'.fake()->unique()->numerify('####'),
+            'hire_date' => '2024-01-01',
+            'user_id' => $empUser->id,
+            'supervisor_id' => $supervisor->id,
+        ]);
+
+        $shift = Shift::factory()->create();
+        $workSchedule = WorkSchedule::factory()->create();
+        EmployeeSchedule::create([
+            'employee_id' => $employee->id,
+            'work_schedule_id' => $workSchedule->id,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+        ]);
+
+        return [$supUser, $supervisor, $employee, $shift];
+    }
+
+    public function test_today_status_shows_wfh_instead_of_present_for_an_approved_wfh_subordinate(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 25, 9, 0, 0)); // a Thursday — a workday
+        [$supUser, , $employee] = $this->makeSupervisorWithSubordinate();
+
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-OVERVIEW-1',
+            'employee_id' => $employee->id,
+            'type' => 'wfh',
+            'start_date' => '2026-06-25',
+            'end_date' => '2026-06-25',
+            'total_days' => 1,
+            'reason' => 'Test WFH.',
+            'status' => ApprovalStatus::Approved->value,
+        ]);
+
+        $this->actingAs($supUser, 'sanctum');
+        $response = $this->getJson('/api/team/overview')->assertOk();
+
+        $this->assertSame('WFH', $response->json('members.0.status'));
+        $this->assertSame(1, $response->json('summary.wfh'));
+        $this->assertSame(0, $response->json('summary.present'));
+    }
+
+    public function test_today_status_is_holiday_not_absent_when_no_record_on_a_holiday(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 25, 9, 0, 0));
+        [$supUser] = $this->makeSupervisorWithSubordinate();
+        Holiday::query()->create(['name' => 'Test Holiday', 'date' => '2026-06-25', 'is_recurring' => false]);
+
+        $this->actingAs($supUser, 'sanctum');
+        $response = $this->getJson('/api/team/overview')->assertOk();
+
+        $this->assertSame('Holiday', $response->json('members.0.status'));
+    }
+
+    public function test_today_status_is_weekend_not_absent_on_a_scheduled_rest_day(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 27, 9, 0, 0)); // a Saturday
+        [$supUser] = $this->makeSupervisorWithSubordinate();
+
+        $this->actingAs($supUser, 'sanctum');
+        $response = $this->getJson('/api/team/overview')->assertOk();
+
+        $this->assertSame('Weekend', $response->json('members.0.status'));
+    }
+
+    public function test_week_period_counts_wfh_and_visit_separately_from_present_and_absent(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 25)); // Thursday — Mon-Thu range
+        [$supUser, , $employee] = $this->makeSupervisorWithSubordinate();
+
+        // Mon 22nd: WFH. Tue 23rd: Visit. Wed 24th: nothing -> absent. Thu 25th: nothing -> absent.
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-OVERVIEW-2', 'employee_id' => $employee->id, 'type' => 'wfh',
+            'start_date' => '2026-06-22', 'end_date' => '2026-06-22', 'total_days' => 1,
+            'reason' => 'Test.', 'status' => ApprovalStatus::Approved->value,
+        ]);
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-OVERVIEW-3', 'employee_id' => $employee->id, 'type' => 'visit',
+            'start_date' => '2026-06-23', 'end_date' => '2026-06-23', 'total_days' => 1,
+            'reason' => 'Test.', 'status' => ApprovalStatus::Approved->value, 'geotag_mode' => 'open',
+        ]);
+
+        $this->actingAs($supUser, 'sanctum');
+        $response = $this->getJson('/api/team/overview?period=week')->assertOk();
+
+        $summary = $response->json('summary');
+        $this->assertSame(1, $summary['wfh']);
+        $this->assertSame(1, $summary['visit']);
+        $this->assertSame(2, $summary['absent']);
+
+        $member = $response->json('members.0');
+        $this->assertSame(1, $member['wfh_count']);
+        $this->assertSame(1, $member['visit_count']);
     }
 }

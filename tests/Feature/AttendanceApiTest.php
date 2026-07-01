@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ApprovalStatus;
 use App\Enums\OrgUnitType;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\GhostUser;
+use App\Models\LeaveRequest;
+use App\Models\LeaveType;
 use App\Models\OrgUnit;
 use App\Models\Shift;
 use App\Models\User;
+use App\Models\WfhVisitRequest;
 use App\Models\WorkSchedule;
 use App\Models\WorkScheduleDay;
 use Carbon\Carbon;
@@ -323,6 +327,94 @@ class AttendanceApiTest extends TestCase
         ])->assertCreated();
     }
 
+    /** Approve a WFH/Visit request covering today for $employee, with the given attrs. */
+    private function makeApprovedWfhVisit(Employee $employee, array $attrs = []): WfhVisitRequest
+    {
+        $today = Carbon::today()->toDateString();
+
+        return WfhVisitRequest::create(array_merge([
+            'request_no' => 'WFH-TEST-'.fake()->unique()->numerify('####'),
+            'employee_id' => $employee->id,
+            'type' => 'wfh',
+            'start_date' => $today,
+            'end_date' => $today,
+            'total_days' => 1,
+            'reason' => 'Test request.',
+            'status' => ApprovalStatus::Approved,
+        ], $attrs));
+    }
+
+    public function test_check_in_outside_office_geofence_is_allowed_during_approved_wfh(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true, 'latitude' => -6.200000, 'longitude' => 106.800000, 'geofence_radius_meters' => 100,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->makeApprovedWfhVisit($employee, ['type' => 'wfh']);
+        $this->actingAs($user, 'sanctum');
+
+        // Roughly 11km from the office, but today is an approved WFH day — no office lock.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.300000, 'lng' => 106.900000, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_check_in_outside_office_geofence_is_allowed_during_open_visit(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true, 'latitude' => -6.200000, 'longitude' => 106.800000, 'geofence_radius_meters' => 100,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->makeApprovedWfhVisit($employee, ['type' => 'visit', 'geotag_mode' => 'open']);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.300000, 'lng' => 106.900000, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
+    public function test_check_in_for_locked_visit_is_checked_against_the_visit_pin_not_the_office(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true, 'latitude' => -6.200000, 'longitude' => 106.800000, 'geofence_radius_meters' => 100,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->makeApprovedWfhVisit($employee, [
+            'type' => 'visit',
+            'geotag_mode' => 'locked',
+            'location_lat' => -6.914744,
+            'location_lng' => 107.609810,
+            'location_radius' => 100,
+        ]);
+        $this->actingAs($user, 'sanctum');
+
+        // Inside the office's own radius, but nowhere near the visit's pin — rejected.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.200050, 'lng' => 106.800050, 'photo' => $this->photo(),
+        ])->assertStatus(422);
+    }
+
+    public function test_check_in_for_locked_visit_succeeds_within_the_visit_radius(): void
+    {
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true, 'latitude' => -6.200000, 'longitude' => 106.800000, 'geofence_radius_meters' => 100,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->makeApprovedWfhVisit($employee, [
+            'type' => 'visit',
+            'geotag_mode' => 'locked',
+            'location_lat' => -6.914744,
+            'location_lng' => 107.609810,
+            'location_radius' => 100,
+        ]);
+        $this->actingAs($user, 'sanctum');
+
+        // A few meters from the visit's own pin — far from the office, but allowed.
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.914700, 'lng' => 107.609850, 'photo' => $this->photo(),
+        ])->assertCreated();
+    }
+
     public function test_today_exposes_resolved_work_location_for_the_map(): void
     {
         $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
@@ -343,6 +435,62 @@ class AttendanceApiTest extends TestCase
                 'radius_meters' => 150,
             ],
         ]);
+    }
+
+    public function test_show_returns_punch_photos_coordinates_and_resolved_work_location(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 0, 0));
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch)->create([
+            'has_location' => true,
+            'latitude' => -6.200000,
+            'longitude' => 106.800000,
+            'geofence_radius_meters' => 150,
+        ]);
+        [$user, $employee] = $this->makeEmployeeUser('employee', ['org_unit_id' => $branch->id]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(), 'location' => 'Jakarta HQ',
+        ])->assertCreated();
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 17, 0, 0));
+        $this->postJson('/api/attendances/check-out', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(), 'location' => 'Jakarta HQ',
+        ])->assertOk();
+        Carbon::setTestNow();
+
+        $attendance = Attendance::where('employee_id', $employee->id)->firstOrFail();
+
+        $response = $this->getJson("/api/attendances/{$attendance->id}")->assertOk();
+
+        $response->assertJsonPath('check_in.location', 'Jakarta HQ');
+        $response->assertJsonPath('check_in.lat', '-6.20000000');
+        $response->assertJsonPath('check_out.location', 'Jakarta HQ');
+        $this->assertNotNull($response->json('check_in.photo_url'));
+        $this->assertNotNull($response->json('check_out.photo_url'));
+        $response->assertJsonFragment([
+            'work_location' => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+                'latitude' => -6.2,
+                'longitude' => 106.8,
+                'radius_meters' => 150,
+            ],
+        ]);
+    }
+
+    public function test_show_is_forbidden_for_another_employees_record_without_view_scope(): void
+    {
+        [, $owner] = $this->makeEmployeeUser('employee');
+        $attendance = Attendance::query()->create([
+            'employee_id' => $owner->id,
+            'date' => '2026-06-15',
+            'status' => 'present',
+        ]);
+
+        [$viewer] = $this->makeEmployeeUser('employee');
+        $this->actingAs($viewer, 'sanctum');
+
+        $this->getJson("/api/attendances/{$attendance->id}")->assertForbidden();
     }
 
     /** Helper: set up employee + schedule with a given shift. */
@@ -371,6 +519,94 @@ class AttendanceApiTest extends TestCase
         ]);
 
         return [$user, $employee, $shift];
+    }
+
+    public function test_check_in_before_shift_start_is_early_check_in(): void
+    {
+        // Shift starts 08:00 → check-in at 07:45 must be Early Check In, not Present.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 7, 45, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Early Check In', 'late_minutes' => 0]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_check_in_exactly_on_time_is_present(): void
+    {
+        // Check-in at the exact shift start (0 minutes from start) must be Present.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 0, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Present', 'late_minutes' => 0]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_early_check_in_status_survives_a_normal_checkout(): void
+    {
+        // Checked in early (07:45) then checked out exactly on time (17:00) — the day should
+        // still read "Early Check In", not be flattened to "Present" by the checkout.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 7, 45, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Early Check In']);
+
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 17, 0, 0));
+        $this->postJson('/api/attendances/check-out', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertOk()->assertJsonFragment(['status' => 'Early Check In']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_early_check_in_followed_by_early_leave_becomes_early_leave(): void
+    {
+        // Arriving early doesn't excuse leaving early — checking out at 16:30 (shift ends
+        // 17:00) must override the Early Check In status with Early Leave.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 7, 45, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Early Check In']);
+
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 16, 30, 0));
+        $this->postJson('/api/attendances/check-out', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertOk()->assertJsonFragment(['status' => 'Early Leave', 'early_leave_minutes' => 30]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_late_check_in_status_survives_checkout(): void
+    {
+        // Late at check-in must stay Late at checkout even if the employee leaves on time —
+        // it shouldn't be overwritten back to Present.
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 8, 16, 0));
+        [$user] = $this->makeShiftedEmployee(['start_time' => '08:00', 'end_time' => '17:00', 'late_tolerance_minutes' => 15]);
+        $this->actingAs($user, 'sanctum');
+
+        $this->postJson('/api/attendances/check-in', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertCreated()->assertJsonFragment(['status' => 'Late']);
+
+        Carbon::setTestNow(Carbon::create(2026, 6, 15, 17, 0, 0));
+        $this->postJson('/api/attendances/check-out', [
+            'lat' => -6.2, 'lng' => 106.8, 'photo' => $this->photo(),
+        ])->assertOk()->assertJsonFragment(['status' => 'Late']);
+
+        Carbon::setTestNow();
     }
 
     public function test_check_in_within_tolerance_is_present(): void
@@ -437,5 +673,237 @@ class AttendanceApiTest extends TestCase
             ->assertJsonFragment(['imported' => 1]);
 
         $this->assertSame(1, Attendance::whereDate('date', '2026-06-01')->count());
+    }
+
+    // ===========================================================================
+    // Daily report — Hadir/Telat/Alpha/Pulang Cepat/WFH/Visit/Cuti per day
+    // ===========================================================================
+
+    /** Employee on a Mon–Fri schedule (Sat/Sun are scheduled rest days), 08:00–17:00 shift. */
+    private function makeWeekdayScheduledEmployee(string $role = 'employee', array $attrs = []): array
+    {
+        [$user, $employee] = $this->makeEmployeeUser($role, $attrs);
+
+        $shift = Shift::query()->create([
+            'name' => 'Office', 'code' => 'OFF-'.fake()->unique()->numerify('####'),
+            'start_time' => '08:00', 'end_time' => '17:00', 'is_active' => true,
+        ]);
+        $schedule = WorkSchedule::query()->create(['name' => 'Std', 'code' => 'STD-'.fake()->unique()->numerify('####'), 'is_active' => true]);
+        foreach (range(0, 6) as $dow) {
+            $isWorkday = $dow >= 1 && $dow <= 5;
+            WorkScheduleDay::query()->create([
+                'work_schedule_id' => $schedule->id, 'day_of_week' => $dow,
+                'shift_id' => $isWorkday ? $shift->id : null, 'is_workday' => $isWorkday,
+            ]);
+        }
+        $employee->employeeSchedules()->create(['work_schedule_id' => $schedule->id, 'effective_from' => '2026-01-01']);
+
+        return [$user, $employee];
+    }
+
+    public function test_report_classifies_each_day_of_the_week_correctly(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+
+        // Mon 8 Jun: on-time check-in -> Present.
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'present',
+        ]);
+        // Tue 9 Jun: late check-in -> Late.
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-09', 'status' => 'late', 'late_minutes' => 20,
+        ]);
+        // Wed 10 Jun: a working day with no record at all -> Alpha (Absent).
+        // Thu 11 Jun: approved leave -> Cuti.
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+        LeaveRequest::create([
+            'request_no' => 'LR-TEST-1', 'employee_id' => $employee->id, 'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-11', 'end_date' => '2026-06-11', 'days' => 1,
+            'reason' => 'Test leave.', 'status' => 'approved',
+        ]);
+        // Fri 12 Jun: approved WFH -> WFH.
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-1', 'employee_id' => $employee->id, 'type' => 'wfh',
+            'start_date' => '2026-06-12', 'end_date' => '2026-06-12', 'total_days' => 1,
+            'reason' => 'Test WFH.', 'status' => 'approved',
+        ]);
+        // Sat 13 / Sun 14: scheduled rest days, no record -> Weekend.
+
+        $this->actingAs($user, 'sanctum');
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-14')->assertOk();
+        $byDate = collect($response->json())->keyBy('date');
+
+        $this->assertSame('Present', $byDate['2026-06-08']['status']);
+        $this->assertSame('Late', $byDate['2026-06-09']['status']);
+        $this->assertSame(20, $byDate['2026-06-09']['late_minutes']);
+        $this->assertSame('Absent', $byDate['2026-06-10']['status']);
+        $this->assertSame('On Leave', $byDate['2026-06-11']['status']);
+        $this->assertSame('WFH', $byDate['2026-06-12']['status']);
+        $this->assertSame('Weekend', $byDate['2026-06-13']['status']);
+        $this->assertSame('Weekend', $byDate['2026-06-14']['status']);
+    }
+
+    public function test_report_shows_visit_status_for_an_approved_visit(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-2', 'employee_id' => $employee->id, 'type' => 'visit',
+            'start_date' => '2026-06-08', 'end_date' => '2026-06-08', 'total_days' => 1,
+            'reason' => 'Client visit.', 'status' => 'approved', 'geotag_mode' => 'open',
+        ]);
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-08')->assertOk();
+        $this->assertSame('Visit', $response->json('0.status'));
+    }
+
+    public function test_report_wfh_status_overrides_late_label_but_keeps_late_minutes(): void
+    {
+        // Checked in late while on an approved WFH day: the headline status reads WFH (the
+        // day's defining fact), but the actual lateness stays visible in late_minutes.
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'late', 'late_minutes' => 15,
+        ]);
+        WfhVisitRequest::create([
+            'request_no' => 'WFH-TEST-3', 'employee_id' => $employee->id, 'type' => 'wfh',
+            'start_date' => '2026-06-08', 'end_date' => '2026-06-08', 'total_days' => 1,
+            'reason' => 'Test WFH.', 'status' => 'approved',
+        ]);
+        $this->actingAs($user, 'sanctum');
+
+        $row = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-08')->assertOk()->json('0');
+        $this->assertSame('WFH', $row['status']);
+        $this->assertSame(15, $row['late_minutes']);
+    }
+
+    public function test_report_defaults_to_the_current_month_when_no_range_given(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 6, 15));
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        Attendance::factory()->create(['employee_id' => $employee->id, 'date' => '2026-06-10', 'status' => 'present']);
+        // Outside the current month — must not appear.
+        Attendance::factory()->create(['employee_id' => $employee->id, 'date' => '2026-05-10', 'status' => 'present']);
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report')->assertOk();
+        $dates = collect($response->json())->pluck('date');
+
+        $this->assertTrue($dates->contains('2026-06-10'));
+        $this->assertFalse($dates->contains('2026-05-10'));
+        $this->assertTrue($dates->every(fn ($d) => str_starts_with($d, '2026-06')));
+        Carbon::setTestNow();
+    }
+
+    public function test_report_filters_by_status(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        Attendance::factory()->create(['employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'present']);
+        Attendance::factory()->create(['employee_id' => $employee->id, 'date' => '2026-06-09', 'status' => 'late']);
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-09&status=late')->assertOk();
+        $rows = collect($response->json());
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Late', $rows->first()['status']);
+    }
+
+    public function test_report_scopes_to_own_employee_for_view_own_users(): void
+    {
+        [$me, $employee] = $this->makeWeekdayScheduledEmployee();
+        [, $other] = $this->makeWeekdayScheduledEmployee();
+        Attendance::factory()->create(['employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'present']);
+        Attendance::factory()->create(['employee_id' => $other->id, 'date' => '2026-06-08', 'status' => 'present']);
+
+        $this->actingAs($me, 'sanctum');
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-08')->assertOk();
+
+        $this->assertTrue(collect($response->json())->every(fn ($r) => $r['employee_id'] === $employee->id));
+    }
+
+    public function test_report_row_id_is_the_attendance_id_when_present_and_null_otherwise(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        $attendance = Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'present',
+        ]);
+        // Wed 10 Jun: no record at all -> Alpha, with no underlying Attendance row.
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-10')->assertOk();
+        $byDate = collect($response->json())->keyBy('date');
+
+        $this->assertSame($attendance->id, $byDate['2026-06-08']['id']);
+        $this->assertNull($byDate['2026-06-10']['id']);
+    }
+
+    public function test_report_row_exposes_the_leave_request_id_on_a_cuti_day_and_null_otherwise(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee();
+        $leaveType = LeaveType::factory()->create(['requires_balance' => false]);
+        $leave = LeaveRequest::create([
+            'request_no' => 'LR-TEST-2', 'employee_id' => $employee->id, 'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-08', 'end_date' => '2026-06-08', 'days' => 1,
+            'reason' => 'Test leave.', 'status' => 'approved',
+        ]);
+        // Tue 9 Jun: present, no leave covering it.
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-09', 'status' => 'present',
+        ]);
+
+        $this->actingAs($user, 'sanctum');
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-09')->assertOk();
+        $byDate = collect($response->json())->keyBy('date');
+
+        $this->assertSame('On Leave', $byDate['2026-06-08']['status']);
+        $this->assertSame($leave->id, $byDate['2026-06-08']['leave_request_id']);
+        $this->assertNull($byDate['2026-06-09']['leave_request_id']);
+    }
+
+    public function test_report_row_exposes_the_employee_org_unit_breakdown(): void
+    {
+        $holding = OrgUnit::factory()->create(['type' => OrgUnitType::Holding]);
+        $bu = OrgUnit::factory()->type(OrgUnitType::BusinessUnit, $holding)->create();
+        $branch = OrgUnit::factory()->type(OrgUnitType::Branch, $bu)->create();
+        $department = OrgUnit::factory()->type(OrgUnitType::Department, $branch)->create();
+        $division = OrgUnit::factory()->type(OrgUnitType::Division, $department)->create();
+
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee('employee', ['org_unit_id' => $division->id]);
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-08')->assertOk();
+        $row = $response->json('0');
+
+        $this->assertSame($bu->name, $row['business_unit']);
+        $this->assertSame($branch->name, $row['branch']);
+        $this->assertSame($department->name, $row['department']);
+        $this->assertSame($division->name, $row['division']);
+    }
+
+    public function test_report_row_exposes_nik_shift_hours_and_punch_locations(): void
+    {
+        [$user, $employee] = $this->makeWeekdayScheduledEmployee('employee', ['nik' => '3201019001010099']);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id, 'date' => '2026-06-08', 'status' => 'present',
+            'check_in_location' => 'Margo City, Depok', 'check_out_location' => 'Margo City, Depok',
+        ]);
+        // Wed 10 Jun: scheduled workday, no check-in at all.
+        $this->actingAs($user, 'sanctum');
+
+        $response = $this->getJson('/api/attendances/report?from=2026-06-08&to=2026-06-10')->assertOk();
+        $byDate = collect($response->json())->keyBy('date');
+
+        $checkedIn = $byDate['2026-06-08'];
+        $this->assertSame('3201019001010099', $checkedIn['nik']);
+        $this->assertSame('08:00', substr((string) $checkedIn['shift_start_time'], 0, 5));
+        $this->assertSame('17:00', substr((string) $checkedIn['shift_end_time'], 0, 5));
+        $this->assertSame('Margo City, Depok', $checkedIn['check_in_location']);
+        $this->assertSame('Margo City, Depok', $checkedIn['check_out_location']);
+
+        // No punch at all, but still a scheduled workday — shift hours still surface.
+        $noPunch = $byDate['2026-06-10'];
+        $this->assertSame('08:00', substr((string) $noPunch['shift_start_time'], 0, 5));
+        $this->assertNull($noPunch['check_in_location']);
     }
 }

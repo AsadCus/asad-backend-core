@@ -22,7 +22,10 @@ class LeaveRequestService
 
     private const REQUESTER_LINK = '/requests';
 
-    public function __construct(private HrisNotifier $notifier) {}
+    public function __construct(
+        private HrisNotifier $notifier,
+        private WorkingDaysCalculator $workingDays,
+    ) {}
 
     /** Notify the request's requester (their own user). */
     private function notifyRequester(LeaveRequest $leaveRequest, string $title, string $message): void
@@ -250,7 +253,9 @@ class LeaveRequestService
 
         $start = Carbon::parse($data['start_date']);
         $end = Carbon::parse($data['end_date']);
-        $days = $start->diffInDays($end) + 1;
+        $days = $this->workingDays->countWorkingDays($employee, $start, $end);
+
+        abort_if($days < 1, 422, 'The selected date range has no working days — pick a range that includes at least one.');
 
         return DB::transaction(function () use ($employee, $data, $attachment, $start, $end, $days) {
             $leaveType = LeaveType::findOrFail($data['leave_type_id']);

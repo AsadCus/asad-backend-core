@@ -36,8 +36,10 @@ class Shift extends Model
 
     /**
      * Compact shift payload for attendance/schedule cards — times trimmed to HH:MM.
+     * Includes the grace period so the UI can show the real check-in deadline, not
+     * just the shift's nominal start time.
      *
-     * @return array{name: string, start_time: string, end_time: string}
+     * @return array{name: string, start_time: string, end_time: string, late_tolerance_minutes: int}
      */
     public function toCardArray(): array
     {
@@ -45,6 +47,7 @@ class Shift extends Model
             'name' => $this->name,
             'start_time' => substr($this->start_time, 0, 5),
             'end_time' => substr($this->end_time, 0, 5),
+            'late_tolerance_minutes' => $this->late_tolerance_minutes ?? 0,
         ];
     }
 }

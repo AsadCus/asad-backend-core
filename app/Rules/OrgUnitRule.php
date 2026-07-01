@@ -3,6 +3,7 @@
 namespace App\Rules;
 
 use App\Enums\OrgUnitType;
+use App\Support\AttendancePeriod;
 use Illuminate\Validation\Rule;
 
 class OrgUnitRule
@@ -16,6 +17,12 @@ class OrgUnitRule
             'code' => ['required', 'string', 'max:100', Rule::unique('org_units', 'code')->ignore($id)],
             'logo' => ['nullable', 'image', 'max:5120'],
             'default_work_schedule_id' => ['nullable', 'integer', 'exists:work_schedules,id'],
+            // Day-of-month the attendance/payroll period starts (1 = a plain calendar
+            // month). Left blank to inherit from the nearest configured ancestor.
+            'attendance_cutoff_day' => [
+                'nullable', 'integer',
+                'between:'.AttendancePeriod::MIN_CUTOFF_DAY.','.AttendancePeriod::MAX_CUTOFF_DAY,
+            ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'address' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32'],
